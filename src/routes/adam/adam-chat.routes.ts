@@ -19,7 +19,9 @@ import {
   streamADAMChat,
   getChatSession,
   listChatSessions,
-  createChatSession,
+  getOrCreateSession,
+  loadMessageHistory,
+  deleteFounderMessage,
   verifyADAMMessage,
 } from '../../adam/adam-chat.service';
 import { requireAuth, requireFounder } from '../../middleware/auth.middleware';
@@ -35,21 +37,25 @@ const router = new Hono();
 // ─── POST /api/adam/chat — Start / Continue SSE Stream ───────
 
 const ChatSchema = z.object({
-  sessionId: z.string().optional(),
-  message:   z.string().min(1).max(10000),
-  mode:      z.enum(['TEACHING', 'QUESTIONING', 'AUDIT', 'CONSTITUTIONAL', 'JOURNAL_GEN']),
-  title:     z.string().max(120).optional(),
-});
+  sessionId:  z.string().optional(),
+  message:    z.string().max(10000).optional(),
+  uploadIds:  z.array(z.string().min(1)).max(5).optional(),
+  mode:       z.enum(['TEACHING', 'QUESTIONING', 'AUDIT', 'CONSTITUTIONAL', 'JOURNAL_GEN']),
+  title:      z.string().max(120).optional(),
+}).refine(
+  (data) => (data.message?.trim()?.length ?? 0) > 0 || (data.uploadIds?.length ?? 0) > 0,
+  { message: 'Provide a message and/or at least one teaching file (uploadIds).' },
+);
 
 router.post('/', requireFounder, zValidator('json', ChatSchema), async (c) => {
   const body      = c.req.valid('json');
   const mode      = body.mode;
-  const message   = body.message;
+  const message   = body.message?.trim() ?? '';
+  const uploadIds = body.uploadIds ?? [];
 
-  // Create session if not provided
   let sessionId = body.sessionId;
   if (!sessionId) {
-    sessionId = await createChatSession(mode, body.title ?? message.slice(0, 60));
+    sessionId = await getOrCreateSession('masa-bayu');
   }
 
   // Set SSE headers
@@ -60,35 +66,38 @@ router.post('/', requireFounder, zValidator('json', ChatSchema), async (c) => {
   c.header('X-QXK24-Era',    ENV.QXK24_ERA);
 
   return stream(c, async (s) => {
-    await streamADAMChat(sessionId!, message, mode, async (event, data) => {
-      await s.write(`event: ${event}\ndata: ${data}\n\n`);
-    });
+    try {
+      await streamADAMChat(sessionId!, message, mode, async (event, data) => {
+        await s.write(`event: ${event}\ndata: ${data}\n\n`);
+      }, uploadIds);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'ADAM stream failed';
+      await s.write(`event: adam_error\ndata: ${JSON.stringify({ error: msg, waqf: true })}\n\n`);
+    }
     await s.write('event: adam_done\ndata: {}\n\n');
   });
 });
 
 // ─── POST /api/adam/chat/simple — Clean JSON (non-streaming) ─
 
-const SimpleChatSchema = z.object({
-  sessionId: z.string().optional(),
-  message:   z.string().min(1).max(10000),
-  mode:      z.enum(['TEACHING', 'QUESTIONING', 'AUDIT', 'CONSTITUTIONAL', 'JOURNAL_GEN']),
-  title:     z.string().max(120).optional(),
-});
+const SimpleChatSchema = ChatSchema;
 
 router.post('/simple', requireFounder, zValidator('json', SimpleChatSchema), async (c) => {
   const body = c.req.valid('json');
 
+  const message   = body.message?.trim() ?? '';
+  const uploadIds = body.uploadIds ?? [];
+
   let sessionId = body.sessionId;
   if (!sessionId) {
-    sessionId = await createChatSession(body.mode, body.title ?? body.message.slice(0, 60));
+    sessionId = await getOrCreateSession('masa-bayu');
   }
 
   let fullResponse = '';
   let judgment: ConstitutionalJudgment = 'ISLAH';
   let k24Address = '';
 
-  await streamADAMChat(sessionId, body.message, body.mode, (event, data) => {
+  await streamADAMChat(sessionId, message, body.mode, (event, data) => {
     if (event === 'adam_chunk') {
       try {
         fullResponse += JSON.parse(data).text ?? '';
@@ -106,7 +115,7 @@ router.post('/simple', requireFounder, zValidator('json', SimpleChatSchema), asy
         // Ignore malformed completion payload
       }
     }
-  });
+  }, uploadIds);
 
   return c.json({
     success:   true,
@@ -121,6 +130,32 @@ router.post('/simple', requireFounder, zValidator('json', SimpleChatSchema), asy
       mode: body.mode,
       timestamp: new Date().toISOString(),
     },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ─── GET /api/adam/chat/history/:sessionId — Message history ──
+
+router.get('/history/:sessionId', requireFounder, async (c) => {
+  const sessionId = c.req.param('sessionId') ?? '';
+  if (!sessionId) {
+    return c.json({
+      success: false,
+      error:   'sessionId required.',
+      kernel:  'QXK24',
+    }, 400);
+  }
+
+  const messages = await loadMessageHistory(sessionId, 100);
+
+  return c.json({
+    success:   true,
+    messages,
+    total:     messages.length,
+    sessionId,
+    kernel:    'QXK24',
+    version:   ENV.QXK24_KERNEL_VERSION,
+    era:       ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
   });
 });
@@ -143,6 +178,31 @@ router.get('/sessions', requireFounder, async (c) => {
   };
 
   return c.json(response);
+});
+
+// ─── DELETE /api/adam/chat/messages/:messageId — Remove founder message ──
+
+router.delete('/messages/:messageId', requireFounder, async (c) => {
+  const messageId = c.req.param('messageId') ?? '';
+  if (!messageId) {
+    return c.json({ success: false, error: 'messageId required.', kernel: 'QXK24' }, 400);
+  }
+
+  const deleted = await deleteFounderMessage(messageId, 'masa-bayu');
+  if (!deleted) {
+    return c.json({
+      success: false,
+      error:   'Message not found or cannot be deleted.',
+      kernel:  'QXK24',
+    }, 404);
+  }
+
+  return c.json({
+    success:   true,
+    messageId,
+    kernel:    'QXK24',
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // ─── GET /api/adam/chat/:id — Get Single Session ──────────────

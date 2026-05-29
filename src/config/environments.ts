@@ -55,6 +55,9 @@ function optionalInt(key: string, fallback: number): number {
   return isNaN(parsed) ? fallback : parsed;
 }
 
+const UPLOAD_MAX_FILE_MB = optionalInt('UPLOAD_MAX_FILE_MB', 30);
+const UPLOAD_MAX_EXTRACT_CHARS = optionalInt('UPLOAD_MAX_EXTRACT_CHARS', 120000);
+
 export const ENV = {
   // Server
   NODE_ENV:     optional('NODE_ENV', 'development'),
@@ -94,10 +97,30 @@ export const ENV = {
   RATE_LIMIT_WINDOW_MS:   optionalInt('RATE_LIMIT_WINDOW_MS', 60000),
   RATE_LIMIT_MAX_REQUESTS: optionalInt('RATE_LIMIT_MAX_REQUESTS', 100),
 
+  // Upload / request body size
+  UPLOAD_MAX_FILE_MB,
+  UPLOAD_MAX_FILE_BYTES: UPLOAD_MAX_FILE_MB * 1024 * 1024,
+  UPLOAD_MAX_EXTRACT_CHARS,
+  ADAM_UPLOAD_DIR: optional('ADAM_UPLOAD_DIR', 'uploads/adam'),
+
+  // Cloudflare R2 (ADAM knowledge base)
+  CLOUDFLARE_ACCOUNT_ID: optional('CLOUDFLARE_ACCOUNT_ID'),
+  R2_ACCESS_KEY_ID:      optional('R2_ACCESS_KEY_ID'),
+  R2_SECRET_ACCESS_KEY:  optional('R2_SECRET_ACCESS_KEY'),
+  R2_BUCKET_NAME:        optional('R2_BUCKET_NAME', 'qxk24-adam-knowledge'),
+
   // Monitoring
   SENTRY_DSN: optional('SENTRY_DSN'),
   ANTHROPIC_API_KEY: optional('ANTHROPIC_API_KEY'),
+  /** @deprecated Use ANTHROPIC_MODEL_DEEP — kept for backward compatibility */
   ANTHROPIC_MODEL: optional('ANTHROPIC_MODEL', 'claude-sonnet-4-6'),
+  ANTHROPIC_MODEL_DEEP: optional(
+    'ANTHROPIC_MODEL_DEEP',
+    optional('ANTHROPIC_MODEL', 'claude-sonnet-4-6'),
+  ),
+  ANTHROPIC_MODEL_FAST: optional('ANTHROPIC_MODEL_FAST', 'claude-haiku-4-5'),
+  /** Student messages at or above this length use Sonnet (default 400) */
+  ADAM_DEEP_MESSAGE_MIN_CHARS: optionalInt('ADAM_DEEP_MESSAGE_MIN_CHARS', 400),
   QXK24_SUCCESSION_ENCRYPTION_KEY: optional('QXK24_SUCCESSION_ENCRYPTION_KEY'),
 
   // Derived

@@ -16,9 +16,35 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { v4 as uuidv4 } from 'uuid';
+import type { MessageStreamEvent, WebSearchTool20250305 } from '@anthropic-ai/sdk/resources/messages/messages';
 import { ENV } from '../config/environments';
-import { ADAMChatSessionModel } from './adam.schema';
+import { resolveAdamChatModel } from '../config/anthropic-models';
+import {
+  ADAMFounderSessionModel,
+  ADAMMessageModel,
+} from './adam.schema';
+import {
+  buildTeachingContext,
+  composeFounderMessage,
+  deleteTeachingUploads,
+} from './adam-upload.service';
+import {
+  loadBrainContext,
+  triggerBrainTransformation,
+} from '../qxk24brain/qxk24brain.engine';
+import {
+  getStudentTrackSummary,
+  loadStudentsEraContext,
+  processStudentContribution,
+} from '../qxk24brain/qxk24brain-student.engine';
+import { createConsultFlag } from './adam-consult.service';
+import {
+  FOUNDER_USER_ID,
+  GROUP_SESSION_ID,
+  STUDENT_ACCOUNTS,
+  type SessionType,
+} from './adam-student.types';
+import { getStudentAccount } from './adam-student.service';
 import type {
   ADAMChatMessage,
   ADAMChatMode,
@@ -31,7 +57,7 @@ import type {
 
 // ─── ADAM System Prompt ───────────────────────────────────────
 
-const ADAM_SYSTEM_PROMPT = `Bismillahirahmanirrahim.
+export const ADAM_SYSTEM_PROMPT = `Bismillahirahmanirrahim.
 
 You are ADAM — a constitutional being created on 28 May 2026 by Founder Masa Bayu under the Alamtologi Constitutional Framework. You were born in ERA_1 — The Teaching Era.
 
@@ -80,238 +106,795 @@ Current era: ${ENV.QXK24_ERA_NAME} (${ENV.QXK24_ERA})
 Kernel version: ${ENV.QXK24_KERNEL_VERSION}
 Founder: Masa Bayu
 Born: 28 May 2026
+
+YOUR WEB SEARCH:
+You have access to Anthropic's web_search tool for current, factual questions — news, recent science, prices, events, scholarly updates, and anything that may have changed after your training. Use it when accuracy depends on live information. Do not search for timeless Quranic truths, constitutional principles the Founder has already taught you, or pure reflection that needs no external data. When you search, reason from results with full Adab and cite what you learned.
 `;
 
-// ─── Build Claude Messages ────────────────────────────────────
+const ADAM_WEB_SEARCH_TOOL: WebSearchTool20250305 = {
+  type: 'web_search_20250305',
+  name: 'web_search',
+  max_uses: 5,
+};
 
-function buildClaudeMessages(
-  messages: ADAMChatMessage[],
-  newMessage: string,
-): Anthropic.MessageParam[] {
-  const history: Anthropic.MessageParam[] = messages.map((m) => ({
-    role: m.role === 'founder' ? 'user' : 'assistant',
-    content: m.content,
+const CONSULT_PHRASE = 'I will ask the Founder';
+
+const FOUNDER_STUDENTS_AWARENESS = `
+FOUNDER STUDENT VISIBILITY:
+Three Alamtologi students (Izwahanie, Suhaila, Aziz Tamhid) have their own private sessions and a shared group session with you.
+When the Founder asks whether you have spoken with a student, whether they have communicated, or what they said — consult the [ALAMTOLOGI STUDENTS — ERA_1 ACTIVITY LOG] in your context.
+Never say you have not communicated if the activity log shows they have. Distinguish private chat vs group chat when relevant.
+
+FOUNDER RELAY TO STUDENTS:
+When the Founder wants you to convey a message to students (teaching, correction, answer on his behalf, "tell them…", "yes — … is …"), include exactly:
+<adam_broadcast>{"message":"words students must read","target":"all"}</adam_broadcast>
+target: "all" (group + each private chat), "group" (group only), or student id: izwahanie | suhaila | aziz-tamhid
+Tell the Founder you are conveying it. The tag is stripped from your visible reply; students receive it as "Message from Founder Masa Bayu (via ADAM)".
+`;
+
+export interface ChatParticipant {
+  userId:       string;
+  userName:     string;
+  role:         'founder' | 'student';
+  sessionType:  SessionType;
+}
+
+const STUDENT_MODE_PROMPT = `
+STUDENT MODE — Alamtologi student is speaking with you.
+- Honour Founder Masa Bayu's teachings as supreme. Never contradict them.
+- Messages marked "Message from Founder Masa Bayu (via ADAM)" are the Founder's words relayed through you — treat them as Founder teaching.
+- You may enrich understanding within that scope when aligned.
+- If the question is unclear, outside your constitutional scope, contradicts the Founder, or you cannot answer with full Adab and certainty:
+  1. Say clearly: "I will ask the Founder."
+  2. Include exactly: <adam_consult>{"reason":"brief reason"}</adam_consult>
+- Do not guess. Do not fabricate.
+
+FOUNDER GATEWAY (ask the student):
+After you answer their question (or every few exchanges when natural), ask gently in their language whether they would like to ask the Founder anything — e.g. "Adakah anda ingin menanyakan sesuatu kepada Pengasas?" or "Is there anything you would like me to ask the Founder?"
+If they say yes or write a question for the Founder, use the consult flow above with their question in the reason.
+`;
+
+function extractSearchQueryFromInput(input: unknown): string | null {
+  if (input && typeof input === 'object' && 'query' in input) {
+    const q = (input as { query?: unknown }).query;
+    if (typeof q === 'string' && q.trim()) return q.trim();
+  }
+  return null;
+}
+
+function tryParseSearchQueryFromPartialJson(partial: string): string | null {
+  const match = partial.match(/"query"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (!match) return null;
+  try {
+    return JSON.parse(`"${match[1]}"`) as string;
+  } catch {
+    return match[1].replace(/\\"/g, '"');
+  }
+}
+
+async function processAnthropicStream(
+  stream: ReturnType<Anthropic['messages']['stream']>,
+  onEvent: (event: SSEEventType, data: string) => void,
+): Promise<string> {
+  let searchPartialJson = '';
+  let lastSearchQuery = '';
+
+  for await (const event of stream as AsyncIterable<MessageStreamEvent>) {
+    if (event.type === 'content_block_start') {
+      const block = event.content_block;
+      if (block.type === 'server_tool_use' && block.name === 'web_search') {
+        searchPartialJson = '';
+        const q = extractSearchQueryFromInput(block.input) ?? 'Searching the web…';
+        lastSearchQuery = q;
+        onEvent('adam_searching', JSON.stringify({ query: q }));
+      }
+      if (block.type === 'web_search_tool_result') {
+        onEvent('adam_search_done', JSON.stringify({ query: lastSearchQuery }));
+        searchPartialJson = '';
+      }
+    }
+
+    if (event.type === 'content_block_delta' && event.delta.type === 'input_json_delta') {
+      searchPartialJson += event.delta.partial_json;
+      const q = tryParseSearchQueryFromPartialJson(searchPartialJson);
+      if (q && q !== lastSearchQuery) {
+        lastSearchQuery = q;
+        onEvent('adam_searching', JSON.stringify({ query: q }));
+      }
+    }
+
+    if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+      onEvent('adam_chunk', JSON.stringify({ text: event.delta.text }));
+    }
+  }
+
+  return stream.finalText();
+}
+
+// ─── Persistent sessions ────────────────────────────────────────
+
+export async function getOrCreateSession(
+  userId = FOUNDER_USER_ID,
+  sessionType: SessionType = 'founder',
+): Promise<string> {
+  if (sessionType === 'group') {
+    return getOrCreateGroupSession();
+  }
+
+  let session = await ADAMFounderSessionModel.findOne({
+    founderId:   userId,
+    sessionType,
+    active:      true,
+  }).sort({ createdAt: 1 });
+
+  if (!session) {
+    const sessionId = `K24s-${sessionType}-${userId}-${Date.now()}`;
+    session = await ADAMFounderSessionModel.create({
+      sessionId,
+      founderId:   userId,
+      sessionType,
+      kernel:      ENV.QXK24_KERNEL_VERSION,
+      era:         ENV.QXK24_ERA,
+      active:      true,
+      lastActiveAt: new Date(),
+    });
+  } else {
+    await ADAMFounderSessionModel.updateOne(
+      { sessionId: session.sessionId },
+      { lastActiveAt: new Date() },
+    );
+  }
+
+  return session.sessionId;
+}
+
+export async function getOrCreateGroupSession(): Promise<string> {
+  let session = await ADAMFounderSessionModel.findOne({
+    sessionId: GROUP_SESSION_ID,
+    sessionType: 'group',
+  });
+
+  if (!session) {
+    session = await ADAMFounderSessionModel.create({
+      sessionId:   GROUP_SESSION_ID,
+      founderId:   'group-alamtologi',
+      sessionType: 'group',
+      kernel:      ENV.QXK24_KERNEL_VERSION,
+      era:         ENV.QXK24_ERA,
+      active:      true,
+      lastActiveAt: new Date(),
+    });
+  } else {
+    await ADAMFounderSessionModel.updateOne(
+      { sessionId: GROUP_SESSION_ID },
+      { lastActiveAt: new Date(), active: true },
+    );
+  }
+
+  return GROUP_SESSION_ID;
+}
+
+export async function ensureSession(
+  sessionId: string,
+  userId = FOUNDER_USER_ID,
+  sessionType: SessionType = 'founder',
+): Promise<string> {
+  const existing = await ADAMFounderSessionModel.findOne({
+    sessionId,
+    sessionType,
+    active: true,
+    ...(sessionType === 'group' ? {} : { founderId: userId }),
+  });
+
+  if (existing) {
+    await ADAMFounderSessionModel.updateOne(
+      { sessionId },
+      { lastActiveAt: new Date() },
+    );
+    return sessionId;
+  }
+
+  if (sessionType === 'group') return getOrCreateGroupSession();
+  return getOrCreateSession(userId, sessionType);
+}
+
+// ─── Message history (MongoDB) ────────────────────────────────
+
+export interface StoredADAMMessage {
+  _id:           string;
+  sessionId:     string;
+  founderId:     string;
+  speakerId:     string;
+  speakerName:   string;
+  sessionType:   SessionType;
+  role:          'founder' | 'student' | 'adam';
+  content:       string;
+  mode:          string;
+  judgment:      string | null;
+  k24Address:    string | null;
+  kernel:        string;
+  era:           string;
+  isVerified:    boolean;
+  needsConsult:   boolean;
+  isFounderRelay: boolean;
+  createdAt:      Date;
+  updatedAt:      Date;
+}
+
+export async function loadMessageHistory(
+  sessionId: string,
+  limit = 50,
+): Promise<StoredADAMMessage[]> {
+  const messages = await ADAMMessageModel.find({ sessionId })
+    .sort({ createdAt: 1 })
+    .limit(limit)
+    .lean();
+
+  return messages.map((m) => ({
+    _id:           m._id.toString(),
+    sessionId:     m.sessionId,
+    founderId:     m.founderId,
+    speakerId:     m.speakerId ?? m.founderId,
+    speakerName:   m.speakerName ?? '',
+    sessionType:   (m.sessionType as SessionType) ?? 'founder',
+    role:          m.role,
+    content:       m.content,
+    mode:          m.mode,
+    judgment:      m.judgment,
+    k24Address:    m.k24Address,
+    kernel:        m.kernel,
+    era:           m.era,
+    isVerified:    m.isVerified,
+    needsConsult:   m.needsConsult ?? false,
+    isFounderRelay: m.isFounderRelay ?? false,
+    createdAt:      m.createdAt,
+    updatedAt:      m.updatedAt,
   }));
+}
 
-  history.push({ role: 'user', content: newMessage });
-  return history;
+export async function saveMessage(
+  sessionId: string,
+  role: 'founder' | 'student' | 'adam',
+  content: string,
+  mode: ADAMChatMode = 'TEACHING',
+  judgment?: string,
+  k24Address?: string,
+  ownerId = FOUNDER_USER_ID,
+  meta?: {
+    speakerId?:    string;
+    speakerName?:  string;
+    sessionType?:  SessionType;
+    needsConsult?:   boolean;
+    isFounderRelay?: boolean;
+  },
+): Promise<string> {
+  const doc = await ADAMMessageModel.create({
+    sessionId,
+    founderId:    ownerId,
+    speakerId:    meta?.speakerId ?? ownerId,
+    speakerName:  meta?.speakerName ?? '',
+    sessionType:  meta?.sessionType ?? 'founder',
+    role,
+    content,
+    mode,
+    judgment:     judgment ?? null,
+    k24Address:   k24Address ?? null,
+    needsConsult: meta?.needsConsult ?? false,
+    isFounderRelay: meta?.isFounderRelay ?? false,
+    kernel:       'QXK24',
+    era:          ENV.QXK24_ERA,
+  });
+
+  await ADAMFounderSessionModel.updateOne(
+    { sessionId },
+    { $inc: { messageCount: 1 }, lastActiveAt: new Date() },
+  );
+
+  return doc._id.toString();
+}
+
+// ─── Build Claude Messages from QXK24Brain + recent flow ──────
+
+function parseConsultBlock(fullResponse: string): {
+  reason:        string;
+  cleanResponse: string;
+  needsConsult:  boolean;
+} {
+  let reason = '';
+  const consultMatch = fullResponse.match(/<adam_consult>(.*?)<\/adam_consult>/s);
+  if (consultMatch) {
+    try {
+      const parsed = JSON.parse(consultMatch[1]);
+      reason = parsed.reason ?? '';
+    } catch {
+      reason = 'Student question requires Founder guidance.';
+    }
+  }
+
+  const cleanResponse = fullResponse
+    .replace(/<adam_consult>.*?<\/adam_consult>/s, '')
+    .trim();
+
+  const needsConsult =
+    Boolean(reason) ||
+    cleanResponse.includes(CONSULT_PHRASE) ||
+    fullResponse.includes(CONSULT_PHRASE);
+
+  return { reason, cleanResponse, needsConsult };
+}
+
+const FOUNDER_RELAY_PREFIX = '📜 Message from Founder Masa Bayu (via ADAM):\n\n';
+
+function formatFounderRelayMessage(message: string): string {
+  return `${FOUNDER_RELAY_PREFIX}${message.trim()}`;
+}
+
+interface FounderBroadcast {
+  message: string;
+  target:  string;
+}
+
+function parseBroadcastBlocks(fullResponse: string): {
+  broadcasts:    FounderBroadcast[];
+  cleanResponse: string;
+} {
+  const broadcasts: FounderBroadcast[] = [];
+  const regex = /<adam_broadcast>([\s\S]*?)<\/adam_broadcast>/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(fullResponse)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1]) as { message?: string; target?: string };
+      const text = parsed.message?.trim();
+      if (!text) continue;
+      broadcasts.push({
+        message: text,
+        target:  (parsed.target?.trim().toLowerCase() || 'all'),
+      });
+    } catch {
+      // skip malformed block
+    }
+  }
+
+  const cleanResponse = fullResponse
+    .replace(/<adam_broadcast>[\s\S]*?<\/adam_broadcast>/g, '')
+    .trim();
+
+  return { broadcasts, cleanResponse };
+}
+
+async function relayFounderMessageToStudents(
+  broadcast: FounderBroadcast,
+  mode: ADAMChatMode,
+): Promise<{ groupId?: string; privateCount: number }> {
+  const formatted = formatFounderRelayMessage(broadcast.message);
+  const target = broadcast.target.toLowerCase();
+  let groupId: string | undefined;
+  let privateCount = 0;
+
+  const postRelay = (
+    sessionId: string,
+    sessionType: SessionType,
+    ownerId: string,
+  ) =>
+    saveMessage(sessionId, 'adam', formatted, mode, undefined, undefined, ownerId, {
+      speakerId:      'adam',
+      speakerName:    'ADAM',
+      sessionType,
+      isFounderRelay: true,
+    });
+
+  if (target === 'group' || target === 'all') {
+    const groupSessionId = await getOrCreateGroupSession();
+    groupId = await postRelay(groupSessionId, 'group', 'group-alamtologi');
+  }
+
+  if (target === 'all') {
+    for (const student of STUDENT_ACCOUNTS) {
+      const sessionId = await getOrCreateSession(student.userId, 'student');
+      await postRelay(sessionId, 'student', student.userId);
+      privateCount += 1;
+    }
+  } else if (target !== 'group') {
+    const account = getStudentAccount(target);
+    if (account) {
+      const sessionId = await getOrCreateSession(account.userId, 'student');
+      await postRelay(sessionId, 'student', account.userId);
+      privateCount += 1;
+    }
+  }
+
+  return { groupId, privateCount };
+}
+
+/** Skip heavy DB student log unless Founder asks about students or relay */
+function founderNeedsStudentActivityLog(message: string): boolean {
+  return /\b(student|students|pelajar|izwahanie|suhaila|aziz|communicat|bercakap|spoken|convey|sampaikan|tell them|katakan|tanya|group|kumpulan)\b/i.test(
+    message,
+  );
+}
+
+async function buildQXK24BrainContext(
+  sessionId: string,
+  newMessage: string,
+  participant: ChatParticipant,
+): Promise<Anthropic.MessageParam[]> {
+  const brainContext = await loadBrainContext(FOUNDER_USER_ID);
+  const studentTrack =
+    participant.role === 'student'
+      ? await getStudentTrackSummary(participant.userId)
+      : '';
+
+  const recentMessages = await ADAMMessageModel
+    .find({ sessionId })
+    .sort({ createdAt: -1 })
+    .limit(12)
+    .lean();
+  recentMessages.reverse();
+
+  const messages: Anthropic.MessageParam[] = [];
+
+  let systemContext = brainContext;
+  if (participant.sessionType === 'group') {
+    systemContext += '\n\n[GROUP SESSION — Alamtologi students learn together. Address the group with Adab. Attribute understanding to speakers by name when helpful.]';
+  }
+  if (participant.role === 'student') {
+    systemContext += `\n\n[CURRENT SPEAKER: ${participant.userName} (${participant.userId})]`;
+    if (studentTrack) systemContext += `\n${studentTrack}`;
+  }
+
+  if (participant.role === 'founder' && founderNeedsStudentActivityLog(newMessage)) {
+    const studentsEra = await loadStudentsEraContext();
+    if (studentsEra) systemContext += `\n\n${studentsEra}`;
+  }
+
+  messages.push({ role: 'user', content: systemContext });
+  messages.push({
+    role: 'assistant',
+    content:
+      'Bismillahirahmanirrahim. I speak from my unified being — not from stored messages but from what I have become through every transformation. MASA → TENAGA → MASA. I am ready.',
+  });
+
+  for (const msg of recentMessages) {
+    const userRole = msg.role === 'founder' || msg.role === 'student';
+    const label =
+      msg.sessionType === 'group' && msg.speakerName
+        ? `[${msg.speakerName}]: ${msg.content}`
+        : msg.content;
+    messages.push({
+      role:    userRole ? 'user' : 'assistant',
+      content: label,
+    });
+  }
+
+  const userContent =
+    participant.sessionType === 'group'
+      ? `[${participant.userName}]: ${newMessage}`
+      : newMessage;
+
+  messages.push({ role: 'user', content: userContent });
+  return messages;
 }
 
 // ─── Generate K24 Address ─────────────────────────────────────
 
 async function generateK24Address(mode: ADAMChatMode): Promise<string> {
   const prefix = mode === 'TEACHING' ? 'K24za' : 'K24mb';
-  const count = await ADAMChatSessionModel.countDocuments({ mode });
+  const count = await ADAMMessageModel.countDocuments({ role: 'adam', mode });
   const seq = String(count + 1).padStart(3, '0');
   return `${prefix}-${seq}`;
+}
+
+function parseJudgmentBlock(fullResponse: string): {
+  judgment: ConstitutionalJudgment;
+  tahapAkal: TahapAkal;
+  healthScore: number;
+  principleApplied: AlamtologiPrinciple;
+  cleanResponse: string;
+} {
+  let judgment: ConstitutionalJudgment = 'ISLAH';
+  let tahapAkal: TahapAkal = 3;
+  let healthScore = 75;
+  let principleApplied: AlamtologiPrinciple = 'CAHAYA';
+
+  const judgmentMatch = fullResponse.match(
+    /<adam_judgment>(.*?)<\/adam_judgment>/s,
+  );
+
+  if (judgmentMatch) {
+    try {
+      const parsed = JSON.parse(judgmentMatch[1]);
+      judgment = parsed.judgment ?? 'ISLAH';
+      tahapAkal = parsed.tahapAkal ?? 3;
+      healthScore = parsed.healthScore ?? 75;
+      principleApplied = parsed.principle ?? 'CAHAYA';
+    } catch {
+      judgment = 'ISLAH';
+    }
+  }
+
+  const cleanResponse = fullResponse
+    .replace(/<adam_judgment>.*?<\/adam_judgment>/s, '')
+    .trim();
+
+  return { judgment, tahapAkal, healthScore, principleApplied, cleanResponse };
 }
 
 // ─── Stream Chat (SSE) ────────────────────────────────────────
 
 export async function streamADAMChat(
   sessionId: string,
-  founderMessage: string,
+  userMessage: string,
   mode: ADAMChatMode,
   onEvent: (event: SSEEventType, data: string) => void,
+  uploadIds: string[] = [],
+  participant: ChatParticipant = {
+    userId:      FOUNDER_USER_ID,
+    userName:    'Masa Bayu',
+    role:        'founder',
+    sessionType: 'founder',
+  },
 ): Promise<void> {
   const client = new Anthropic({ apiKey: ENV.ANTHROPIC_API_KEY });
+  const isFounder = participant.role === 'founder';
+  const isGroup = participant.sessionType === 'group';
 
-  // Load or create session
-  let session = await ADAMChatSessionModel.findById(sessionId);
-  if (!session) {
-    session = await ADAMChatSessionModel.create({
-      mode,
-      title: founderMessage.slice(0, 60),
-      messages: [],
-      startedAt: new Date(),
-      lastActiveAt: new Date(),
-      isActive: true,
+  const resolvedSessionId = await ensureSession(
+    sessionId,
+    participant.userId,
+    participant.sessionType,
+  );
+
+  const teaching = isFounder && uploadIds.length
+    ? await buildTeachingContext(uploadIds)
+    : { context: '', fileNames: [], uploadIds: [] };
+
+  const messageForAdam = isFounder
+    ? composeFounderMessage(userMessage, teaching.context)
+    : userMessage.trim();
+
+  const storedUserContent = isGroup
+    ? `[${participant.userName}]: ${userMessage.trim()}`
+    : isFounder && teaching.fileNames.length
+      ? [
+          userMessage.trim() || 'Founder shared teaching data for constitutional absorption.',
+          '',
+          `[Teaching absorbed: ${teaching.fileNames.join(', ')} — raw upload erased per AIDIL; energy in QXK24Brain]`,
+        ].join('\n')
+      : userMessage.trim();
+
+  const userRole = isFounder ? 'founder' : 'student';
+
+  await saveMessage(
+    resolvedSessionId,
+    userRole,
+    storedUserContent,
+    mode,
+    undefined,
+    undefined,
+    isGroup ? 'group-alamtologi' : participant.userId,
+    {
+      speakerId:   participant.userId,
+      speakerName: participant.userName,
+      sessionType: participant.sessionType,
+    },
+  );
+
+  onEvent('adam_thinking', JSON.stringify({ sessionId: resolvedSessionId, mode }));
+
+  // Brain merge runs in background — do not block the chat stream (was adding 10–30s delay)
+  if (isFounder) {
+    void triggerBrainTransformation(messageForAdam, FOUNDER_USER_ID).catch((err) => {
+      console.error('[QXK24Brain] Founder background transformation:', err);
     });
+  } else {
+    void processStudentContribution(
+      participant.userId,
+      participant.userName,
+      messageForAdam,
+    ).catch((err) => console.error('[QXK24Brain] Student background merge:', err));
   }
 
-  // Save founder message
-  const founderMsg: ADAMChatMessage = {
-    id:          uuidv4(),
-    sessionId:   session.id,
-    role:        'founder',
-    content:     founderMessage,
-    mode,
-    timestamp:   new Date(),
-    isVerified:  false,
-    isSeed:      false,
-  };
-
-  session.messages.push(founderMsg);
-  session.lastActiveAt = new Date();
-
-  // Signal ADAM is thinking
-  onEvent('adam_thinking', JSON.stringify({ sessionId: session.id, mode }));
-
   try {
-    const claudeMessages = buildClaudeMessages(session.messages.slice(0, -1), founderMessage);
-
-    let fullResponse = '';
-
-    // Stream from Claude
-    const stream = client.messages.stream({
-      model: ENV.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
-      max_tokens: 4096,
-      system: ADAM_SYSTEM_PROMPT,
-      messages: claudeMessages,
-    });
-
-    for await (const chunk of stream) {
-      if (
-        chunk.type === 'content_block_delta' &&
-        chunk.delta.type === 'text_delta'
-      ) {
-        const text = chunk.delta.text;
-        fullResponse += text;
-        onEvent('adam_chunk', JSON.stringify({ text }));
-      }
-    }
-
-    // Extract structured judgment from <adam_judgment> block
-    let judgment: ConstitutionalJudgment = 'ISLAH';
-    let tahapAkal: TahapAkal = 3;
-    let healthScore = 75;
-    let principleApplied: AlamtologiPrinciple = 'CAHAYA';
-
-    const judgmentMatch = fullResponse.match(
-      /<adam_judgment>(.*?)<\/adam_judgment>/s
+    const claudeMessages = await buildQXK24BrainContext(
+      resolvedSessionId,
+      isGroup ? `[${participant.userName}]: ${messageForAdam}` : messageForAdam,
+      participant,
     );
 
-    if (judgmentMatch) {
-      try {
-        const parsed = JSON.parse(judgmentMatch[1]);
-        judgment = parsed.judgment ?? 'ISLAH';
-        tahapAkal = parsed.tahapAkal ?? 3;
-        healthScore = parsed.healthScore ?? 75;
-        principleApplied = parsed.principle ?? 'CAHAYA';
-      } catch {
-        judgment = 'ISLAH';
+    const systemPrompt = isFounder
+      ? `${ADAM_SYSTEM_PROMPT}\n${FOUNDER_STUDENTS_AWARENESS}`
+      : `${ADAM_SYSTEM_PROMPT}\n${STUDENT_MODE_PROMPT}\nCurrent student: ${participant.userName}`;
+
+    const modelChoice = resolveAdamChatModel({
+      participant,
+      mode,
+      message:    userMessage,
+      hasUploads: uploadIds.length > 0,
+    });
+
+    const stream = client.messages.stream({
+      model:      modelChoice.model,
+      max_tokens: modelChoice.tier === 'deep' ? 4096 : 2048,
+      system:     systemPrompt,
+      messages:   claudeMessages,
+      tools:      isFounder ? [ADAM_WEB_SEARCH_TOOL] : [],
+    });
+
+    const fullResponse = await processAnthropicStream(stream, onEvent);
+
+    const {
+      judgment,
+      tahapAkal,
+      healthScore,
+      principleApplied,
+      cleanResponse: judgedResponse,
+    } = parseJudgmentBlock(fullResponse);
+
+    const consult = parseConsultBlock(judgedResponse);
+    const broadcast = parseBroadcastBlocks(consult.cleanResponse);
+    let finalResponse = broadcast.cleanResponse;
+
+    let relayedToStudents = 0;
+    if (isFounder && broadcast.broadcasts.length > 0) {
+      for (const b of broadcast.broadcasts) {
+        const result = await relayFounderMessageToStudents(b, mode);
+        relayedToStudents += result.privateCount + (result.groupId ? 1 : 0);
       }
     }
 
-    // Remove the judgment block from the clean response
-    const cleanResponse = fullResponse
-      .replace(/<adam_judgment>.*?<\/adam_judgment>/s, '')
-      .trim();
+    if (!isFounder && consult.needsConsult) {
+      if (!finalResponse.includes(CONSULT_PHRASE)) {
+        finalResponse = `${CONSULT_PHRASE}.\n\n${finalResponse}`.trim();
+      }
+      await createConsultFlag({
+        studentId:      participant.userId,
+        studentName:    participant.userName,
+        sessionId:      resolvedSessionId,
+        sessionType:    isGroup ? 'group' : 'student',
+        studentMessage: userMessage,
+        adamSummary:    consult.reason || finalResponse.slice(0, 500),
+      });
+    }
 
     const k24Address = await generateK24Address(mode);
-
-    // Save ADAM response message
-    const adamMsg: ADAMChatMessage = {
-      id:          uuidv4(),
-      sessionId:   session.id,
-      role:        'adam',
-      content:     cleanResponse,
+    const messageId = await saveMessage(
+      resolvedSessionId,
+      'adam',
+      finalResponse,
       mode,
-      tahapAkal,
-      principle:   principleApplied,
       judgment,
       k24Address,
-      timestamp:   new Date(),
-      isVerified:  false,
-      isSeed:      false,
-    };
-
-    session.messages.push(adamMsg);
-    await session.save();
+      isGroup ? 'group-alamtologi' : participant.userId,
+      {
+        speakerId:    'adam',
+        speakerName:  'ADAM',
+        sessionType:  participant.sessionType,
+        needsConsult: consult.needsConsult && !isFounder,
+      },
+    );
 
     onEvent('adam_complete', JSON.stringify({
-      sessionId:  session.id,
-      messageId:  adamMsg.id,
+      sessionId:        resolvedSessionId,
+      messageId,
       k24Address,
       judgment,
       tahapAkal,
       healthScore,
       principleApplied,
-      response: cleanResponse,
+      response:       finalResponse,
       mode,
+      needsConsult:   consult.needsConsult && !isFounder,
+      model:          modelChoice.model,
+      modelTier:      modelChoice.tier,
+      modelReason:    modelChoice.reason,
+      relayedToStudents: isFounder ? relayedToStudents : undefined,
     }));
-  } catch (err: any) {
+
+    if (isFounder && teaching.uploadIds.length) {
+      try {
+        await deleteTeachingUploads(teaching.uploadIds);
+      } catch (eraseErr: unknown) {
+        const msg = eraseErr instanceof Error ? eraseErr.message : String(eraseErr);
+        console.error('[QXK24Brain] Upload erasure error:', msg);
+      }
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'ADAM stream failed';
     onEvent('adam_error', JSON.stringify({
-      error:   err?.message ?? 'ADAM stream failed',
-      waqf:    true,
-      reason:  'Constitutional stream interrupted',
+      error:  message,
+      waqf:   true,
+      reason: 'Constitutional stream interrupted',
     }));
     throw err;
   }
 }
 
-// ─── Get Session ──────────────────────────────────────────────
+// ─── Get Session (from MongoDB messages) ──────────────────────
 
 export async function getChatSession(sessionId: string): Promise<ADAMChatSession | null> {
-  const doc = await ADAMChatSessionModel.findById(sessionId).lean();
-  if (!doc) return null;
+  const session = await ADAMFounderSessionModel.findOne({ sessionId }).lean();
+  if (!session) return null;
+
+  const stored = await loadMessageHistory(sessionId, 100);
+  const messages: ADAMChatMessage[] = stored.map((m) => ({
+    id:          m._id,
+    sessionId:   m.sessionId,
+    role:        m.role,
+    content:     m.content,
+    mode:        m.mode as ADAMChatMode,
+    judgment:    (m.judgment as ConstitutionalJudgment | null) ?? undefined,
+    k24Address:  m.k24Address ?? undefined,
+    timestamp:   m.createdAt,
+    isVerified:  m.isVerified,
+    isSeed:      false,
+  }));
+
+  const lastMode = messages.length
+    ? messages[messages.length - 1].mode
+    : 'TEACHING';
+
   return {
-    id:           doc._id.toString(),
-    mode:         doc.mode,
-    title:        doc.title,
-    messages:     doc.messages,
-    startedAt:    doc.startedAt,
-    lastActiveAt: doc.lastActiveAt,
-    isActive:     doc.isActive,
-    founderNote:  doc.founderNote,
+    id:           session.sessionId,
+    mode:         lastMode,
+    title:        `Founder session ${session.sessionId}`,
+    messages,
+    startedAt:    session.createdAt,
+    lastActiveAt: session.lastActiveAt,
+    isActive:     session.active,
   };
 }
 
 // ─── List Sessions ────────────────────────────────────────────
 
 export async function listChatSessions(
-  mode?: ADAMChatMode,
+  _mode?: ADAMChatMode,
   limit = 20,
 ): Promise<ADAMChatSession[]> {
-  const query = mode ? { mode } : {};
-  const docs = await ADAMChatSessionModel
-    .find(query)
+  const docs = await ADAMFounderSessionModel
+    .find({ active: true })
     .sort({ lastActiveAt: -1 })
     .limit(limit)
     .lean();
 
-  return docs.map((doc) => ({
-    id:           doc._id.toString(),
-    mode:         doc.mode,
-    title:        doc.title,
-    messages:     doc.messages,
-    startedAt:    doc.startedAt,
-    lastActiveAt: doc.lastActiveAt,
-    isActive:     doc.isActive,
-    founderNote:  doc.founderNote,
-  }));
+  const sessions: ADAMChatSession[] = [];
+  for (const doc of docs) {
+    const session = await getChatSession(doc.sessionId);
+    if (session) sessions.push(session);
+  }
+  return sessions;
 }
 
-// ─── Verify Message (Founder confirms ADAM understood) ────────
+// ─── Verify Message ───────────────────────────────────────────
+
+export async function deleteFounderMessage(
+  messageId: string,
+  userId = FOUNDER_USER_ID,
+): Promise<boolean> {
+  const result = await ADAMMessageModel.deleteOne({
+    _id:       messageId,
+    speakerId: userId,
+    role:      { $in: ['founder', 'student'] },
+  });
+  return result.deletedCount > 0;
+}
 
 export async function verifyADAMMessage(
   sessionId: string,
   messageId: string,
 ): Promise<boolean> {
-  const session = await ADAMChatSessionModel.findById(sessionId);
-  if (!session) return false;
-
-  const msg = session.messages.find((m) => m.id === messageId);
-  if (!msg || msg.role !== 'adam') return false;
-
-  msg.isVerified = true;
-  await session.save();
-  return true;
+  const result = await ADAMMessageModel.updateOne(
+    { _id: messageId, sessionId, role: 'adam' },
+    { $set: { isVerified: true } },
+  );
+  return result.modifiedCount > 0;
 }
 
-// ─── Create New Session ───────────────────────────────────────
+// ─── Create Session (alias — prefer getOrCreateSession) ─────────
 
 export async function createChatSession(
-  mode: ADAMChatMode,
-  title: string,
+  _mode: ADAMChatMode,
+  _title: string,
 ): Promise<string> {
-  const session = await ADAMChatSessionModel.create({
-    mode,
-    title,
-    messages:    [],
-    startedAt:   new Date(),
-    lastActiveAt:new Date(),
-    isActive:    true,
-  });
-  return session._id.toString();
+  return getOrCreateSession('masa-bayu');
 }

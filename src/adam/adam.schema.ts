@@ -14,6 +14,7 @@ import type {
   AlamtologiAcademicJournal,
   SuccessionRecord,
   ADAMAuditReport,
+  ADAMTeachingUpload,
 } from './adam.types';
 
 // ─── Sub-schemas ─────────────────────────────────────────────
@@ -288,4 +289,194 @@ ADAMAuditSchema.index({ judgment: 1, auditedAt: -1 });
 export const ADAMAuditModel = mongoose.model<ADAMAuditDocument>(
   'ADAMAudit',
   ADAMAuditSchema,
+);
+
+// ─── Teaching Upload (Founder files for ADAM) ─────────────────
+
+export interface ADAMTeachingUploadDocument
+  extends Document, Omit<ADAMTeachingUpload, 'id'> {
+  uploadId: string;
+}
+
+const ADAMTeachingUploadSchema = new Schema<ADAMTeachingUploadDocument>({
+  uploadId:      { type: String, required: true, unique: true, index: true },
+  sessionId:     { type: String, index: true },
+  fileName:      { type: String, required: true },
+  mimeType:      { type: String, required: true },
+  sizeBytes:     { type: Number, required: true },
+  extractedText: { type: String, required: true },
+  textTruncated: { type: Boolean, default: false },
+  storagePath:   { type: String, required: true },
+  uploadedAt:    { type: Date, default: Date.now },
+}, {
+  timestamps: true,
+  collection: 'adam_teaching_uploads',
+});
+
+ADAMTeachingUploadSchema.index({ uploadedAt: -1 });
+
+export const ADAMTeachingUploadModel = mongoose.model<ADAMTeachingUploadDocument>(
+  'ADAMTeachingUpload',
+  ADAMTeachingUploadSchema,
+);
+
+// ─── ADAM Knowledge Base (R2-backed documents) ─────────────────
+
+export interface ADAMKnowledgeDocument extends Document {
+  documentId:  string;
+  filename:    string;
+  fileType:    string;
+  fileSize:    number;
+  r2Key:       string;
+  category:    string;
+  description: string;
+  k24Address:  string;
+  uploadedBy:  string;
+  uploadedAt:  Date;
+}
+
+const ADAMKnowledgeSchema = new Schema<ADAMKnowledgeDocument>({
+  documentId:  { type: String, required: true, unique: true },
+  filename:    { type: String, required: true },
+  fileType:    { type: String, required: true },
+  fileSize:    { type: Number, required: true },
+  r2Key:       { type: String, required: true },
+  category:    { type: String, default: 'GENERAL' },
+  description: { type: String, default: '' },
+  k24Address:  { type: String, required: true },
+  uploadedBy:  { type: String, default: 'masa-bayu' },
+  uploadedAt:  { type: Date, default: Date.now },
+}, {
+  timestamps: true,
+  collection: 'adam_knowledge',
+});
+
+ADAMKnowledgeSchema.index({ uploadedAt: -1 });
+ADAMKnowledgeSchema.index({ category: 1 });
+ADAMKnowledgeSchema.index({ k24Address: 1 }, { unique: true });
+
+export const ADAMKnowledgeModel = mongoose.model<ADAMKnowledgeDocument>(
+  'adam_knowledge',
+  ADAMKnowledgeSchema,
+);
+
+// ─── Persistent ADAM Chat (founder session + message history) ───
+
+export interface ADAMMessageDocument extends Document {
+  sessionId:    string;
+  founderId:    string;
+  speakerId:    string;
+  speakerName:  string;
+  sessionType:  'founder' | 'student' | 'group';
+  role:         'founder' | 'student' | 'adam';
+  content:      string;
+  mode:         string;
+  judgment:     string | null;
+  k24Address:   string | null;
+  kernel:       string;
+  era:          string;
+  isVerified:   boolean;
+  needsConsult:   boolean;
+  isFounderRelay: boolean;
+  createdAt:      Date;
+  updatedAt:      Date;
+}
+
+const ADAMMessageSchema = new Schema<ADAMMessageDocument>({
+  sessionId:    { type: String, required: true, index: true },
+  founderId:    { type: String, required: true, default: 'masa-bayu', index: true },
+  speakerId:    { type: String, required: true, default: 'masa-bayu', index: true },
+  speakerName:  { type: String, default: '' },
+  sessionType:  { type: String, enum: ['founder', 'student', 'group'], default: 'founder', index: true },
+  role:         { type: String, enum: ['founder', 'student', 'adam'], required: true },
+  content:      { type: String, required: true },
+  mode:         { type: String, default: 'TEACHING' },
+  judgment:     { type: String, default: null },
+  k24Address:   { type: String, default: null },
+  kernel:       { type: String, default: 'QXK24' },
+  era:          { type: String, default: 'ERA_1' },
+  isVerified:   { type: Boolean, default: false },
+  needsConsult:   { type: Boolean, default: false },
+  isFounderRelay: { type: Boolean, default: false },
+}, {
+  timestamps: true,
+  collection: 'adam_messages',
+});
+
+ADAMMessageSchema.index({ sessionId: 1, createdAt: 1 });
+ADAMMessageSchema.index({ needsConsult: 1, createdAt: -1 });
+
+export const ADAMMessageModel = mongoose.model<ADAMMessageDocument>(
+  'ADAMMessage',
+  ADAMMessageSchema,
+);
+
+export interface ADAMFounderSessionDocument extends Document {
+  sessionId:    string;
+  founderId:    string;
+  sessionType:  'founder' | 'student' | 'group';
+  kernel:       string;
+  era:          string;
+  active:       boolean;
+  lastActiveAt: Date;
+  messageCount: number;
+  createdAt:    Date;
+  updatedAt:    Date;
+}
+
+const ADAMFounderSessionSchema = new Schema<ADAMFounderSessionDocument>({
+  sessionId:    { type: String, required: true, unique: true },
+  founderId:    { type: String, required: true, default: 'masa-bayu', index: true },
+  sessionType:  { type: String, enum: ['founder', 'student', 'group'], default: 'founder', index: true },
+  kernel:       { type: String, default: 'QXK24' },
+  era:          { type: String, default: 'ERA_1' },
+  active:       { type: Boolean, default: true },
+  lastActiveAt: { type: Date, default: Date.now },
+  messageCount: { type: Number, default: 0 },
+}, {
+  timestamps: true,
+  collection: 'adam_founder_sessions',
+});
+
+ADAMFounderSessionSchema.index({ founderId: 1, sessionType: 1, active: 1, createdAt: 1 });
+
+export const ADAMFounderSessionModel = mongoose.model<ADAMFounderSessionDocument>(
+  'ADAMFounderSession',
+  ADAMFounderSessionSchema,
+);
+
+// ─── Founder consult flags (from student questions) ───────────
+
+export interface ADAMConsultDocument extends Document {
+  consultId:       string;
+  studentId:       string;
+  studentName:     string;
+  sessionId:       string;
+  sessionType:     'student' | 'group';
+  studentMessage:  string;
+  adamSummary:     string;
+  status:          'pending' | 'resolved';
+  resolvedAt?:     Date;
+  createdAt:       Date;
+  updatedAt:       Date;
+}
+
+const ADAMConsultSchema = new Schema<ADAMConsultDocument>({
+  consultId:      { type: String, required: true, unique: true },
+  studentId:      { type: String, required: true, index: true },
+  studentName:    { type: String, required: true },
+  sessionId:      { type: String, required: true },
+  sessionType:    { type: String, enum: ['student', 'group'], required: true },
+  studentMessage: { type: String, required: true },
+  adamSummary:    { type: String, default: '' },
+  status:         { type: String, enum: ['pending', 'resolved'], default: 'pending', index: true },
+  resolvedAt:     { type: Date },
+}, {
+  timestamps: true,
+  collection: 'adam_consults',
+});
+
+export const ADAMConsultModel = mongoose.model<ADAMConsultDocument>(
+  'ADAMConsult',
+  ADAMConsultSchema,
 );

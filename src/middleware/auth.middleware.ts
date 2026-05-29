@@ -20,12 +20,27 @@ import { verify } from 'jsonwebtoken';
 import { ENV } from '../config/environments';
 
 export interface QXK24TokenPayload {
-  userId: string;
-  role: string;
+  userId:    string;
+  role:      string;
+  name?:     string;
   isFounder?: boolean;
   appSource?: string;
-  iat?: number;
-  exp?: number;
+  iat?:      number;
+  exp?:      number;
+}
+
+export function getTokenUser(c: Context): QXK24TokenPayload | null {
+  return c.get('qxk24User') as QXK24TokenPayload | undefined ?? null;
+}
+
+export function isFounderPayload(user: QXK24TokenPayload | null): boolean {
+  if (!user) return false;
+  return user.role === 'founder' || user.isFounder === true;
+}
+
+export function isStudentPayload(user: QXK24TokenPayload | null): boolean {
+  if (!user) return false;
+  return user.role === 'student' && !user.isFounder;
 }
 
 // ── Standard JWT Auth ─────────────────────────────────────
@@ -93,6 +108,66 @@ export async function requireFounder(
   }
 
   await next();
+}
+
+// ── ADAM participant (Founder or Alamtologi student) ───────
+export async function requireAdamUser(
+  c: Context,
+  next: Next,
+): Promise<Response | void> {
+  const authHeader = c.req.header('Authorization');
+
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({
+      success: false,
+      error:   'Authorization token required.',
+      kernel:  'QXK24',
+    }, 401);
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = verify(token, ENV.JWT_SECRET) as QXK24TokenPayload;
+    if (decoded.role !== 'founder' && decoded.role !== 'student') {
+      return c.json({
+        success: false,
+        error:   'ADAM access required.',
+        kernel:  'QXK24',
+      }, 403);
+    }
+    c.set('qxk24User', decoded);
+    await next();
+  } catch {
+    return c.json({
+      success: false,
+      error:   'Invalid or expired token.',
+      kernel:  'QXK24',
+    }, 401);
+  }
+}
+
+// ── Student only ───────────────────────────────────────────
+export async function requireStudent(
+  c: Context,
+  next: Next,
+): Promise<Response | void> {
+  const authHeader = c.req.header('Authorization');
+
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({ success: false, error: 'Authorization required.', kernel: 'QXK24' }, 401);
+  }
+
+  try {
+    const decoded = verify(authHeader.split(' ')[1], ENV.JWT_SECRET) as QXK24TokenPayload;
+    if (decoded.role !== 'student' || decoded.isFounder) {
+      return c.json({ success: false, error: 'Student access required.', kernel: 'QXK24' }, 403);
+    }
+    c.set('qxk24User', decoded);
+    await next();
+  } catch {
+    return c.json({ success: false, error: 'Invalid or expired token.', kernel: 'QXK24' }, 401);
+  }
 }
 
 // ── Service Token Guard ───────────────────────────────────

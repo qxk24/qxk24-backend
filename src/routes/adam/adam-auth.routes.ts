@@ -20,6 +20,8 @@ import { sign, verify } from 'jsonwebtoken';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { ENV } from '../../config/environments';
+import { requireFounder } from '../../middleware/auth.middleware';
+import { getOrCreateSession } from '../../adam/adam-chat.service';
 
 const router = new Hono();
 
@@ -68,6 +70,19 @@ router.post('/login', zValidator('json', LoginSchema), async (c) => {
   });
 });
 
+// GET /api/adam/auth/session — persistent founder session
+router.get('/session', requireFounder, async (c) => {
+  const sessionId = await getOrCreateSession('masa-bayu');
+  return c.json({
+    success:   true,
+    sessionId,
+    kernel:    'QXK24',
+    version:   ENV.QXK24_KERNEL_VERSION,
+    era:       ENV.QXK24_ERA,
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // POST /api/adam/auth/verify
 router.post('/verify', async (c) => {
   const bearer = c.req.header('Authorization')?.split(' ')[1];
@@ -77,24 +92,28 @@ router.post('/verify', async (c) => {
 
   try {
     const decoded = verify(bearer, ENV.JWT_SECRET) as {
-      name?: string;
+      userId?:  string;
+      name?:   string;
       kernel?: string;
-      era?: string;
-      role?: string;
+      era?:    string;
+      role?:   string;
       isFounder?: boolean;
     };
 
-    const isFounder =
-      decoded.role === 'founder' || decoded.isFounder === true;
+    const isFounder = decoded.role === 'founder' || decoded.isFounder === true;
+    const isStudent = decoded.role === 'student';
 
-    if (!isFounder) {
+    if (!isFounder && !isStudent) {
       return c.json({ success: false, valid: false }, 401);
     }
 
     return c.json({
       success: true,
       valid:   true,
-      founder: decoded.name ?? 'Masa Bayu',
+      role:    decoded.role,
+      userId:  decoded.userId,
+      name:    decoded.name ?? (isFounder ? 'Masa Bayu' : decoded.userId),
+      founder: isFounder ? (decoded.name ?? 'Masa Bayu') : undefined,
       kernel:  decoded.kernel ?? ENV.QXK24_KERNEL_VERSION,
       era:     decoded.era ?? ENV.QXK24_ERA,
     });

@@ -108,7 +108,7 @@ export async function runADAMAudit(req: ADAMAuditRequest): Promise<ADAMAuditRepo
 
   try {
     const response = await client.messages.create({
-      model:      ENV.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
+      model:      ENV.ANTHROPIC_MODEL_DEEP,
       max_tokens: 2048,
       messages:   [{ role: 'user', content: buildAuditPrompt(req.targetType, req.stage, targetData, req.context) }],
     });

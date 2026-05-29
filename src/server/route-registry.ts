@@ -22,6 +22,11 @@ import adamChatRoutes from '../routes/adam/adam-chat.routes';
 import adamDeterminationRoutes from '../routes/adam/adam-determination.routes';
 import adamJournalRoutes from '../routes/adam/adam-journal.routes';
 import adamSuccessionRoutes from '../routes/adam/adam-succession.routes';
+import adamUploadRoutes from '../routes/adam/adam-upload.routes';
+import adamKnowledgeRoutes from '../routes/adam/adam-knowledge.routes';
+import { qxk24BrainRoutes } from '../qxk24brain/qxk24brain.routes';
+import adamStudentRoutes from '../routes/adam/adam-student.routes';
+import adamConsultRoutes from '../routes/adam/adam-consult.routes';
 import { ENV } from '../config/environments';
 
 export function registerRoutes(app: Hono): void {
@@ -43,6 +48,11 @@ export function registerRoutes(app: Hono): void {
   app.route('/api/constitutional', constitutionalRoutes);
   app.route('/api/adam/auth',          adamAuthRoutes);
   app.route('/api/adam/chat',          adamChatRoutes);
+  app.route('/api/adam/upload',        adamUploadRoutes);
+  app.route('/api/adam/knowledge',     adamKnowledgeRoutes);
+  app.route('/api/adam/brain',         qxk24BrainRoutes);
+  app.route('/api/adam/student',       adamStudentRoutes);
+  app.route('/api/adam/consults',      adamConsultRoutes);
   app.route('/api/adam/determination', adamDeterminationRoutes);
   app.route('/api/adam/journal',       adamJournalRoutes);
   app.route('/api/adam/succession',    adamSuccessionRoutes);
@@ -62,6 +72,13 @@ export function registerRoutes(app: Hono): void {
   console.log('  *    /api/constitutional');
   console.log('  *    /api/adam/auth');
   console.log('  *    /api/adam/chat');
+  console.log('  GET  /api/adam/chat/history/:sessionId');
+  console.log('  GET  /api/adam/auth/session');
+  console.log('  POST /api/adam/upload');
+  console.log('  *    /api/adam/knowledge');
+  console.log('  *    /api/adam/brain');
+  console.log('  *    /api/adam/student');
+  console.log('  *    /api/adam/consults');
   console.log('  *    /api/adam/determination');
   console.log('  *    /api/adam/journal');
   console.log('  *    /api/adam/succession');

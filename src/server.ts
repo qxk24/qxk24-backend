@@ -23,6 +23,7 @@ import { serve } from '@hono/node-server';
 
 import { ENV } from './config/environments';
 import { connectDatabase } from './config/database';
+import { uploadBodyLimit } from './middleware/upload-limit.middleware';
 import { registerRoutes } from './server/route-registry';
 
 const app = new Hono();
@@ -50,6 +51,9 @@ app.use('*', cors({
 
 // ── Logger ────────────────────────────────────────────────
 app.use('*', logger());
+
+// ── Upload / body size limit (default 30MB) ───────────────
+app.use('*', uploadBodyLimit);
 
 // ── Constitutional Response Headers ───────────────────────
 app.use('*', async (c, next) => {
@@ -86,6 +90,7 @@ async function bootstrap(): Promise<void> {
       console.log(`║  Kernel  : ${ENV.QXK24_KERNEL_VERSION}                        ║`);
       console.log(`║  Era     : ${ENV.QXK24_ERA}                          ║`);
       console.log(`║  Port    : ${ENV.PORT}                              ║`);
+      console.log(`║  Upload  : ${ENV.UPLOAD_MAX_FILE_MB}MB max body              ║`);
       console.log(`║  Env     : ${ENV.NODE_ENV}                   ║`);
       console.log('║  Domain  : api.qxk24.com                    ║');
       console.log('╚══════════════════════════════════════════════╝');

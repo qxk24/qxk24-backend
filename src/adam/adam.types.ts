@@ -122,7 +122,7 @@ export interface JudgmentCriteria {
 }
 
 // ─── Chat Types ───────────────────────────────────────────────
-export type ADAMChatRole = 'founder' | 'adam';
+export type ADAMChatRole = 'founder' | 'student' | 'adam';
 
 export type ADAMChatMode =
   | 'TEACHING'
@@ -360,10 +360,32 @@ export interface ADAMAuditReport {
   auditedAt:   Date;
 }
 
+// ─── Teaching Upload (Founder data for ADAM) ─────────────────
+export interface ADAMTeachingUpload {
+  id:            string;
+  sessionId?:    string;
+  fileName:      string;
+  mimeType:      string;
+  sizeBytes:     number;
+  extractedText: string;
+  textTruncated: boolean;
+  storagePath:   string;
+  uploadedAt:    Date;
+}
+
+export const ADAM_TEACHING_ALLOWED_EXTENSIONS = [
+  '.txt', '.md', '.markdown', '.csv', '.json',
+  '.xml', '.log', '.yaml', '.yml', '.html', '.htm',
+  '.pdf', '.doc', '.docx',
+  '.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif',
+] as const;
+
 // ─── SSE Event Types ──────────────────────────────────────────
 export type SSEEventType =
   | 'adam_thinking'
   | 'adam_chunk'
+  | 'adam_searching'
+  | 'adam_search_done'
   | 'adam_judgment'
   | 'adam_complete'
   | 'adam_waqf'
