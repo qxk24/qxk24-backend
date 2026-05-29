@@ -70,6 +70,15 @@ export const r2StorageService = {
     return key;
   },
 
+  async uploadString(
+    key: string,
+    body: string,
+    contentType = 'text/plain',
+    metadata?: Record<string, string>,
+  ): Promise<string> {
+    return this.uploadFile(key, Buffer.from(body, 'utf8'), contentType, metadata);
+  },
+
   async deleteFile(key: string): Promise<void> {
     await getClient().send(new DeleteObjectCommand({
       Bucket: ENV.R2_BUCKET_NAME,

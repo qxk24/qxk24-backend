@@ -27,6 +27,7 @@ import adamKnowledgeRoutes from '../routes/adam/adam-knowledge.routes';
 import { qxk24BrainRoutes } from '../qxk24brain/qxk24brain.routes';
 import adamStudentRoutes from '../routes/adam/adam-student.routes';
 import adamConsultRoutes from '../routes/adam/adam-consult.routes';
+import adamWorkspaceRoutes from '../routes/adam/adam-workspace.routes';
 import { ENV } from '../config/environments';
 
 export function registerRoutes(app: Hono): void {
@@ -56,6 +57,7 @@ export function registerRoutes(app: Hono): void {
   app.route('/api/adam/determination', adamDeterminationRoutes);
   app.route('/api/adam/journal',       adamJournalRoutes);
   app.route('/api/adam/succession',    adamSuccessionRoutes);
+  app.route('/api/workspaces',         adamWorkspaceRoutes);
 
   // ── 404 Fallback ─────────────────────────────────────
   app.notFound((c) => {
@@ -82,4 +84,5 @@ export function registerRoutes(app: Hono): void {
   console.log('  *    /api/adam/determination');
   console.log('  *    /api/adam/journal');
   console.log('  *    /api/adam/succession');
+  console.log('  *    /api/workspaces');
 }

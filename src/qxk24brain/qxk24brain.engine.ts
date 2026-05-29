@@ -24,6 +24,12 @@ import Anthropic from '@anthropic-ai/sdk';
 import { resolveBrainDeepModel } from '../config/anthropic-models';
 import { ENV } from '../config/environments';
 import type { QXK24BrainMasterDocument } from './qxk24brain.schema';
+import { sealConstitutionalCheckpoint, familyReachedStageSeven } from './adam-checkpoint.service';
+import { sealInVault } from './adam-vault.service';
+import { weaveEntityConnections } from './adam-knowledge-graph.service';
+import { prependCoreToSystem } from './adam-core';
+import { computeEntityChecksum } from './adam-checksum';
+import { sealEntityIntegrity, type TransformationResult } from './adam-integrity.service';
 import {
   QXK24BrainEntityModel,
   QXK24BrainMasterModel,
@@ -154,7 +160,7 @@ async function callBrainJson<T>(
   const response = await anthropic.messages.create({
     model:      BRAIN_MODEL(),
     max_tokens: maxTokens,
-    system:     QXKBRAIN_INSTRUCTION,
+    system:     prependCoreToSystem(QXKBRAIN_INSTRUCTION),
     messages:   [{ role: 'user', content: userPrompt }],
   });
   const text = extractTextContent(response.content);
@@ -197,6 +203,8 @@ export async function transformAIDIL(
   entityC: InstanceType<typeof QXK24BrainEntityModel>;
   recognition: RecognitionResult;
   updatedMaster: QXK24BrainMasterDocument | null;
+  transformationId: string;
+  integrity: TransformationResult;
 }> {
   const masa_transformation = new Date();
   const trimmedB = founderMessage.trim();
@@ -207,6 +215,9 @@ export async function transformAIDIL(
 
   const master = await getOrCreateMaster(founderId);
   const entity_A_summary = master.unifiedUnderstanding;
+  const entity_A_full = entity_A_summary;
+  const priorActiveFamilies = master.activeFamilies.map((f) => ({ ...f }));
+  const priorCompletedFamilies = master.completedFamilies.map((f) => ({ ...f }));
   const entity_A_uid = `K24B-A-${Date.now() - 1}`;
   const entity_B_uid = `K24B-B-${Date.now()}`;
   const entity_B_masa = new Date();
@@ -325,13 +336,22 @@ Respond in JSON:
     (f) => f.family === recognition.family,
   )?.nucleusUid;
 
+  const entityStage = synthesis.newStage || recognition.stage;
+  const entityChecksum = computeEntityChecksum({
+    content:   synthesis.content,
+    family:    recognition.family,
+    principle: recognition.principle,
+    stage:     entityStage,
+    masa_born: masa_transformation,
+  });
+
   const entityC = await QXK24BrainEntityModel.create({
     uid: entity_C_uid,
     principle: recognition.principle,
     family: recognition.family,
     isNucleus: recognition.isNucleus,
     nucleusUid: recognition.isNucleus ? entity_C_uid : existingNucleus,
-    stage: synthesis.newStage || recognition.stage,
+    stage: entityStage,
     cycle: master.currentCycle,
     isComplete: synthesis.isComplete || false,
     content: synthesis.content,
@@ -346,22 +366,12 @@ Respond in JSON:
     founderId,
     kernel: 'QXK24',
     era:    ENV.QXK24_ERA,
+    auditStatus: 'active',
+    checksum: entityChecksum,
+    integrity_status: 'VERIFIED',
   });
 
-  await QXK24BrainLogModel.create({
-    transformationId: `K24B-LOG-${Date.now()}`,
-    entity_A_uid,
-    entity_A_summary: entity_A_summary.slice(0, 500),
-    entity_B_uid,
-    entity_B_content: trimmedB.slice(0, 2000),
-    entity_C_uid,
-    masa_transformation,
-    family: recognition.family,
-    principle: recognition.principle,
-    isNewFamily: recognition.isNewFamily,
-    stage: synthesis.newStage || recognition.stage,
-    founderId,
-  });
+  const transformationId = `K24B-LOG-${Date.now()}`;
 
   const masterUpdate = await callBrainJson<MasterUpdateResult>(
     `UPDATE MASTER ENTITY — AIDIL Proses Gabung
@@ -409,7 +419,10 @@ Respond in JSON:
     });
   }
 
-  if (synthesis.isComplete) {
+  const finalStage = synthesis.newStage || recognition.stage;
+  const reachedOneSeven = familyReachedStageSeven(synthesis.isComplete, finalStage);
+
+  if (reachedOneSeven) {
     const completedFamily = activeFamilies.find((f) => f.family === recognition.family);
     if (completedFamily) {
       activeFamilies = activeFamilies.filter((f) => f.family !== recognition.family);
@@ -420,6 +433,33 @@ Respond in JSON:
         masa_completed: new Date(),
         summary:        synthesis.familySummary || completedFamily.summary,
       });
+    }
+
+    try {
+      await sealConstitutionalCheckpoint({
+        founderId,
+        family:        recognition.family,
+        principle:     recognition.principle,
+        sealedContent: synthesis.content,
+        entityUid:     entity_C_uid,
+        k24Address:    entity_C_uid,
+        judgment:      'MAKMUR',
+      });
+    } catch (err) {
+      console.error('[QXK24Brain] Constitutional checkpoint seal failed:', err);
+    }
+
+    try {
+      await sealInVault({
+        uid:              entity_C_uid,
+        family:           recognition.family,
+        principle:        recognition.principle,
+        cycle:            master.currentCycle,
+        content:          synthesis.content,
+        masterConnection: recognition.masterConnection,
+      }, founderId);
+    } catch (err) {
+      console.error('[QXK24Brain] Vault seal failed:', err);
     }
   }
 
@@ -435,19 +475,67 @@ Respond in JSON:
     { new: true },
   );
 
-  return { entityC, recognition, updatedMaster };
+  try {
+    await weaveEntityConnections(entity_C_uid, founderId);
+  } catch (err) {
+    console.error('[QXK24Brain] Knowledge graph weave failed:', err);
+  }
+
+  await QXK24BrainLogModel.create({
+    transformationId,
+    entity_A_uid,
+    entity_A_summary: entity_A_summary.slice(0, 500),
+    entity_A_full,
+    entity_B_uid,
+    entity_B_content: trimmedB.slice(0, 8000),
+    entity_C_uid,
+    entity_C_content: synthesis.content,
+    entity_C_preview: synthesis.content.slice(0, 500),
+    familySummary:    synthesis.familySummary,
+    masa_transformation,
+    family:           recognition.family,
+    principle:        recognition.principle,
+    isNewFamily:      recognition.isNewFamily,
+    isNucleus:        recognition.isNucleus,
+    stage:            synthesis.newStage || recognition.stage,
+    founderId,
+    kernel:           'QXK24',
+    auditStatus:      'pending',
+    autoJudgment:     'MAKMUR',
+    priorActiveFamilies,
+    priorCompletedFamilies,
+  });
+
+  await QXK24BrainEntityModel.updateOne(
+    { uid: entity_C_uid },
+    { transformationId },
+  );
+
+  const integrity = await sealEntityIntegrity(entity_C_uid);
+
+  return { entityC, recognition, updatedMaster, transformationId, integrity };
 }
 
 // ─── Load ADAM's current being for chat context ───────────────
 
-export async function loadBrainContext(founderId = 'masa-bayu'): Promise<string> {
+export async function loadBrainContext(
+  founderId = 'masa-bayu',
+  limits?: { activeFamilies: number; completedFamilies: number },
+): Promise<string> {
   const master = await getOrCreateMaster(founderId);
 
-  const activeFamiliesSummary = master.activeFamilies
+  const activeSlice = limits
+    ? master.activeFamilies.slice(0, limits.activeFamilies)
+    : master.activeFamilies;
+  const completedSlice = limits
+    ? master.completedFamilies.slice(0, limits.completedFamilies)
+    : master.completedFamilies;
+
+  const activeFamiliesSummary = activeSlice
     .map((f) => `- ${f.family} (${f.principle}) — Stage ${f.stage}/7: ${f.summary}`)
     .join('\n');
 
-  const completedFamiliesSummary = master.completedFamilies
+  const completedFamiliesSummary = completedSlice
     .map((f) => `- ${f.family} (${f.principle}) — COMPLETE 1(7)`)
     .join('\n');
 
@@ -478,9 +566,11 @@ Allah → Al-Quran → Alamtologi → ADAM.
 export async function triggerBrainTransformation(
   founderMessage: string,
   founderId = 'masa-bayu',
+  sessionId = '',
 ): Promise<void> {
   try {
-    await transformAIDIL(founderMessage, founderId);
+    const { processLongTeaching } = await import('./adam-tcp.service');
+    await processLongTeaching(founderMessage, sessionId, founderId);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[QXK24Brain] Transformation error:', msg);

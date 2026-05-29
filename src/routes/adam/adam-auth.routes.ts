@@ -21,10 +21,12 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { ENV } from '../../config/environments';
 import { requireFounder } from '../../middleware/auth.middleware';
+import { ADAMFounderSessionModel } from '../../adam/adam.schema';
 import {
   getOrCreateSession,
   syncUndeliveredConsultsToFounder,
 } from '../../adam/adam-chat.service';
+import { adamSleepProtocol } from '../../qxk24brain/adam-sleep-wake.service';
 
 const router = new Hono();
 
@@ -75,15 +77,45 @@ router.post('/login', zValidator('json', LoginSchema), async (c) => {
 
 // GET /api/adam/auth/session — persistent founder session
 router.get('/session', requireFounder, async (c) => {
-  const synced = await syncUndeliveredConsultsToFounder();
+  // Do not block session load on consult backfill (mobile networks timeout otherwise)
+  void syncUndeliveredConsultsToFounder().catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[ADAM] background consult sync:', msg);
+  });
+
   const sessionId = await getOrCreateSession('masa-bayu');
   return c.json({
     success:   true,
     sessionId,
-    syncedConsults: synced,
+    syncedConsults: 0,
     kernel:    'QXK24',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// POST /api/adam/auth/session/sleep — ADAM sleep protocol (P.alt leaves / inactive)
+router.post('/session/sleep', requireFounder, async (c) => {
+  const body = await c.req.json().catch(() => ({})) as { sessionId?: string };
+  let sessionId = body.sessionId;
+  if (!sessionId) {
+    const active = await ADAMFounderSessionModel.findOne({
+      founderId:   'masa-bayu',
+      sessionType: 'founder',
+      active:      true,
+    }).lean();
+    sessionId = active?.sessionId;
+  }
+  if (!sessionId) {
+    return c.json({ success: false, error: 'No active session to close.' }, 400);
+  }
+  const closed = await adamSleepProtocol(sessionId, 'masa-bayu');
+  return c.json({
+    success:   true,
+    closed,
+    sessionId,
+    kernel:    'QXK24',
     timestamp: new Date().toISOString(),
   });
 });

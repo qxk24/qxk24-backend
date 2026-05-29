@@ -38,7 +38,7 @@ const router = new Hono();
 
 const ChatSchema = z.object({
   sessionId:  z.string().optional(),
-  message:    z.string().max(10000).optional(),
+  message:    z.string().max(100_000).optional(),
   uploadIds:  z.array(z.string().min(1)).max(5).optional(),
   mode:       z.enum(['TEACHING', 'QUESTIONING', 'AUDIT', 'CONSTITUTIONAL', 'JOURNAL_GEN']),
   title:      z.string().max(120).optional(),

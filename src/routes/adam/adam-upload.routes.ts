@@ -14,19 +14,24 @@
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
- * POST /api/adam/upload        — Founder uploads teaching file (max 30MB)
+ * POST /api/adam/upload        — Founder or student upload (max 30MB)
  * GET  /api/adam/upload/:id    — Upload metadata (no raw file download)
  */
 
 import { Hono } from 'hono';
-import { requireFounder } from '../../middleware/auth.middleware';
+import {
+  getTokenUser,
+  requireAdamUser,
+} from '../../middleware/auth.middleware';
 import {
   assertFileWithinLimit,
   UPLOAD_MAX_MB,
 } from '../../middleware/upload-limit.middleware';
 import { getMultipartUploadFile } from '../../adam/adam-file-extract.service';
 import {
+  canAccessTeachingUpload,
   getTeachingUpload,
+  resolveFounderUploaderId,
   saveTeachingUpload,
 } from '../../adam/adam-upload.service';
 import { ENV } from '../../config/environments';
@@ -35,8 +40,12 @@ import type { ADAMApiResponse, ADAMTeachingUpload } from '../../adam/adam.types'
 const router = new Hono();
 
 // POST /api/adam/upload
-router.post('/', requireFounder, async (c) => {
+router.post('/', requireAdamUser, async (c) => {
   try {
+    const user = getTokenUser(c)!;
+    const isFounder = user.role === 'founder' || user.isFounder;
+    const uploaderRole: 'founder' | 'student' = isFounder ? 'founder' : 'student';
+
     const body = await c.req.parseBody();
     const rawFile = getMultipartUploadFile(body as Record<string, unknown>, 'file');
 
@@ -63,7 +72,16 @@ router.post('/', requireFounder, async (c) => {
         ? body['sessionId'].trim()
         : undefined;
 
-    const upload = await saveTeachingUpload(rawFile, sessionId);
+    const uploadedBy = isFounder
+      ? resolveFounderUploaderId(user.userId)
+      : user.userId;
+
+    const upload = await saveTeachingUpload(rawFile, {
+      sessionId,
+      uploadedBy,
+      uploaderRole,
+      uploaderName: user.name ?? user.userId,
+    });
 
     const response: ADAMApiResponse<{
       upload: Pick<
@@ -103,7 +121,8 @@ router.post('/', requireFounder, async (c) => {
 });
 
 // GET /api/adam/upload/:id
-router.get('/:id', requireFounder, async (c) => {
+router.get('/:id', requireAdamUser, async (c) => {
+  const user = getTokenUser(c)!;
   const id = c.req.param('id')!;
   const upload = await getTeachingUpload(id);
 
@@ -113,6 +132,17 @@ router.get('/:id', requireFounder, async (c) => {
       error:   'Upload not found.',
       kernel:  'QXK24',
     }, 404);
+  }
+
+  const requesterRole: 'founder' | 'student' =
+    user.role === 'founder' || user.isFounder ? 'founder' : 'student';
+
+  if (!canAccessTeachingUpload(upload, { userId: user.userId, role: requesterRole })) {
+    return c.json({
+      success: false,
+      error:   'Access denied.',
+      kernel:  'QXK24',
+    }, 403);
   }
 
   return c.json({

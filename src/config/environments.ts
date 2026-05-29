@@ -57,6 +57,14 @@ function optionalInt(key: string, fallback: number): number {
 
 const UPLOAD_MAX_FILE_MB = optionalInt('UPLOAD_MAX_FILE_MB', 30);
 const UPLOAD_MAX_EXTRACT_CHARS = optionalInt('UPLOAD_MAX_EXTRACT_CHARS', 120000);
+/** Max characters accepted in chat JSON (truncated server-side if longer) */
+const ADAM_MAX_MESSAGE_CHARS = optionalInt('ADAM_MAX_MESSAGE_CHARS', 80_000);
+/** Teaching/upload text injected into a single chat turn */
+const ADAM_CHAT_TEACHING_CHARS = optionalInt('ADAM_CHAT_TEACHING_CHARS', 48_000);
+/** QXK24Brain summary in chat context */
+const ADAM_CHAT_BRAIN_CHARS = optionalInt('ADAM_CHAT_BRAIN_CHARS', 24_000);
+/** Each prior message in history */
+const ADAM_CHAT_HISTORY_MSG_CHARS = optionalInt('ADAM_CHAT_HISTORY_MSG_CHARS', 4_000);
 
 export const ENV = {
   // Server
@@ -69,6 +77,7 @@ export const ENV = {
     'MONGODB_URI',
     'mongodb://localhost:27017/qxk24'
   ),
+  REDIS_URL: optional('REDIS_URL', ''),
 
   // JWT
   JWT_SECRET:     required('JWT_SECRET', 'qxk24_dev_secret_change_in_prod'),
@@ -101,6 +110,10 @@ export const ENV = {
   UPLOAD_MAX_FILE_MB,
   UPLOAD_MAX_FILE_BYTES: UPLOAD_MAX_FILE_MB * 1024 * 1024,
   UPLOAD_MAX_EXTRACT_CHARS,
+  ADAM_MAX_MESSAGE_CHARS,
+  ADAM_CHAT_TEACHING_CHARS,
+  ADAM_CHAT_BRAIN_CHARS,
+  ADAM_CHAT_HISTORY_MSG_CHARS,
   ADAM_UPLOAD_DIR: optional('ADAM_UPLOAD_DIR', 'uploads/adam'),
 
   // Cloudflare R2 (ADAM knowledge base)

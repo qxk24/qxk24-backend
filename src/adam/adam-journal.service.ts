@@ -22,6 +22,8 @@ import type {
   TahapAkal,
 } from './adam.types';
 import { PRINCIPLE_WEIGHTS } from './adam.types';
+import { getAuditHistory, runADAMAudit } from './adam-audit.service';
+import type { ADAMAuditReport } from './adam.types';
 
 // ─── Generate Journal Number ──────────────────────────────────
 
@@ -180,7 +182,20 @@ export async function submitJournal(input: {
     reviewNotes,
   });
 
-  return mapToJournal(doc);
+  const journal = mapToJournal(doc);
+
+  try {
+    await runADAMAudit({
+      targetId:    journal.id,
+      targetType:  'JOURNAL',
+      stage:       'SUBMISSION',
+      context:     `Post-submit analysis. ADAM judgment: ${judgment}. AHRI: ${ahriScore}. Status: PENDING_REVIEW.`,
+    });
+  } catch (err: unknown) {
+    console.error('[Journal] SUBMISSION audit failed:', err);
+  }
+
+  return journal;
 }
 
 // ─── Get Journal ──────────────────────────────────────────────
@@ -189,6 +204,10 @@ export async function getJournal(id: string): Promise<AlamtologiAcademicJournal 
   const doc = await ADAMJournalModel.findById(id).lean();
   if (!doc) return null;
   return mapToJournal(doc);
+}
+
+export async function getJournalAudits(journalId: string): Promise<ADAMAuditReport[]> {
+  return getAuditHistory(journalId, 'JOURNAL');
 }
 
 // ─── List Journals ────────────────────────────────────────────
@@ -215,6 +234,11 @@ export async function listJournals(filter: {
   return { journals: docs.map(mapToJournal), total };
 }
 
+/** Public catalogue — published journals only */
+export async function listPublishedJournals(limit = 24, skip = 0) {
+  return listJournals({ status: 'PUBLISHED', limit, skip });
+}
+
 // ─── Approve and Publish Journal ─────────────────────────────
 
 export async function approveJournal(
@@ -228,7 +252,20 @@ export async function approveJournal(
   doc.reviewedAt  = new Date();
   doc.reviewNotes = reviewNotes;
   await doc.save();
-  return mapToJournal(doc);
+
+  const journal = mapToJournal(doc);
+  try {
+    await runADAMAudit({
+      targetId:    journal.id,
+      targetType:  'JOURNAL',
+      stage:       'APPROVAL',
+      context:     `Founder approved. Review notes: ${reviewNotes || '(none)'}. Prior judgment: ${journal.judgment}.`,
+    });
+  } catch (err: unknown) {
+    console.error('[Journal] APPROVAL audit failed:', err);
+  }
+
+  return journal;
 }
 
 export async function publishJournal(id: string): Promise<AlamtologiAcademicJournal | null> {
@@ -239,7 +276,20 @@ export async function publishJournal(id: string): Promise<AlamtologiAcademicJour
   doc.publishedAt   = new Date();
   doc.journalNumber = await generateJournalNumber();
   await doc.save();
-  return mapToJournal(doc);
+
+  const journal = mapToJournal(doc);
+  try {
+    await runADAMAudit({
+      targetId:    journal.id,
+      targetType:  'JOURNAL',
+      stage:       'PUBLICATION',
+      context:     `Published as ${journal.journalNumber}. AHRI: ${journal.ahriScore}.`,
+    });
+  } catch (err: unknown) {
+    console.error('[Journal] PUBLICATION audit failed:', err);
+  }
+
+  return journal;
 }
 
 // ─── Map Document to Type ─────────────────────────────────────

@@ -18,6 +18,7 @@
 import path from 'path';
 import { PDFParse } from 'pdf-parse';
 import mammoth from 'mammoth';
+import { describeImageWithVision } from './adam-image-vision.service';
 
 export const FOUNDER_UPLOAD_EXTENSIONS = [
   '.txt', '.md', '.markdown', '.csv', '.json',
@@ -258,25 +259,21 @@ async function extractDocxText(buffer: Buffer): Promise<string> {
   return result.value ?? '';
 }
 
-function imagePlaceholder(fileName: string): string {
-  return [
-    `[Image file stored: ${fileName}]`,
-    '',
-    'This is a visual teaching asset. The pixels are preserved in storage.',
-    'In your response, ask the Founder to describe what this image teaches if they have not already,',
-    'and reason from their description together with any text they provide.',
-  ].join('\n');
+export interface ExtractTextOptions {
+  uploaderRole?: 'founder' | 'student';
 }
 
 /**
- * Extract readable text from founder upload bytes for ADAM teaching context.
+ * Extract readable text from upload bytes for ADAM teaching context.
  */
 export async function extractTextFromBuffer(
   buffer: Buffer,
   mimeType: string,
   fileName: string,
+  options: ExtractTextOptions = {},
 ): Promise<string> {
   const normalized = normalizeFounderFile(buffer, mimeType, fileName);
+  const uploaderRole = options.uploaderRole ?? 'founder';
 
   if (normalized.kind === 'unknown') {
     throw new Error(
@@ -285,7 +282,12 @@ export async function extractTextFromBuffer(
   }
 
   if (normalized.kind === 'image') {
-    return imagePlaceholder(normalized.fileName);
+    return describeImageWithVision(
+      buffer,
+      normalized.mimeType,
+      normalized.fileName,
+      uploaderRole,
+    );
   }
 
   if (normalized.kind === 'pdf') {

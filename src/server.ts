@@ -25,11 +25,19 @@ import { ENV } from './config/environments';
 import { connectDatabase } from './config/database';
 import { uploadBodyLimit } from './middleware/upload-limit.middleware';
 import { registerRoutes } from './server/route-registry';
+import { startAdamReflectionScheduler } from './qxk24brain/adam-reflection-scheduler';
+import { startAdamAtomicRecoveryScheduler } from './qxk24brain/adam-atomic-recovery.scheduler';
+import { startAdamIntegrityScheduler } from './qxk24brain/adam-integrity-scheduler';
+import { startAdamRedundancyScheduler } from './qxk24brain/adam-redundancy.scheduler';
+import { connectConcurrencyRedis, disconnectConcurrencyRedis } from './qxk24brain/adam-concurrency.service';
 
 const app = new Hono();
 
 // ── Security Headers ──────────────────────────────────────
-app.use('*', secureHeaders());
+// cross-origin: allow qxk24.com → api.qxk24.com fetch (same-site but not same-origin)
+app.use('*', secureHeaders({
+  crossOriginResourcePolicy: 'cross-origin',
+}));
 
 // ── CORS ──────────────────────────────────────────────────
 const allowedOrigins = ENV.CORS_ORIGINS.split(',').map(o => o.trim());
@@ -41,12 +49,14 @@ app.use('*', cors({
   allowHeaders:  [
     'Content-Type',
     'Authorization',
+    'Cache-Control',
+    'Pragma',
     'X-App-Source',
     'X-QXK24-Kernel',
     'X-Request-ID',
     'X-Founder-Key',
-    'X-QMS-Token'
-  ]
+    'X-QMS-Token',
+  ],
 }));
 
 // ── Logger ────────────────────────────────────────────────
@@ -82,6 +92,11 @@ app.onError((err, c) => {
 async function bootstrap(): Promise<void> {
   try {
     await connectDatabase();
+    await connectConcurrencyRedis();
+    startAdamReflectionScheduler();
+    startAdamAtomicRecoveryScheduler();
+    startAdamIntegrityScheduler();
+    startAdamRedundancyScheduler();
 
     serve({ fetch: app.fetch, port: ENV.PORT }, () => {
       console.log('');
@@ -105,13 +120,15 @@ async function bootstrap(): Promise<void> {
 }
 
 // ── Graceful Shutdown ─────────────────────────────────────
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('[QXK24] SIGTERM — shutting down gracefully.');
+  await disconnectConcurrencyRedis();
   process.exit(0);
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('[QXK24] SIGINT — shutting down gracefully.');
+  await disconnectConcurrencyRedis();
   process.exit(0);
 });
 

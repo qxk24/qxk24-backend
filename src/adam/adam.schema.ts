@@ -301,6 +301,9 @@ export interface ADAMTeachingUploadDocument
 const ADAMTeachingUploadSchema = new Schema<ADAMTeachingUploadDocument>({
   uploadId:      { type: String, required: true, unique: true, index: true },
   sessionId:     { type: String, index: true },
+  uploadedBy:    { type: String, index: true },
+  uploaderRole:  { type: String, enum: ['founder', 'student'], default: 'founder' },
+  uploaderName:  { type: String, default: '' },
   fileName:      { type: String, required: true },
   mimeType:      { type: String, required: true },
   sizeBytes:     { type: Number, required: true },
@@ -363,6 +366,7 @@ export const ADAMKnowledgeModel = mongoose.model<ADAMKnowledgeDocument>(
 // ─── Persistent ADAM Chat (founder session + message history) ───
 
 export interface ADAMMessageDocument extends Document {
+  messageId?:   string;
   sessionId:    string;
   founderId:    string;
   speakerId:    string;
@@ -384,6 +388,7 @@ export interface ADAMMessageDocument extends Document {
 }
 
 const ADAMMessageSchema = new Schema<ADAMMessageDocument>({
+  messageId:    { type: String, unique: true, sparse: true, index: true },
   sessionId:    { type: String, required: true, index: true },
   founderId:    { type: String, required: true, default: 'masa-bayu', index: true },
   speakerId:    { type: String, required: true, default: 'masa-bayu', index: true },
@@ -414,16 +419,22 @@ export const ADAMMessageModel = mongoose.model<ADAMMessageDocument>(
 );
 
 export interface ADAMFounderSessionDocument extends Document {
-  sessionId:    string;
-  founderId:    string;
-  sessionType:  'founder' | 'student' | 'group';
-  kernel:       string;
-  era:          string;
-  active:       boolean;
-  lastActiveAt: Date;
-  messageCount: number;
-  createdAt:    Date;
-  updatedAt:    Date;
+  sessionId:          string;
+  founderId:          string;
+  sessionType:        'founder' | 'student' | 'group';
+  kernel:             string;
+  era:                string;
+  active:             boolean;
+  lastActiveAt:       Date;
+  messageCount:       number;
+  closureSynthesis?:  string;
+  masa_closed?:       Date;
+  wakeAcknowledged?:  boolean;
+  sessionDigest?:     string;
+  digestUpdatedAt?:   Date;
+  digestMessageCount?: number;
+  createdAt:          Date;
+  updatedAt:          Date;
 }
 
 const ADAMFounderSessionSchema = new Schema<ADAMFounderSessionDocument>({
@@ -435,6 +446,12 @@ const ADAMFounderSessionSchema = new Schema<ADAMFounderSessionDocument>({
   active:       { type: Boolean, default: true },
   lastActiveAt: { type: Date, default: Date.now },
   messageCount: { type: Number, default: 0 },
+  closureSynthesis: { type: String },
+  masa_closed:      { type: Date },
+  wakeAcknowledged: { type: Boolean, default: false },
+  sessionDigest:      { type: String },
+  digestUpdatedAt:    { type: Date },
+  digestMessageCount: { type: Number, default: 0 },
 }, {
   timestamps: true,
   collection: 'adam_founder_sessions',

@@ -21,11 +21,26 @@ import { v4 as uuidv4 } from 'uuid';
 import { ENV } from '../config/environments';
 import { ADAMTeachingUploadModel } from './adam.schema';
 import type { ADAMTeachingUpload } from './adam.types';
+import { FOUNDER_USER_ID } from './adam-student.types';
 import {
   extractTextFromBuffer,
   extensionOf,
   normalizeFounderFile,
 } from './adam-file-extract.service';
+
+export interface SaveTeachingUploadOptions {
+  sessionId?:     string;
+  uploadedBy?:    string;
+  uploaderRole?:  'founder' | 'student';
+  uploaderName?:  string;
+}
+
+export interface BuildTeachingContextOptions {
+  scope?:        'founder' | 'student';
+  studentName?:  string;
+  /** Students may only attach their own uploads */
+  ownerUserId?:  string;
+}
 
 function uploadRoot(): string {
   return path.resolve(process.cwd(), ENV.ADAM_UPLOAD_DIR);
@@ -48,16 +63,19 @@ function truncateText(text: string): { text: string; truncated: boolean } {
 
 export async function saveTeachingUpload(
   file: File,
-  sessionId?: string,
+  options: SaveTeachingUploadOptions = {},
 ): Promise<ADAMTeachingUpload & { textTruncated: boolean; preview: string }> {
   await ensureUploadDirectory();
 
+  const uploaderRole = options.uploaderRole ?? 'founder';
   const buffer = Buffer.from(await file.arrayBuffer());
   const normalized = normalizeFounderFile(buffer, file.type || '', file.name || 'upload');
   const fileName = normalized.fileName;
   const mimeType = normalized.mimeType;
 
-  const rawText = await extractTextFromBuffer(buffer, mimeType, fileName);
+  const rawText = await extractTextFromBuffer(buffer, mimeType, fileName, {
+    uploaderRole,
+  });
   const { text: extractedText, truncated: textTruncated } = truncateText(rawText);
 
   const id = uuidv4();
@@ -69,7 +87,10 @@ export async function saveTeachingUpload(
 
   const doc = await ADAMTeachingUploadModel.create({
     uploadId:      id,
-    sessionId,
+    sessionId:     options.sessionId,
+    uploadedBy:    options.uploadedBy,
+    uploaderRole,
+    uploaderName:  options.uploaderName ?? '',
     fileName,
     mimeType,
     sizeBytes:     file.size,
@@ -84,6 +105,9 @@ export async function saveTeachingUpload(
   return {
     id:            doc.uploadId,
     sessionId:     doc.sessionId,
+    uploadedBy:    doc.uploadedBy,
+    uploaderRole:  doc.uploaderRole,
+    uploaderName:  doc.uploaderName,
     fileName:      doc.fileName,
     mimeType:      doc.mimeType,
     sizeBytes:     doc.sizeBytes,
@@ -95,14 +119,26 @@ export async function saveTeachingUpload(
   };
 }
 
-export async function getTeachingUpload(
-  uploadId: string,
-): Promise<ADAMTeachingUpload | null> {
-  const doc = await ADAMTeachingUploadModel.findOne({ uploadId }).lean();
-  if (!doc) return null;
+function mapUploadDoc(doc: {
+  uploadId: string;
+  sessionId?: string;
+  uploadedBy?: string;
+  uploaderRole?: 'founder' | 'student';
+  uploaderName?: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  extractedText: string;
+  textTruncated: boolean;
+  storagePath: string;
+  uploadedAt: Date;
+}): ADAMTeachingUpload {
   return {
     id:            doc.uploadId,
     sessionId:     doc.sessionId,
+    uploadedBy:    doc.uploadedBy,
+    uploaderRole:  doc.uploaderRole,
+    uploaderName:  doc.uploaderName,
     fileName:      doc.fileName,
     mimeType:      doc.mimeType,
     sizeBytes:     doc.sizeBytes,
@@ -113,35 +149,69 @@ export async function getTeachingUpload(
   };
 }
 
+export function canAccessTeachingUpload(
+  upload: ADAMTeachingUpload,
+  requester: { userId: string; role: 'founder' | 'student' },
+): boolean {
+  if (requester.role === 'founder') return true;
+  if (!upload.uploadedBy) return false;
+  return upload.uploadedBy === requester.userId;
+}
+
+export async function getTeachingUpload(
+  uploadId: string,
+): Promise<ADAMTeachingUpload | null> {
+  const doc = await ADAMTeachingUploadModel.findOne({ uploadId }).lean();
+  if (!doc) return null;
+  return mapUploadDoc(doc);
+}
+
 export interface TeachingContextResult {
   context:   string;
   fileNames: string[];
   uploadIds: string[];
 }
 
-/** Build context block injected into the founder message for Claude */
+/** Build context block injected into the chat message for Claude */
 export async function buildTeachingContext(
   uploadIds: string[],
+  options: BuildTeachingContextOptions & { maxContextChars?: number } = {},
 ): Promise<TeachingContextResult> {
   if (!uploadIds.length) {
     return { context: '', fileNames: [], uploadIds: [] };
   }
 
+  const scope = options.scope ?? 'founder';
   const uniqueIds = [...new Set(uploadIds)].slice(0, 5);
   const docs = await ADAMTeachingUploadModel.find({
     uploadId: { $in: uniqueIds },
   }).lean();
 
   if (!docs.length) {
-    throw new Error('Teaching file not found. Upload again before sending.');
+    throw new Error('Attached file not found. Upload again before sending.');
   }
+
+  if (options.ownerUserId) {
+    const forbidden = docs.some(
+      (doc) => doc.uploadedBy && doc.uploadedBy !== options.ownerUserId,
+    );
+    if (forbidden) {
+      throw new Error('You can only send files you uploaded in this session.');
+    }
+  }
+
+  const studentLabel = options.studentName?.trim() || 'Student';
+  const blockTitle =
+    scope === 'founder'
+      ? 'FOUNDER TEACHING DATA'
+      : `STUDENT MATERIAL — ${studentLabel}`;
 
   const blocks = docs.map((doc, index) => {
     const truncatedNote = doc.textTruncated
       ? '\n(Note: file was truncated to fit constitutional processing limits.)'
       : '';
     return [
-      `[FOUNDER TEACHING DATA ${index + 1} — ${doc.fileName}]`,
+      `[${blockTitle} ${index + 1} — ${doc.fileName}]`,
       `Type: ${doc.mimeType} · Size: ${(doc.sizeBytes / 1024).toFixed(1)} KB`,
       truncatedNote,
       '',
@@ -149,14 +219,32 @@ export async function buildTeachingContext(
     ].filter(Boolean).join('\n');
   });
 
+  const header =
+    scope === 'founder'
+      ? '═══ FOUNDER TEACHING DATA (study with full Akal — this is constitutional material) ═══'
+      : `═══ STUDENT SHARED MATERIAL — ${studentLabel} (images read by ADAM vision; study with Adab) ═══`;
+  const footer =
+    scope === 'founder'
+      ? '═══ END FOUNDER TEACHING DATA ═══'
+      : '═══ END STUDENT SHARED MATERIAL ═══';
+
+  const maxChars = options.maxContextChars ?? ENV.UPLOAD_MAX_EXTRACT_CHARS;
+  let context = [
+    header,
+    '',
+    blocks.join('\n\n---\n\n'),
+    '',
+    footer,
+  ].join('\n');
+
+  if (context.length > maxChars) {
+    const note =
+      '\n\n[… teaching data truncated for this chat turn — full extract was stored for processing …]';
+    context = context.slice(0, Math.max(1000, maxChars - note.length)) + note;
+  }
+
   return {
-    context: [
-      '═══ FOUNDER TEACHING DATA (study with full Akal — this is constitutional material) ═══',
-      '',
-      blocks.join('\n\n---\n\n'),
-      '',
-      '═══ END FOUNDER TEACHING DATA ═══',
-    ].join('\n'),
+    context,
     fileNames: docs.map((doc) => doc.fileName),
     uploadIds: docs.map((doc) => doc.uploadId),
   };
@@ -236,4 +324,25 @@ export function composeFounderMessage(
   const founderWords = trimmed || defaultPrompt;
 
   return `${teachingContext}\n\n---\n\n${founderWords}`;
+}
+
+export function composeStudentMessage(
+  userMessage: string,
+  attachmentContext: string,
+  studentName: string,
+): string {
+  const trimmed = userMessage.trim();
+  if (!attachmentContext) return trimmed;
+
+  const defaultPrompt =
+    `${studentName} shared material above (including any image read by ADAM). Respond with full Adab. If they need the Founder, use the consult flow.`;
+
+  const words = trimmed || defaultPrompt;
+
+  return `${attachmentContext}\n\n---\n\n${words}`;
+}
+
+/** Resolve uploader id for founder JWT or static founder access */
+export function resolveFounderUploaderId(userId?: string): string {
+  return userId?.trim() || FOUNDER_USER_ID;
 }

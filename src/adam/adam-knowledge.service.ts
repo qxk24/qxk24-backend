@@ -20,7 +20,7 @@
 
 import { ENV } from '../config/environments';
 import { r2StorageService } from '../services/r2-storage.service';
-import { transformAIDIL } from '../qxk24brain/qxk24brain.engine';
+import { processLongTeaching } from '../qxk24brain/adam-tcp.service';
 import { QXK24BrainLogModel } from '../qxk24brain/qxk24brain.schema';
 import type { NormalizedFounderFile } from './adam-file-extract.service';
 import {
@@ -118,7 +118,17 @@ export const adamKnowledgeService = {
       truncated,
     );
 
-    const { entityC, recognition } = await transformAIDIL(founderMessage, founderId);
+    const tcp = await processLongTeaching(
+      founderMessage,
+      '',
+      founderId,
+      category,
+      'CAHAYA',
+    );
+    if (!tcp.result) {
+      throw new Error('Knowledge absorption failed — no transformation result.');
+    }
+    const { entityC, recognition } = tcp.result;
 
     return {
       id:          entityC.uid,
@@ -184,7 +194,7 @@ export const adamKnowledgeService = {
           truncated,
         );
 
-        await transformAIDIL(founderMessage, founderId);
+        await processLongTeaching(founderMessage, '', founderId, doc.category, 'CAHAYA');
         absorbed++;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

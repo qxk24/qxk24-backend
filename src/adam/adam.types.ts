@@ -364,6 +364,9 @@ export interface ADAMAuditReport {
 export interface ADAMTeachingUpload {
   id:            string;
   sessionId?:    string;
+  uploadedBy?:   string;
+  uploaderRole?: 'founder' | 'student';
+  uploaderName?: string;
   fileName:      string;
   mimeType:      string;
   sizeBytes:     number;

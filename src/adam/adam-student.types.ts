@@ -11,9 +11,10 @@
  */
 
 export const STUDENT_ACCOUNTS = [
-  { userId: 'izwahanie',  name: 'Izwahanie' },
-  { userId: 'suhaila',    name: 'Suhaila' },
+  { userId: 'izwahanie',   name: 'Izwahanie' },
+  { userId: 'suhaila',     name: 'Suhaila' },
   { userId: 'aziz-tamhid', name: 'Aziz Tamhid' },
+  { userId: 'amer',        name: 'Amer' },
 ] as const;
 
 export type StudentUserId = typeof STUDENT_ACCOUNTS[number]['userId'];
@@ -30,4 +31,12 @@ export interface AdamAuthUser {
   role:     AdamUserRole;
   name:     string;
   isFounder: boolean;
+}
+
+/** Who is in an ADAM chat turn (founder, student, or group) */
+export interface ChatParticipant {
+  userId:      string;
+  userName:    string;
+  role:        AdamUserRole;
+  sessionType: SessionType;
 }

@@ -23,6 +23,7 @@ import {
   STUDENT_ACCOUNTS,
 } from '../adam/adam-student.types';
 import { getOrCreateMaster } from './qxk24brain.engine';
+import { prependCoreToSystem } from './adam-core';
 import { QXK24BrainMasterModel } from './qxk24brain.schema';
 
 const anthropic = new Anthropic({ apiKey: ENV.ANTHROPIC_API_KEY });
@@ -56,7 +57,9 @@ async function callJson<T>(prompt: string, fallback: T): Promise<T> {
   const response = await anthropic.messages.create({
     model:      BRAIN_MODEL(),
     max_tokens: 1200,
-    system:     'You are ADAM QXK24Brain alignment checker. Founder teachings are supreme. Respond JSON only.',
+    system:     prependCoreToSystem(
+      'You are ADAM QXK24Brain alignment checker. Founder teachings are supreme. Respond JSON only.',
+    ),
     messages:   [{ role: 'user', content: prompt }],
   });
   const text = response.content

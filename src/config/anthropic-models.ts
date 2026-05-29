@@ -36,7 +36,7 @@ const DEEP_MODES: ADAMChatMode[] = [
 
 /** Founder / student-history / constitutional cues → Sonnet */
 const DEEP_MESSAGE_PATTERNS = [
-  /\b(student|students|pelajar|izwahanie|suhaila|aziz)\b/i,
+  /\b(student|students|pelajar|izwahanie|suhaila|aziz|amer)\b/i,
   /\b(communicat|bercakap|spoken|speak|said|tanya|asked)\b/i,
   /\b(constitution|perlembagaan|makmur|islah|waqf|alamtologi)\b/i,
   /\b(quran|qur'an|hadith|founder|pengasas)\b/i,

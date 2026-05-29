@@ -28,6 +28,7 @@ import {
   issueAdamToken,
   verifyStudentPassword,
 } from '../../adam/adam-student.service';
+import { assertStudentOwnsSession } from '../../adam/adam-workspace.service';
 import { STUDENT_ACCOUNTS } from '../../adam/adam-student.types';
 
 const router = new Hono();
@@ -38,12 +39,13 @@ const LoginSchema = z.object({
 });
 
 const ChatSchema = z.object({
-  sessionId: z.string().optional(),
-  message:   z.string().max(10000).optional(),
-  mode:      z.enum(['TEACHING', 'QUESTIONING', 'AUDIT', 'CONSTITUTIONAL', 'JOURNAL_GEN']).default('QUESTIONING'),
+  sessionId:  z.string().optional(),
+  message:    z.string().max(100_000).optional(),
+  mode:       z.enum(['TEACHING', 'QUESTIONING', 'AUDIT', 'CONSTITUTIONAL', 'JOURNAL_GEN']).default('QUESTIONING'),
+  uploadIds:  z.array(z.string().min(1)).max(5).optional(),
 }).refine(
-  (d) => (d.message?.trim()?.length ?? 0) > 0,
-  { message: 'Message required.' },
+  (d) => (d.message?.trim()?.length ?? 0) > 0 || (d.uploadIds?.length ?? 0) > 0,
+  { message: 'Provide a message and/or at least one attached file (uploadIds).' },
 );
 
 // POST /api/adam/student/login
@@ -122,10 +124,10 @@ router.post('/chat', requireStudent, zValidator('json', ChatSchema), async (c) =
     try {
       await streamADAMChat(
         sessionId!,
-        body.message!.trim(),
+        body.message?.trim() ?? '',
         body.mode,
         async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
-        [],
+        body.uploadIds ?? [],
         {
           userId:      user.userId,
           userName:    user.name ?? user.userId,
@@ -155,10 +157,10 @@ router.post('/group/chat', requireStudent, zValidator('json', ChatSchema), async
     try {
       await streamADAMChat(
         sessionId,
-        body.message!.trim(),
+        body.message?.trim() ?? '',
         body.mode,
         async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
-        [],
+        body.uploadIds ?? [],
         {
           userId:      user.userId,
           userName:    user.name ?? user.userId,
@@ -176,7 +178,12 @@ router.post('/group/chat', requireStudent, zValidator('json', ChatSchema), async
 
 // GET /api/adam/student/chat/history/:sessionId
 router.get('/chat/history/:sessionId', requireStudent, async (c) => {
+  const user = getTokenUser(c)!;
   const sessionId = c.req.param('sessionId') ?? '';
+  const allowed = await assertStudentOwnsSession(user.userId, sessionId);
+  if (!allowed) {
+    return c.json({ success: false, error: 'Session access denied.', kernel: 'QXK24' }, 403);
+  }
   const messages = await loadMessageHistory(sessionId, 100);
   return c.json({ success: true, messages, sessionId, kernel: 'QXK24' });
 });

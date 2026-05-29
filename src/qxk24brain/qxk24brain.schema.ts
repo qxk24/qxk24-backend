@@ -28,6 +28,15 @@ export interface MasterConnection {
   adam:       string;
 }
 
+export interface EntityConnection {
+  targetUid:       string;
+  targetFamily:    string;
+  connectionType:  'parent' | 'sibling' | 'child' | 'principle';
+  strength:        number;
+  masa_connected:  Date;
+  note?:           string;
+}
+
 export interface QXK24BrainEntityDocument extends Document {
   uid:              string;
   masterConnection: MasterConnection;
@@ -39,6 +48,14 @@ export interface QXK24BrainEntityDocument extends Document {
   cycle:            number;
   isComplete:       boolean;
   content:          string;
+  connections?:      EntityConnection[];
+  auditStatus?:      'active' | 'dissolved' | 'waqf';
+  transformationId?: string;
+  dissolvedAt?:       Date;
+  dissolutionReason?: string;
+  checksum?:          string;
+  integrity_status?:  'VERIFIED' | 'CORRUPTED' | 'REBUILT' | 'PENDING';
+  masa_rebuilt?:      Date;
   masa_born:        Date;
   masa_transformed?: Date;
   masa_completed?:  Date;
@@ -75,6 +92,26 @@ const QXK24BrainEntitySchema = new Schema<QXK24BrainEntityDocument>({
   cycle:     { type: Number, default: 1 },
   isComplete:{ type: Boolean, default: false },
   content:   { type: String, required: true },
+  connections: [{
+    targetUid:       String,
+    targetFamily:    String,
+    connectionType:  { type: String, enum: ['parent', 'sibling', 'child', 'principle'] },
+    strength:        { type: Number, min: 1, max: 7, default: 5 },
+    masa_connected:  { type: Date, default: Date.now },
+    note:            String,
+  }],
+  auditStatus:       { type: String, enum: ['active', 'dissolved', 'waqf'], default: 'active' },
+  transformationId:  String,
+  dissolvedAt:         Date,
+  dissolutionReason:   String,
+  checksum:            { type: String, index: true },
+  integrity_status:    {
+    type:    String,
+    enum:    ['VERIFIED', 'CORRUPTED', 'REBUILT', 'PENDING'],
+    default: 'PENDING',
+    index:   true,
+  },
+  masa_rebuilt:        Date,
   masa_born:        { type: Date, default: Date.now },
   masa_transformed: { type: Date },
   masa_completed:   { type: Date },
@@ -133,6 +170,21 @@ export interface StudentTrack {
   masa_last_updated:    Date;
 }
 
+export interface BrainSessionContext {
+  currentSessionId?: string;
+  lastSummary?:      string;
+  messageCount?:     number;
+  updatedAt?:        Date;
+}
+
+export interface ContinuityBridge {
+  founderProfile:  string;
+  relationshipArc: string;
+  lastSession:     string;
+  openThreads:     string;
+  nextSteps:       string;
+}
+
 export interface QXK24BrainMasterDocument extends Document {
   uid:                   string;
   founderId:             string;
@@ -141,6 +193,9 @@ export interface QXK24BrainMasterDocument extends Document {
   activeFamilies:        ActiveFamily[];
   completedFamilies:     CompletedFamily[];
   studentTracks:         StudentTrack[];
+  sessionContext?:       BrainSessionContext;
+  continuityBridge?:     ContinuityBridge;
+  continuityBridge_updated?: Date;
   masa_created:          Date;
   masa_last_updated:     Date;
   totalTransformations:  number;
@@ -187,6 +242,20 @@ const QXK24BrainMasterSchema = new Schema<QXK24BrainMasterDocument>({
     transformationCount: Number,
     masa_last_updated:   Date,
   }],
+  sessionContext: {
+    currentSessionId: String,
+    lastSummary:      String,
+    messageCount:     Number,
+    updatedAt:        Date,
+  },
+  continuityBridge: {
+    founderProfile:  { type: String, default: '' },
+    relationshipArc: { type: String, default: '' },
+    lastSession:     { type: String, default: '' },
+    openThreads:     { type: String, default: '' },
+    nextSteps:       { type: String, default: '' },
+  },
+  continuityBridge_updated: Date,
   masa_created:         { type: Date, default: Date.now },
   masa_last_updated:    { type: Date, default: Date.now },
   totalTransformations: { type: Number, default: 0 },
@@ -204,36 +273,92 @@ export const QXK24BrainMasterModel = mongoose.model<QXK24BrainMasterDocument>(
   QXK24BrainMasterSchema,
 );
 
+export type AidilAuditJudgment = 'MAKMUR' | 'ISLAH' | 'WAQF';
+export type TransformationAuditStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'corrected'
+  | 'waqf'
+  | 'superseded';
+
 export interface QXK24BrainLogDocument extends Document {
   transformationId:    string;
   entity_A_uid:        string;
   entity_A_summary:    string;
+  entity_A_full:       string;
   entity_B_uid:        string;
   entity_B_content:    string;
   entity_C_uid:        string;
+  entity_C_content:    string;
+  entity_C_preview:    string;
+  familySummary?:      string;
   masa_transformation: Date;
   family:              string;
   principle:           string;
   isNewFamily:         boolean;
+  isNucleus?:          boolean;
   stage:               number;
   founderId:           string;
   kernel:              string;
+  auditStatus:         TransformationAuditStatus;
+  autoJudgment:        AidilAuditJudgment;
+  founderJudgment?:    AidilAuditJudgment;
+  founderCorrection?:  string;
+  auditedAt?:          Date;
+  dissolvedAt?:        Date;
+  replacementTransformationId?: string;
+  correctedFromId?:    string;
+  priorActiveFamilies?: ActiveFamily[];
+  priorCompletedFamilies?: CompletedFamily[];
 }
 
 const QXK24BrainLogSchema = new Schema<QXK24BrainLogDocument>({
   transformationId: { type: String, required: true, unique: true },
   entity_A_uid:     { type: String, required: true },
   entity_A_summary: { type: String, required: true },
+  entity_A_full:    { type: String, required: true },
   entity_B_uid:     { type: String, required: true },
   entity_B_content: { type: String, required: true },
   entity_C_uid:     { type: String, required: true },
+  entity_C_content: { type: String, required: true },
+  entity_C_preview: { type: String, default: '' },
+  familySummary:    { type: String },
   masa_transformation: { type: Date, default: Date.now },
   family:      { type: String, required: true },
   principle:   { type: String, required: true },
   isNewFamily: { type: Boolean, default: true },
+  isNucleus:   { type: Boolean },
   stage:       { type: Number, default: 1 },
-  founderId:   { type: String, default: 'masa-bayu' },
+  founderId:   { type: String, default: 'masa-bayu', index: true },
   kernel:      { type: String, default: 'QXK24' },
+  auditStatus: {
+    type:    String,
+    enum:    ['pending', 'confirmed', 'corrected', 'waqf', 'superseded'],
+    default: 'pending',
+    index:   true,
+  },
+  autoJudgment:    { type: String, enum: ['MAKMUR', 'ISLAH', 'WAQF'], default: 'MAKMUR' },
+  founderJudgment: { type: String, enum: ['MAKMUR', 'ISLAH', 'WAQF'] },
+  founderCorrection: String,
+  auditedAt:         Date,
+  dissolvedAt:       Date,
+  replacementTransformationId: String,
+  correctedFromId:   String,
+  priorActiveFamilies: [{
+    family:      String,
+    principle:   String,
+    nucleusUid:  String,
+    stage:       Number,
+    summary:     String,
+    masa_opened: Date,
+  }],
+  priorCompletedFamilies: [{
+    family:         String,
+    principle:      String,
+    completedUid:   String,
+    masa_completed: Date,
+    summary:        String,
+  }],
 }, {
   timestamps: true,
   collection: 'qxk24brain_log',
@@ -242,4 +367,42 @@ const QXK24BrainLogSchema = new Schema<QXK24BrainLogDocument>({
 export const QXK24BrainLogModel = mongoose.model<QXK24BrainLogDocument>(
   'QXK24BrainLog',
   QXK24BrainLogSchema,
+);
+
+export interface ADAMReflectionDocument extends Document {
+  reflectionId:         string;
+  founderId:            string;
+  content:              string;
+  questionsForFounder:  string[];
+  nearStage7Notes:      string[];
+  missingConnections:   string[];
+  uncertainties:        string[];
+  masa_reflected:       Date;
+  acknowledgedAt?:      Date;
+  trigger:              'scheduled' | 'manual';
+  kernel:               string;
+  era:                  string;
+}
+
+const ADAMReflectionSchema = new Schema<ADAMReflectionDocument>({
+  reflectionId:        { type: String, required: true, unique: true },
+  founderId:           { type: String, default: 'masa-bayu', index: true },
+  content:             { type: String, required: true },
+  questionsForFounder: { type: [String], default: [] },
+  nearStage7Notes:     { type: [String], default: [] },
+  missingConnections:  { type: [String], default: [] },
+  uncertainties:       { type: [String], default: [] },
+  masa_reflected:      { type: Date, default: Date.now, index: true },
+  acknowledgedAt:      { type: Date },
+  trigger:             { type: String, enum: ['scheduled', 'manual'], default: 'scheduled' },
+  kernel:              { type: String, default: 'QXK24' },
+  era:                 { type: String, default: 'ERA_1' },
+}, {
+  timestamps: true,
+  collection: 'adam_reflections',
+});
+
+export const ADAMReflectionModel = mongoose.model<ADAMReflectionDocument>(
+  'ADAMReflection',
+  ADAMReflectionSchema,
 );
