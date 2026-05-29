@@ -20,12 +20,14 @@ import {
 import {
   getOrCreateGroupSession,
   loadMessageHistory,
+  syncUndeliveredConsultsToFounder,
 } from '../../adam/adam-chat.service';
 
 const router = new Hono();
 
 // GET /api/adam/consults — all consult flags
 router.get('/', requireFounder, async (c) => {
+  await syncUndeliveredConsultsToFounder();
   const pending = c.req.query('pending') === 'true';
   const consults = pending ? await listPendingConsults(50) : await listAllConsults(50);
   return c.json({

@@ -21,7 +21,10 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { ENV } from '../../config/environments';
 import { requireFounder } from '../../middleware/auth.middleware';
-import { getOrCreateSession } from '../../adam/adam-chat.service';
+import {
+  getOrCreateSession,
+  syncUndeliveredConsultsToFounder,
+} from '../../adam/adam-chat.service';
 
 const router = new Hono();
 
@@ -72,10 +75,12 @@ router.post('/login', zValidator('json', LoginSchema), async (c) => {
 
 // GET /api/adam/auth/session — persistent founder session
 router.get('/session', requireFounder, async (c) => {
+  const synced = await syncUndeliveredConsultsToFounder();
   const sessionId = await getOrCreateSession('masa-bayu');
   return c.json({
     success:   true,
     sessionId,
+    syncedConsults: synced,
     kernel:    'QXK24',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,

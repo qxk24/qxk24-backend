@@ -191,6 +191,38 @@ export async function deleteTeachingUploads(uploadIds: string[]): Promise<number
   return result.deletedCount ?? 0;
 }
 
+const STUDENT_RELAY_EXCERPT_MAX = 10_000;
+
+/**
+ * Text excerpt from founder uploads for student relay (no raw file download in ERA_1).
+ */
+export async function buildStudentRelayAttachmentSection(
+  uploadIds: string[],
+): Promise<string> {
+  if (!uploadIds.length) return '';
+
+  const { context, fileNames } = await buildTeachingContext(uploadIds);
+  if (!fileNames.length) return '';
+
+  const body = context
+    .replace(/^═══ FOUNDER TEACHING DATA[^\n]*\n\n/, '')
+    .replace(/\n\n═══ END FOUNDER TEACHING DATA ═══\s*$/, '')
+    .trim();
+
+  const excerpt =
+    body.length > STUDENT_RELAY_EXCERPT_MAX
+      ? `${body.slice(0, STUDENT_RELAY_EXCERPT_MAX)}\n\n[… excerpt truncated for delivery …]`
+      : body;
+
+  return [
+    '',
+    '── Founder teaching data (via ADAM) ──',
+    `Files: ${fileNames.join(', ')}`,
+    '',
+    excerpt,
+  ].join('\n');
+}
+
 export function composeFounderMessage(
   userMessage: string,
   teachingContext: string,

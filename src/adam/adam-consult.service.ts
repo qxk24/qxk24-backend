@@ -37,16 +37,24 @@ export async function createConsultFlag(params: {
 
   const doc = await ADAMConsultModel.create({
     consultId,
-    studentId:      params.studentId,
-    studentName:    params.studentName,
-    sessionId:      params.sessionId,
-    sessionType:    params.sessionType,
-    studentMessage: params.studentMessage.slice(0, 3000),
-    adamSummary:    params.adamSummary?.slice(0, 2000) ?? '',
-    status:         'pending',
+    studentId:          params.studentId,
+    studentName:        params.studentName,
+    sessionId:          params.sessionId,
+    sessionType:        params.sessionType,
+    studentMessage:     params.studentMessage.slice(0, 3000),
+    adamSummary:        params.adamSummary?.slice(0, 2000) ?? '',
+    status:             'pending',
+    deliveredToFounder: false,
   });
 
   return mapConsult(doc);
+}
+
+export async function markConsultDeliveredToFounder(consultId: string): Promise<void> {
+  await ADAMConsultModel.updateOne(
+    { consultId },
+    { deliveredToFounder: true },
+  );
 }
 
 export async function listPendingConsults(limit = 50): Promise<ConsultRecord[]> {

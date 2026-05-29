@@ -378,6 +378,7 @@ export interface ADAMMessageDocument extends Document {
   isVerified:   boolean;
   needsConsult:   boolean;
   isFounderRelay: boolean;
+  isStudentRelay: boolean;
   createdAt:      Date;
   updatedAt:      Date;
 }
@@ -398,6 +399,7 @@ const ADAMMessageSchema = new Schema<ADAMMessageDocument>({
   isVerified:   { type: Boolean, default: false },
   needsConsult:   { type: Boolean, default: false },
   isFounderRelay: { type: Boolean, default: false },
+  isStudentRelay: { type: Boolean, default: false },
 }, {
   timestamps: true,
   collection: 'adam_messages',
@@ -455,10 +457,11 @@ export interface ADAMConsultDocument extends Document {
   sessionType:     'student' | 'group';
   studentMessage:  string;
   adamSummary:     string;
-  status:          'pending' | 'resolved';
-  resolvedAt?:     Date;
-  createdAt:       Date;
-  updatedAt:       Date;
+  status:              'pending' | 'resolved';
+  deliveredToFounder:  boolean;
+  resolvedAt?:         Date;
+  createdAt:           Date;
+  updatedAt:           Date;
 }
 
 const ADAMConsultSchema = new Schema<ADAMConsultDocument>({
@@ -469,8 +472,9 @@ const ADAMConsultSchema = new Schema<ADAMConsultDocument>({
   sessionType:    { type: String, enum: ['student', 'group'], required: true },
   studentMessage: { type: String, required: true },
   adamSummary:    { type: String, default: '' },
-  status:         { type: String, enum: ['pending', 'resolved'], default: 'pending', index: true },
-  resolvedAt:     { type: Date },
+  status:             { type: String, enum: ['pending', 'resolved'], default: 'pending', index: true },
+  deliveredToFounder: { type: Boolean, default: false, index: true },
+  resolvedAt:         { type: Date },
 }, {
   timestamps: true,
   collection: 'adam_consults',

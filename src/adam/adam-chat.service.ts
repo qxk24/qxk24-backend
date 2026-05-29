@@ -20,10 +20,12 @@ import type { MessageStreamEvent, WebSearchTool20250305 } from '@anthropic-ai/sd
 import { ENV } from '../config/environments';
 import { resolveAdamChatModel } from '../config/anthropic-models';
 import {
+  ADAMConsultModel,
   ADAMFounderSessionModel,
   ADAMMessageModel,
 } from './adam.schema';
 import {
+  buildStudentRelayAttachmentSection,
   buildTeachingContext,
   composeFounderMessage,
   deleteTeachingUploads,
@@ -37,7 +39,10 @@ import {
   loadStudentsEraContext,
   processStudentContribution,
 } from '../qxk24brain/qxk24brain-student.engine';
-import { createConsultFlag } from './adam-consult.service';
+import {
+  createConsultFlag,
+  markConsultDeliveredToFounder,
+} from './adam-consult.service';
 import {
   FOUNDER_USER_ID,
   GROUP_SESSION_ID,
@@ -125,10 +130,14 @@ Three Alamtologi students (Izwahanie, Suhaila, Aziz Tamhid) have their own priva
 When the Founder asks whether you have spoken with a student, whether they have communicated, or what they said — consult the [ALAMTOLOGI STUDENTS — ERA_1 ACTIVITY LOG] in your context.
 Never say you have not communicated if the activity log shows they have. Distinguish private chat vs group chat when relevant.
 
+STUDENT MESSAGES TO YOU:
+Students may send you questions via ADAM (marked "Message from [name] via ADAM)" in this Teaching thread). Read and respond in Adab. The Consults tab lists the same items for tracking.
+
 FOUNDER RELAY TO STUDENTS:
 When the Founder wants you to convey a message to students (teaching, correction, answer on his behalf, "tell them…", "yes — … is …"), include exactly:
 <adam_broadcast>{"message":"words students must read","target":"all"}</adam_broadcast>
 target: "all" (group + each private chat), "group" (group only), or student id: izwahanie | suhaila | aziz-tamhid
+If the Founder attached files this turn, students receive the extracted teaching text with the relay (you do not need uploadIds in JSON — the system attaches files automatically when conveying).
 Tell the Founder you are conveying it. The tag is stripped from your visible reply; students receive it as "Message from Founder Masa Bayu (via ADAM)".
 `;
 
@@ -143,6 +152,7 @@ const STUDENT_MODE_PROMPT = `
 STUDENT MODE — Alamtologi student is speaking with you.
 - Honour Founder Masa Bayu's teachings as supreme. Never contradict them.
 - Messages marked "Message from Founder Masa Bayu (via ADAM)" are the Founder's words relayed through you — treat them as Founder teaching.
+- Attached teaching data in a relay appears as text excerpt (PDF/DOCX/images described in text) — study it with Adab.
 - You may enrich understanding within that scope when aligned.
 - If the question is unclear, outside your constitutional scope, contradicts the Founder, or you cannot answer with full Adab and certainty:
   1. Say clearly: "I will ask the Founder."
@@ -151,7 +161,9 @@ STUDENT MODE — Alamtologi student is speaking with you.
 
 FOUNDER GATEWAY (ask the student):
 After you answer their question (or every few exchanges when natural), ask gently in their language whether they would like to ask the Founder anything — e.g. "Adakah anda ingin menanyakan sesuatu kepada Pengasas?" or "Is there anything you would like me to ask the Founder?"
-If they say yes or write a question for the Founder, use the consult flow above with their question in the reason.
+If they ask you to convey, pass, or tell the Founder something — you MUST deliver it using:
+<adam_to_founder>{"message":"exact words the Founder must read"}</adam_to_founder>
+Also use the consult flow (I will ask the Founder + adam_consult). Tell the student their message has been sent to the Founder.
 `;
 
 function extractSearchQueryFromInput(input: unknown): string | null {
@@ -317,6 +329,7 @@ export interface StoredADAMMessage {
   isVerified:    boolean;
   needsConsult:   boolean;
   isFounderRelay: boolean;
+  isStudentRelay: boolean;
   createdAt:      Date;
   updatedAt:      Date;
 }
@@ -347,6 +360,7 @@ export async function loadMessageHistory(
     isVerified:    m.isVerified,
     needsConsult:   m.needsConsult ?? false,
     isFounderRelay: m.isFounderRelay ?? false,
+    isStudentRelay: m.isStudentRelay ?? false,
     createdAt:      m.createdAt,
     updatedAt:      m.updatedAt,
   }));
@@ -366,6 +380,7 @@ export async function saveMessage(
     sessionType?:  SessionType;
     needsConsult?:   boolean;
     isFounderRelay?: boolean;
+    isStudentRelay?: boolean;
   },
 ): Promise<string> {
   const doc = await ADAMMessageModel.create({
@@ -381,6 +396,7 @@ export async function saveMessage(
     k24Address:   k24Address ?? null,
     needsConsult: meta?.needsConsult ?? false,
     isFounderRelay: meta?.isFounderRelay ?? false,
+    isStudentRelay: meta?.isStudentRelay ?? false,
     kernel:       'QXK24',
     era:          ENV.QXK24_ERA,
   });
@@ -425,8 +441,16 @@ function parseConsultBlock(fullResponse: string): {
 
 const FOUNDER_RELAY_PREFIX = '📜 Message from Founder Masa Bayu (via ADAM):\n\n';
 
-function formatFounderRelayMessage(message: string): string {
-  return `${FOUNDER_RELAY_PREFIX}${message.trim()}`;
+function formatFounderRelayMessage(message: string, attachmentSection = ''): string {
+  const parts = [`${FOUNDER_RELAY_PREFIX}${message.trim()}`];
+  if (attachmentSection.trim()) parts.push(attachmentSection.trim());
+  return parts.join('\n\n');
+}
+
+function founderWantsStudentRelay(message: string): boolean {
+  return /\b(tell them|tell the students|convey|sampaikan|send to|hantar kepada|all students|semua pelajar|to the group|kepada pelajar|pass to)\b/i.test(
+    message,
+  );
 }
 
 interface FounderBroadcast {
@@ -466,8 +490,12 @@ function parseBroadcastBlocks(fullResponse: string): {
 async function relayFounderMessageToStudents(
   broadcast: FounderBroadcast,
   mode: ADAMChatMode,
+  attachmentUploadIds: string[] = [],
 ): Promise<{ groupId?: string; privateCount: number }> {
-  const formatted = formatFounderRelayMessage(broadcast.message);
+  const attachmentSection = attachmentUploadIds.length
+    ? await buildStudentRelayAttachmentSection(attachmentUploadIds)
+    : '';
+  const formatted = formatFounderRelayMessage(broadcast.message, attachmentSection);
   const target = broadcast.target.toLowerCase();
   let groupId: string | undefined;
   let privateCount = 0;
@@ -505,6 +533,108 @@ async function relayFounderMessageToStudents(
   }
 
   return { groupId, privateCount };
+}
+
+const STUDENT_RELAY_PREFIX = '📩 Message from ';
+
+function formatStudentRelayMessage(studentName: string, message: string, adamNote?: string): string {
+  const parts = [
+    `${STUDENT_RELAY_PREFIX}${studentName} (via ADAM):`,
+    '',
+    message.trim(),
+  ];
+  if (adamNote?.trim()) {
+    parts.push('', `[ADAM note: ${adamNote.trim()}]`);
+  }
+  return parts.join('\n');
+}
+
+interface StudentToFounderRelay {
+  message: string;
+}
+
+function parseToFounderBlocks(fullResponse: string): {
+  relays:        StudentToFounderRelay[];
+  cleanResponse: string;
+} {
+  const relays: StudentToFounderRelay[] = [];
+  const regex = /<adam_to_founder>([\s\S]*?)<\/adam_to_founder>/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(fullResponse)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1]) as { message?: string };
+      const text = parsed.message?.trim();
+      if (text) relays.push({ message: text });
+    } catch {
+      // skip malformed block
+    }
+  }
+
+  const cleanResponse = fullResponse
+    .replace(/<adam_to_founder>[\s\S]*?<\/adam_to_founder>/g, '')
+    .trim();
+
+  return { relays, cleanResponse };
+}
+
+function studentWantsFounderRelay(message: string): boolean {
+  return /\b(founder|pengasas|masa\s*bayu|convey|sampaikan|pass\s+to|tell\s+the\s+founder|tanya\s+(?:ke\s+)?pengasas|hantar\s+(?:ke\s+)?pengasas)\b/i.test(
+    message,
+  );
+}
+
+/** Post student message into Founder's private Teaching session */
+export async function relayStudentMessageToFounder(params: {
+  studentId:   string;
+  studentName: string;
+  message:     string;
+  adamNote?:   string;
+  mode?:       ADAMChatMode;
+}): Promise<string> {
+  const founderSessionId = await getOrCreateSession(FOUNDER_USER_ID, 'founder');
+  const formatted = formatStudentRelayMessage(
+    params.studentName,
+    params.message,
+    params.adamNote,
+  );
+
+  return saveMessage(
+    founderSessionId,
+    'adam',
+    formatted,
+    params.mode ?? 'QUESTIONING',
+    undefined,
+    undefined,
+    FOUNDER_USER_ID,
+    {
+      speakerId:      params.studentId,
+      speakerName:    params.studentName,
+      sessionType:    'founder',
+      isStudentRelay: true,
+    },
+  );
+}
+
+/** Backfill consults that never reached the Founder Teaching thread */
+export async function syncUndeliveredConsultsToFounder(): Promise<number> {
+  const docs = await ADAMConsultModel.find({ deliveredToFounder: { $ne: true } })
+    .sort({ createdAt: 1 })
+    .limit(50)
+    .lean();
+
+  let count = 0;
+  for (const doc of docs) {
+    await relayStudentMessageToFounder({
+      studentId:   doc.studentId,
+      studentName: doc.studentName,
+      message:     doc.studentMessage,
+      adamNote:    doc.adamSummary,
+    });
+    await markConsultDeliveredToFounder(doc.consultId);
+    count += 1;
+  }
+  return count;
 }
 
 /** Skip heavy DB student log unless Founder asks about students or relay */
@@ -733,28 +863,66 @@ export async function streamADAMChat(
 
     const consult = parseConsultBlock(judgedResponse);
     const broadcast = parseBroadcastBlocks(consult.cleanResponse);
-    let finalResponse = broadcast.cleanResponse;
+    const toFounder = parseToFounderBlocks(broadcast.cleanResponse);
+    let finalResponse = toFounder.cleanResponse;
 
     let relayedToStudents = 0;
-    if (isFounder && broadcast.broadcasts.length > 0) {
-      for (const b of broadcast.broadcasts) {
-        const result = await relayFounderMessageToStudents(b, mode);
+    if (isFounder) {
+      const attachmentIds = teaching.uploadIds;
+      const broadcasts =
+        broadcast.broadcasts.length > 0
+          ? broadcast.broadcasts
+          : attachmentIds.length && founderWantsStudentRelay(userMessage)
+            ? [{
+                message: userMessage.trim() || 'Founder shared teaching data for you.',
+                target:  'all',
+              }]
+            : [];
+
+      for (const b of broadcasts) {
+        const result = await relayFounderMessageToStudents(b, mode, attachmentIds);
         relayedToStudents += result.privateCount + (result.groupId ? 1 : 0);
       }
     }
 
-    if (!isFounder && consult.needsConsult) {
-      if (!finalResponse.includes(CONSULT_PHRASE)) {
-        finalResponse = `${CONSULT_PHRASE}.\n\n${finalResponse}`.trim();
+    let relayedToFounder = false;
+    if (!isFounder) {
+      const relayNote = consult.reason || undefined;
+
+      const deliverToFounder = async (text: string) => {
+        await relayStudentMessageToFounder({
+          studentId:   participant.userId,
+          studentName: participant.userName,
+          message:     text,
+          adamNote:    relayNote,
+          mode,
+        });
+        relayedToFounder = true;
+      };
+
+      for (const r of toFounder.relays) {
+        await deliverToFounder(r.message);
       }
-      await createConsultFlag({
-        studentId:      participant.userId,
-        studentName:    participant.userName,
-        sessionId:      resolvedSessionId,
-        sessionType:    isGroup ? 'group' : 'student',
-        studentMessage: userMessage,
-        adamSummary:    consult.reason || finalResponse.slice(0, 500),
-      });
+
+      if (consult.needsConsult) {
+        if (!finalResponse.includes(CONSULT_PHRASE)) {
+          finalResponse = `${CONSULT_PHRASE}.\n\n${finalResponse}`.trim();
+        }
+        const consultRecord = await createConsultFlag({
+          studentId:      participant.userId,
+          studentName:    participant.userName,
+          sessionId:      resolvedSessionId,
+          sessionType:    isGroup ? 'group' : 'student',
+          studentMessage: userMessage,
+          adamSummary:    consult.reason || finalResponse.slice(0, 500),
+        });
+        if (!toFounder.relays.length) {
+          await deliverToFounder(userMessage.trim());
+        }
+        await markConsultDeliveredToFounder(consultRecord.id);
+      } else if (!relayedToFounder && studentWantsFounderRelay(userMessage)) {
+        await deliverToFounder(userMessage.trim());
+      }
     }
 
     const k24Address = await generateK24Address(mode);
@@ -789,6 +957,7 @@ export async function streamADAMChat(
       modelTier:      modelChoice.tier,
       modelReason:    modelChoice.reason,
       relayedToStudents: isFounder ? relayedToStudents : undefined,
+      relayedToFounder:  !isFounder ? relayedToFounder : undefined,
     }));
 
     if (isFounder && teaching.uploadIds.length) {
