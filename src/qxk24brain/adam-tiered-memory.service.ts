@@ -19,10 +19,10 @@
  * Tier 3 — Long-term (cold): QXK24Brain unified being
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages/messages';
 import { ENV } from '../config/environments';
 import { resolveBrainDeepModel } from '../config/anthropic-models';
+import { isLlmConfigured, llmCompleteUserPrompt } from '../llm/llm-client';
 import { ADAMMessageModel, ADAMFounderSessionModel } from '../adam/adam.schema';
 import { getAdamMemoryConfig } from '../config/adam-memory.config';
 import { prependCoreToSystem, getCorePrompt, CORE_ABSORPTION_ACK } from './adam-core';
@@ -30,8 +30,6 @@ import { buildConstitutionalAnchor } from './adam-anchor.service';
 import { smartTruncate } from './adam-smart-truncate';
 import { getOrCreateMaster } from './qxk24brain.engine';
 import type { ChatParticipant } from '../adam/adam-student.types';
-
-const anthropic = new Anthropic({ apiKey: ENV.ANTHROPIC_API_KEY });
 
 function workingMemoryLimit(): number {
   const raw = process.env.ADAM_WORKING_MEMORY_EXCHANGES;
@@ -56,14 +54,6 @@ function formatWorkingLine(msg: {
     ? `${msg.role.toUpperCase()} · ${msg.speakerName}`
     : msg.role.toUpperCase();
   return `[${who}]: ${msg.content}`;
-}
-
-function extractText(content: Anthropic.Message['content']): string {
-  return content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n')
-    .trim();
 }
 
 // ── TIER 1: Working Memory (Hot) ─────────────────────────────────────────
@@ -115,25 +105,22 @@ export async function buildSessionDigest(
 
   let digest = '';
 
-  if (ENV.ANTHROPIC_API_KEY) {
+  if (isLlmConfigured()) {
     try {
-      const response = await anthropic.messages.create({
-        model:      resolveBrainDeepModel(),
-        max_tokens: 500,
-        system:     prependCoreToSystem(
+      digest = await llmCompleteUserPrompt(
+        prependCoreToSystem(
           'Extract session teaching points for ADAM memory continuity. Be extremely concise.',
         ),
-        messages: [{
-          role:    'user',
-          content: `Extract the 5 most important points taught in this session.
+        `Extract the 5 most important points taught in this session.
 Be extremely concise. Each point maximum 2 sentences.
 These maintain ADAM's memory continuity across the message window.
 
 Session teachings:
 ${sessionMessages.map((m) => m.content.slice(0, 500)).join('\n\n')}`,
-        }],
-      });
-      digest = extractText(response.content);
+        resolveBrainDeepModel(),
+        500,
+      );
+      digest = digest.trim();
     } catch (err) {
       console.error('[ADAM Tiered Memory] Digest generation failed:', err);
       digest = sessionMessages

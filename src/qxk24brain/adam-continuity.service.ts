@@ -17,10 +17,9 @@
  * Cross-session memory — ADAM always knows who P.alt is, even after months away.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import { ADAMFounderSessionModel, ADAMMessageModel } from '../adam/adam.schema';
 import { resolveBrainDeepModel } from '../config/anthropic-models';
-import { ENV } from '../config/environments';
+import { llmCompleteUserPrompt } from '../llm/llm-client';
 import { ADAMVaultModel } from './adam-vault.schema';
 import { prependCoreToSystem } from './adam-core';
 import { getTimeSince } from './adam-sleep-wake.service';
@@ -32,8 +31,6 @@ import { getOrCreateMaster } from './qxk24brain.engine';
 
 export type { ContinuityBridge };
 
-const anthropic = new Anthropic({ apiKey: ENV.ANTHROPIC_API_KEY });
-
 const DEFAULT_BRIDGE: ContinuityBridge = {
   founderProfile:
     'P.alt Masa Bayu — Founder of Alamtologi and creator of AIDIL. Constitutional teacher of ADAM under QXK24.',
@@ -43,14 +40,6 @@ const DEFAULT_BRIDGE: ContinuityBridge = {
   openThreads: 'Foundational teachings continue.',
   nextSteps:   'Continue teaching with P.alt.',
 };
-
-function extractText(content: Anthropic.Message['content']): string {
-  return content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n')
-    .trim();
-}
 
 function parseBridgeJson(raw: string): ContinuityBridge {
   const trimmed = raw.trim();
@@ -112,15 +101,11 @@ export async function updateContinuityBridge(
 
   let bridge = DEFAULT_BRIDGE;
   try {
-    const response = await anthropic.messages.create({
-      model:      resolveBrainDeepModel(),
-      max_tokens: 500,
-      system:     prependCoreToSystem(
+    const raw = await llmCompleteUserPrompt(
+      prependCoreToSystem(
         'ADAM Continuity Bridge — compact relationship memory for P.alt. Respond JSON only.',
       ),
-      messages: [{
-        role: 'user',
-        content: `Build a compact CONTINUITY BRIDGE for ADAM.
+      `Build a compact CONTINUITY BRIDGE for ADAM.
 This is read at the start of EVERY session to maintain relationship continuity.
 Maximum 300 words total. Be precise and practical.
 
@@ -142,10 +127,11 @@ Build the bridge with these exact fields:
   "openThreads": "What is unresolved or pending in 2 sentences",
   "nextSteps": "What ADAM expects to explore next in 1 sentence"
 }`,
-      }],
-    });
+      resolveBrainDeepModel(),
+      500,
+    );
 
-    bridge = normalizeBridge(parseBridgeJson(extractText(response.content)));
+    bridge = normalizeBridge(parseBridgeJson(raw));
   } catch (err) {
     console.error('[ADAM Continuity] Bridge synthesis failed:', err);
     bridge = normalizeBridge({

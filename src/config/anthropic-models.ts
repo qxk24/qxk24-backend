@@ -17,8 +17,13 @@
 
 import { ENV } from './environments';
 import type { ADAMChatMode } from '../adam/adam.types';
+import { shouldEnableWebSearchForMessage } from '../adam/adam-web-search';
 
 export type ModelTier = 'fast' | 'deep';
+
+function useQwen(): boolean {
+  return ENV.LLM_PROVIDER === 'qwen';
+}
 
 export interface ModelRouterParticipant {
   userId:      string;
@@ -51,10 +56,66 @@ export function getAnthropicModelFast(): string {
   return ENV.ANTHROPIC_MODEL_FAST;
 }
 
+/** Deep tier — Sonnet (production) or Qwen deep (lab) */
+export function getDeepModel(): string {
+  return useQwen() ? ENV.QWEN_MODEL_DEEP : getAnthropicModelDeep();
+}
+
+/** Fast tier — Haiku (production) or Qwen flash (lab) */
+export function getFastModel(): string {
+  return useQwen() ? ENV.QWEN_MODEL_FAST : getAnthropicModelFast();
+}
+
+/** Vision uploads — Haiku (production) or Qwen-VL (lab) */
+export function getVisionModel(): string {
+  return useQwen() ? ENV.QWEN_MODEL_VISION : getAnthropicModelFast();
+}
+
 export interface ResolvedAdamModel {
   model:  string;
   tier:   ModelTier;
   reason: string;
+}
+
+/** Qwen lab — routine founder chat uses turbo; plus reserved for deep turns. */
+function resolveQwenFounderModel(
+  mode: ADAMChatMode,
+  message: string,
+  hasUploads: boolean,
+): ResolvedAdamModel {
+  const text = message.trim();
+  const len = text.length;
+
+  if (hasUploads || DEEP_MODES.includes(mode)) {
+    return { model: getDeepModel(), tier: 'deep', reason: 'qwen_founder_deep' };
+  }
+
+  if (len >= 800 || shouldEnableWebSearchForMessage(text)) {
+    return { model: getDeepModel(), tier: 'deep', reason: 'qwen_founder_substantive' };
+  }
+
+  if (len >= ENV.ADAM_DEEP_MESSAGE_MIN_CHARS) {
+    return { model: getDeepModel(), tier: 'deep', reason: 'qwen_founder_long' };
+  }
+
+  return { model: getFastModel(), tier: 'fast', reason: 'qwen_founder_routine' };
+}
+
+export function resolveAdamMaxTokens(tier: ModelTier, isFounder: boolean): number {
+  if (useQwen()) {
+    if (tier === 'fast') return 1536;
+    return isFounder ? 3072 : 2048;
+  }
+  return isFounder || tier === 'deep' ? 4096 : 2048;
+}
+
+export function resolveQwenEnableThinking(
+  tier: ModelTier,
+  mode: ADAMChatMode,
+): boolean {
+  if (!ENV.QWEN_ENABLE_THINKING) return false;
+  if (tier === 'fast') return false;
+  return DEEP_MODES.includes(mode);
 }
 
 /**
@@ -72,8 +133,11 @@ export function resolveAdamChatModel(params: {
   const len = text.length;
 
   if (participant.role === 'founder') {
+    if (useQwen()) {
+      return resolveQwenFounderModel(mode, message, hasUploads);
+    }
     return {
-      model:  getAnthropicModelDeep(),
+      model:  getDeepModel(),
       tier:   'deep',
       reason: 'founder_session',
     };
@@ -81,7 +145,7 @@ export function resolveAdamChatModel(params: {
 
   if (hasUploads) {
     return {
-      model:  getAnthropicModelDeep(),
+      model:  getDeepModel(),
       tier:   'deep',
       reason: 'teaching_upload',
     };
@@ -89,7 +153,7 @@ export function resolveAdamChatModel(params: {
 
   if (participant.sessionType === 'group') {
     return {
-      model:  getAnthropicModelDeep(),
+      model:  getDeepModel(),
       tier:   'deep',
       reason: 'group_session',
     };
@@ -97,7 +161,7 @@ export function resolveAdamChatModel(params: {
 
   if (DEEP_MODES.includes(mode)) {
     return {
-      model:  getAnthropicModelDeep(),
+      model:  getDeepModel(),
       tier:   'deep',
       reason: `mode_${mode.toLowerCase()}`,
     };
@@ -105,7 +169,7 @@ export function resolveAdamChatModel(params: {
 
   if (len >= ENV.ADAM_DEEP_MESSAGE_MIN_CHARS) {
     return {
-      model:  getAnthropicModelDeep(),
+      model:  getDeepModel(),
       tier:   'deep',
       reason: 'long_message',
     };
@@ -113,14 +177,14 @@ export function resolveAdamChatModel(params: {
 
   if (DEEP_MESSAGE_PATTERNS.some((re) => re.test(text))) {
     return {
-      model:  getAnthropicModelDeep(),
+      model:  getDeepModel(),
       tier:   'deep',
       reason: 'substantive_topic',
     };
   }
 
   return {
-    model:  getAnthropicModelFast(),
+    model:  getFastModel(),
     tier:   'fast',
     reason: 'routine_student_chat',
   };
@@ -128,10 +192,10 @@ export function resolveAdamChatModel(params: {
 
 /** Brain transformation and constitutional writes — always deep */
 export function resolveBrainDeepModel(): string {
-  return getAnthropicModelDeep();
+  return getDeepModel();
 }
 
 /** Student alignment JSON check — fast tier */
 export function resolveBrainFastModel(): string {
-  return getAnthropicModelFast();
+  return getFastModel();
 }

@@ -2,7 +2,7 @@
  * ============================================================
  * QIUBBX MANAGEMENT SYSTEM
  * ============================================================
- * Module      : ADAM Image Vision (Claude)
+ * Module      : ADAM Image Vision
  * Platform    : Backend (TypeScript)
  * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
@@ -15,9 +15,9 @@
  * ============================================================
  */
 
-import Anthropic from '@anthropic-ai/sdk';
-import { ENV } from '../config/environments';
-import { getAnthropicModelFast } from '../config/anthropic-models';
+import { getVisionModel } from '../config/anthropic-models';
+import { getAdamLanguageDirective } from './adam-language';
+import { isLlmConfigured, llmDescribeImage } from '../llm/llm-client';
 import { normalizeFounderFile } from './adam-file-extract.service';
 
 type VisionMediaType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
@@ -54,7 +54,8 @@ function visionPrompt(uploaderRole: 'founder' | 'student', fileName: string): st
       `The Founder uploaded "${fileName}" as constitutional teaching material.`,
       'Describe everything relevant for ADAM to study: visible text (OCR), diagrams, tables, handwriting, symbols, and visual meaning.',
       'Use clear sections. Quote transcribed text faithfully. If unclear, say what is uncertain.',
-      'Write in the same language as the image when obvious; otherwise English with key terms preserved.',
+      'Write in the same language as the image when obvious; otherwise use the constitutional default language.',
+      getAdamLanguageDirective(),
     ].join(' ');
   }
 
@@ -65,17 +66,15 @@ function visionPrompt(uploaderRole: 'founder' | 'student', fileName: string): st
   ].join(' ');
 }
 
-/**
- * Read an image with Claude vision and return text for ADAM teaching context.
- */
+/** Read an image with the active LLM vision model and return text for ADAM teaching context. */
 export async function describeImageWithVision(
   buffer: Buffer,
   mimeType: string,
   fileName: string,
   uploaderRole: 'founder' | 'student' = 'founder',
 ): Promise<string> {
-  if (!ENV.ANTHROPIC_API_KEY) {
-    throw new Error('Image reading requires ANTHROPIC_API_KEY on the server.');
+  if (!isLlmConfigured()) {
+    throw new Error('Image reading requires an LLM API key on the server.');
   }
 
   const mediaType = resolveVisionMediaType(buffer, mimeType, fileName);
@@ -85,40 +84,14 @@ export async function describeImageWithVision(
     );
   }
 
-  const client = new Anthropic({ apiKey: ENV.ANTHROPIC_API_KEY });
-  const response = await client.messages.create({
-    model:      getAnthropicModelFast(),
-    max_tokens: 4096,
-    messages: [
-      {
-        role:    'user',
-        content: [
-          {
-            type:   'image',
-            source: {
-              type:       'base64',
-              media_type: mediaType,
-              data:       buffer.toString('base64'),
-            },
-          },
-          {
-            type: 'text',
-            text: visionPrompt(uploaderRole, fileName),
-          },
-        ],
-      },
-    ],
+  const text = await llmDescribeImage({
+    buffer,
+    mediaType,
+    fileName,
+    prompt:    visionPrompt(uploaderRole, fileName),
+    model:     getVisionModel(),
+    maxTokens: 4096,
   });
-
-  const text = response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-    .map((block) => block.text)
-    .join('\n')
-    .trim();
-
-  if (!text) {
-    throw new Error('Could not read this image. Try a clearer photo or JPG/PNG export.');
-  }
 
   return [
     `[Image read by ADAM — ${fileName}]`,

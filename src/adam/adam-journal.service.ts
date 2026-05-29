@@ -6,9 +6,9 @@
 // Date: 2026-05-28
 // ============================================================
 
-import Anthropic from '@anthropic-ai/sdk';
 import { v4 as uuidv4 } from 'uuid';
-import { ENV } from '../config/environments';
+import { getDeepModel } from '../config/anthropic-models';
+import { llmCompleteUserPrompt } from '../llm/llm-client';
 import { ADAMJournalModel } from './adam.schema';
 import type {
   AlamtologiAcademicJournal,
@@ -117,8 +117,6 @@ export async function submitJournal(input: {
   authorEmail:     string;
   authorOrg?:      string;
 }): Promise<AlamtologiAcademicJournal> {
-  const client = new Anthropic({ apiKey: ENV.ANTHROPIC_API_KEY });
-
   let analysedContent: JournalContent;
   let hukumZ: HukumZResult;
   let tahapAkal: TahapAkal;
@@ -127,13 +125,12 @@ export async function submitJournal(input: {
   let reviewNotes: string;
 
   try {
-    const response = await client.messages.create({
-      model:      ENV.ANTHROPIC_MODEL_DEEP,
-      max_tokens: 8192,
-      messages:   [{ role: 'user', content: buildJournalPrompt(input) }],
-    });
-
-    const raw     = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const raw = await llmCompleteUserPrompt(
+      'Alamtologi academic journal constitutional analysis.',
+      buildJournalPrompt(input),
+      getDeepModel(),
+      8192,
+    );
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const parsed  = JSON.parse(cleaned);
 

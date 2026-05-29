@@ -10,9 +10,8 @@
  * ============================================================
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import { resolveBrainFastModel } from '../config/anthropic-models';
-import { ENV } from '../config/environments';
+import { llmCompleteUserPrompt } from '../llm/llm-client';
 import {
   ADAMFounderSessionModel,
   ADAMMessageModel,
@@ -26,7 +25,6 @@ import { getOrCreateMaster } from './qxk24brain.engine';
 import { prependCoreToSystem } from './adam-core';
 import { QXK24BrainMasterModel } from './qxk24brain.schema';
 
-const anthropic = new Anthropic({ apiKey: ENV.ANTHROPIC_API_KEY });
 const BRAIN_MODEL = () => resolveBrainFastModel();
 
 interface AlignmentResult {
@@ -54,18 +52,14 @@ function parseJson<T>(raw: string, fallback: T): T {
 }
 
 async function callJson<T>(prompt: string, fallback: T): Promise<T> {
-  const response = await anthropic.messages.create({
-    model:      BRAIN_MODEL(),
-    max_tokens: 1200,
-    system:     prependCoreToSystem(
+  const text = await llmCompleteUserPrompt(
+    prependCoreToSystem(
       'You are ADAM QXK24Brain alignment checker. Founder teachings are supreme. Respond JSON only.',
     ),
-    messages:   [{ role: 'user', content: prompt }],
-  });
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n');
+    prompt,
+    BRAIN_MODEL(),
+    1200,
+  );
   return parseJson(text, fallback);
 }
 

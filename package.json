@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "test": "jest --runInBand",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "quran:fetch": "node scripts/fetch-quran-corpus.mjs"
   },
   "engines": {
     "node": ">=18.0.0"

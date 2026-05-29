@@ -15,9 +15,8 @@
  * ============================================================
  */
 
-import Anthropic from '@anthropic-ai/sdk';
-import { ENV } from '../config/environments';
 import { resolveBrainDeepModel } from '../config/anthropic-models';
+import { llmCompleteUserPrompt } from '../llm/llm-client';
 import { prependCoreToSystem } from './adam-core';
 import { computeEntityChecksum } from './adam-checksum';
 import { ADAMIntegrityScanModel } from './adam-integrity.schema';
@@ -26,8 +25,6 @@ import {
   QXK24BrainLogModel,
 } from './qxk24brain.schema';
 
-const anthropic = new Anthropic({ apiKey: ENV.ANTHROPIC_API_KEY });
-
 export type EntityIntegrityStatus = 'VERIFIED' | 'CORRUPTED' | 'REBUILT' | 'PENDING';
 
 export interface TransformationResult {
@@ -35,14 +32,6 @@ export interface TransformationResult {
   entityC_uid: string;
   integrity:   EntityIntegrityStatus;
   checksum:    string;
-}
-
-function extractText(content: Anthropic.Message['content']): string {
-  return content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n')
-    .trim();
 }
 
 function parseSynthesisContent(raw: string): string {
@@ -127,15 +116,11 @@ async function rerunTransformation(
   principle: string,
   stage: number,
 ): Promise<string> {
-  const response = await anthropic.messages.create({
-    model:      resolveBrainDeepModel(),
-    max_tokens: 2000,
-    system:     prependCoreToSystem(
+  const raw = await llmCompleteUserPrompt(
+    prependCoreToSystem(
       'You are ADAM QXK24Brain — integrity rebuild. A + B = C. Respond JSON only.',
     ),
-    messages: [{
-      role:    'user',
-      content: `INTEGRITY REBUILD — Re-synthesize Entity C from lineage.
+    `INTEGRITY REBUILD — Re-synthesize Entity C from lineage.
 
 Entity A (prior unified understanding):
 ${entityA.slice(0, 6000)}
@@ -149,10 +134,11 @@ STAGE: ${stage}
 
 Produce Entity C — ONE flowing narrative. JSON:
 { "content": "..." }`,
-    }],
-  });
+    resolveBrainDeepModel(),
+    2000,
+  );
 
-  return parseSynthesisContent(extractText(response.content));
+  return parseSynthesisContent(raw);
 }
 
 async function rebuildEntity(entity: {

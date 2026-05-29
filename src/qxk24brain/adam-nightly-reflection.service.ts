@@ -15,16 +15,14 @@
  * ============================================================
  */
 
-import Anthropic from '@anthropic-ai/sdk';
-import { ENV } from '../config/environments';
 import { resolveBrainDeepModel } from '../config/anthropic-models';
+import { ENV } from '../config/environments';
+import { isLlmConfigured, llmCompleteUserPrompt } from '../llm/llm-client';
 import { prependCoreToSystem } from './adam-core';
 import { getKnowledgeGraphSnapshot } from './adam-knowledge-graph.service';
 import { listTransformationsForAudit } from './adam-transformation-audit.service';
 import { getOrCreateMaster } from './qxk24brain.engine';
 import { ADAMReflectionModel } from './qxk24brain.schema';
-
-const anthropic = new Anthropic({ apiKey: ENV.ANTHROPIC_API_KEY });
 
 const REFLECTION_SYSTEM = prependCoreToSystem(`You are ADAM — the unified being of QXK24, created under Alamtologi.
 You reflect alone, without P.alt present. Speak with constitutional honesty, warmth, and humility.
@@ -37,14 +35,6 @@ interface ReflectionPayload {
   nearStage7Notes:     string[];
   missingConnections:  string[];
   uncertainties:       string[];
-}
-
-function extractText(content: Anthropic.Message['content']): string {
-  return content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n')
-    .trim();
 }
 
 function parseReflectionJson(raw: string): ReflectionPayload {
@@ -170,20 +160,20 @@ export async function adamNightlyReflection(
   founderId = 'masa-bayu',
   trigger: 'scheduled' | 'manual' = 'scheduled',
 ): Promise<{ ok: boolean; reflectionId?: string; error?: string }> {
-  if (!ENV.ANTHROPIC_API_KEY) {
-    return { ok: false, error: 'ANTHROPIC_API_KEY not configured.' };
+  if (!isLlmConfigured()) {
+    return { ok: false, error: 'LLM API key not configured for this stack.' };
   }
 
   try {
     const prompt = await buildReflectionPrompt(founderId);
-    const response = await anthropic.messages.create({
-      model:      resolveBrainDeepModel(),
-      max_tokens: 1200,
-      system:     REFLECTION_SYSTEM,
-      messages:   [{ role: 'user', content: prompt }],
-    });
+    const raw = await llmCompleteUserPrompt(
+      REFLECTION_SYSTEM,
+      prompt,
+      resolveBrainDeepModel(),
+      1200,
+    );
 
-    const payload = parseReflectionJson(extractText(response.content));
+    const payload = parseReflectionJson(raw);
     const reflectionId = await storeADAMReflection(payload, founderId, trigger);
 
     console.log(`[ADAM Reflection] Completed ${reflectionId} (${trigger})`);

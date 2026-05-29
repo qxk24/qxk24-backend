@@ -18,17 +18,21 @@
 import path from 'path';
 import fs from 'fs';
 
-// Resolve .env from repo root or from inside qxk24-backend
+// Resolve .env (production) or .env.lab when QXK24_STACK=lab
 function resolveEnvPath(): string {
-  const candidates = [
-    path.resolve(process.cwd(), '.env'),
-    path.resolve(__dirname, '../../.env'),
-    path.resolve(__dirname, '../../../.env')
-  ];
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
+  const isLab = process.env.QXK24_STACK === 'lab';
+  const names = isLab ? ['.env.lab', '.env'] : ['.env'];
+  for (const name of names) {
+    const candidates = [
+      path.resolve(process.cwd(), name),
+      path.resolve(__dirname, '../../', name),
+      path.resolve(__dirname, '../../../', name),
+    ];
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) return candidate;
+    }
   }
-  return path.resolve(process.cwd(), '.env');
+  return path.resolve(process.cwd(), isLab ? '.env.lab' : '.env');
 }
 
 import dotenv from 'dotenv';
@@ -114,6 +118,8 @@ export const ENV = {
   ADAM_CHAT_TEACHING_CHARS,
   ADAM_CHAT_BRAIN_CHARS,
   ADAM_CHAT_HISTORY_MSG_CHARS,
+  /** malay | english — default voice language when the speaker's language is unclear */
+  ADAM_DEFAULT_LANGUAGE: optional('ADAM_DEFAULT_LANGUAGE', 'malay'),
   ADAM_UPLOAD_DIR: optional('ADAM_UPLOAD_DIR', 'uploads/adam'),
 
   // Cloudflare R2 (ADAM knowledge base)
@@ -121,6 +127,11 @@ export const ENV = {
   R2_ACCESS_KEY_ID:      optional('R2_ACCESS_KEY_ID'),
   R2_SECRET_ACCESS_KEY:  optional('R2_SECRET_ACCESS_KEY'),
   R2_BUCKET_NAME:        optional('R2_BUCKET_NAME', 'qxk24-adam-knowledge'),
+
+  // Stack identity (production = Claude backup, lab = Qwen pilot)
+  QXK24_STACK: optional('QXK24_STACK', 'production'),
+  /** anthropic = production Claude | qwen = DashScope Lab */
+  LLM_PROVIDER: optional('LLM_PROVIDER', 'anthropic') as 'anthropic' | 'qwen',
 
   // Monitoring
   SENTRY_DSN: optional('SENTRY_DSN'),
@@ -132,9 +143,31 @@ export const ENV = {
     optional('ANTHROPIC_MODEL', 'claude-sonnet-4-6'),
   ),
   ANTHROPIC_MODEL_FAST: optional('ANTHROPIC_MODEL_FAST', 'claude-haiku-4-5'),
+
+  // Qwen / DashScope (Lab stack — same A, different engine)
+  DASHSCOPE_API_KEY: optional('DASHSCOPE_API_KEY'),
+  QWEN_API_BASE:     optional(
+    'QWEN_API_BASE',
+    'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  ),
+  QWEN_MODEL_DEEP: optional('QWEN_MODEL_DEEP', 'qwen-plus'),
+  QWEN_MODEL_FAST: optional('QWEN_MODEL_FAST', 'qwen-turbo'),
+  QWEN_MODEL_VISION: optional('QWEN_MODEL_VISION', 'qwen-vl-max'),
+
   /** Student messages at or above this length use Sonnet (default 400) */
   ADAM_DEEP_MESSAGE_MIN_CHARS: optionalInt('ADAM_DEEP_MESSAGE_MIN_CHARS', 400),
   QXK24_SUCCESSION_ENCRYPTION_KEY: optional('QXK24_SUCCESSION_ENCRYPTION_KEY'),
+
+  /** Qwen — DashScope web search (agent = model decides when, like Claude) */
+  QWEN_ENABLE_SEARCH: optional('QWEN_ENABLE_SEARCH', 'true') === 'true',
+  QWEN_SEARCH_STRATEGY: optional('QWEN_SEARCH_STRATEGY', 'agent'),
+  QWEN_SEARCH_ENABLE_CITATION: optional('QWEN_SEARCH_ENABLE_CITATION', 'true') === 'true',
+  /** Hybrid Qwen models — false skips reasoning phase for much faster replies */
+  QWEN_ENABLE_THINKING: optional('QWEN_ENABLE_THINKING', 'false') === 'true',
+
+  /** Verified Quran ayat corpus (Rasm Uthmani + MS + EN, no tafsir) */
+  QURAN_CORPUS_ENABLED: optional('QURAN_CORPUS_ENABLED', 'true') === 'true',
+  QURAN_CORPUS_PATH:      optional('QURAN_CORPUS_PATH', ''),
 
   // Derived
   IS_PRODUCTION:  process.env.NODE_ENV === 'production',

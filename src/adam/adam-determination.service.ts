@@ -6,9 +6,9 @@
 // Date: 2026-05-28
 // ============================================================
 
-import Anthropic from '@anthropic-ai/sdk';
 import { v4 as uuidv4 } from 'uuid';
-import { ENV } from '../config/environments';
+import { getDeepModel } from '../config/anthropic-models';
+import { llmCompleteUserPrompt } from '../llm/llm-client';
 import { ADAMAuditModel } from './adam.schema';
 import type {
   ADAMDeterminationRequest,
@@ -163,21 +163,19 @@ function calculateHealthScore(
 export async function runADAMDetermination(
   req: ADAMDeterminationRequest,
 ): Promise<ADAMDeterminationResult> {
-  const client    = new Anthropic({ apiKey: ENV.ANTHROPIC_API_KEY });
   const auditId   = uuidv4();
   const principle = detectDominantPrinciple(req.question, req.context, req.principle);
 
   let parsed: Partial<ADAMDeterminationResult>;
 
   try {
-    const response = await client.messages.create({
-      model:      ENV.ANTHROPIC_MODEL_DEEP,
-      max_tokens: 2048,
-      messages:   [{ role: 'user', content: buildDeterminationPrompt(req) }],
-    });
-
-    const raw = response.content[0].type === 'text' ? response.content[0].text : '';
-    parsed    = parseDeterminationResponse(raw);
+    const raw = await llmCompleteUserPrompt(
+      'Bismillahirahmanirrahim. ADAM constitutional determination engine.',
+      buildDeterminationPrompt(req),
+      getDeepModel(),
+      2048,
+    );
+    parsed = parseDeterminationResponse(raw);
   } catch {
     parsed = {
       judgment:     'WAQF',

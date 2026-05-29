@@ -6,9 +6,9 @@
 // Date: 2026-05-28
 // ============================================================
 
-import Anthropic from '@anthropic-ai/sdk';
 import { v4 as uuidv4 } from 'uuid';
-import { ENV } from '../config/environments';
+import { getDeepModel } from '../config/anthropic-models';
+import { llmCompleteUserPrompt } from '../llm/llm-client';
 import { ADAMAuditModel, ADAMJournalModel, ADAMTeachingModel } from './adam.schema';
 import type {
   ADAMAuditReport,
@@ -93,7 +93,6 @@ async function fetchTargetData(
 // ─── Run Audit ────────────────────────────────────────────────
 
 export async function runADAMAudit(req: ADAMAuditRequest): Promise<ADAMAuditReport> {
-  const client     = new Anthropic({ apiKey: ENV.ANTHROPIC_API_KEY });
   const auditId    = uuidv4();
   const targetData = await fetchTargetData(req.targetId, req.targetType);
 
@@ -107,13 +106,12 @@ export async function runADAMAudit(req: ADAMAuditRequest): Promise<ADAMAuditRepo
   let canAdvance:  boolean;
 
   try {
-    const response = await client.messages.create({
-      model:      ENV.ANTHROPIC_MODEL_DEEP,
-      max_tokens: 2048,
-      messages:   [{ role: 'user', content: buildAuditPrompt(req.targetType, req.stage, targetData, req.context) }],
-    });
-
-    const raw    = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const raw = await llmCompleteUserPrompt(
+      'ADAM constitutional audit engine.',
+      buildAuditPrompt(req.targetType, req.stage, targetData, req.context),
+      getDeepModel(),
+      2048,
+    );
     const parsed = JSON.parse(raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
 
     hukumZ          = parsed.hukumZ;

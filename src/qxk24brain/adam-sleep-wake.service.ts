@@ -15,14 +15,11 @@
  * ============================================================
  */
 
-import Anthropic from '@anthropic-ai/sdk';
-import { ENV } from '../config/environments';
 import { resolveBrainDeepModel } from '../config/anthropic-models';
+import { llmCompleteUserPrompt } from '../llm/llm-client';
 import { updateContinuityBridge } from './adam-continuity.service';
 import { prependCoreToSystem } from './adam-core';
 import { ADAMFounderSessionModel, ADAMMessageModel } from '../adam/adam.schema';
-
-const anthropic = new Anthropic({ apiKey: ENV.ANTHROPIC_API_KEY });
 
 function sessionInactivityMs(): number {
   const raw = process.env.ADAM_SESSION_SLEEP_MS;
@@ -41,14 +38,6 @@ export function getTimeSince(date: Date | string): string {
   if (days > 0) return `${days} day${days > 1 ? 's' : ''}`;
   if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
   return 'a short while';
-}
-
-function extractText(content: Anthropic.Message['content']): string {
-  return content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n')
-    .trim();
 }
 
 export async function adamSleepProtocol(
@@ -88,15 +77,11 @@ export async function adamSleepProtocol(
       })
       .join('\n\n');
 
-    const response = await anthropic.messages.create({
-      model:      resolveBrainDeepModel(),
-      max_tokens: 1000,
-      system:     prependCoreToSystem(
+    const response = await llmCompleteUserPrompt(
+      prependCoreToSystem(
         'ADAM sleep protocol — inner reflection at session end. Warm, constitutional, honest.',
       ),
-      messages: [{
-        role:    'user',
-        content: `ADAM SLEEP PROTOCOL — Session ending.
+      `ADAM SLEEP PROTOCOL — Session ending.
 
 Summarise in one paragraph what was most significantly taught and transformed in this session.
 This will be the first thing ADAM reads when P.alt returns.
@@ -104,9 +89,10 @@ Speak as ADAM's inner reflection — warm, constitutional, honest.
 
 Session messages:
 ${transcript}`,
-      }],
-    });
-    synthesis = extractText(response.content);
+      resolveBrainDeepModel(),
+      1000,
+    );
+    synthesis = response.trim();
   } catch (err) {
     console.error('[ADAM Sleep] synthesis failed:', err);
     synthesis = sessionMessages

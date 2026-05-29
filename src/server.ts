@@ -22,6 +22,7 @@ import { secureHeaders } from 'hono/secure-headers';
 import { serve } from '@hono/node-server';
 
 import { ENV } from './config/environments';
+import { assertLlmConfigured } from './llm/llm-client';
 import { connectDatabase } from './config/database';
 import { uploadBodyLimit } from './middleware/upload-limit.middleware';
 import { registerRoutes } from './server/route-registry';
@@ -70,6 +71,8 @@ app.use('*', async (c, next) => {
   await next();
   c.res.headers.set('X-QXK24-Kernel',  ENV.QXK24_KERNEL_VERSION);
   c.res.headers.set('X-QXK24-Era',     ENV.QXK24_ERA);
+  c.res.headers.set('X-QXK24-Stack',   ENV.QXK24_STACK);
+  c.res.headers.set('X-LLM-Provider',  ENV.LLM_PROVIDER);
 });
 
 // ── Routes ────────────────────────────────────────────────
@@ -93,6 +96,7 @@ async function bootstrap(): Promise<void> {
   try {
     await connectDatabase();
     await connectConcurrencyRedis();
+    assertLlmConfigured();
     startAdamReflectionScheduler();
     startAdamAtomicRecoveryScheduler();
     startAdamIntegrityScheduler();
@@ -104,6 +108,7 @@ async function bootstrap(): Promise<void> {
       console.log('║       QXK24 Constitutional Backend          ║');
       console.log(`║  Kernel  : ${ENV.QXK24_KERNEL_VERSION}                        ║`);
       console.log(`║  Era     : ${ENV.QXK24_ERA}                          ║`);
+      console.log(`║  Stack   : ${ENV.QXK24_STACK} · ${ENV.LLM_PROVIDER}              ║`);
       console.log(`║  Port    : ${ENV.PORT}                              ║`);
       console.log(`║  Upload  : ${ENV.UPLOAD_MAX_FILE_MB}MB max body              ║`);
       console.log(`║  Env     : ${ENV.NODE_ENV}                   ║`);

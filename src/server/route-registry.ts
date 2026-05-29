@@ -35,13 +35,15 @@ export function registerRoutes(app: Hono): void {
   // ── Health (public) ──────────────────────────────────
   app.get('/health', (c) => {
     return c.json({
-      status:    'operational',
-      kernel:    'QXK24',
-      version:   ENV.QXK24_KERNEL_VERSION,
-      era:       ENV.QXK24_ERA,
-      eraName:   ENV.QXK24_ERA_NAME,
-      timestamp: new Date().toISOString(),
-      domain:    'api.qxk24.com'
+      status:      'operational',
+      kernel:      'QXK24',
+      version:     ENV.QXK24_KERNEL_VERSION,
+      era:         ENV.QXK24_ERA,
+      eraName:     ENV.QXK24_ERA_NAME,
+      stack:       ENV.QXK24_STACK,
+      llmProvider: ENV.LLM_PROVIDER,
+      timestamp:   new Date().toISOString(),
+      domain:      'api.qxk24.com',
     });
   });
 

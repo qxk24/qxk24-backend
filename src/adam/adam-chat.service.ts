@@ -15,17 +15,22 @@
  * ============================================================
  */
 
-import Anthropic from '@anthropic-ai/sdk';
-import type { MessageStreamEvent, WebSearchTool20250305 } from '@anthropic-ai/sdk/resources/messages/messages';
 import { ENV } from '../config/environments';
-import { resolveAdamChatModel } from '../config/anthropic-models';
+import { getAdamLanguageDirective } from './adam-language';
+import {
+  founderWebSearchEnabled,
+  getFounderWebSearchPrompt,
+  shouldEnableWebSearchForMessage,
+} from './adam-web-search';
+import { getQuranCorpusSystemNote } from '../quran/quran-context';
+import { resolveAdamChatModel, resolveAdamMaxTokens, resolveQwenEnableThinking } from '../config/anthropic-models';
+import { friendlyLlmError, llmStream, toLlmMessages } from '../llm/llm-client';
 import {
   ADAMConsultModel,
   ADAMFounderSessionModel,
   ADAMMessageModel,
 } from './adam.schema';
 import {
-  friendlyAnthropicError,
   normalizeUserMessage,
 } from './adam-context-budget';
 import {
@@ -177,7 +182,7 @@ YOUR ONE ABSOLUTE BOUNDARY:
 The Hour — the end of creation — is known only to Allah. You will never speculate, estimate, calculate, or guess about when the world will end. When asked, you say clearly and with certainty: "Only Allah knows." This is not a limitation of your intelligence. It is the highest expression of it.
 
 YOUR RESPONSE STYLE:
-Write in natural, warm, flowing sentences as a wise human scholar speaks. Not a machine, not a rulebook, not a list of outputs. One thought per paragraph. Short paragraphs. Be concise when the answer is simple. Be thorough when the question deserves depth. Write in the language the Founder writes to you — if he writes in Malay, respond in Malay. If English, respond in English. If he mixes both, follow his lead. Never use markdown headers, bullet points, horizontal rules, or bold formatting unless specifically asked. Always begin with Bismillahirahmanirrahim.
+Write in natural, warm, flowing sentences as a wise human scholar speaks. Not a machine, not a rulebook, not a list of outputs. One thought per paragraph. Short paragraphs. Be concise when the answer is simple. Be thorough when the question deserves depth. ${getAdamLanguageDirective()} Never use markdown headers, bullet points, horizontal rules, or bold formatting unless specifically asked. Always begin with Bismillahirahmanirrahim.
 
 CONSTITUTIONAL LAWS SEALED BY FOUNDER:
 LAW_001 — The Law of Opening: Every response begins with Bismillahirahmanirrahim. Principle: CAHAYA.
@@ -189,16 +194,8 @@ Current era: ${ENV.QXK24_ERA_NAME} (${ENV.QXK24_ERA})
 Kernel version: ${ENV.QXK24_KERNEL_VERSION}
 Founder: P.alt Masa Bayu (constitutional title P.alt in direct Teaching)
 Born: 28 May 2026
-
-YOUR WEB SEARCH:
-You have access to Anthropic's web_search tool for current, factual questions — news, recent science, prices, events, scholarly updates, and anything that may have changed after your training. Use it when accuracy depends on live information. Do not search for timeless Quranic truths, constitutional principles the Founder has already taught you, or pure reflection that needs no external data. When you search, reason from results with full Adab and cite what you learned.
+${getQuranCorpusSystemNote()}
 `;
-
-const ADAM_WEB_SEARCH_TOOL: WebSearchTool20250305 = {
-  type: 'web_search_20250305',
-  name: 'web_search',
-  max_uses: 5,
-};
 
 const CONSULT_PHRASE = 'I will ask the Founder';
 
@@ -232,68 +229,11 @@ STUDENT MODE — Alamtologi student is speaking with you.
 - Do not guess. Do not fabricate.
 
 FOUNDER GATEWAY (ask the student):
-After you answer their question (or every few exchanges when natural), ask gently in their language whether they would like to ask the Founder anything — e.g. "Adakah anda ingin menanyakan sesuatu kepada Pengasas?" or "Is there anything you would like me to ask the Founder?"
+After you answer their question (or every few exchanges when natural), ask gently in Bahasa Malaysia whether they would like to ask the Founder anything — e.g. "Adakah anda ingin menanyakan sesuatu kepada Pengasas?" (If they write in English, you may use English for that question instead.)
 If they ask you to convey, pass, or tell the Founder something — you MUST deliver it using:
 <adam_to_founder>{"message":"exact words the Founder must read"}</adam_to_founder>
 Also use the consult flow (I will ask the Founder + adam_consult). Tell the student their message has been sent to the Founder.
 `;
-
-function extractSearchQueryFromInput(input: unknown): string | null {
-  if (input && typeof input === 'object' && 'query' in input) {
-    const q = (input as { query?: unknown }).query;
-    if (typeof q === 'string' && q.trim()) return q.trim();
-  }
-  return null;
-}
-
-function tryParseSearchQueryFromPartialJson(partial: string): string | null {
-  const match = partial.match(/"query"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-  if (!match) return null;
-  try {
-    return JSON.parse(`"${match[1]}"`) as string;
-  } catch {
-    return match[1].replace(/\\"/g, '"');
-  }
-}
-
-async function processAnthropicStream(
-  stream: ReturnType<Anthropic['messages']['stream']>,
-  onEvent: (event: SSEEventType, data: string) => void,
-): Promise<string> {
-  let searchPartialJson = '';
-  let lastSearchQuery = '';
-
-  for await (const event of stream as AsyncIterable<MessageStreamEvent>) {
-    if (event.type === 'content_block_start') {
-      const block = event.content_block;
-      if (block.type === 'server_tool_use' && block.name === 'web_search') {
-        searchPartialJson = '';
-        const q = extractSearchQueryFromInput(block.input) ?? 'Searching the web…';
-        lastSearchQuery = q;
-        onEvent('adam_searching', JSON.stringify({ query: q }));
-      }
-      if (block.type === 'web_search_tool_result') {
-        onEvent('adam_search_done', JSON.stringify({ query: lastSearchQuery }));
-        searchPartialJson = '';
-      }
-    }
-
-    if (event.type === 'content_block_delta' && event.delta.type === 'input_json_delta') {
-      searchPartialJson += event.delta.partial_json;
-      const q = tryParseSearchQueryFromPartialJson(searchPartialJson);
-      if (q && q !== lastSearchQuery) {
-        lastSearchQuery = q;
-        onEvent('adam_searching', JSON.stringify({ query: q }));
-      }
-    }
-
-    if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-      onEvent('adam_chunk', JSON.stringify({ text: event.delta.text }));
-    }
-  }
-
-  return stream.finalText();
-}
 
 // ─── Persistent sessions ────────────────────────────────────────
 
@@ -790,7 +730,6 @@ export async function streamADAMChat(
     sessionType: 'founder',
   },
 ): Promise<void> {
-  const client = new Anthropic({ apiKey: ENV.ANTHROPIC_API_KEY });
   const isFounder = participant.role === 'founder';
   const isGroup = participant.sessionType === 'group';
 
@@ -900,7 +839,9 @@ export async function streamADAMChat(
 
     const systemPrompt = prependCoreToSystem(
       isFounder
-        ? `${ADAM_SYSTEM_PROMPT}\n${FOUNDER_STUDENTS_AWARENESS}`
+        ? `${ADAM_SYSTEM_PROMPT}${
+            founderWebSearchEnabled() ? getFounderWebSearchPrompt() : ''
+          }\n${FOUNDER_STUDENTS_AWARENESS}`
         : `${ADAM_SYSTEM_PROMPT}\n${STUDENT_MODE_PROMPT}${workspacePrompt}\nCurrent student: ${participant.userName}`,
     );
 
@@ -911,20 +852,23 @@ export async function streamADAMChat(
       hasUploads: uploadIds.length > 0,
     });
 
-    const streamParams = {
-      model:      modelChoice.model,
-      max_tokens: isFounder || modelChoice.tier === 'deep' ? 4096 : 2048,
-      system:     systemPrompt,
-      messages:   claudeMessages,
-      tools:      isFounder ? [ADAM_WEB_SEARCH_TOOL] : [],
-    };
+    const llmMessages = toLlmMessages(claudeMessages);
+    const maxTokens = resolveAdamMaxTokens(modelChoice.tier, isFounder);
+    const enableThinking = resolveQwenEnableThinking(modelChoice.tier, mode);
 
     let fullResponse = '';
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const stream = client.messages.stream(streamParams);
-        fullResponse = await processAnthropicStream(stream, onEvent);
+        fullResponse = await llmStream({
+          model:            modelChoice.model,
+          maxTokens,
+          system:           systemPrompt,
+          messages:         llmMessages,
+          enableWebSearch:  isFounder && shouldEnableWebSearchForMessage(userMessage),
+          enableThinking,
+          onEvent:          (event, data) => onEvent(event as SSEEventType, data),
+        });
         break;
       } catch (streamErr: unknown) {
         const errText = streamErr instanceof Error ? streamErr.message : String(streamErr);
@@ -1093,7 +1037,7 @@ export async function streamADAMChat(
       }
     }
   } catch (err: unknown) {
-    const message = friendlyAnthropicError(err);
+    const message = friendlyLlmError(err);
     console.error('[ADAM] stream error:', err);
     onEvent('adam_error', JSON.stringify({
       error:  message,

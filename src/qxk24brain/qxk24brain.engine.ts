@@ -20,9 +20,9 @@
  * C = New entity born — A and B erased, C becomes new A
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import { resolveBrainDeepModel } from '../config/anthropic-models';
 import { ENV } from '../config/environments';
+import { llmCompleteUserPrompt } from '../llm/llm-client';
 import type { QXK24BrainMasterDocument } from './qxk24brain.schema';
 import { sealConstitutionalCheckpoint, familyReachedStageSeven } from './adam-checkpoint.service';
 import { sealInVault } from './adam-vault.service';
@@ -36,7 +36,6 @@ import {
   QXK24BrainLogModel,
 } from './qxk24brain.schema';
 
-const anthropic = new Anthropic({ apiKey: ENV.ANTHROPIC_API_KEY });
 const BRAIN_MODEL = () => resolveBrainDeepModel();
 
 const QXKBRAIN_INSTRUCTION = `
@@ -102,11 +101,10 @@ interface MasterUpdateResult {
   unifiedUnderstanding: string;
 }
 
-function extractTextContent(content: Anthropic.Message['content']): string {
-  return content
-    .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-    .map((block) => block.text)
-    .join('\n');
+function normalizePrinciple(value: string): string {
+  const upper = value.toUpperCase();
+  const allowed = ['MASA', 'TENAGA', 'AIR', 'API', 'BUMI', 'CAHAYA', 'RUANG', 'MULTI'];
+  return allowed.includes(upper) ? upper : 'CAHAYA';
 }
 
 function parseJsonFromClaude<T>(raw: string, fallback: T): T {
@@ -146,24 +144,17 @@ function generateUID(
   return `K24B-${principle}-${familyClean}-${type}-${masa}`;
 }
 
-function normalizePrinciple(value: string): string {
-  const upper = value.toUpperCase();
-  const allowed = ['MASA', 'TENAGA', 'AIR', 'API', 'BUMI', 'CAHAYA', 'RUANG', 'MULTI'];
-  return allowed.includes(upper) ? upper : 'CAHAYA';
-}
-
 async function callBrainJson<T>(
   userPrompt: string,
   fallback: T,
   maxTokens = 1500,
 ): Promise<T> {
-  const response = await anthropic.messages.create({
-    model:      BRAIN_MODEL(),
-    max_tokens: maxTokens,
-    system:     prependCoreToSystem(QXKBRAIN_INSTRUCTION),
-    messages:   [{ role: 'user', content: userPrompt }],
-  });
-  const text = extractTextContent(response.content);
+  const text = await llmCompleteUserPrompt(
+    prependCoreToSystem(QXKBRAIN_INSTRUCTION),
+    userPrompt,
+    BRAIN_MODEL(),
+    maxTokens,
+  );
   return parseJsonFromClaude(text, fallback);
 }
 

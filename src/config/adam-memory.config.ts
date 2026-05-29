@@ -67,7 +67,20 @@ export function getAdamMemoryConfig(
   role: 'founder' | 'student',
   isWorkspace: boolean,
 ): AdamMemoryTierConfig {
-  if (isWorkspace) return ADAM_MEMORY_CONFIG.WORKSPACE;
-  if (role === 'founder') return ADAM_MEMORY_CONFIG.FOUNDER;
-  return ADAM_MEMORY_CONFIG.STUDENT;
+  const base = isWorkspace
+    ? ADAM_MEMORY_CONFIG.WORKSPACE
+    : role === 'founder'
+      ? ADAM_MEMORY_CONFIG.FOUNDER
+      : ADAM_MEMORY_CONFIG.STUDENT;
+
+  if (process.env.QXK24_STACK !== 'lab') return base;
+
+  return {
+    ...base,
+    MESSAGE_WINDOW:     Math.min(base.MESSAGE_WINDOW, 12),
+    BRAIN_CHARS:        Math.min(base.BRAIN_CHARS, 8_000),
+    MESSAGE_CHARS:      Math.min(base.MESSAGE_CHARS, 3_000),
+    COMPLETED_FAMILIES: Math.min(base.COMPLETED_FAMILIES, 3),
+    ACTIVE_FAMILIES:    Math.min(base.ACTIVE_FAMILIES, 5),
+  };
 }
