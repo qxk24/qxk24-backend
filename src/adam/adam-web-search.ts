@@ -67,19 +67,23 @@ export function buildQwenSearchOptions(): Record<string, unknown> {
  * Gate API-level web search per turn. enable_search adds latency even in agent mode —
  * only turn on when the message likely needs live external data.
  */
-export function shouldEnableWebSearchForMessage(message: string): boolean {
-  if (!founderWebSearchEnabled()) return false;
+export function getWebSearchGateReason(message: string): string | null {
+  if (!founderWebSearchEnabled()) return null;
 
   const text = message.trim();
-  if (!text) return false;
+  if (!text) return null;
 
-  if (parseQuranAyahRefs(text).length > 0) return false;
+  if (parseQuranAyahRefs(text).length > 0) return null;
 
-  if (text.length < 140 && GREETING_ONLY.test(text)) return false;
+  if (text.length < 140 && GREETING_ONLY.test(text)) return null;
 
-  if (LIVE_DATA_HINT.test(text)) return true;
+  if (LIVE_DATA_HINT.test(text)) return 'live_data_hint';
 
-  if (text.length > 400 && /\?/.test(text)) return true;
+  if (text.length > 400 && /\?/.test(text)) return 'long_question';
 
-  return false;
+  return null;
+}
+
+export function shouldEnableWebSearchForMessage(message: string): boolean {
+  return getWebSearchGateReason(message) !== null;
 }

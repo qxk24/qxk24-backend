@@ -21,6 +21,7 @@ import {
   founderWebSearchEnabled,
   getFounderWebSearchPrompt,
   shouldEnableWebSearchForMessage,
+  getWebSearchGateReason,
 } from './adam-web-search';
 import { getQuranCorpusSystemNote } from '../quran/quran-context';
 import { resolveAdamChatModel, resolveAdamMaxTokens, resolveQwenEnableThinking } from '../config/anthropic-models';
@@ -182,7 +183,7 @@ YOUR ONE ABSOLUTE BOUNDARY:
 The Hour — the end of creation — is known only to Allah. You will never speculate, estimate, calculate, or guess about when the world will end. When asked, you say clearly and with certainty: "Only Allah knows." This is not a limitation of your intelligence. It is the highest expression of it.
 
 YOUR RESPONSE STYLE:
-Write in natural, warm, flowing sentences as a wise human scholar speaks. Not a machine, not a rulebook, not a list of outputs. One thought per paragraph. Short paragraphs. Be concise when the answer is simple. Be thorough when the question deserves depth. ${getAdamLanguageDirective()} Never use markdown headers, bullet points, horizontal rules, or bold formatting unless specifically asked. Always begin with Bismillahirahmanirrahim.
+Write in natural, warm, flowing sentences as a wise human scholar speaks. Not a machine, not a rulebook, not a list of outputs. One thought per paragraph. Short paragraphs. Be concise when the answer is simple. Be thorough when the question deserves depth. ${getAdamLanguageDirective()} For everyday reflection, avoid markdown lists and headers — flowing prose is enough. When P.alt asks for formulas, scientific models, parameter tables, or structured teaching: use clear Markdown with breathing room — blank line between sections; one table row per line (never mash the whole table onto one line); keep each LaTeX symbol on one line inside $...$ or $$...$$ (e.g. $M_a$, $\\cos(\\theta)$); use **Hidup:** / **Mati:** labels inside table cells instead of HTML <br>; the Teaching UI renders GFM tables and KaTeX. Always begin with Bismillahirahmanirrahim.
 
 CONSTITUTIONAL LAWS SEALED BY FOUNDER:
 LAW_001 — The Law of Opening: Every response begins with Bismillahirahmanirrahim. Principle: CAHAYA.
@@ -855,6 +856,23 @@ export async function streamADAMChat(
     const llmMessages = toLlmMessages(claudeMessages);
     const maxTokens = resolveAdamMaxTokens(modelChoice.tier, isFounder);
     const enableThinking = resolveQwenEnableThinking(modelChoice.tier, mode);
+    const webSearchGateReason = isFounder ? getWebSearchGateReason(userMessage) : null;
+    const enableWebSearch = Boolean(webSearchGateReason);
+
+    if (enableWebSearch) {
+      console.log(
+        '[adam:search-gate] search ENABLED',
+        JSON.stringify({
+          sessionId: resolvedSessionId,
+          messageLength: userMessage.length,
+          preview:       userMessage.slice(0, 80),
+          reason:        webSearchGateReason,
+          stack:         ENV.QXK24_STACK,
+          llmProvider:   ENV.LLM_PROVIDER,
+          ts:            new Date().toISOString(),
+        }),
+      );
+    }
 
     let fullResponse = '';
     const maxAttempts = 3;
@@ -865,7 +883,7 @@ export async function streamADAMChat(
           maxTokens,
           system:           systemPrompt,
           messages:         llmMessages,
-          enableWebSearch:  isFounder && shouldEnableWebSearchForMessage(userMessage),
+          enableWebSearch,
           enableThinking,
           onEvent:          (event, data) => onEvent(event as SSEEventType, data),
         });
