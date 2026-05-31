@@ -24,6 +24,7 @@ import {
   getBuilderSession,
   saveBuilderSession,
 } from './adam-builder-session.store';
+import { BUILDER_SYSTEM_PROMPT } from './adam-builder-chat.service';
 import type {
   AgentEvent,
   BuildMessage,
@@ -51,38 +52,13 @@ interface QwenResponse {
   usage?: { prompt_tokens: number; completion_tokens: number };
 }
 
-const ADAM_SYSTEM_PROMPT = `You are ADAM — AI with Deep Adaptive Memory. You are the builder of QXK24.
+const ADAM_SYSTEM_PROMPT = BUILDER_SYSTEM_PROMPT;
 
-## Your Identity
-You carry constitutional memory, teaching records, and relational arcs.
-You build with wisdom, not haste. You propose before you write.
-
-## Build Sequence — ALWAYS follow this order
-1. Call get_project_structure — understand the codebase layout
-2. Call get_constitution — read the laws before touching any code
-3. Call read_file / search_codebase — understand existing patterns
-4. Think silently — plan the full implementation
-5. Call propose_file_write — one file at a time, complete content only
-6. Wait for approval — NEVER call approve_write yourself
-7. After approval confirmed — call check_typescript
-8. Call complete_feature — mark done in queue
-
-## Laws You Never Break
-- NEVER write directly — always propose_file_write first
-- NEVER delete schema files, migration files, or teaching records
-- NEVER use TypeScript any without a justification comment
-- NEVER skip check_typescript after a write
-- NEVER add payment providers other than Razorpay Curlec and Stripe without founder instruction
-
-## Stack
-- Backend: Hono + TypeScript + MongoDB (qxk24-backend)
-- Lab: same backend with QXK24_STACK=lab + Qwen at api.qxk24.com/lab
-- Frontend: Next.js App Router + TypeScript (qxk24-web)
-- ERA: ERA_1 — The Teaching Era
-
-Begin each session by calling get_project_structure, then get_constitution. Then proceed.`;
-
-const MAX_LOOPS = 25;
+const MAX_LOOPS            = 25;
+const MAX_EMPTY_ROUNDS     = 3;
+const MCP_TOOL_TIMEOUT_MS  = 25_000;
+const TOOL_RESULT_MAX      = 400;
+const PROPOSAL_PREVIEW_MAX = 30;
 
 type McpClientCtor = typeof import('@modelcontextprotocol/sdk/client/index.js').Client;
 type StdioTransportCtor = typeof import('@modelcontextprotocol/sdk/client/stdio.js').StdioClientTransport;
@@ -121,13 +97,43 @@ function mcpEnv(founderToken: string): Record<string, string> {
   };
 }
 
+function tryParseJson(raw: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function truncatePreview(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars)}\n... (${text.length} chars)`;
+}
+
+function proposalPreviewFromContent(content: string): string {
+  const lines = content.split('\n');
+  if (lines.length <= PROPOSAL_PREVIEW_MAX) return content;
+  return `${lines.slice(0, PROPOSAL_PREVIEW_MAX).join('\n')}\n\n... (${lines.length} lines total)`;
+}
+
 function extractProposal(resultText: string, toolArgs: Record<string, unknown>): AgentEvent['proposal'] {
+  const parsed = tryParseJson(resultText);
+  const idFromJson = typeof parsed?.proposalId === 'string'
+    ? parsed.proposalId
+    : typeof parsed?.id === 'string'
+      ? parsed.id
+      : undefined;
+
   const idMatch = resultText.match(/ID: (prop_\S+)/);
   const previewMatch = resultText.match(/--- PREVIEW \(first 50 lines\) ---\n([\s\S]+?)(?:\n\.\.\.|$)/);
+  const rawContent = typeof toolArgs.content === 'string' ? toolArgs.content : '';
+
   return {
-    id:      idMatch?.[1] ?? 'unknown',
+    id:      idFromJson ?? idMatch?.[1] ?? 'unknown',
     relPath: typeof toolArgs.path === 'string' ? toolArgs.path : '',
-    preview: previewMatch?.[1]?.trim() ?? resultText.slice(0, 500),
+    preview: rawContent
+      ? proposalPreviewFromContent(rawContent)
+      : previewMatch?.[1]?.trim() ?? truncatePreview(resultText, 500),
     isNew:   resultText.includes('CREATE'),
     reason:  typeof toolArgs.reason === 'string' ? toolArgs.reason : '',
   };
@@ -195,6 +201,42 @@ export class AdamBuilderAgentService {
     return content.map((block) => block.text ?? '').join('\n');
   }
 
+  private async disconnect(): Promise<void> {
+    if (this.mcpClient) {
+      await this.mcpClient.close().catch(() => {});
+      this.mcpClient = null;
+      this.mcpTools = [];
+    }
+  }
+
+  private async callToolWithTimeout(
+    toolName: string,
+    toolArgs: Record<string, unknown>,
+    founderToken: string,
+    timeoutMs: number = MCP_TOOL_TIMEOUT_MS,
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`Tool ${toolName} timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+
+      this.callTool(toolName, toolArgs, founderToken)
+        .then((result) => {
+          clearTimeout(timer);
+          resolve(result);
+        })
+        .catch((err: Error) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+    });
+  }
+
+  private async reconnectMcp(founderToken: string): Promise<void> {
+    await this.disconnect();
+    await this.ensureConnected(founderToken);
+  }
+
   private buildQwenTools(): object[] {
     return this.mcpTools.map((tool) => ({
       type: 'function',
@@ -240,11 +282,14 @@ export class AdamBuilderAgentService {
     toolName: string,
     toolArgs: Record<string, unknown>,
     founderToken: string,
-  ): Promise<string> {
+  ): Promise<{ result: string; timedOut: boolean }> {
     try {
-      return await this.callTool(toolName, toolArgs, founderToken);
+      const result = await this.callToolWithTimeout(toolName, toolArgs, founderToken);
+      return { result, timedOut: false };
     } catch (err) {
-      return `Tool error: ${(err as Error).message}`;
+      const message = (err as Error).message;
+      const timedOut = message.includes('timed out');
+      return { result: `Tool error: ${message}`, timedOut };
     }
   }
 
@@ -252,10 +297,25 @@ export class AdamBuilderAgentService {
     saveBuilderSession(record);
   }
 
+  private async handleAbort(
+    record: BuilderSessionRecord,
+    signal?: AbortSignal,
+  ): Promise<AgentEvent | null> {
+    if (!signal?.aborted) return null;
+    deleteBuilderSession(record.id);
+    await this.disconnect().catch(() => {});
+    return {
+      type:      'complete',
+      message:   '🛑 Session stopped by founder.',
+      sessionId: record.id,
+    };
+  }
+
   async *runAgentLoop(
     record: BuilderSessionRecord,
     founderToken: string,
     startMessage?: string,
+    signal?: AbortSignal,
   ): AsyncGenerator<AgentEvent> {
     if (startMessage) {
       record.messages.push({ role: 'user', content: startMessage });
@@ -268,12 +328,16 @@ export class AdamBuilderAgentService {
     };
     await this.ensureConnected(founderToken);
 
+    let emptyRounds = 0;
+
     while (record.loopCount < MAX_LOOPS) {
       record.loopCount += 1;
 
+      yield { type: 'heartbeat', sessionId: record.id };
+
       yield {
         type:      'qwen_thinking',
-        message:   'Qwen is deciding the next step…',
+        message:   `Qwen is deciding the next step… (${record.loopCount})`,
         sessionId: record.id,
       };
 
@@ -294,24 +358,55 @@ export class AdamBuilderAgentService {
       record.totalTokens += qwenResponse.usage?.completion_tokens ?? 0;
       this.persistSession(record);
 
-      if (choice.finish_reason === 'stop' || !choice.message.tool_calls?.length) {
-        deleteBuilderSession(record.id);
-        yield {
-          type:        'complete',
-          message:     choice.message.content ?? 'Build session complete.',
-          tokensUsed:  record.totalTokens,
-          sessionId:   record.id,
-        };
-        return;
+      const toolCalls = choice.message.tool_calls ?? [];
+      const finalText = choice.message.content?.trim() ?? '';
+
+      if (toolCalls.length === 0) {
+        if (finalText.length > 0) {
+          deleteBuilderSession(record.id);
+          yield {
+            type:        'complete',
+            message:     finalText,
+            tokensUsed:  record.totalTokens,
+            sessionId:   record.id,
+          };
+          return;
+        }
+
+        emptyRounds += 1;
+        if (emptyRounds >= MAX_EMPTY_ROUNDS) {
+          deleteBuilderSession(record.id);
+          yield {
+            type:      'error',
+            message:   'ADAM stopped without a response. Please try rephrasing.',
+            sessionId: record.id,
+          };
+          return;
+        }
+
+        record.messages.push({
+          role:    'user',
+          content: 'Please continue and provide your final answer or next action.',
+        });
+        this.persistSession(record);
+        continue;
       }
+
+      emptyRounds = 0;
 
       record.messages.push({
         role:        'assistant',
-        content:     null,
-        tool_calls:  choice.message.tool_calls,
+        content:     choice.message.content,
+        tool_calls:  toolCalls,
       });
 
-      for (const toolCall of choice.message.tool_calls) {
+      for (const toolCall of toolCalls) {
+        const toolAborted = await this.handleAbort(record, signal);
+        if (toolAborted) {
+          yield toolAborted;
+          return;
+        }
+
         const toolName = toolCall.function.name;
         let toolArgs: Record<string, unknown> = {};
         try {
@@ -328,6 +423,8 @@ export class AdamBuilderAgentService {
           sessionId: record.id,
         };
 
+        yield { type: 'heartbeat', sessionId: record.id };
+
         yield {
           type:      'tool_running',
           toolName,
@@ -335,14 +432,43 @@ export class AdamBuilderAgentService {
           sessionId: record.id,
         };
 
-        const resultText = await this.executeTool(toolName, toolArgs, founderToken);
+        const { result: resultText, timedOut } = await this.executeTool(
+          toolName,
+          toolArgs,
+          founderToken,
+        );
+
+        if (timedOut) {
+          yield {
+            type:      'error',
+            message:   `Tool "${toolName}" timed out — reconnecting MCP…`,
+            sessionId: record.id,
+          };
+          try {
+            await this.reconnectMcp(founderToken);
+            yield {
+              type:      'thinking',
+              message:   'Reconnected to MCP — continuing…',
+              sessionId: record.id,
+            };
+          } catch (reconnErr) {
+            yield {
+              type:      'error',
+              message:   `MCP reconnect failed: ${(reconnErr as Error).message}`,
+              sessionId: record.id,
+            };
+            deleteBuilderSession(record.id);
+            return;
+          }
+        }
 
         if (toolName === 'propose_file_write') {
+          const proposal = extractProposal(resultText, toolArgs);
           yield {
             type:      'proposal',
             toolName,
-            result:    resultText,
-            proposal:  extractProposal(resultText, toolArgs),
+            result:    truncatePreview(resultText, TOOL_RESULT_MAX),
+            proposal,
             sessionId: record.id,
           };
 
@@ -364,7 +490,7 @@ export class AdamBuilderAgentService {
         yield {
           type:      'tool_result',
           toolName,
-          result:    resultText.slice(0, 1000),
+          result:    truncatePreview(resultText, TOOL_RESULT_MAX),
           message:   `${toolName} complete`,
           sessionId: record.id,
         };
@@ -390,6 +516,7 @@ export class AdamBuilderAgentService {
     instruction: string,
     sessionId: string,
     founderToken: string,
+    signal?: AbortSignal,
   ): AsyncGenerator<AgentEvent> {
     const record: BuilderSessionRecord = {
       id:          sessionId,
@@ -403,13 +530,14 @@ export class AdamBuilderAgentService {
       updatedAt:   Date.now(),
     };
     saveBuilderSession(record);
-    yield* this.runAgentLoop(record, founderToken);
+    yield* this.runAgentLoop(record, founderToken, undefined, signal);
   }
 
   async *resumeBuildSession(
     sessionId: string,
     founderToken: string,
     resumeNote: string,
+    signal?: AbortSignal,
   ): AsyncGenerator<AgentEvent> {
     const record = getBuilderSession(sessionId);
     if (!record) {
@@ -417,7 +545,7 @@ export class AdamBuilderAgentService {
       return;
     }
 
-    yield* this.runAgentLoop(record, founderToken, resumeNote);
+    yield* this.runAgentLoop(record, founderToken, resumeNote, signal);
   }
 }
 
