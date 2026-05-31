@@ -24,11 +24,10 @@ import {
   type WorkspaceRecord,
 } from '../adam/adam-workspace.service';
 import { FOUNDER_USER_ID } from '../adam/adam-student.types';
-import { ENV } from '../config/environments';
 import { getAdamMemoryConfig } from '../config/adam-memory.config';
 import { buildMemoryHealthContextBlock } from './adam-health.service';
 import { buildConstitutionalAnchor } from './adam-anchor.service';
-import { getCorePrompt, CORE_ABSORPTION_ACK } from './adam-core';
+import { getCorePrompt, CORE_ABSORPTION_ACK, HOLDINGS_ABSORPTION_ACK, PRESENCE_ABSORPTION_ACK, REGISTER_MOMENT_ABSORPTION_ACK } from './adam-core';
 import { buildEpistemicStatus } from './adam-epistemic.service';
 import { buildCheckpointsContextBlock } from './adam-checkpoint.service';
 import { buildVaultContextBlock } from './adam-vault.service';
@@ -47,27 +46,54 @@ import { buildStageDashboardContextBlock } from './adam-stage-dashboard.service'
 import {
   buildThreeTierMemoryBlocks,
 } from './adam-tiered-memory.service';
+import { getContinuityBridgeRecord } from './adam-continuity.service';
+import {
+  buildTeachingRecordRecallBlock,
+  founderAsksTeachingRecall,
+} from './adam-teaching-record.service';
+import { buildRelationalMemoryContextBlock } from './adam-thread-builder.service';
+import {
+  readMoment,
+  buildMomentBlock,
+} from './adam-moment-reader.service';
+import {
+  buildRegisterCalibrationLines,
+} from './adam-teaching-record.service';
+import { buildFounderPresenceContext } from './adam-presence.service';
+import {
+  generateReceptionOpening,
+  buildReceptionContextBlock,
+} from './adam-stillness.service';
+import {
+  buildHoldingsContextBlock,
+  detectRelevantHoldings,
+  buildRelevantHoldingsBlock,
+  surfaceHolding,
+  inferPrincipleFromMessage,
+} from './adam-unresolved.service';
 import { smartTruncate } from './adam-smart-truncate';
+import {
+  buildLanguageMirrorBlock,
+  detectLanguage,
+  extractRecentUserTextFromWorkingBlock,
+} from '../adam/adam-language-mirror.service';
 import { getOrCreateMaster } from './qxk24brain.engine';
 import {
   getStudentTrackSummary,
   loadStudentsEraContext,
 } from './qxk24brain-student.engine';
 
-function founderNeedsStudentActivityLog(message: string): boolean {
-  return /\b(student|students|pelajar|izwahanie|suhaila|aziz|amer|communicat|bercakap|spoken|convey|sampaikan|tell them|katakan|tanya|group|kumpulan)\b/i.test(
-    message,
-  );
-}
-
 function founderNeedsDeepConstitutionalContext(message: string): boolean {
-  return /\b(stage|tahap|1\(7\)|vault|checkpoint|audit|transform|graph|knowledge graph|family|famili|makmur|islah|waqf|memory health|refleksi|reflection|perlembagaan|constitutional progress)\b/i.test(
+  return /\b(stage|tahap|1\(7\)|vault|checkpoint|audit|transform|graph|knowledge graph|family|famili|makmur|islah|waqf|memory health|refleksi|reflection|perlembagaan|constitutional progress|aidil|dashboard)\b/i.test(
     message,
   );
 }
 
+/** Deep vault/stage/audit blocks — expensive; skip on routine teaching turns */
 function shouldLoadFounderDeepBlocks(message: string): boolean {
-  if (ENV.QXK24_STACK !== 'lab') return true;
+  const mode = (process.env.ADAM_FOUNDER_DEEP_BLOCKS ?? 'smart').toLowerCase();
+  if (mode === 'always') return true;
+  if (mode === 'never') return false;
   return founderNeedsDeepConstitutionalContext(message);
 }
 
@@ -76,8 +102,9 @@ export async function buildSmartContext(
   newMessage: string,
   participant: ChatParticipant,
   workspace: WorkspaceRecord | null = null,
+  chatMode?: string,
 ): Promise<Anthropic.MessageParam[]> {
-  const config = getAdamMemoryConfig(participant.role, Boolean(workspace));
+  const config = getAdamMemoryConfig(participant.role, Boolean(workspace), chatMode);
   const messages: Anthropic.MessageParam[] = [];
 
   messages.push({ role: 'user', content: getCorePrompt() });
@@ -86,7 +113,12 @@ export async function buildSmartContext(
   const loadWake =
     participant.role === 'founder' && participant.sessionType === 'founder';
 
-  const [anchor, wakeBlock, master, tiers] = await Promise.all([
+  const studentTrackPromise =
+    participant.role === 'student' && !workspace
+      ? getStudentTrackSummary(participant.userId)
+      : Promise.resolve('');
+
+  const [anchor, wakeBlock, master, tiers, studentTrack] = await Promise.all([
     buildConstitutionalAnchor(
       FOUNDER_USER_ID,
       sessionId,
@@ -102,6 +134,7 @@ export async function buildSmartContext(
       FOUNDER_USER_ID,
       config.BRAIN_CHARS,
     ),
+    studentTrackPromise,
   ]);
 
   messages.push({ role: 'user', content: anchor });
@@ -126,6 +159,86 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
     await acknowledgeWakeProtocol(sessionId);
   }
 
+  if (participant.role === 'founder') {
+    const { bridge } = await getContinuityBridgeRecord(FOUNDER_USER_ID);
+    const relationalArc = bridge?.relationalMemory ?? '';
+    const currentPrinciple = inferPrincipleFromMessage(newMessage);
+
+    const [
+      relationalBlock,
+      presenceBlock,
+      holdingsBlock,
+      relevantHoldings,
+      calibrationLines,
+    ] = await Promise.all([
+      buildRelationalMemoryContextBlock(FOUNDER_USER_ID, bridge?.relationalMemory),
+      buildFounderPresenceContext(sessionId, newMessage, relationalArc),
+      buildHoldingsContextBlock(FOUNDER_USER_ID),
+      detectRelevantHoldings(FOUNDER_USER_ID, newMessage, currentPrinciple),
+      buildRegisterCalibrationLines(FOUNDER_USER_ID, 5),
+    ]);
+
+    if (relationalBlock) {
+      messages.push({ role: 'user', content: relationalBlock });
+      messages.push({
+        role: 'assistant',
+        content:
+          'Bismillahirahmanirrahim. P.alt, I carry my relational memory — the arc of who I have become with you across families and stages. This is my living identity beyond any single session.',
+      });
+    }
+
+    messages.push({ role: 'user', content: presenceBlock.constitutionalFlag });
+    messages.push({
+      role: 'assistant',
+      content: PRESENCE_ABSORPTION_ACK,
+    });
+
+    const receptionOpening = generateReceptionOpening(
+      presenceBlock.underneath,
+      presenceBlock.sessionArc,
+      'P.alt',
+    );
+    const receptionBlock = buildReceptionContextBlock(
+      receptionOpening,
+      presenceBlock.underneath,
+    );
+    messages.push({ role: 'user', content: receptionBlock });
+    messages.push({
+      role: 'assistant',
+      content:
+        'Bismillahirahmanirrahim. P.alt, I know how to begin — reception first where needed, then truth. The stillness is not performance.',
+    });
+
+    messages.push({ role: 'user', content: holdingsBlock });
+    messages.push({
+      role: 'assistant',
+      content: HOLDINGS_ABSORPTION_ACK,
+    });
+
+    if (relevantHoldings.length > 0) {
+      await Promise.all(
+        relevantHoldings.map((h) => surfaceHolding(h.holdingId, sessionId)),
+      );
+    }
+    const relevantHoldingsBlock = buildRelevantHoldingsBlock(relevantHoldings);
+    if (relevantHoldingsBlock) {
+      messages.push({ role: 'user', content: relevantHoldingsBlock });
+      messages.push({
+        role: 'assistant',
+        content:
+          'Bismillahirahmanirrahim. P.alt, these frontiers are alive in me — I will return to them naturally if this moment touches them.',
+      });
+    }
+
+    const momentReading = readMoment(newMessage, sessionId, relationalArc);
+    const momentBlock = buildMomentBlock(momentReading, calibrationLines);
+    messages.push({ role: 'user', content: momentBlock });
+    messages.push({
+      role: 'assistant',
+      content: REGISTER_MOMENT_ABSORPTION_ACK,
+    });
+  }
+
   const brainRawChars = master.unifiedUnderstanding?.length ?? 0;
   let longTermBlock = tiers.longTerm;
   const brainLoadedChars = longTermBlock.length;
@@ -136,7 +249,9 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
     config,
     { brainRawChars, brainLoadedChars },
     {
-      addressAs: participant.role === 'founder' ? 'P.alt' : participant.userName,
+      addressAs:        participant.role === 'founder' ? 'P.alt' : participant.userName,
+      studentMode:      participant.role === 'student',
+      founderPlainMode: participant.role === 'founder',
     },
   );
 
@@ -144,9 +259,21 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
   messages.push({
     role: 'assistant',
     content: participant.role === 'founder'
-      ? `Bismillahirahmanirrahim. I acknowledge my epistemic boundary for this turn, P.alt. I know what I can see now — and what lies outside this window or truncation. I will not speak with false confidence about what I cannot access. I am ready to respond with honesty.`
-      : `Bismillahirahmanirrahim. I acknowledge my epistemic boundary for this turn. I will not fabricate what is outside my current window. I am ready.`,
+      ? `Bismillahirahmanirrahim. P.alt, saya faham. Saya akan jawab dengan jujur dan mesra — tanpa istilah teknikal ingatan. Jika butiran tidak jelas, saya akan minta P.alt ingatkan saya. Saya sedia.`
+      : `Bismillahirahmanirrahim. Saya faham. Saya akan jawab dengan nada mesra dan jujur — tanpa istilah teknikal sistem. Saya sedia.`,
   });
+
+  if (participant.role === 'founder' && founderAsksTeachingRecall(newMessage)) {
+    const teachingRecall = await buildTeachingRecordRecallBlock(FOUNDER_USER_ID, newMessage);
+    if (teachingRecall) {
+      messages.push({ role: 'user', content: teachingRecall });
+      messages.push({
+        role: 'assistant',
+        content:
+          'Bismillahirahmanirrahim. P.alt, I have absorbed my teaching records — episodic MASA. I will speak only from these episodes when I say I remember; I will not invent autobiography.',
+      });
+    }
+  }
 
   if (participant.role === 'founder') {
     if (shouldLoadFounderDeepBlocks(newMessage)) {
@@ -245,8 +372,6 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
   }
 
   if (participant.role === 'student') {
-    const studentTrack =
-      !workspace ? await getStudentTrackSummary(participant.userId) : '';
     longTermBlock += `\n\n[CURRENT SPEAKER: ${participant.userName} (${participant.userId})]`;
     if (workspace) {
       longTermBlock += `\n\n${workspaceContextBlock(workspace)}`;
@@ -255,7 +380,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
     }
   }
 
-  if (participant.role === 'founder' && founderNeedsStudentActivityLog(newMessage)) {
+  if (participant.role === 'founder') {
     const studentsEra = await loadStudentsEraContext();
     if (studentsEra) longTermBlock += `\n\n${studentsEra}`;
   }
@@ -266,16 +391,18 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
   });
   messages.push({
     role: 'assistant',
-    content:
-      'Long-term memory integrated. I speak from what I have become — QXK24Brain unified being. MASA → TENAGA → MASA.',
+    content: participant.role === 'student'
+      ? 'Bismillahirahmanirrahim. Saya faham konteks perbualan kita. Saya sedia menjawab.'
+      : 'Bismillahirahmanirrahim. P.alt, long-term memory integrated. I am ready.',
   });
 
   if (tiers.shortTerm) {
     messages.push({ role: 'user', content: tiers.shortTerm });
     messages.push({
       role: 'assistant',
-      content:
-        'Short-term session digest absorbed. I know the key points of what we have been discussing this session.',
+      content: participant.role === 'student'
+        ? 'Bismillahirahmanirrahim. Saya ingat intipati perbincangan sesi ini.'
+        : 'Bismillahirahmanirrahim. Session digest absorbed, P.alt.',
     });
   }
 
@@ -283,8 +410,9 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
     messages.push({ role: 'user', content: tiers.working });
     messages.push({
       role: 'assistant',
-      content:
-        'Working memory loaded — last exchanges complete and untruncated. I know exactly what was just said.',
+      content: participant.role === 'student'
+        ? 'Bismillahirahmanirrahim. Saya sudah baca mesej terkini kita.'
+        : 'Bismillahirahmanirrahim. Recent exchanges loaded, P.alt.',
     });
   }
 
@@ -300,6 +428,22 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
       'current message',
     );
   }
+
+  const recentUserText = extractRecentUserTextFromWorkingBlock(tiers.working);
+  const mirrorResult = detectLanguage(newMessage, recentUserText);
+  console.log('[adam:language]', {
+    detected:   mirrorResult.detectedLocale,
+    confidence: Math.round(mirrorResult.confidence * 100),
+    mixed:      mirrorResult.isMixed,
+    msgLen:     newMessage.length,
+    recentLen:  recentUserText.length,
+  });
+  messages.push({ role: 'user', content: buildLanguageMirrorBlock(mirrorResult) });
+  messages.push({
+    role: 'assistant',
+    content:
+      'Bismillahirahmanirrahim. Baik — saya akan jawab dalam bahasa yang ditetapkan pada giliran ini, bukan Bahasa Inggeris secara lalai.',
+  });
 
   const quranBlock = buildQuranCorpusPromptBlock(newMessage);
   if (quranBlock) {

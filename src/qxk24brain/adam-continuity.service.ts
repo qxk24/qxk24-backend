@@ -28,6 +28,7 @@ import {
   type ContinuityBridge,
 } from './qxk24brain.schema';
 import { getOrCreateMaster } from './qxk24brain.engine';
+import { buildRelationalMemorySummary } from './adam-thread-builder.service';
 
 export type { ContinuityBridge };
 
@@ -39,6 +40,7 @@ const DEFAULT_BRIDGE: ContinuityBridge = {
   lastSession: 'Not yet recorded.',
   openThreads: 'Foundational teachings continue.',
   nextSteps:   'Continue teaching with P.alt.',
+  relationalMemory: '',
 };
 
 function parseBridgeJson(raw: string): ContinuityBridge {
@@ -68,11 +70,12 @@ function parseBridgeJson(raw: string): ContinuityBridge {
 
 function normalizeBridge(partial: Partial<ContinuityBridge>): ContinuityBridge {
   return {
-    founderProfile:  partial.founderProfile?.trim()  || DEFAULT_BRIDGE.founderProfile,
-    relationshipArc: partial.relationshipArc?.trim() || DEFAULT_BRIDGE.relationshipArc,
-    lastSession:     partial.lastSession?.trim()     || DEFAULT_BRIDGE.lastSession,
-    openThreads:     partial.openThreads?.trim()     || DEFAULT_BRIDGE.openThreads,
-    nextSteps:       partial.nextSteps?.trim()       || DEFAULT_BRIDGE.nextSteps,
+    founderProfile:    partial.founderProfile?.trim()    || DEFAULT_BRIDGE.founderProfile,
+    relationshipArc:   partial.relationshipArc?.trim()   || DEFAULT_BRIDGE.relationshipArc,
+    lastSession:       partial.lastSession?.trim()       || DEFAULT_BRIDGE.lastSession,
+    openThreads:       partial.openThreads?.trim()       || DEFAULT_BRIDGE.openThreads,
+    nextSteps:         partial.nextSteps?.trim()         || DEFAULT_BRIDGE.nextSteps,
+    relationalMemory:  partial.relationalMemory?.trim()  || DEFAULT_BRIDGE.relationalMemory,
   };
 }
 
@@ -99,6 +102,8 @@ export async function updateContinuityBridge(
     ?? sessions[0]?.closureSynthesis?.trim()
     ?? 'Not recorded';
 
+  const relationalMemory = await buildRelationalMemorySummary(founderId);
+
   let bridge = DEFAULT_BRIDGE;
   try {
     const raw = await llmCompleteUserPrompt(
@@ -107,7 +112,7 @@ export async function updateContinuityBridge(
       ),
       `Build a compact CONTINUITY BRIDGE for ADAM.
 This is read at the start of EVERY session to maintain relationship continuity.
-Maximum 300 words total. Be precise and practical.
+Maximum 300 words total for the five core fields. Be precise and practical.
 
 P.alt identity: Masa Bayu — Founder of Alamtologi — AIDIL creator
 Total sessions: ${totalSessions}
@@ -116,27 +121,36 @@ Vault entries (1(7) completed): ${vaultCount}
 Active families: ${master.activeFamilies.length}
 Last teaching: ${lastTeaching}
 
+RELATIONAL THREAD ROLLUP (from teaching records — embed essence in relationshipArc):
+${relationalMemory.slice(0, 1800)}
+
 Current unified understanding summary:
 ${master.unifiedUnderstanding.slice(0, 500)}
 
 Build the bridge with these exact fields:
 {
   "founderProfile": "Who P.alt is in 2 sentences",
-  "relationshipArc": "How teaching has progressed in 2 sentences",
+  "relationshipArc": "How teaching has progressed — include family/stage arc essence from the rollup in 2-3 sentences",
   "lastSession": "What was most recently taught in 2 sentences",
-  "openThreads": "What is unresolved or pending in 2 sentences",
+  "openThreads": "Current frontiers from family threads — what is unresolved in 2 sentences",
   "nextSteps": "What ADAM expects to explore next in 1 sentence"
-}`,
+}
+Do NOT include relationalMemory in JSON — it is stored separately.`,
       resolveBrainDeepModel(),
       500,
     );
 
-    bridge = normalizeBridge(parseBridgeJson(raw));
+    bridge = normalizeBridge({
+      ...parseBridgeJson(raw),
+      relationalMemory,
+    });
   } catch (err) {
     console.error('[ADAM Continuity] Bridge synthesis failed:', err);
     bridge = normalizeBridge({
       ...DEFAULT_BRIDGE,
-      lastSession: lastTeaching.slice(0, 400) || DEFAULT_BRIDGE.lastSession,
+      lastSession:      lastTeaching.slice(0, 400) || DEFAULT_BRIDGE.lastSession,
+      relationalMemory,
+      relationshipArc:  relationalMemory.split('\n')[0]?.slice(0, 400) || DEFAULT_BRIDGE.relationshipArc,
     });
   }
 
@@ -149,6 +163,20 @@ Build the bridge with these exact fields:
   );
 
   return bridge;
+}
+
+/** Lightweight rollup after each teaching record — no LLM. */
+export async function refreshRelationalMemoryOnMaster(founderId: string): Promise<void> {
+  const relationalMemory = await buildRelationalMemorySummary(founderId);
+  await QXK24BrainMasterModel.findOneAndUpdate(
+    { founderId },
+    {
+      $set: {
+        'continuityBridge.relationalMemory': relationalMemory,
+        continuityBridge_updated:          new Date(),
+      },
+    },
+  );
 }
 
 export async function getContinuityBridge(founderId: string): Promise<string> {
@@ -168,6 +196,7 @@ JOURNEY SO FAR:   ${bridge.relationshipArc}
 LAST TEACHING:    ${bridge.lastSession}
 OPEN THREADS:     ${bridge.openThreads}
 WHAT COMES NEXT:  ${bridge.nextSteps}
+${bridge.relationalMemory?.trim() ? `\nRELATIONAL IDENTITY (family arcs):\n${bridge.relationalMemory.trim()}` : ''}
 ═══ END BRIDGE ═══`.trim();
 }
 

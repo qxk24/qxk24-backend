@@ -258,6 +258,8 @@ export interface AlamtologiAcademicJournal {
   publishedAt?:     Date;
   reviewNotes?:     string;
   journalNumber?:   string;
+  source?:          'public_submit' | 'founder_adam';
+  sourceSessionId?: string;
 }
 
 export interface JournalContent {

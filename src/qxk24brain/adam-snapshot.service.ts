@@ -25,6 +25,7 @@ import {
   QXK24BrainMasterModel,
 } from './qxk24brain.schema';
 import { getOrCreateMaster, transformAIDIL } from './qxk24brain.engine';
+import type { TeachingTransformContext } from './adam-teaching-record.service';
 
 const SNAPSHOT_RETENTION = parseInt(process.env.ADAM_SNAPSHOT_RETENTION ?? '10', 10) || 10;
 
@@ -155,6 +156,7 @@ export async function listSnapshots(
 export async function transformWithSnapshot(
   founderMessage: string,
   founderId = 'masa-bayu',
+  context: TeachingTransformContext = {},
 ): Promise<Awaited<ReturnType<typeof transformAIDIL>>> {
   const snapshotId = await createSnapshot(
     founderId,
@@ -162,7 +164,7 @@ export async function transformWithSnapshot(
   );
 
   try {
-    const result = await transformAIDIL(founderMessage, founderId);
+    const result = await transformAIDIL(founderMessage, founderId, context);
 
     await ADAMSnapshotModel.findOneAndUpdate(
       { snapshotId },

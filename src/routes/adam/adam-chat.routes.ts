@@ -31,6 +31,7 @@ import type {
   ConstitutionalJudgment,
 } from '../../adam/adam.types';
 import { ENV } from '../../config/environments';
+import { withSseKeepalive } from '../../adam/adam-sse-keepalive';
 
 const router = new Hono();
 
@@ -67,9 +68,11 @@ router.post('/', requireFounder, zValidator('json', ChatSchema), async (c) => {
 
   return stream(c, async (s) => {
     try {
-      await streamADAMChat(sessionId!, message, mode, async (event, data) => {
-        await s.write(`event: ${event}\ndata: ${data}\n\n`);
-      }, uploadIds);
+      await withSseKeepalive(s, () =>
+        streamADAMChat(sessionId!, message, mode, async (event, data) => {
+          await s.write(`event: ${event}\ndata: ${data}\n\n`);
+        }, uploadIds),
+      );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'ADAM stream failed';
       await s.write(`event: adam_error\ndata: ${JSON.stringify({ error: msg, waqf: true })}\n\n`);

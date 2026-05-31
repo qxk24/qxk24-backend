@@ -1,0 +1,282 @@
+/**
+ * ============================================================
+ * QIUBBX MANAGEMENT SYSTEM
+ * ============================================================
+ * Module      : Subscription Routes
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-05-31
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
+ */
+
+import { Hono } from 'hono';
+import { getTokenUser, requireAdamUser, requireFounder } from '../middleware/auth.middleware';
+import { routeSubscriptionCreation } from './payment-router.service';
+import { detectRegionFromHeaders } from './region-detector.service';
+import {
+  checkPencarianLimit,
+  purchasePencarianExtension,
+  convertPencarianToPelajar,
+  getPencarianUsage,
+  getWaqfReport,
+} from './pencarian-tracker.service';
+import {
+  getPelajarPricing,
+  getProfesionalPricing,
+  ENTERPRISE_PRICING,
+  TIER_ACCESS,
+} from './tier-access.config';
+import {
+  SubscriptionModel,
+  SubscriptionTier,
+  BillingCycle,
+  PaymentProvider,
+  SubscriptionStatus,
+  SupportedRegion,
+  FOUNDER_SUBSCRIPTION_ID,
+} from './subscription.schema';
+import {
+  handleRazorpayWebhook,
+  handleStripeWebhook,
+  handleXenditWebhook,
+  handlePaystackWebhook,
+} from './webhook-handler.service';
+import {
+  getStripeGatewayStatus,
+  confirmStripeCheckoutSession,
+} from './stripe-gateway.service';
+import { getProviderForRegion } from './tier-access.config';
+
+const router = new Hono();
+
+router.get('/pricing', (c) => {
+  const region      = detectRegionFromHeaders(c.req.raw.headers);
+  const pelajar     = getPelajarPricing(region);
+  const profesional = getProfesionalPricing(region);
+
+  return c.json({
+    region,
+    payment: {
+      stripe: getStripeGatewayStatus(),
+      regionalProvider: getProviderForRegion(region),
+    },
+    tiers: {
+      pencarian: {
+        label:         'Pencarian',
+        monthlyAmount: 0,
+        annualAmount:  0,
+        currency:      pelajar.currency,
+        description:   'Waqf Pengasas — Perjalanan pertama, dibiayai oleh P.alt.',
+        messageLimit:  100,
+        extensionFee:  pelajar.extensionFee,
+      },
+      pelajar: {
+        label:         'Pelajar',
+        monthlyAmount: pelajar.monthly,
+        annualAmount:  pelajar.annual,
+        currency:      pelajar.currency,
+        description:   'Pelajar Alamtologi — Memori penuh, rekod episodik, perjalanan berterusan.',
+        savingsNote:   '2 bulan percuma dengan langganan tahunan.',
+      },
+      profesional: {
+        label:         'Profesional',
+        monthlyAmount: profesional.monthly,
+        annualAmount:  profesional.annual,
+        currency:      profesional.currency,
+        description:   'Akses penuh, API, hak penerbitan, ruang kerja.',
+        savingsNote:   '2 bulan percuma dengan langganan tahunan.',
+      },
+      enterprise: {
+        label: 'Perusahaan',
+        tiers: ENTERPRISE_PRICING.map((t) => ({
+          size:     t.label,
+          maxUsers: t.maxUsers === -1 ? 'Tanpa had' : t.maxUsers,
+          monthly:  t.monthly[region]?.amount ?? t.monthly[SupportedRegion.OTHER]?.amount,
+          annual:   t.annual[region]?.amount  ?? t.annual[SupportedRegion.OTHER]?.amount,
+          currency: t.monthly[region]?.currency ?? 'USD',
+        })),
+        description: 'Hubungi kami untuk pelan perusahaan yang disesuaikan.',
+      },
+    },
+  });
+});
+
+router.post('/create', requireAdamUser, async (c) => {
+  const body = await c.req.json() as { tier?: SubscriptionTier; billingCycle?: BillingCycle };
+
+  if (!body.tier || !body.billingCycle) {
+    return c.json({ error: 'tier and billingCycle are required.' }, 400);
+  }
+
+  if (body.tier === SubscriptionTier.PENCARIAN) {
+    return c.json({ error: 'Pencarian is a founder waqf — no payment required.' }, 400);
+  }
+
+  const user = getTokenUser(c)!;
+
+  try {
+    const result = await routeSubscriptionCreation({
+      userId:       user.userId,
+      tier:         body.tier,
+      billingCycle: body.billingCycle,
+      headers:      c.req.raw.headers,
+    });
+    return c.json(result);
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
+});
+
+router.get('/me', requireAdamUser, async (c) => {
+  const userId = getTokenUser(c)!.userId;
+
+  const sub = await SubscriptionModel.findOne(
+    { userId, status: { $in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.WAQF] } },
+    {
+      pencarianUsage: 1,
+      tier: 1,
+      status: 1,
+      access: 1,
+      billingCycle: 1,
+      currentPeriodEnd: 1,
+    },
+  ).sort({ createdAt: -1 });
+
+  if (!sub) {
+    return c.json({
+      tier:    SubscriptionTier.PENCARIAN,
+      status:  SubscriptionStatus.WAQF,
+      message: 'Selamat datang. Perjalanan kamu dibiayai oleh pengasas.',
+    });
+  }
+
+  return c.json(sub);
+});
+
+router.get('/pencarian/usage', requireAdamUser, async (c) => {
+  const usage = await getPencarianUsage(getTokenUser(c)!.userId);
+
+  if (!usage) {
+    return c.json({ totalMessagesUsed: 0, totalMessagesLimit: 100, currentStage: 'KNOW' });
+  }
+
+  return c.json(usage);
+});
+
+router.post('/pencarian/check', requireAdamUser, async (c) => {
+  const userId = getTokenUser(c)!.userId;
+  const body   = await c.req.json() as {
+    sessionId?:      string;
+    messageContent?: string;
+    sessionHistory?: string[];
+  };
+
+  const result = await checkPencarianLimit(
+    userId,
+    body.sessionId ?? '',
+    body.messageContent ?? '',
+    body.sessionHistory ?? [],
+  );
+
+  return c.json(result);
+});
+
+router.post('/pencarian/extend', requireAdamUser, async (c) => {
+  const userId = getTokenUser(c)!.userId;
+  const body   = await c.req.json() as {
+    transactionId?: string;
+    provider?:      PaymentProvider;
+    amountPaid?:    number;
+    currency?:      string;
+  };
+
+  const result = await purchasePencarianExtension(
+    userId,
+    body.transactionId ?? '',
+    body.provider ?? PaymentProvider.MANUAL,
+    body.amountPaid ?? 0,
+    body.currency ?? 'MYR',
+  );
+
+  return c.json(result);
+});
+
+router.post('/pencarian/convert', requireAdamUser, async (c) => {
+  await convertPencarianToPelajar(getTokenUser(c)!.userId);
+  return c.json({ success: true, message: 'Selamat datang sebagai Pelajar Alamtologi.' });
+});
+
+router.post('/enterprise-inquiry', requireAdamUser, async (c) => {
+  const body = await c.req.json() as {
+    organisationName?: string;
+    contactEmail?:     string;
+    estimatedUsers?:   number;
+    notes?:            string;
+  };
+
+  const access = {
+    ...TIER_ACCESS[SubscriptionTier.ENTERPRISE],
+    maxUsers: body.estimatedUsers ?? TIER_ACCESS[SubscriptionTier.ENTERPRISE].maxUsers,
+  };
+
+  await SubscriptionModel.create({
+    userId:          getTokenUser(c)!.userId,
+    founderId:       FOUNDER_SUBSCRIPTION_ID,
+    tier:            SubscriptionTier.ENTERPRISE,
+    status:          SubscriptionStatus.PENDING,
+    billingCycle:    BillingCycle.ENTERPRISE,
+    region:          detectRegionFromHeaders(c.req.raw.headers),
+    currency:        'MYR',
+    amountPerCycle:  0,
+    provider:        PaymentProvider.MANUAL,
+    access,
+    enterpriseNotes: `Org: ${body.organisationName ?? ''} | Contact: ${body.contactEmail ?? ''} | Users: ${body.estimatedUsers ?? 0} | Notes: ${body.notes ?? ''}`,
+    neverDelete:     true,
+  });
+
+  return c.json({
+    received: true,
+    message:  'Terima kasih. Pengasas akan menghubungi kamu secara peribadi.',
+  });
+});
+
+router.get('/payment-config', (c) => {
+  const region = detectRegionFromHeaders(c.req.raw.headers);
+  return c.json({
+    region,
+    stripe: getStripeGatewayStatus(),
+    regionalProvider: getProviderForRegion(region),
+  });
+});
+
+router.get('/stripe/confirm', requireAdamUser, async (c) => {
+  const sessionId = c.req.query('session_id');
+  if (!sessionId) {
+    return c.json({ error: 'session_id is required.' }, 400);
+  }
+
+  try {
+    const result = await confirmStripeCheckoutSession(sessionId, getTokenUser(c)!.userId);
+    return c.json(result);
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
+});
+
+router.get('/waqf-report', requireFounder, async (c) => {
+  const report = await getWaqfReport();
+  return c.json(report);
+});
+
+router.post('/webhooks/razorpay', handleRazorpayWebhook);
+router.post('/webhooks/stripe',   handleStripeWebhook);
+router.post('/webhooks/xendit',   handleXenditWebhook);
+router.post('/webhooks/paystack', handlePaystackWebhook);
+
+export default router;

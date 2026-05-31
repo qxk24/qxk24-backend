@@ -35,6 +35,12 @@ import {
   QXK24BrainMasterModel,
   QXK24BrainLogModel,
 } from './qxk24brain.schema';
+import {
+  recordTeachingTransformation,
+  type TeachingTransformContext,
+} from './adam-teaching-record.service';
+
+export type { TeachingTransformContext };
 
 const BRAIN_MODEL = () => resolveBrainDeepModel();
 
@@ -190,6 +196,7 @@ export async function getOrCreateMaster(
 export async function transformAIDIL(
   founderMessage: string,
   founderId = 'masa-bayu',
+  context: TeachingTransformContext = {},
 ): Promise<{
   entityC: InstanceType<typeof QXK24BrainEntityModel>;
   recognition: RecognitionResult;
@@ -497,6 +504,27 @@ Respond in JSON:
     priorCompletedFamilies,
   });
 
+  try {
+    await recordTeachingTransformation({
+      founderId,
+      transformationId,
+      entity_C_uid,
+      masa_recorded: masa_transformation,
+      stage:         synthesis.newStage || recognition.stage,
+      family:        recognition.family,
+      principle:     recognition.principle,
+      isNewFamily:   recognition.isNewFamily,
+      isNucleus:     recognition.isNucleus,
+      founderMessage: trimmedB,
+      outcomeContent: synthesis.content,
+      autoJudgment:   'MAKMUR',
+      auditStatus:    'pending',
+      context,
+    });
+  } catch (recordErr: unknown) {
+    console.error('[QXK24Brain] Teaching record write failed:', recordErr);
+  }
+
   await QXK24BrainEntityModel.updateOne(
     { uid: entity_C_uid },
     { transformationId },
@@ -558,10 +586,14 @@ export async function triggerBrainTransformation(
   founderMessage: string,
   founderId = 'masa-bayu',
   sessionId = '',
+  context: TeachingTransformContext = {},
 ): Promise<void> {
   try {
     const { processLongTeaching } = await import('./adam-tcp.service');
-    await processLongTeaching(founderMessage, sessionId, founderId);
+    await processLongTeaching(founderMessage, sessionId, founderId, 'Long Teaching', 'CAHAYA', {
+      ...context,
+      sessionId: sessionId || context.sessionId,
+    });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[QXK24Brain] Transformation error:', msg);

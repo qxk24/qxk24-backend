@@ -21,6 +21,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { createClient, type RedisClientType } from 'redis';
 import { ENV } from '../config/environments';
 import { transformWithSnapshot } from './adam-snapshot.service';
+import type { TeachingTransformContext } from './adam-teaching-record.service';
 
 const lockDepth = new AsyncLocalStorage<{ founderId: string }>();
 
@@ -170,8 +171,9 @@ export async function withFounderLock<T>(
 export async function safeTransform(
   founderMessage: string,
   founderId = 'masa-bayu',
+  context: TeachingTransformContext = {},
 ): Promise<Awaited<ReturnType<typeof transformWithSnapshot>>> {
-  return withFounderLock(founderId, () => transformWithSnapshot(founderMessage, founderId));
+  return withFounderLock(founderId, () => transformWithSnapshot(founderMessage, founderId, context));
 }
 
 export function getConcurrencyStatus(): {

@@ -73,6 +73,17 @@ export async function listAllConsults(limit = 50): Promise<ConsultRecord[]> {
   return docs.map(mapConsult);
 }
 
+export async function listConsultsForStudent(
+  studentId: string,
+  limit = 12,
+): Promise<ConsultRecord[]> {
+  const docs = await ADAMConsultModel.find({ studentId })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
+  return docs.map(mapConsult);
+}
+
 export async function resolveConsult(consultId: string): Promise<boolean> {
   const result = await ADAMConsultModel.updateOne(
     { consultId, status: 'pending' },

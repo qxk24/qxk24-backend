@@ -26,9 +26,16 @@ import adamUploadRoutes from '../routes/adam/adam-upload.routes';
 import adamKnowledgeRoutes from '../routes/adam/adam-knowledge.routes';
 import { qxk24BrainRoutes } from '../qxk24brain/qxk24brain.routes';
 import adamStudentRoutes from '../routes/adam/adam-student.routes';
+import adamStudentsRoutes from '../routes/adam/adam-students.routes';
 import adamConsultRoutes from '../routes/adam/adam-consult.routes';
+import adamFounderRoutes from '../routes/adam/adam-founder.routes';
 import adamWorkspaceRoutes from '../routes/adam/adam-workspace.routes';
+import subscriptionRoutes from '../subscriptions/subscription.routes';
 import { ENV } from '../config/environments';
+import {
+  getSystemPulse,
+  runOperationalMemoryHealth,
+} from '../health/adam-system-health.service';
 
 export function registerRoutes(app: Hono): void {
 
@@ -47,6 +54,16 @@ export function registerRoutes(app: Hono): void {
     });
   });
 
+  app.get('/health/pulse', (c) => c.json(getSystemPulse()));
+
+  app.get('/health/memory', async (c) => {
+    const report = await runOperationalMemoryHealth();
+    const httpStatus = report.overall === 'critical' ? 503
+      : report.overall === 'degraded' ? 207
+      : 200;
+    return c.json(report, httpStatus);
+  });
+
   // ── Constitutional ────────────────────────────────────
   app.route('/api/constitutional', constitutionalRoutes);
   app.route('/api/adam/auth',          adamAuthRoutes);
@@ -55,11 +72,14 @@ export function registerRoutes(app: Hono): void {
   app.route('/api/adam/knowledge',     adamKnowledgeRoutes);
   app.route('/api/adam/brain',         qxk24BrainRoutes);
   app.route('/api/adam/student',       adamStudentRoutes);
+  app.route('/api/adam/students',      adamStudentsRoutes);
   app.route('/api/adam/consults',      adamConsultRoutes);
+  app.route('/api/adam/founder',       adamFounderRoutes);
   app.route('/api/adam/determination', adamDeterminationRoutes);
   app.route('/api/adam/journal',       adamJournalRoutes);
   app.route('/api/adam/succession',    adamSuccessionRoutes);
   app.route('/api/workspaces',         adamWorkspaceRoutes);
+  app.route('/api/subscriptions',    subscriptionRoutes);
 
   // ── 404 Fallback ─────────────────────────────────────
   app.notFound((c) => {
@@ -73,6 +93,8 @@ export function registerRoutes(app: Hono): void {
 
   console.log('[QXK24] Routes registered:');
   console.log('  GET  /health');
+  console.log('  GET  /health/pulse');
+  console.log('  GET  /health/memory');
   console.log('  *    /api/constitutional');
   console.log('  *    /api/adam/auth');
   console.log('  *    /api/adam/chat');
@@ -82,9 +104,11 @@ export function registerRoutes(app: Hono): void {
   console.log('  *    /api/adam/knowledge');
   console.log('  *    /api/adam/brain');
   console.log('  *    /api/adam/student');
+  console.log('  *    /api/adam/students');
   console.log('  *    /api/adam/consults');
   console.log('  *    /api/adam/determination');
   console.log('  *    /api/adam/journal');
   console.log('  *    /api/adam/succession');
   console.log('  *    /api/workspaces');
+  console.log('  *    /api/subscriptions');
 }

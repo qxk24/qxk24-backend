@@ -13,7 +13,7 @@ module.exports = {
       instances: 1,
       exec_mode: 'fork',
       watch: false,
-      max_memory_restart: '512M',
+      max_memory_restart: '768M',
       env: {
         NODE_ENV: 'development',
         PORT: 5000,
@@ -40,7 +40,7 @@ module.exports = {
       instances: 1,
       exec_mode: 'fork',
       watch: false,
-      max_memory_restart: '512M',
+      max_memory_restart: '768M',
       env_file: '.env.lab',
       env: {
         NODE_ENV: 'production',

@@ -18,6 +18,9 @@
 import { ENV } from '../config/environments';
 import { parseQuranAyahRefs } from '../quran/quran-ayah-parser';
 
+const EXPLICIT_WEB_SEARCH =
+  /\b(cuba\s+search|carian\s+web|search\s+the\s+web|web\s+search|google|mencari\s+(?:di\s+)?internet|search\s+online|search\s+tentang)\b/i;
+
 const LIVE_DATA_HINT =
   /\b(banding|bandingkan|compare|comparison|saintifik|science|research|kajian|news|terkini|latest|202[4-9]|data|statistik|statistics|verify|sahkan|internet|web|evidence|bukti|fakta|fact|harga|price|study|jurnal|journal)\b/i;
 
@@ -77,7 +80,18 @@ export function getWebSearchGateReason(message: string): string | null {
 
   if (text.length < 140 && GREETING_ONLY.test(text)) return null;
 
-  if (LIVE_DATA_HINT.test(text)) return 'live_data_hint';
+  if (EXPLICIT_WEB_SEARCH.test(text)) return 'explicit_search';
+
+  if (LIVE_DATA_HINT.test(text)) {
+    /** Compare with founder's own teaching — brain holds it; no live web needed */
+    if (
+      /\b(banding|bandingkan|compare|comparison)\b/i.test(text) &&
+      /\b(saya|p\.?alt|ajaran|penjelasan|teaching|mengajar|dalam sesi|tadi)\b/i.test(text)
+    ) {
+      return null;
+    }
+    return 'live_data_hint';
+  }
 
   if (text.length > 400 && /\?/.test(text)) return 'long_question';
 

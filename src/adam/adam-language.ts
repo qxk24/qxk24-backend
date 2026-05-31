@@ -2,7 +2,7 @@
  * ============================================================
  * QIUBBX MANAGEMENT SYSTEM
  * ============================================================
- * Module      : ADAM Default Language
+ * Module      : ADAM Universal Language
  * Platform    : Backend (TypeScript)
  * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
@@ -16,43 +16,37 @@
  */
 
 import { ENV } from '../config/environments';
+import { getScriptLeakGuardDirective } from './adam-language-guard';
+
+export { inferSpeakerLanguageLabel } from './adam-language-guard';
+
+/** System-prompt block — Alamtologi is universal; ADAM meets every human in their tongue. */
+export function getAdamLanguageDirective(): string {
+  const fallback = envFallbackLabel();
+
+  return [
+    'UNIVERSAL LANGUAGE (Alamtologi is universal — knowledge flows like water to all):',
+    'Reply in the same language the speaker uses this turn. If they mix languages, mirror their mix naturally.',
+    `If their language is unclear, default to ${fallback}.`,
+    'Never refuse, dismiss, or mock someone because of language, accent, or grammar.',
+    'Preserve Quranic Arabic (Rasm Uthmani), constitutional terms (MAKMUR, ISLAH, WAQF, AIDIL, MASA, TENAGA, AIR, API, BUMI, CAHAYA, RUANG), and sacred names.',
+    'Words like hikmah, MASA, TENAGA, IZWA, CAHAYA may stay untranslated when they carry constitutional weight in any tongue.',
+    getScriptLeakGuardDirective(),
+  ].join(' ');
+}
+
+/** Short label for Layer 0 core metadata */
+export function getAdamDefaultLanguageLabel(): string {
+  return `Universal — mirrors the speaker; fallback ${envFallbackLabel()} when unclear`;
+}
 
 function normalizedLanguage(): string {
   return ENV.ADAM_DEFAULT_LANGUAGE.trim().toLowerCase();
 }
 
-/** System-prompt block for chat, vision, and other founder-facing turns */
-export function getAdamLanguageDirective(): string {
+function envFallbackLabel(): string {
   const lang = normalizedLanguage();
-
-  if (lang === 'malay' || lang === 'ms' || lang === 'bm') {
-    return [
-      'DEFAULT LANGUAGE: Bahasa Malaysia (Malay).',
-      'Write every response in Malay unless P.alt or the student clearly writes in English — then follow their lead for that turn.',
-      'If they mix Malay and English, mirror their mix naturally.',
-      'Keep Quranic Arabic, constitutional terms (MAKMUR, ISLAH, WAQF, AIDIL), and proper names as given.',
-    ].join(' ');
-  }
-
-  if (lang === 'english' || lang === 'en') {
-    return [
-      'DEFAULT LANGUAGE: English.',
-      'If P.alt or the student writes clearly in Malay, respond in Malay for that turn.',
-      'If they mix both languages, follow their lead.',
-    ].join(' ');
-  }
-
-  return `DEFAULT LANGUAGE: ${lang}. Mirror the speaker's language; when unclear, use ${lang}.`;
-}
-
-/** Short label for Layer 0 core metadata */
-export function getAdamDefaultLanguageLabel(): string {
-  const lang = normalizedLanguage();
-  if (lang === 'malay' || lang === 'ms' || lang === 'bm') {
-    return 'Bahasa Malaysia (default); follows English when P.alt or student writes in English';
-  }
-  if (lang === 'english' || lang === 'en') {
-    return 'English (default); follows Malay when P.alt or student writes in Malay';
-  }
+  if (lang === 'malay' || lang === 'ms' || lang === 'bm') return 'Bahasa Malaysia';
+  if (lang === 'english' || lang === 'en') return 'English';
   return lang;
 }

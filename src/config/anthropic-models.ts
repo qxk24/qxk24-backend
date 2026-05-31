@@ -2,7 +2,7 @@
  * ============================================================
  * QIUBBX MANAGEMENT SYSTEM
  * ============================================================
- * Module      : Anthropic Model Router (Haiku + Sonnet)
+ * Module      : ADAM Model Router (Claude production · Qwen lab)
  * Platform    : Backend (TypeScript)
  * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
@@ -13,6 +13,10 @@
  * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
+ *
+ * ⚠️  NEVER CHANGE THE SETTING — Sacred model routing & output token limits.
+ * Founder TEACHING must stay on deep tier. ADAM_QWEN_FAST_MAX_TOKENS ≥ 4096.
+ * See .cursor/rules/adam-memory-sacred-settings.mdc
  */
 
 import { ENV } from './environments';
@@ -22,7 +26,7 @@ import { shouldEnableWebSearchForMessage } from '../adam/adam-web-search';
 export type ModelTier = 'fast' | 'deep';
 
 function useQwen(): boolean {
-  return ENV.LLM_PROVIDER === 'qwen';
+  return ENV.QXK24_STACK === 'lab' || ENV.LLM_PROVIDER === 'qwen';
 }
 
 export interface ModelRouterParticipant {
@@ -39,9 +43,9 @@ const DEEP_MODES: ADAMChatMode[] = [
   'JOURNAL_GEN',
 ];
 
-/** Founder / student-history / constitutional cues → Sonnet */
+/** Substantive-topic cues → deep tier (Qwen plus on lab, Claude Sonnet on production) */
 const DEEP_MESSAGE_PATTERNS = [
-  /\b(student|students|pelajar|izwahanie|suhaila|aziz|amer)\b/i,
+  /\b(student|students|pelajar|izwahanie|suhaila|aziz|amer|iskandar|haqimi)\b/i,
   /\b(communicat|bercakap|spoken|speak|said|tanya|asked)\b/i,
   /\b(constitution|perlembagaan|makmur|islah|waqf|alamtologi)\b/i,
   /\b(quran|qur'an|hadith|founder|pengasas)\b/i,
@@ -86,7 +90,12 @@ function resolveQwenFounderModel(
   const text = message.trim();
   const len = text.length;
 
-  if (hasUploads || DEEP_MODES.includes(mode)) {
+  if (hasUploads || mode === 'JOURNAL_GEN' || mode === 'TEACHING') {
+    // NEVER CHANGE THE SETTING — founder teaching requires deep model (voice quality)
+    return { model: getDeepModel(), tier: 'deep', reason: 'qwen_founder_deep' };
+  }
+
+  if (mode === 'CONSTITUTIONAL' || mode === 'AUDIT') {
     return { model: getDeepModel(), tier: 'deep', reason: 'qwen_founder_deep' };
   }
 
@@ -98,15 +107,30 @@ function resolveQwenFounderModel(
     return { model: getDeepModel(), tier: 'deep', reason: 'qwen_founder_long' };
   }
 
+  if (DEEP_MESSAGE_PATTERNS.some((re) => re.test(text))) {
+    return { model: getDeepModel(), tier: 'deep', reason: 'qwen_founder_substantive' };
+  }
+
   return { model: getFastModel(), tier: 'fast', reason: 'qwen_founder_routine' };
 }
 
-export function resolveAdamMaxTokens(tier: ModelTier, isFounder: boolean): number {
-  if (useQwen()) {
-    if (tier === 'fast') return 1536;
-    return isFounder ? 3072 : 2048;
+export function resolveAdamMaxTokens(
+  tier: ModelTier,
+  isFounder: boolean,
+  mode?: ADAMChatMode,
+): number {
+  if (mode === 'JOURNAL_GEN') {
+    return ENV.ADAM_JOURNAL_MAX_TOKENS;
   }
-  return isFounder || tier === 'deep' ? 4096 : 2048;
+  if (useQwen()) {
+    // NEVER CHANGE THE SETTING — fast tier floor 4096; lower values truncate ADAM mid-thought
+    if (tier === 'fast') return ENV.ADAM_QWEN_FAST_MAX_TOKENS;
+    return isFounder ? ENV.ADAM_FOUNDER_DEEP_MAX_TOKENS : ENV.ADAM_STUDENT_DEEP_MAX_TOKENS;
+  }
+  if (isFounder || tier === 'deep') {
+    return Math.max(4096, ENV.ADAM_FOUNDER_DEEP_MAX_TOKENS);
+  }
+  return Math.min(4096, ENV.ADAM_STUDENT_DEEP_MAX_TOKENS);
 }
 
 export function resolveQwenEnableThinking(
@@ -119,8 +143,8 @@ export function resolveQwenEnableThinking(
 }
 
 /**
- * Haiku (fast) for routine student chat; Sonnet (deep) for Founder,
- * uploads, constitutional modes, group, and substantive questions.
+ * Production: Haiku (fast) / Sonnet (deep).
+ * Lab: qwen-turbo (fast) / qwen-plus or qwen3.6-plus (deep) — never Claude.
  */
 export function resolveAdamChatModel(params: {
   participant: ModelRouterParticipant;
@@ -172,6 +196,15 @@ export function resolveAdamChatModel(params: {
       model:  getDeepModel(),
       tier:   'deep',
       reason: 'long_message',
+    };
+  }
+
+  /** Lab students — qwen-turbo for routine questions */
+  if (ENV.QXK24_STACK === 'lab' && mode === 'QUESTIONING') {
+    return {
+      model:  getFastModel(),
+      tier:   'fast',
+      reason: 'lab_student_routine',
     };
   }
 

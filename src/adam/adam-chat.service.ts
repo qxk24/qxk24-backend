@@ -52,6 +52,7 @@ export {
   parseBroadcastBlocks,
   parseToFounderBlocks,
   parseJudgmentBlock,
+  parseJournalSealBlocks,
   founderWantsStudentRelay,
   studentWantsFounderRelay,
 } from './adam-chat-response-parser';

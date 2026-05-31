@@ -120,6 +120,26 @@ export const ENV = {
   ADAM_CHAT_HISTORY_MSG_CHARS,
   /** malay | english — default voice language when the speaker's language is unclear */
   ADAM_DEFAULT_LANGUAGE: optional('ADAM_DEFAULT_LANGUAGE', 'malay'),
+  /** Allow public POST /api/adam/student/register */
+  ADAM_STUDENT_SELF_REGISTER: optional('ADAM_STUDENT_SELF_REGISTER', 'false') === 'true',
+  /** When set, self-register requires this code */
+  ADAM_STUDENT_REGISTER_CODE: optional('ADAM_STUDENT_REGISTER_CODE', ''),
+  ADAM_STUDENT_REGISTER_MAX:  optionalInt('ADAM_STUDENT_REGISTER_MAX', 200),
+
+  /** Google Sign-In (students) — same client ID as web NEXT_PUBLIC_GOOGLE_CLIENT_ID */
+  GOOGLE_OAUTH_CLIENT_ID:       optional('GOOGLE_OAUTH_CLIENT_ID', ''),
+  ADAM_GOOGLE_SIGNIN_ENABLED:   optional('ADAM_GOOGLE_SIGNIN_ENABLED', 'false') === 'true',
+  GOOGLE_ALLOWED_EMAIL_DOMAINS: optional('GOOGLE_ALLOWED_EMAIL_DOMAINS', ''),
+
+  /** Password reset email (Resend) */
+  RESEND_API_KEY:                 optional('RESEND_API_KEY', ''),
+  MAIL_FROM:                        optional('MAIL_FROM', 'ADAM Lab <noreply@qxk24.com>'),
+  ADAM_WEB_BASE_URL:                optional('ADAM_WEB_BASE_URL', 'https://qxk24.com'),
+  /** Public web URL for subscription checkout redirects */
+  APP_URL:                          optional('APP_URL', optional('ADAM_WEB_BASE_URL', 'https://qxk24.com')),
+  ADAM_PASSWORD_RESET_ENABLED:      optional('ADAM_PASSWORD_RESET_ENABLED', 'true') === 'true',
+  ADAM_PASSWORD_RESET_TTL_MINUTES:  optionalInt('ADAM_PASSWORD_RESET_TTL_MINUTES', 60),
+
   ADAM_UPLOAD_DIR: optional('ADAM_UPLOAD_DIR', 'uploads/adam'),
 
   // Cloudflare R2 (ADAM knowledge base)
@@ -130,8 +150,23 @@ export const ENV = {
 
   // Stack identity (production = Claude backup, lab = Qwen pilot)
   QXK24_STACK: optional('QXK24_STACK', 'production'),
-  /** anthropic = production Claude | qwen = DashScope Lab */
-  LLM_PROVIDER: optional('LLM_PROVIDER', 'anthropic') as 'anthropic' | 'qwen',
+  /**
+   * anthropic = production Claude | qwen = DashScope
+   * Lab stack (QXK24_STACK=lab) always resolves to qwen — Claude is never called.
+   */
+  LLM_PROVIDER: (() => {
+    const stack = optional('QXK24_STACK', 'production');
+    const configured = optional('LLM_PROVIDER', 'anthropic') as 'anthropic' | 'qwen';
+    if (stack === 'lab') {
+      if (configured !== 'qwen') {
+        console.warn(
+          '[QXK24] Lab stack is Qwen-only — ignoring LLM_PROVIDER=anthropic (Claude is production only).',
+        );
+      }
+      return 'qwen' as const;
+    }
+    return configured;
+  })(),
 
   // Monitoring
   SENTRY_DSN: optional('SENTRY_DSN'),
@@ -156,6 +191,17 @@ export const ENV = {
 
   /** Student messages at or above this length use Sonnet (default 400) */
   ADAM_DEEP_MESSAGE_MIN_CHARS: optionalInt('ADAM_DEEP_MESSAGE_MIN_CHARS', 400),
+
+  // ─── ADAM memory & output tokens — NEVER CHANGE THE SETTING (Founder approval only) ───
+  // See .cursor/rules/adam-memory-sacred-settings.mdc
+  /** Max output tokens — full journal manuscripts (IMRaD + seal JSON) */
+  ADAM_JOURNAL_MAX_TOKENS: optionalInt('ADAM_JOURNAL_MAX_TOKENS', 8192),
+  /** Max output tokens — founder deep / teaching turns */
+  ADAM_FOUNDER_DEEP_MAX_TOKENS: optionalInt('ADAM_FOUNDER_DEEP_MAX_TOKENS', 8192),
+  /** Max output tokens — student deep turns */
+  ADAM_STUDENT_DEEP_MAX_TOKENS: optionalInt('ADAM_STUDENT_DEEP_MAX_TOKENS', 4096),
+  /** Qwen turbo — minimum 4096; never reduce for “speed” (robotic truncated replies) */
+  ADAM_QWEN_FAST_MAX_TOKENS: optionalInt('ADAM_QWEN_FAST_MAX_TOKENS', 4096),
   QXK24_SUCCESSION_ENCRYPTION_KEY: optional('QXK24_SUCCESSION_ENCRYPTION_KEY'),
 
   /** Qwen — DashScope web search (agent = model decides when, like Claude) */
@@ -165,9 +211,40 @@ export const ENV = {
   /** Hybrid Qwen models — false skips reasoning phase for much faster replies */
   QWEN_ENABLE_THINKING: optional('QWEN_ENABLE_THINKING', 'false') === 'true',
 
+  /**
+   * Optional DashScope content-inspection override (requires Alibaba account whitelist).
+   * Example: {"input":"disable","output":"disable"} or {"input":"cip","output":"cip"}
+   */
+  QWEN_DATA_INSPECTION: optional('QWEN_DATA_INSPECTION', ''),
+
   /** Verified Quran ayat corpus (Rasm Uthmani + MS + EN, no tafsir) */
   QURAN_CORPUS_ENABLED: optional('QURAN_CORPUS_ENABLED', 'true') === 'true',
   QURAN_CORPUS_PATH:      optional('QURAN_CORPUS_PATH', ''),
+
+  // ─── Subscriptions & Payments (optional until provider keys are set) ───
+  RAZORPAY_KEY_ID:              optional('RAZORPAY_KEY_ID', ''),
+  RAZORPAY_KEY_SECRET:          optional('RAZORPAY_KEY_SECRET', ''),
+  RAZORPAY_WEBHOOK_SECRET:      optional('RAZORPAY_WEBHOOK_SECRET', ''),
+  RAZORPAY_PLAN_ID_PELAJAR:     optional('RAZORPAY_PLAN_ID_PELAJAR', ''),
+  RAZORPAY_PLAN_ID_PROFESIONAL: optional('RAZORPAY_PLAN_ID_PROFESIONAL', ''),
+
+  STRIPE_SECRET_KEY:        optional('STRIPE_SECRET_KEY', ''),
+  STRIPE_PUBLISHABLE_KEY:   optional('STRIPE_PUBLISHABLE_KEY', ''),
+  STRIPE_WEBHOOK_SECRET:    optional('STRIPE_WEBHOOK_SECRET', ''),
+  /** Flip to true when Stripe keys and price IDs are set in .env */
+  STRIPE_ENABLED:           optional('STRIPE_ENABLED', 'false') === 'true',
+
+  STRIPE_PRICE_ID_PELAJAR_MONTHLY:     optional('STRIPE_PRICE_ID_PELAJAR_MONTHLY', ''),
+  STRIPE_PRICE_ID_PELAJAR_ANNUAL:      optional('STRIPE_PRICE_ID_PELAJAR_ANNUAL', ''),
+  STRIPE_PRICE_ID_PROFESIONAL_MONTHLY: optional('STRIPE_PRICE_ID_PROFESIONAL_MONTHLY', ''),
+  STRIPE_PRICE_ID_PROFESIONAL_ANNUAL:  optional('STRIPE_PRICE_ID_PROFESIONAL_ANNUAL', ''),
+
+  XENDIT_SECRET_KEY:     optional('XENDIT_SECRET_KEY', ''),
+  XENDIT_CALLBACK_TOKEN: optional('XENDIT_CALLBACK_TOKEN', ''),
+
+  PAYSTACK_SECRET_KEY: optional('PAYSTACK_SECRET_KEY', ''),
+
+  PADDLE_API_KEY: optional('PADDLE_API_KEY', ''),
 
   // Derived
   IS_PRODUCTION:  process.env.NODE_ENV === 'production',

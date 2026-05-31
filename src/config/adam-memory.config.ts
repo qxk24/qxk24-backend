@@ -13,6 +13,11 @@
  * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
+ *
+ * ⚠️  NEVER CHANGE THE SETTING — Sacred ADAM memory tiers.
+ * Do not reduce BRAIN_CHARS, MESSAGE_CHARS, or MESSAGE_WINDOW defaults.
+ * Do not add lab hard-caps unless ADAM_LAB_MEMORY_LITE=true (Founder only).
+ * See .cursor/rules/adam-memory-sacred-settings.mdc
  */
 
 function envInt(name: string, fallback: number): number {
@@ -33,6 +38,7 @@ export interface AdamMemoryTierConfig {
   CURRENT_MESSAGE_MIN_CHARS: number;
 }
 
+/** NEVER CHANGE THE SETTING — defaults below are constitutional; env may override, code must not shrink them. */
 export const ADAM_MEMORY_CONFIG = {
   FOUNDER: {
     MESSAGE_WINDOW:     envInt('ADAM_FOUNDER_MESSAGE_WINDOW', 30),
@@ -66,6 +72,7 @@ export const ADAM_MEMORY_CONFIG = {
 export function getAdamMemoryConfig(
   role: 'founder' | 'student',
   isWorkspace: boolean,
+  chatMode?: string,
 ): AdamMemoryTierConfig {
   const base = isWorkspace
     ? ADAM_MEMORY_CONFIG.WORKSPACE
@@ -73,7 +80,22 @@ export function getAdamMemoryConfig(
       ? ADAM_MEMORY_CONFIG.FOUNDER
       : ADAM_MEMORY_CONFIG.STUDENT;
 
-  if (process.env.QXK24_STACK !== 'lab') return base;
+  /** Optional cost-saving caps — off by default so lab matches production memory depth.
+   *  NEVER CHANGE THE SETTING: do not enable lite caps in code; only via ADAM_LAB_MEMORY_LITE=true
+   *  with explicit Founder approval. */
+  const lite = process.env.ADAM_LAB_MEMORY_LITE === 'true';
+  if (process.env.QXK24_STACK !== 'lab' || !lite) return base;
+
+  if (chatMode === 'JOURNAL_GEN' && role === 'founder') {
+    return {
+      ...base,
+      MESSAGE_WINDOW:     Math.min(base.MESSAGE_WINDOW, 20),
+      BRAIN_CHARS:        Math.min(base.BRAIN_CHARS, 24_000),
+      MESSAGE_CHARS:      Math.min(base.MESSAGE_CHARS, 8_000),
+      COMPLETED_FAMILIES: Math.min(base.COMPLETED_FAMILIES, 5),
+      ACTIVE_FAMILIES:    Math.min(base.ACTIVE_FAMILIES, 10),
+    };
+  }
 
   return {
     ...base,

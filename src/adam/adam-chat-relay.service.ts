@@ -27,10 +27,9 @@ import {
   createConsultFlag,
   markConsultDeliveredToFounder,
 } from './adam-consult.service';
-import { getStudentAccount } from './adam-student.service';
+import { getStudentAccount, getStudentAccounts } from './adam-student.service';
 import {
   FOUNDER_USER_ID,
-  STUDENT_ACCOUNTS,
   type SessionType,
 } from './adam-student.types';
 import type { ADAMChatMode } from './adam.types';
@@ -87,7 +86,7 @@ export async function relayFounderMessageToStudents(
   }
 
   if (target === 'all') {
-    for (const student of STUDENT_ACCOUNTS) {
+    for (const student of getStudentAccounts()) {
       const sessionId = await getOrCreateSession(student.userId, 'student');
       await postRelay(sessionId, 'student', student.userId);
       privateCount += 1;

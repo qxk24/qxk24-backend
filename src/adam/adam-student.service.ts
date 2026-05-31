@@ -13,46 +13,30 @@
 import { sign } from 'jsonwebtoken';
 import { ENV } from '../config/environments';
 import type { AdamAuthUser } from './adam-student.types';
+import { FOUNDER_USER_ID } from './adam-student.types';
 import {
-  FOUNDER_USER_ID,
-  STUDENT_ACCOUNTS,
-  type StudentUserId,
-} from './adam-student.types';
+  getStudentAccount as getRegistryAccount,
+  getStudentAccounts,
+  studentIds as registryStudentIds,
+  verifyStudentPassword as verifyRegistryPassword,
+} from './adam-student-registry.service';
 
-function parseStudentPasswords(): Record<string, string> {
-  const raw = process.env.STUDENT_PASSWORDS ?? '';
-  const map: Record<string, string> = {};
-
-  if (raw.trim().startsWith('{')) {
-    try {
-      return JSON.parse(raw) as Record<string, string>;
-    } catch {
-      return map;
-    }
-  }
-
-  for (const part of raw.split(',')) {
-    const [id, pass] = part.split(':').map((s) => s.trim());
-    if (id && pass) map[id] = pass;
-  }
-
-  for (const s of STUDENT_ACCOUNTS) {
-    const envKey = `STUDENT_PASSWORD_${s.userId.toUpperCase().replace(/-/g, '_')}`;
-    const single = process.env[envKey];
-    if (single) map[s.userId] = single;
-  }
-
-  return map;
-}
+export {
+  getStudentAccounts,
+  initStudentRegistry,
+  refreshStudentCache,
+  syncMissingSeedStudents,
+  syncSeedStudentPasswords,
+} from './adam-student-registry.service';
 
 export function getStudentAccount(userId: string) {
-  return STUDENT_ACCOUNTS.find((s) => s.userId === userId);
+  return getRegistryAccount(userId);
 }
 
-export function verifyStudentPassword(userId: string, password: string): boolean {
-  const map = parseStudentPasswords();
-  const expected = map[userId];
-  return Boolean(expected && password === expected);
+export { resolveStudentLoginUserId } from './adam-student-registry.service';
+
+export async function verifyStudentPassword(userId: string, password: string): Promise<boolean> {
+  return verifyRegistryPassword(userId, password);
 }
 
 export function issueAdamToken(user: AdamAuthUser): string {
@@ -70,8 +54,8 @@ export function issueAdamToken(user: AdamAuthUser): string {
   );
 }
 
-export function studentIds(): StudentUserId[] {
-  return STUDENT_ACCOUNTS.map((s) => s.userId);
+export function studentIds(): string[] {
+  return registryStudentIds();
 }
 
 export function isFounderUserId(userId: string): boolean {

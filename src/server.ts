@@ -31,6 +31,7 @@ import { startAdamAtomicRecoveryScheduler } from './qxk24brain/adam-atomic-recov
 import { startAdamIntegrityScheduler } from './qxk24brain/adam-integrity-scheduler';
 import { startAdamRedundancyScheduler } from './qxk24brain/adam-redundancy.scheduler';
 import { connectConcurrencyRedis, disconnectConcurrencyRedis } from './qxk24brain/adam-concurrency.service';
+import { initStudentRegistry } from './adam/adam-student.service';
 
 const app = new Hono();
 
@@ -95,6 +96,7 @@ app.onError((err, c) => {
 async function bootstrap(): Promise<void> {
   try {
     await connectDatabase();
+    await initStudentRegistry();
     await connectConcurrencyRedis();
     assertLlmConfigured();
     startAdamReflectionScheduler();

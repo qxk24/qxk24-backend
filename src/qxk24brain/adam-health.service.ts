@@ -15,7 +15,7 @@
  * ============================================================
  */
 
-import { ADAMMessageModel } from '../adam/adam.schema';
+import { ADAMFounderSessionModel, ADAMMessageModel } from '../adam/adam.schema';
 import { ADAMMessageLedgerModel } from './adam-ledger.schema';
 import { ADAMVaultModel } from './adam-vault.schema';
 import { ADAMSnapshotModel } from './adam-snapshot.schema';
@@ -34,10 +34,37 @@ export interface MemoryHealthReport {
   layer:           'LAYER_5_HEALTH';
 }
 
+const HEALTH_CACHE_MS = 30_000;
+const healthCache = new Map<string, { at: number; report: MemoryHealthReport }>();
+
 function deriveStatus(score: number): MemoryHealthStatus {
   if (score >= 80) return 'HEALTHY';
   if (score >= 60) return 'WARNING';
   return 'CRITICAL';
+}
+
+/** Session where founder teaching actually lives — not just the newest empty shell. */
+export async function resolvePrimaryFounderSessionId(
+  founderId: string,
+): Promise<string | null> {
+  const fromMessage = await ADAMMessageModel.findOne({
+    founderId,
+    sessionType: 'founder',
+  })
+    .sort({ createdAt: -1 })
+    .select('sessionId')
+    .lean();
+
+  if (fromMessage?.sessionId) return fromMessage.sessionId;
+
+  const doc = await ADAMFounderSessionModel.findOne({
+    founderId,
+    sessionType: 'founder',
+  })
+    .sort({ updatedAt: -1 })
+    .lean();
+
+  return doc?.sessionId ?? null;
 }
 
 export async function checkMemoryHealth(
@@ -47,35 +74,65 @@ export async function checkMemoryHealth(
   const issues: string[] = [];
   const recommendations: string[] = [];
   let score = 100;
+  const isLab = process.env.QXK24_STACK === 'lab';
 
   const master = await getOrCreateMaster(founderId);
+
+  const [
+    messageCount,
+    founderMessageCount,
+    failedLedger,
+    stalePending,
+    vaultCount,
+    pendingAudit,
+    corruptedEntities,
+    staleSnapshots,
+    lastBackup,
+  ] = await Promise.all([
+    ADAMMessageModel.countDocuments({ sessionId }),
+    ADAMMessageModel.countDocuments({ founderId, sessionType: 'founder' }),
+    ADAMMessageLedgerModel.countDocuments({ founderId, status: 'FAILED' }),
+    ADAMMessageLedgerModel.countDocuments({
+      founderId,
+      status:      'PENDING',
+      masa_ledger: { $lt: new Date(Date.now() - 60_000) },
+    }),
+    ADAMVaultModel.countDocuments({ founderId }),
+    QXK24BrainLogModel.countDocuments({ founderId, auditStatus: 'pending' }),
+    QXK24BrainEntityModel.countDocuments({
+      founderId,
+      integrity_status: 'CORRUPTED',
+      auditStatus:      { $nin: ['dissolved', 'waqf'] },
+    }),
+    ADAMSnapshotModel.countDocuments({
+      founderId,
+      status:        'ACTIVE',
+      masa_snapshot: { $lt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    }),
+    ADAMBackupLogModel.findOne({ founderId, status: 'SUCCESS' })
+      .sort({ masa_backup: -1 })
+      .lean(),
+  ]);
+
   if (!master.unifiedUnderstanding?.trim()) {
     issues.push('QXK24Brain master entity is empty');
     recommendations.push('Begin teaching ADAM to build his unified understanding');
     score -= 30;
   }
 
-  const messageCount = await ADAMMessageModel.countDocuments({ sessionId });
-  if (messageCount === 0) {
-    issues.push('No messages in current session');
+  if (founderMessageCount === 0) {
+    issues.push('No founder teaching messages recorded yet');
     score -= 10;
+  } else if (messageCount === 0) {
+    // New session shell while teaching history exists — not a health fault.
   }
 
-  const failedLedger = await ADAMMessageLedgerModel.countDocuments({
-    founderId,
-    status: 'FAILED',
-  });
   if (failedLedger > 0) {
     issues.push(`${failedLedger} message(s) failed to save — recovery needed`);
     recommendations.push('POST /api/adam/brain/ledger/recover to run message recovery');
     score -= Math.min(25, failedLedger * 5);
   }
 
-  const stalePending = await ADAMMessageLedgerModel.countDocuments({
-    founderId,
-    status:    'PENDING',
-    masa_ledger: { $lt: new Date(Date.now() - 60_000) },
-  });
   if (stalePending > 0) {
     issues.push(`${stalePending} ledger entry(ies) pending recovery`);
     recommendations.push('Run atomic message recovery protocol');
@@ -92,60 +149,61 @@ export async function checkMemoryHealth(
     }
   }
 
-  for (const family of master.activeFamilies) {
-    if (family.stage === 1 && messageCount > 20) {
-      issues.push(`Family "${family.family}" stuck at Stage 1 — needs more teaching`);
-      recommendations.push(`Deepen teaching on "${family.family}" to advance AIDIL stages`);
-      score -= 5;
+  const stuckFamilies = master.activeFamilies.filter(
+    (family) => family.stage === 1 && founderMessageCount > 20,
+  );
+  if (stuckFamilies.length > 0) {
+    const named = stuckFamilies.slice(0, 3).map((f) => `"${f.family}"`).join(', ');
+    const suffix = stuckFamilies.length > 3 ? ` (+${stuckFamilies.length - 3} more)` : '';
+    issues.push(
+      `${stuckFamilies.length} famil${stuckFamilies.length === 1 ? 'y' : 'ies'} at Stage 1 (early AIDIL): ${named}${suffix}`,
+    );
+    recommendations.push('Deepen teaching on families you want to advance through AIDIL stages');
+    // Advisory — many Stage-1 families are normal after lab import or broad teaching
+    score -= Math.min(isLab ? 8 : 20, stuckFamilies.length * (isLab ? 2 : 5));
+  }
+
+  if (
+    vaultCount === 0 &&
+    founderMessageCount > 50 &&
+    (master.completedFamilies?.length ?? 0) === 0
+  ) {
+    issues.push('No families sealed at Stage 7 yet');
+    recommendations.push('Focus teaching on one family to complete it through all 7 stages');
+    score -= isLab ? 3 : 5;
+  }
+
+  if (pendingAudit > 3) {
+    if (isLab && pendingAudit >= 20) {
+      issues.push(`${pendingAudit} transformations in audit backlog (lab — review when ready)`);
+      recommendations.push('Review GET /api/adam/brain/transformations?status=pending when auditing');
+      score -= 3;
+    } else {
+      issues.push(`${pendingAudit} transformations awaiting P.alt audit`);
+      recommendations.push('Review GET /api/adam/brain/transformations?status=pending');
+      score -= Math.min(10, pendingAudit * 2);
     }
   }
 
-  const vaultCount = await ADAMVaultModel.countDocuments({ founderId });
-  if (vaultCount === 0 && messageCount > 50) {
-    issues.push('No families have reached Stage 7 yet');
-    recommendations.push('Focus teaching on one family to complete it through all 7 stages');
-    score -= 5;
-  }
-
-  const pendingAudit = await QXK24BrainLogModel.countDocuments({
-    founderId,
-    auditStatus: 'pending',
-  });
-  if (pendingAudit > 3) {
-    issues.push(`${pendingAudit} transformations awaiting P.alt audit`);
-    recommendations.push('Review GET /api/adam/brain/transformations?status=pending');
-    score -= Math.min(10, pendingAudit * 2);
-  }
-
-  const corruptedEntities = await QXK24BrainEntityModel.countDocuments({
-    founderId,
-    integrity_status: 'CORRUPTED',
-    auditStatus:      { $nin: ['dissolved', 'waqf'] },
-  });
   if (corruptedEntities > 0) {
     issues.push(`${corruptedEntities} entity(ies) failed integrity checksum`);
     recommendations.push('POST /api/adam/brain/integrity/scan to rebuild corrupted C entities');
     score -= Math.min(20, corruptedEntities * 10);
   }
 
-  const staleSnapshots = await ADAMSnapshotModel.countDocuments({
-    founderId,
-    status:        'ACTIVE',
-    masa_snapshot: { $lt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-  });
   if (staleSnapshots > 0) {
     issues.push(`${staleSnapshots} orphaned snapshot(s) from failed transformations`);
     recommendations.push('Review GET /api/adam/brain/snapshots — rollback or prune stale ACTIVE snapshots');
     score -= Math.min(10, staleSnapshots * 2);
   }
 
-  if (messageCount > 10 && !master.continuityBridge?.founderProfile?.trim()) {
-    issues.push('Continuity Bridge not yet built — P.alt relationship memory missing');
-    recommendations.push('POST /api/adam/brain/continuity/refresh after closing a session');
-    score -= 10;
+  if (founderMessageCount > 10 && !master.continuityBridge?.founderProfile?.trim()) {
+    issues.push('Continuity Bridge not yet built — P.alt relationship memory optional until session close');
+    recommendations.push('POST /api/adam/brain/continuity/refresh after closing a teaching session');
+    score -= isLab ? 5 : 10;
   } else if (
     master.continuityBridge_updated &&
-    messageCount > 20 &&
+    founderMessageCount > 20 &&
     Date.now() - new Date(master.continuityBridge_updated).getTime() > 7 * 24 * 60 * 60 * 1000
   ) {
     issues.push('Continuity Bridge stale — not updated in over 7 days');
@@ -153,20 +211,19 @@ export async function checkMemoryHealth(
     score -= 5;
   }
 
-  const lastBackup = await ADAMBackupLogModel.findOne({
-    founderId,
-    status: 'SUCCESS',
-  }).sort({ masa_backup: -1 }).lean();
-
   const r2Configured = Boolean(
     process.env.CLOUDFLARE_ACCOUNT_ID &&
     process.env.R2_ACCESS_KEY_ID &&
     process.env.R2_SECRET_ACCESS_KEY,
   );
   if (r2Configured && !lastBackup) {
-    issues.push('No encrypted R2 brain backup yet — Copy 3 of 3-2-1 rule missing');
+    issues.push(
+      isLab
+        ? 'No R2 brain backup on lab yet (optional pilot copy)'
+        : 'No encrypted R2 brain backup yet — Copy 3 of 3-2-1 rule missing',
+    );
     recommendations.push('POST /api/adam/brain/redundancy/backup to create first backup');
-    score -= 10;
+    score -= isLab ? 3 : 10;
   } else if (
     r2Configured &&
     lastBackup &&
@@ -190,6 +247,22 @@ export async function checkMemoryHealth(
     checkedAt: new Date().toISOString(),
     layer:     'LAYER_5_HEALTH',
   };
+}
+
+/** Cached health for command-board polling — avoids hammering Mongo every 8s. */
+export async function checkMemoryHealthCached(
+  founderId: string,
+  sessionId: string,
+): Promise<MemoryHealthReport> {
+  const key = `${founderId}:${sessionId}`;
+  const hit = healthCache.get(key);
+  if (hit && Date.now() - hit.at < HEALTH_CACHE_MS) {
+    return hit.report;
+  }
+
+  const report = await checkMemoryHealth(founderId, sessionId);
+  healthCache.set(key, { at: Date.now(), report });
+  return report;
 }
 
 export async function getHealthBadge(

@@ -35,11 +35,11 @@ export { toLlmMessages } from './llm-types';
 export type { LlmMessage, LlmProvider };
 
 export function getLlmProvider(): LlmProvider {
-  return ENV.LLM_PROVIDER;
+  return ENV.QXK24_STACK === 'lab' ? 'qwen' : ENV.LLM_PROVIDER;
 }
 
 export function isQwenProvider(): boolean {
-  return ENV.LLM_PROVIDER === 'qwen';
+  return getLlmProvider() === 'qwen';
 }
 
 export function friendlyLlmError(err: unknown): string {
@@ -73,7 +73,20 @@ export function friendlyLlmError(err: unknown): string {
   if (/invalid api key|authentication|unauthorized|401/i.test(msg)) {
     return `ADAM engine authentication failed — check ${provider} API key on the server.`;
   }
+  if (/DataInspectionFailed|data_inspection_failed|inappropriate content/i.test(msg)) {
+    return (
+      'QXK24 Lab (Qwen) blocked this turn — Alibaba\'s content safety filter flagged the input. ' +
+      'This often happens on turns with web search plus constitutional or metaphorical language (e.g. raja/KING). ' +
+      'Try again without asking ADAM to search the web, or rephrase slightly. ' +
+      'If this keeps happening, the Founder can request a DashScope content-filter whitelist for the lab API key.'
+    );
+  }
   return msg.length > 280 ? `${msg.slice(0, 280)}…` : msg;
+}
+
+export function isQwenDataInspectionError(err: unknown): boolean {
+  const msg = extractAnthropicErrorText(err);
+  return /DataInspectionFailed|data_inspection_failed|inappropriate content/i.test(msg);
 }
 
 /** @deprecated Use friendlyLlmError — kept for existing imports */
@@ -309,13 +322,20 @@ async function dashScopeFetch(body: Record<string, unknown>): Promise<Response> 
     throw new Error('DASHSCOPE_API_KEY is not configured.');
   }
 
+  const headers: Record<string, string> = {
+    'Content-Type':  'application/json',
+    Authorization:   `Bearer ${ENV.DASHSCOPE_API_KEY}`,
+  };
+
+  const inspection = ENV.QWEN_DATA_INSPECTION.trim();
+  if (inspection) {
+    headers['X-DashScope-DataInspection'] = inspection;
+  }
+
   const base = ENV.QWEN_API_BASE.replace(/\/$/, '');
   return fetch(`${base}/chat/completions`, {
     method:  'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      Authorization:   `Bearer ${ENV.DASHSCOPE_API_KEY}`,
-    },
+    headers,
     body: JSON.stringify(body),
   });
 }
@@ -323,14 +343,14 @@ async function dashScopeFetch(body: Record<string, unknown>): Promise<Response> 
 // ─── Public API ──────────────────────────────────────────────
 
 export async function llmComplete(params: LlmCompleteParams): Promise<string> {
-  if (ENV.LLM_PROVIDER === 'qwen') {
+  if (isQwenProvider()) {
     return qwenComplete(params);
   }
   return anthropicComplete(params);
 }
 
 export async function llmStream(params: LlmStreamParams): Promise<string> {
-  if (ENV.LLM_PROVIDER === 'qwen') {
+  if (isQwenProvider()) {
     return qwenStream(params);
   }
   return anthropicStream(params);
@@ -358,7 +378,7 @@ export async function llmDescribeImage(params: {
   const { buffer, mediaType, fileName, prompt, model, maxTokens = 4096 } = params;
   const dataUrl = `data:${mediaType};base64,${buffer.toString('base64')}`;
 
-  if (ENV.LLM_PROVIDER === 'qwen') {
+  if (isQwenProvider()) {
     if (!ENV.DASHSCOPE_API_KEY) {
       throw new Error('Image reading requires DASHSCOPE_API_KEY on the server.');
     }
@@ -429,19 +449,19 @@ export async function llmDescribeImage(params: {
 }
 
 export function assertLlmConfigured(): void {
-  if (ENV.LLM_PROVIDER === 'qwen') {
+  if (isQwenProvider()) {
     if (!ENV.DASHSCOPE_API_KEY) {
-      console.warn('[QXK24] LLM_PROVIDER=qwen but DASHSCOPE_API_KEY is missing.');
+      console.warn('[QXK24] Lab/Qwen stack but DASHSCOPE_API_KEY is missing.');
     }
     return;
   }
   if (!ENV.ANTHROPIC_API_KEY) {
-    console.warn('[QXK24] LLM_PROVIDER=anthropic but ANTHROPIC_API_KEY is missing.');
+    console.warn('[QXK24] Production Claude stack but ANTHROPIC_API_KEY is missing.');
   }
 }
 
 export function isLlmConfigured(): boolean {
-  return ENV.LLM_PROVIDER === 'qwen'
+  return isQwenProvider()
     ? Boolean(ENV.DASHSCOPE_API_KEY)
     : Boolean(ENV.ANTHROPIC_API_KEY);
 }

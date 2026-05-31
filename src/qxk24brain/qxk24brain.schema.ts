@@ -178,11 +178,13 @@ export interface BrainSessionContext {
 }
 
 export interface ContinuityBridge {
-  founderProfile:  string;
-  relationshipArc: string;
-  lastSession:     string;
-  openThreads:     string;
-  nextSteps:       string;
+  founderProfile:    string;
+  relationshipArc:   string;
+  lastSession:       string;
+  openThreads:       string;
+  nextSteps:         string;
+  /** Phase 3 — family thread rollup from adam_teaching_records */
+  relationalMemory?: string;
 }
 
 export interface QXK24BrainMasterDocument extends Document {
@@ -249,11 +251,12 @@ const QXK24BrainMasterSchema = new Schema<QXK24BrainMasterDocument>({
     updatedAt:        Date,
   },
   continuityBridge: {
-    founderProfile:  { type: String, default: '' },
-    relationshipArc: { type: String, default: '' },
-    lastSession:     { type: String, default: '' },
-    openThreads:     { type: String, default: '' },
-    nextSteps:       { type: String, default: '' },
+    founderProfile:    { type: String, default: '' },
+    relationshipArc:   { type: String, default: '' },
+    lastSession:         { type: String, default: '' },
+    openThreads:         { type: String, default: '' },
+    nextSteps:           { type: String, default: '' },
+    relationalMemory:    { type: String, default: '' },
   },
   continuityBridge_updated: Date,
   masa_created:         { type: Date, default: Date.now },

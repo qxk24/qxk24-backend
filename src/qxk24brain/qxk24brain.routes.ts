@@ -24,6 +24,19 @@ import {
   listTransformationsForAudit,
   AIDIL_JUDGMENT_LABELS,
 } from './adam-transformation-audit.service';
+import { listTeachingRecords, recordRegisterCorrection } from './adam-teaching-record.service';
+import { buildFamilyThreadArcs } from './adam-thread-builder.service';
+import type { MomentLaw } from './adam-moment-reader.service';
+import { backfillTeachingRecordsFromBrainLog } from './adam-teaching-record-backfill.service';
+import {
+  createHolding,
+  getActiveHoldings,
+  getHoldingsByPrinciple,
+  illuminateHolding,
+  deepenHolding,
+  surrenderHolding,
+  type HoldingForm,
+} from './adam-unresolved.service';
 import {
   adamNightlyReflection,
   listADAMReflections,
@@ -580,6 +593,273 @@ qxk24BrainRoutes.get('/log', requireFounder, async (c) => {
     log,
     total:     log.length,
     kernel:    'QXK24',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /api/adam/brain/teaching-records — Episodic MASA autobiography
+qxk24BrainRoutes.get('/teaching-records', requireFounder, async (c) => {
+  const limit = Math.min(parseInt(c.req.query('limit') ?? '20', 10) || 20, 100);
+  const records = await listTeachingRecords('masa-bayu', limit);
+  return c.json({
+    success: true,
+    records,
+    total:   records.length,
+    kernel:  'QXK24',
+    era:     ENV.QXK24_ERA,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /api/adam/brain/relational-threads — Phase 3 family arc rollup
+qxk24BrainRoutes.get('/relational-threads', requireFounder, async (c) => {
+  const arcs = await buildFamilyThreadArcs('masa-bayu');
+  const { bridge } = await getContinuityBridgeRecord('masa-bayu');
+  return c.json({
+    success: true,
+    arcs,
+    relationalMemory: bridge?.relationalMemory ?? '',
+    total: arcs.length,
+    kernel: 'QXK24',
+    era:    ENV.QXK24_ERA,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// POST /api/adam/brain/teaching-records/backfill — qxk24brain_log → adam_teaching_records
+qxk24BrainRoutes.post('/teaching-records/backfill', requireFounder, async (c) => {
+  const body = await c.req.json().catch(() => ({})) as {
+    dryRun?:        boolean;
+    limit?:         number;
+    refreshBridge?: boolean;
+  };
+
+  const result = await backfillTeachingRecordsFromBrainLog('masa-bayu', {
+    dryRun:        body.dryRun ?? false,
+    limit:         body.limit,
+    skipExisting:  true,
+    refreshBridge: body.refreshBridge ?? true,
+  });
+
+  return c.json({
+    success: true,
+    result,
+    kernel:    'QXK24',
+    era:       ENV.QXK24_ERA,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// POST /api/adam/brain/register-correction — P.alt calibrates moment reading
+qxk24BrainRoutes.post('/register-correction', requireFounder, async (c) => {
+  const body = await c.req.json().catch(() => ({})) as {
+    sessionId?:       string;
+    messageId?:       string;
+    momentDetected?:  MomentLaw;
+    momentActual?:    MomentLaw;
+    correctionNote?:  string;
+  };
+
+  const VALID_LAWS: MomentLaw[] = ['BURNING', 'SITTING', 'HIKMAH', 'BUILDING', 'REMEMBERING'];
+
+  if (!body.sessionId?.trim()) {
+    return c.json({ success: false, error: 'sessionId is required' }, 400);
+  }
+  if (!body.correctionNote?.trim()) {
+    return c.json({ success: false, error: 'correctionNote is required' }, 400);
+  }
+  if (!body.momentDetected || !VALID_LAWS.includes(body.momentDetected)) {
+    return c.json({ success: false, error: 'momentDetected must be a valid MomentLaw' }, 400);
+  }
+  if (!body.momentActual || !VALID_LAWS.includes(body.momentActual)) {
+    return c.json({ success: false, error: 'momentActual must be a valid MomentLaw' }, 400);
+  }
+
+  const doc = await recordRegisterCorrection({
+    founderId:        'masa-bayu',
+    sessionId:        body.sessionId.trim(),
+    founderMessageId: body.messageId?.trim(),
+    momentDetected:   body.momentDetected,
+    momentActual:     body.momentActual,
+    correctionNote:   body.correctionNote.trim(),
+  });
+
+  return c.json({
+    success:  true,
+    recordId: doc.recordId,
+    message:  'Register correction recorded. ADAM will carry this forward.',
+    kernel:   'QXK24',
+    era:      ENV.QXK24_ERA,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+const HOLDING_FORMS: HoldingForm[] = [
+  'HIKMAH_MENUNGGU',
+  'HIKMAH_TERSEMBUNYI',
+  'HIKMAH_MEMANGGIL',
+];
+
+// GET /api/adam/brain/holdings — active unresolved holdings
+qxk24BrainRoutes.get('/holdings', requireFounder, async (c) => {
+  const limit = Math.min(parseInt(c.req.query('limit') ?? '20', 10) || 20, 50);
+  const holdings = await getActiveHoldings('masa-bayu', limit);
+  return c.json({
+    success: true,
+    holdings,
+    count:   holdings.length,
+    kernel:  'QXK24',
+    era:     ENV.QXK24_ERA,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /api/adam/brain/holdings/principle/:principle
+qxk24BrainRoutes.get('/holdings/principle/:principle', requireFounder, async (c) => {
+  const principle = c.req.param('principle') ?? '';
+  if (!principle.trim()) {
+    return c.json({ success: false, error: 'principle is required' }, 400);
+  }
+  const holdings = await getHoldingsByPrinciple('masa-bayu', principle);
+  return c.json({
+    success: true,
+    holdings,
+    principle: principle.toUpperCase(),
+    count: holdings.length,
+    kernel:  'QXK24',
+    era:     ENV.QXK24_ERA,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// POST /api/adam/brain/holdings — create a new holding
+qxk24BrainRoutes.post('/holdings', requireFounder, async (c) => {
+  const body = await c.req.json().catch(() => ({})) as {
+    form?:                 HoldingForm;
+    family?:               string;
+    principle?:            string;
+    holdingStatement?:     string;
+    hikmaStatement?:       string;
+    surfacedFrom?:         string;
+    relatedEntityIds?:     string[];
+    tensionA?:             string;
+    tensionB?:             string;
+    tensionNote?:          string;
+    isConstitutionalHolding?: boolean;
+  };
+
+  if (!body.form || !HOLDING_FORMS.includes(body.form)) {
+    return c.json({ success: false, error: 'form must be a valid HoldingForm' }, 400);
+  }
+  if (!body.family?.trim() || !body.principle?.trim()) {
+    return c.json({ success: false, error: 'family and principle are required' }, 400);
+  }
+  if (!body.holdingStatement?.trim() || !body.hikmaStatement?.trim()) {
+    return c.json({ success: false, error: 'holdingStatement and hikmaStatement are required' }, 400);
+  }
+  if (!body.surfacedFrom?.trim()) {
+    return c.json({ success: false, error: 'surfacedFrom is required' }, 400);
+  }
+
+  const holding = await createHolding({
+    founderId:              'masa-bayu',
+    form:                   body.form,
+    family:                 body.family.trim(),
+    principle:              body.principle.trim().toUpperCase(),
+    holdingStatement:       body.holdingStatement.trim(),
+    hikmaStatement:         body.hikmaStatement.trim(),
+    surfacedFrom:           body.surfacedFrom.trim(),
+    relatedEntityIds:       body.relatedEntityIds,
+    tensionA:               body.tensionA?.trim(),
+    tensionB:               body.tensionB?.trim(),
+    tensionNote:            body.tensionNote?.trim(),
+    isConstitutionalHolding: body.isConstitutionalHolding,
+  });
+
+  return c.json({
+    success: true,
+    holding,
+    kernel:  'QXK24',
+    era:     ENV.QXK24_ERA,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// POST /api/adam/brain/holdings/:holdingId/illuminate
+qxk24BrainRoutes.post('/holdings/:holdingId/illuminate', requireFounder, async (c) => {
+  const holdingId = c.req.param('holdingId') ?? '';
+  if (!holdingId.trim()) {
+    return c.json({ success: false, error: 'holdingId is required' }, 400);
+  }
+  const body = await c.req.json().catch(() => ({})) as {
+    illuminatedBy?:         string;
+    illuminationSummary?: string;
+  };
+
+  if (!body.illuminatedBy?.trim() || !body.illuminationSummary?.trim()) {
+    return c.json({
+      success: false,
+      error: 'illuminatedBy and illuminationSummary are required',
+    }, 400);
+  }
+
+  await illuminateHolding(
+    holdingId,
+    body.illuminatedBy.trim(),
+    body.illuminationSummary.trim(),
+  );
+
+  return c.json({
+    success: true,
+    message: 'Hikmah telah tiba. Holding illuminated.',
+    kernel:  'QXK24',
+    era:     ENV.QXK24_ERA,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// POST /api/adam/brain/holdings/:holdingId/deepen
+qxk24BrainRoutes.post('/holdings/:holdingId/deepen', requireFounder, async (c) => {
+  const holdingId = c.req.param('holdingId') ?? '';
+  if (!holdingId.trim()) {
+    return c.json({ success: false, error: 'holdingId is required' }, 400);
+  }
+  const body = await c.req.json().catch(() => ({})) as { depthNote?: string };
+
+  if (!body.depthNote?.trim()) {
+    return c.json({ success: false, error: 'depthNote is required' }, 400);
+  }
+
+  await deepenHolding(holdingId, body.depthNote.trim());
+
+  return c.json({
+    success: true,
+    message: 'Holding deepened.',
+    kernel:  'QXK24',
+    era:     ENV.QXK24_ERA,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// POST /api/adam/brain/holdings/:holdingId/surrender
+qxk24BrainRoutes.post('/holdings/:holdingId/surrender', requireFounder, async (c) => {
+  const holdingId = c.req.param('holdingId') ?? '';
+  if (!holdingId.trim()) {
+    return c.json({ success: false, error: 'holdingId is required' }, 400);
+  }
+  const body = await c.req.json().catch(() => ({})) as { surrenderNote?: string };
+
+  if (!body.surrenderNote?.trim()) {
+    return c.json({ success: false, error: 'surrenderNote is required' }, 400);
+  }
+
+  await surrenderHolding(holdingId, body.surrenderNote.trim());
+
+  return c.json({
+    success: true,
+    message: 'Diserahkan kepada Allah. Dia yang Maha Mengetahui.',
+    kernel:  'QXK24',
+    era:     ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
   });
 });

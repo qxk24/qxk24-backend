@@ -22,6 +22,7 @@ import {
 } from '../qxk24brain/adam-sleep-wake.service';
 import { atomicSaveMessage } from '../qxk24brain/adam-atomic.service';
 import { refreshSessionDigestIfNeeded } from '../qxk24brain/adam-tiered-memory.service';
+import { incrementSessionCounts } from '../qxk24brain/adam-unresolved.service';
 import {
   ADAMFounderSessionModel,
   ADAMMessageModel,
@@ -76,6 +77,11 @@ export async function getOrCreateSession(
       active:      true,
       lastActiveAt: new Date(),
     });
+    if (sessionType === 'founder') {
+      void incrementSessionCounts(userId).catch((err) =>
+        console.error('[ADAM Holdings] Session count increment failed:', err),
+      );
+    }
   } else {
     await ADAMFounderSessionModel.updateOne(
       { sessionId: session.sessionId },

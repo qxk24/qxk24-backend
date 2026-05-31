@@ -10,14 +10,22 @@
  * ============================================================
  */
 
-export const STUDENT_ACCOUNTS = [
+/** Initial accounts migrated into MongoDB on first boot (passwords from env). */
+export const SEED_STUDENT_ACCOUNTS = [
   { userId: 'izwahanie',   name: 'Izwahanie' },
   { userId: 'suhaila',     name: 'Suhaila' },
   { userId: 'aziz-tamhid', name: 'Aziz Tamhid' },
   { userId: 'amer',        name: 'Amer' },
+  { userId: 'iskandar',    name: 'Iskandar' },
+  { userId: 'haqimi',      name: 'Haqimi' },
 ] as const;
 
-export type StudentUserId = typeof STUDENT_ACCOUNTS[number]['userId'];
+export type StudentUserId = string;
+
+export interface StudentAccountRecord {
+  userId: string;
+  name:   string;
+}
 
 export const GROUP_SESSION_ID = 'K24s-group-alamtologi-era1';
 export const FOUNDER_USER_ID = 'masa-bayu';

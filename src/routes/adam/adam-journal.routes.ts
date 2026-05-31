@@ -199,9 +199,13 @@ router.get('/:id', requireAuth, async (c) => {
 
 router.post('/:id/approve', requireFounder, async (c) => {
   const id   = c.req.param('id')!;
-  const body = await c.req.json() as { reviewNotes?: string };
+  const body = await c.req.json() as { reviewNotes?: string; publish?: boolean };
 
-  const journal = await approveJournal(id, body.reviewNotes ?? '');
+  const journal = await approveJournal(
+    id,
+    body.reviewNotes ?? '',
+    { publish: body.publish !== false },
+  );
   if (!journal) {
     return c.json({ success: false, kernel: 'QXK24', error: 'Journal not found or cannot be approved', timestamp: new Date().toISOString() }, 404);
   }

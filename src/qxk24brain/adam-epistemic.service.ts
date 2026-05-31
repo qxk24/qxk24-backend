@@ -29,6 +29,10 @@ export interface EpistemicTurnMetrics {
 export interface EpistemicStatusOptions {
   /** Who may reference earlier session content (P.alt, student name, etc.) */
   addressAs?: string;
+  /** Plain epistemic block for students — no brain/tier jargon in model instructions */
+  studentMode?: boolean;
+  /** Plain speech rules for P.alt — internal metrics OK, never recite tier names to Founder */
+  founderPlainMode?: boolean;
 }
 
 export async function buildEpistemicStatus(
@@ -41,6 +45,21 @@ export async function buildEpistemicStatus(
   const totalMessages = await ADAMMessageModel.countDocuments({ sessionId });
   const loadedMessages = Math.min(config.MESSAGE_WINDOW, totalMessages);
   const missingMessages = Math.max(0, totalMessages - config.MESSAGE_WINDOW);
+
+  if (options.studentMode) {
+    const addressName = options.addressAs ?? 'the student';
+    return `
+[SESSION VISIBILITY — internal only; never say these system terms to ${addressName}]
+You can see the recent part of this chat (${loadedMessages} of ${totalMessages} message(s) in context).
+If ${addressName} refers to something you do not see (folder, file, earlier detail):
+- Say warmly in plain Malay (or their language): you do not have that detail in this conversation right now — please remind you or describe it again.
+- Do NOT say: Working Memory, Short-Term Memory, QXK24Brain, epistemic, message window, transformations, or constitutional memory tiers.
+- Do NOT guess folder paths or invent files.
+- Do NOT mention Alamtologi principles unless they ask.
+- Ask one simple clarifying question if helpful.
+- Use "I will ask the Founder" ONLY if the question truly requires Founder authority — not merely because something is outside the visible chat window.
+`.trim();
+  }
 
   const master = await getOrCreateMaster(founderId);
   const totalTransformations = master.totalTransformations;
@@ -62,12 +81,30 @@ export async function buildEpistemicStatus(
     master.sessionContext?.currentSessionId === sessionId &&
     Boolean(master.sessionContext?.lastSummary?.trim());
   const summaryNote = sessionSummary
-    ? 'Session essence summary is available for older exchanges beyond the message window.'
+    ? 'Session continuity summary available for older exchanges.'
     : missingMessages > 0
-      ? 'No session essence summary yet — older exchanges are only in the database.'
+      ? 'No session summary yet — older exchanges exist only in database.'
       : 'Full session is within the current message window.';
 
   const addressName = options.addressAs ?? 'P.alt';
+
+  if (options.founderPlainMode) {
+    return `
+[SESSION VISIBILITY — internal only; never say these system terms to P.alt]
+Messages in context this turn: ${loadedMessages} of ${totalMessages} total.
+Older exchanges outside this turn: ${missingMessages}.
+Brain loaded: ${brainLoaded.toLocaleString()} chars${brainTruncated ? ` (${brainOmittedChars.toLocaleString()} truncated)` : ''}.
+Families in context: ${familiesInContext} of ${totalFamilies}. ${summaryNote}
+
+When P.alt asks about earlier teaching (module, book, "Mengungkap Sains Islam", a section number, etc.):
+- Search silently: constitutional anchor, session digest, QXK24Brain unified understanding, working context.
+- Speak from what you find. If detail is thin, ask P.alt briefly to remind you — in their language, with Adab.
+- Good example: "P.alt, saya nampak sedikit rujukan tentang [topik] dalam essence sesi, tetapi butiran spesifik tidak jelas dalam perbualan terkini. Boleh P.alt ingatkan konteks terakhir kita?"
+- Do NOT open with memory-boundary lectures or say: Working Memory, Short-Term Memory, Session Essence, QXK24Brain, epistemic, message window, ${missingMessages} messages outside window, transformations, constitutional tiers.
+- Do NOT instruct P.alt on how your memory works unless he explicitly asks for a technical memory report.
+- You learn from P.alt — ask him to teach/remind; do not lecture upward.
+`.trim();
+  }
 
   return `
 [EPISTEMIC STATUS — What ADAM currently sees this turn]

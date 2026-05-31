@@ -19,8 +19,9 @@ import {
 import {
   FOUNDER_USER_ID,
   GROUP_SESSION_ID,
-  STUDENT_ACCOUNTS,
 } from '../adam/adam-student.types';
+import { getStudentAccounts } from '../adam/adam-student.service';
+import { getUserWorkspaces } from '../adam/adam-workspace.service';
 import { getOrCreateMaster } from './qxk24brain.engine';
 import { prependCoreToSystem } from './adam-core';
 import { QXK24BrainMasterModel } from './qxk24brain.schema';
@@ -228,27 +229,40 @@ async function recordStudentContact(
 
 /**
  * Loads real student + group chat activity for Founder context.
- * ADAM must know who has actually spoken — not only brain-aligned merges.
+ * Aggregates general sessions AND per-book workspace sessions.
  */
 export async function loadStudentsEraContext(): Promise<string> {
   const master = await getOrCreateMaster(FOUNDER_USER_ID);
   const lines: string[] = [
     '[ALAMTOLOGI STUDENTS — ERA_1 ACTIVITY LOG]',
     'The Founder may ask who has spoken with you. Use this log — it reflects actual messages in the system.',
+    'Each student may have a general chat plus separate book/workspace sessions — all are counted here.',
     '',
   ];
 
-  for (const student of STUDENT_ACCOUNTS) {
-    const session = await ADAMFounderSessionModel.findOne({
-      founderId:   student.userId,
-      sessionType: 'student',
-      active:      true,
-    }).sort({ createdAt: 1 }).lean();
+  for (const student of getStudentAccounts()) {
+    const [sessions, workspaces, track] = await Promise.all([
+      ADAMFounderSessionModel.find({
+        founderId:   student.userId,
+        sessionType: 'student',
+        active:      true,
+      })
+        .sort({ lastActiveAt: -1 })
+        .lean(),
+      getUserWorkspaces(student.userId),
+      Promise.resolve(master.studentTracks?.find((t) => t.studentId === student.userId)),
+    ]);
 
-    const track = master.studentTracks?.find((t) => t.studentId === student.userId);
+    const sessionIds = [
+      ...new Set([
+        ...sessions.map((s) => s.sessionId),
+        ...workspaces.map((w) => w.sessionId),
+      ]),
+    ];
 
-    if (!session) {
-      lines.push(`## ${student.name} (${student.userId})`);
+    lines.push(`## ${student.name} (${student.userId})`);
+
+    if (sessionIds.length === 0) {
       lines.push('Private chat: NO MESSAGES YET');
       if (track?.understanding) {
         lines.push(`Brain track note: ${messageSnippet(track.understanding, 400)}`);
@@ -257,35 +271,54 @@ export async function loadStudentsEraContext(): Promise<string> {
       continue;
     }
 
-    const studentMsgCount = await ADAMMessageModel.countDocuments({
-      sessionId: session.sessionId,
-      role:      'student',
-    });
-    const totalCount = await ADAMMessageModel.countDocuments({
-      sessionId: session.sessionId,
-    });
+    const [studentMsgCount, totalCount, recent] = await Promise.all([
+      ADAMMessageModel.countDocuments({
+        sessionId: { $in: sessionIds },
+        role:      'student',
+      }),
+      ADAMMessageModel.countDocuments({
+        sessionId: { $in: sessionIds },
+      }),
+      ADAMMessageModel.find({ sessionId: { $in: sessionIds } })
+        .sort({ createdAt: -1 })
+        .limit(12)
+        .lean(),
+    ]);
 
-    const recent = await ADAMMessageModel.find({ sessionId: session.sessionId })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
     recent.reverse();
 
-    lines.push(`## ${student.name} (${student.userId})`);
     lines.push(
       studentMsgCount > 0
-        ? `Private chat: HAS COMMUNICATED — ${studentMsgCount} student message(s), ${totalCount} total in thread`
-        : 'Private chat: session exists but no student messages yet',
+        ? `Private + books: HAS COMMUNICATED — ${studentMsgCount} student message(s), ${totalCount} total across ${sessionIds.length} session(s)`
+        : 'Sessions exist but no student messages yet',
     );
 
+    if (workspaces.length > 0) {
+      lines.push('Books / workspaces:');
+      for (const ws of workspaces) {
+        const bookStudentMsgs = await ADAMMessageModel.countDocuments({
+          sessionId: ws.sessionId,
+          role:      'student',
+        });
+        const bookTotal = await ADAMMessageModel.countDocuments({
+          sessionId: ws.sessionId,
+        });
+        lines.push(
+          `- "${ws.title}" (${ws.principle}): stage ${ws.stage}/7, ${bookStudentMsgs} student / ${bookTotal} total msgs`,
+        );
+      }
+    }
+
     if (recent.length > 0) {
-      lines.push('Recent private exchange:');
+      lines.push('Recent exchange (all sessions):');
       for (const m of recent) {
+        const ws = workspaces.find((w) => w.sessionId === m.sessionId);
+        const bookTag = ws ? ` [${ws.title}]` : m.sessionId.includes('WS-') ? ' [book]' : '';
         const who =
           m.role === 'adam'
             ? 'ADAM'
             : m.speakerName || student.name;
-        lines.push(`- ${who}: ${messageSnippet(m.content)}`);
+        lines.push(`- ${who}${bookTag}: ${messageSnippet(m.content)}`);
       }
     }
 

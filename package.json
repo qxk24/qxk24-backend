@@ -10,7 +10,9 @@
     "test": "jest --runInBand",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
-    "quran:fetch": "node scripts/fetch-quran-corpus.mjs"
+    "quran:fetch": "node scripts/fetch-quran-corpus.mjs",
+    "backfill:teaching-records": "ts-node --transpile-only src/scripts/backfill-teaching-records.ts",
+    "backfill:teaching-records:lab": "QXK24_STACK=lab ts-node --transpile-only src/scripts/backfill-teaching-records.ts"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -23,6 +25,7 @@
     "@hono/zod-validator": "^0.2.2",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.3.1",
+    "google-auth-library": "^9.15.1",
     "hono": "^4.2.7",
     "jsonwebtoken": "^9.0.2",
     "mammoth": "^1.12.0",

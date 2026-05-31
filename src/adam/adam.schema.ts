@@ -192,6 +192,12 @@ const ADAMJournalSchema = new Schema<ADAMJournalDocument>({
   publishedAt:        { type: Date },
   reviewNotes:        { type: String },
   journalNumber:      { type: String, unique: true, sparse: true },
+  source: {
+    type:    String,
+    enum:    ['public_submit', 'founder_adam'],
+    default: 'public_submit',
+  },
+  sourceSessionId:    { type: String },
 }, {
   timestamps: true,
   collection: 'adam_journals',

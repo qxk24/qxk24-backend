@@ -19,6 +19,7 @@
 
 import { safeTransform } from './adam-concurrency.service';
 import type { transformWithSnapshot } from './adam-snapshot.service';
+import type { TeachingTransformContext } from './adam-teaching-record.service';
 
 export type TransformResult = Awaited<ReturnType<typeof transformWithSnapshot>>;
 
@@ -101,8 +102,13 @@ export async function processLongTeaching(
   founderId: string,
   family = 'Long Teaching',
   principle = 'CAHAYA',
+  baseContext: TeachingTransformContext = {},
 ): Promise<LongTeachingResult> {
   const trimmed = teaching.trim();
+  const ctx: TeachingTransformContext = {
+    ...baseContext,
+    sessionId: sessionId || baseContext.sessionId,
+  };
   if (!trimmed) {
     return {
       layer:           'LAYER_9_TCP',
@@ -114,7 +120,7 @@ export async function processLongTeaching(
   }
 
   if (trimmed.length <= MAX_CHUNK_CHARS) {
-    const result = await safeTransform(trimmed, founderId);
+    const result = await safeTransform(trimmed, founderId, ctx);
     return {
       layer:           'LAYER_9_TCP',
       usedTcp:         false,
@@ -145,7 +151,11 @@ ${isLast ? '[FINAL PART — Teaching complete]' : ''}
 
 ${chunk}`.trim();
 
-    lastResult = await safeTransform(enrichedChunk, founderId);
+    lastResult = await safeTransform(enrichedChunk, founderId, {
+      ...ctx,
+      tcpChunkIndex: i + 1,
+      tcpChunkTotal: chunks.length,
+    });
 
     if (!isLast && CHUNK_DELAY_MS > 0) {
       await new Promise((resolve) => setTimeout(resolve, CHUNK_DELAY_MS));

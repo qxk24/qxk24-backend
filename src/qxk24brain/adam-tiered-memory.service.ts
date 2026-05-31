@@ -159,8 +159,11 @@ export async function getShortTermMemory(
   const session = await ADAMFounderSessionModel.findOne({ sessionId }).lean();
 
   if (!session?.sessionDigest?.trim()) {
-    const built = await buildSessionDigest(sessionId, founderId);
-    return built;
+    // Never block the chat turn on digest LLM — builds after each save in background
+    void buildSessionDigest(sessionId, founderId).catch((err) => {
+      console.error('[ADAM Tiered Memory] Background digest build failed:', err);
+    });
+    return '';
   }
 
   const updated = session.digestUpdatedAt
