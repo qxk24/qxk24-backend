@@ -31,7 +31,9 @@ export interface BuildMessage {
 export interface AgentEvent {
   type:
     | 'thinking'
+    | 'qwen_thinking'
     | 'tool_call'
+    | 'tool_running'
     | 'tool_result'
     | 'proposal'
     | 'approval_needed'

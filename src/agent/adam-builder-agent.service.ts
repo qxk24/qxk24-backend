@@ -257,16 +257,25 @@ export class AdamBuilderAgentService {
     founderToken: string,
     startMessage?: string,
   ): AsyncGenerator<AgentEvent> {
-    await this.ensureConnected(founderToken);
-
     if (startMessage) {
       record.messages.push({ role: 'user', content: startMessage });
     }
 
-    yield { type: 'thinking', message: 'ADAM is reading the codebase...', sessionId: record.id };
+    yield {
+      type:      'thinking',
+      message:   'Connecting to ADAM MCP tools…',
+      sessionId: record.id,
+    };
+    await this.ensureConnected(founderToken);
 
     while (record.loopCount < MAX_LOOPS) {
       record.loopCount += 1;
+
+      yield {
+        type:      'qwen_thinking',
+        message:   'Qwen is deciding the next step…',
+        sessionId: record.id,
+      };
 
       let qwenResponse: QwenResponse;
       try {
@@ -316,6 +325,13 @@ export class AdamBuilderAgentService {
           toolName,
           toolArgs,
           message:   `ADAM → ${toolName}`,
+          sessionId: record.id,
+        };
+
+        yield {
+          type:      'tool_running',
+          toolName,
+          message:   `MCP running ${toolName}…`,
           sessionId: record.id,
         };
 
