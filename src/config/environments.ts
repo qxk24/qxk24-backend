@@ -246,6 +246,18 @@ export const ENV = {
 
   PADDLE_API_KEY: optional('PADDLE_API_KEY', ''),
 
+  // ADAM Builder (lab stack — Qwen + qxk24-mcp)
+  ADAM_BUILDER_ENABLED: optional('ADAM_BUILDER_ENABLED', 'false') === 'true',
+  /** Monorepo root on the host running lab PM2 (for MCP child process) */
+  QXK24_ROOT: optional('QXK24_ROOT', ''),
+  /** Override path to qxk24-mcp/build/index.js */
+  ADAM_BUILDER_MCP_PATH: optional('ADAM_BUILDER_MCP_PATH', ''),
+  ADAM_BUILDER_API_URL: optional('ADAM_BUILDER_API_URL', ''),
+  ADAM_BUILDER_ALLOWED_WRITE_DIRS: optional(
+    'ADAM_BUILDER_ALLOWED_WRITE_DIRS',
+    'qxk24-backend/src,qxk24-web/app,qxk24-web/components,qxk24-web/hooks,qxk24-web/lib,docs,qxk24-mcp/src',
+  ),
+
   // Derived
   IS_PRODUCTION:  process.env.NODE_ENV === 'production',
   IS_DEVELOPMENT: process.env.NODE_ENV !== 'production'

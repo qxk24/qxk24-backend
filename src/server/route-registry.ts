@@ -31,6 +31,7 @@ import adamConsultRoutes from '../routes/adam/adam-consult.routes';
 import adamFounderRoutes from '../routes/adam/adam-founder.routes';
 import adamWorkspaceRoutes from '../routes/adam/adam-workspace.routes';
 import subscriptionRoutes from '../subscriptions/subscription.routes';
+import adamBuilderRoutes from '../agent/adam-builder.routes';
 import { ENV } from '../config/environments';
 import {
   getSystemPulse,
@@ -80,6 +81,7 @@ export function registerRoutes(app: Hono): void {
   app.route('/api/adam/succession',    adamSuccessionRoutes);
   app.route('/api/workspaces',         adamWorkspaceRoutes);
   app.route('/api/subscriptions',    subscriptionRoutes);
+  app.route('/api/adam/agent',       adamBuilderRoutes);
 
   // ── 404 Fallback ─────────────────────────────────────
   app.notFound((c) => {
@@ -111,4 +113,5 @@ export function registerRoutes(app: Hono): void {
   console.log('  *    /api/adam/succession');
   console.log('  *    /api/workspaces');
   console.log('  *    /api/subscriptions');
+  console.log('  *    /api/adam/agent (lab · founder · Qwen builder)');
 }
