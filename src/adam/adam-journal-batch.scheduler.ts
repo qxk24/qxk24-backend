@@ -48,9 +48,13 @@ export function startAdamJournalBatchScheduler(): void {
 
   if (schedulerTimer) return;
 
+  const mode = cfg.dedicated ? 'dedicated hardware 24/7' : 'cloud';
   console.log(
-    `[ADAM Journal Batch] Scheduler active — every ${cfg.intervalMs / 1000}s, ` +
-    `${cfg.batchSize} journal(s)/tick, pause ${cfg.pauseMs}ms`,
+    `[ADAM Journal Batch] Scheduler active (${mode}) — every ${cfg.intervalMs / 1000}s, ` +
+    `${cfg.batchSize} journal(s)/tick, pause ${cfg.pauseMs}ms` +
+    (cfg.journalsPerDayCapacityHint
+      ? `, capacity hint ~${cfg.journalsPerDayCapacityHint}/day`
+      : ''),
   );
 
   schedulerTimer = setInterval(() => {

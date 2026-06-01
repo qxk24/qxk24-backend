@@ -181,7 +181,8 @@ export async function runJournalBatch(
     throw new Error('Journal batch already running');
   }
 
-  const max = Math.min(Math.max(1, count), 20);
+  const maxCap = journalBatchConfig().maxPerRun;
+  const max = Math.min(Math.max(1, count), maxCap);
   running = true;
   const startedAt = new Date().toISOString();
 
@@ -242,19 +243,48 @@ export async function runJournalBatch(
   return result;
 }
 
-export function journalBatchPauseMs(): number {
-  const n = parseInt(process.env.ADAM_JOURNAL_BATCH_PAUSE_MS ?? '4000', 10);
-  return Number.isFinite(n) ? Math.max(0, Math.min(n, 60_000)) : 4000;
+export function isDedicatedAdamHardware(): boolean {
+  return process.env.ADAM_DEDICATED_HARDWARE === 'true';
 }
 
+function envInt(key: string, fallback: number): number {
+  const n = parseInt(process.env[key] ?? String(fallback), 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+export function journalBatchPauseMs(): number {
+  const dedicated = isDedicatedAdamHardware();
+  const fallback = dedicated ? 1500 : 4000;
+  const n = envInt('ADAM_JOURNAL_BATCH_PAUSE_MS', fallback);
+  return Math.max(0, Math.min(n, 60_000));
+}
+
+/** Batch + scheduler tuning — aggressive defaults when ADAM_DEDICATED_HARDWARE=true (24/7 own box). */
 export function journalBatchConfig() {
-  const enabled = process.env.ADAM_JOURNAL_BATCH_ENABLED === 'true';
-  const intervalMs = parseInt(process.env.ADAM_JOURNAL_BATCH_INTERVAL_MS ?? '900000', 10);
-  const batchSize = parseInt(process.env.ADAM_JOURNAL_BATCH_SIZE ?? '2', 10);
+  const dedicated = isDedicatedAdamHardware();
+
+  const enabled =
+    process.env.ADAM_JOURNAL_BATCH_ENABLED === 'true'
+    || (dedicated && process.env.ADAM_JOURNAL_BATCH_ENABLED !== 'false');
+
+  const defaultInterval = dedicated ? 180_000 : 900_000;
+  const defaultBatchSize = dedicated ? 8 : 2;
+  const maxBatchSize = dedicated ? 30 : 10;
+  const maxPerRun = dedicated ? 50 : 20;
+
+  const intervalMs = envInt('ADAM_JOURNAL_BATCH_INTERVAL_MS', defaultInterval);
+  const batchSize = envInt('ADAM_JOURNAL_BATCH_SIZE', defaultBatchSize);
+
   return {
+    dedicated,
     enabled,
-    intervalMs: Number.isFinite(intervalMs) ? Math.max(60_000, intervalMs) : 900_000,
-    batchSize:  Number.isFinite(batchSize) ? Math.min(Math.max(1, batchSize), 10) : 2,
+    intervalMs: Math.max(60_000, intervalMs),
+    batchSize:  Math.min(Math.max(1, batchSize), maxBatchSize),
+    maxPerRun,
     pauseMs:    journalBatchPauseMs(),
+    /** ~659/day target on dedicated: 8 journals × 20 ticks/h × 24h ≈ 3840 capacity */
+    journalsPerDayCapacityHint: dedicated
+      ? Math.round((86_400_000 / Math.max(60_000, intervalMs)) * Math.min(Math.max(1, batchSize), maxBatchSize))
+      : undefined,
   };
 }
