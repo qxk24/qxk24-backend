@@ -40,6 +40,8 @@ import type { ADAMApiResponse, AlamtologiAcademicJournal } from '../../adam/adam
 import type { QXK24TokenPayload } from '../../middleware/auth.middleware';
 import { ENV } from '../../config/environments';
 import { getDailyJournalSegmentStatus } from '../../adam/adam-journal-daily-segment';
+import { runJournalBatch } from '../../adam/adam-journal-batch.service';
+import { getJournalBatchSchedulerStatus } from '../../adam/adam-journal-batch.scheduler';
 
 function isFounderRequest(c: { req: { header: (n: string) => string | undefined } }): boolean {
   const bearer = c.req.header('Authorization')?.split(' ')[1];
@@ -81,6 +83,50 @@ router.get('/daily-segment', requireFounder, async (c) => {
     data:      status,
     timestamp: new Date().toISOString(),
   });
+});
+
+// ─── GET /batch/status — Quota + scheduler (Founder) ─────────
+
+router.get('/batch/status', requireFounder, async (c) => {
+  const quota = await getDailyJournalSegmentStatus();
+  return c.json({
+    success:   true,
+    kernel:    'QXK24',
+    version:   ENV.QXK24_KERNEL_VERSION,
+    era:       ENV.QXK24_ERA,
+    data:      {
+      quota,
+      scheduler: getJournalBatchSchedulerStatus(),
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ─── POST /batch/run — Seal N pending subfields now (Founder) ─
+
+router.post('/batch/run', requireFounder, async (c) => {
+  const body = await c.req.json().catch(() => ({})) as { count?: number };
+  const count = typeof body.count === 'number' ? body.count : 1;
+
+  try {
+    const result = await runJournalBatch(count);
+    return c.json({
+      success:   true,
+      kernel:    'QXK24',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data:      result,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({
+      success: false,
+      kernel:  'QXK24',
+      error:   msg,
+      timestamp: new Date().toISOString(),
+    }, 409);
+  }
 });
 
 // ─── GET /public — Published journals (no auth) ──────────────

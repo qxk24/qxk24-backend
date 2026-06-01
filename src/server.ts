@@ -30,6 +30,7 @@ import { startAdamReflectionScheduler } from './qxk24brain/adam-reflection-sched
 import { startAdamAtomicRecoveryScheduler } from './qxk24brain/adam-atomic-recovery.scheduler.js';
 import { startAdamIntegrityScheduler } from './qxk24brain/adam-integrity-scheduler.js';
 import { startAdamRedundancyScheduler } from './qxk24brain/adam-redundancy.scheduler.js';
+import { startAdamJournalBatchScheduler } from './adam/adam-journal-batch.scheduler.js';
 import { connectConcurrencyRedis, disconnectConcurrencyRedis } from './qxk24brain/adam-concurrency.service.js';
 import { initStudentRegistry } from './adam/adam-student.service.js';
 
@@ -103,6 +104,7 @@ async function bootstrap(): Promise<void> {
     startAdamAtomicRecoveryScheduler();
     startAdamIntegrityScheduler();
     startAdamRedundancyScheduler();
+    startAdamJournalBatchScheduler();
 
     serve({ fetch: app.fetch, port: ENV.PORT }, () => {
       console.log('');
