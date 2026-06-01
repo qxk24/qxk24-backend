@@ -32,6 +32,10 @@ export interface AdamJournalSeal {
   abstract:           string;
   category?:          JournalCategory;
   principlesFocus?:   AlamtologiPrinciple[];
+  knowledgeTopicId?:  string;
+  knowledgeMajor?:    string;
+  knowledgeDiscipline?: string;
+  knowledgeSubfield?: string;
   authorName?:        string;
   content:            JournalContent;
   hukumZAnalysis?:    HukumZResult;
@@ -271,6 +275,10 @@ export function parseJournalSealBlocks(fullResponse: string): {
         principlesFocus:   parsed.principlesFocus?.length
           ? normalizePrinciplesFocus(parsed.principlesFocus)
           : ['CAHAYA'],
+        knowledgeTopicId:  parsed.knowledgeTopicId?.trim(),
+        knowledgeMajor:    parsed.knowledgeMajor?.trim(),
+        knowledgeDiscipline: parsed.knowledgeDiscipline?.trim(),
+        knowledgeSubfield: parsed.knowledgeSubfield?.trim(),
         authorName:        parsed.authorName?.trim() || 'Masa Bayu',
         content:           normalizeJournalContent(content),
         hukumZAnalysis:    parsed.hukumZAnalysis,

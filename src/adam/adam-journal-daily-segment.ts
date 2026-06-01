@@ -2,7 +2,7 @@
  * ============================================================
  * QIUBBX MANAGEMENT SYSTEM
  * ============================================================
- * Module      : ADAM Journal Daily Segment (Alamtologi)
+ * Module      : ADAM Journal Daily Topic (University Knowledge Map)
  * Platform    : Backend (TypeScript)
  * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
@@ -17,31 +17,19 @@
 
 import { ADAMJournalModel } from './adam.schema';
 import type { AlamtologiPrinciple } from './adam.types';
+import {
+  getDailyUniversityKnowledgeTopic,
+  getUniversityKnowledgeTopicCount,
+  knowledgeTopicIndexForDate,
+  type UniversityKnowledgeTopic,
+} from './adam-university-knowledge';
 
-/** Seven knowledge segments — one manuscript topic per calendar day. */
-export const ALAMTOLOGI_KNOWLEDGE_SEGMENTS: readonly AlamtologiPrinciple[] = [
-  'MASA',
-  'TENAGA',
-  'AIR',
-  'API',
-  'BUMI',
-  'CAHAYA',
-  'RUANG',
+/** @deprecated use university map rotation — kept for Alamtologi lens labels */
+export const ALAMTOLOGI_KNOWLEDGE_SEGMENTS = [
+  'MASA', 'TENAGA', 'AIR', 'API', 'BUMI', 'CAHAYA', 'RUANG',
 ] as const;
 
-const CONSTITUTIONAL_EPOCH_MS = Date.parse('2026-01-01T00:00:00+08:00');
 const MS_PER_DAY = 86_400_000;
-
-export function segmentIndexForDate(date = new Date()): number {
-  const day = Math.floor((date.getTime() - CONSTITUTIONAL_EPOCH_MS) / MS_PER_DAY);
-  const idx = ((day % 7) + 7) % 7;
-  return idx;
-}
-
-export function getDailyJournalSegment(date = new Date()): AlamtologiPrinciple {
-  return ALAMTOLOGI_KNOWLEDGE_SEGMENTS[segmentIndexForDate(date)];
-}
-
 const TZ_KL = 'Asia/Kuala_Lumpur';
 
 function malaysiaCalendarDate(date: Date): string {
@@ -59,94 +47,88 @@ function startOfMalaysiaDay(date: Date): Date {
 }
 
 function endOfMalaysiaDay(date: Date): Date {
-  const start = startOfMalaysiaDay(date);
-  return new Date(start.getTime() + MS_PER_DAY - 1);
+  return new Date(startOfMalaysiaDay(date).getTime() + MS_PER_DAY - 1);
 }
 
-export interface DailySegmentStatus {
+export interface DailyJournalTopicStatus {
   date:              string;
+  topicIndex:        number;
+  topicCount:        number;
+  cycleDay:          number;
+  todaysTopic:       UniversityKnowledgeTopic;
+  /** Primary Alamtologi lens for today's major category */
   todaysSegment:     AlamtologiPrinciple;
-  segmentIndex:      number;
   sealedToday:       boolean;
   sealedTodayTitles: string[];
-  recentBySegment:   Partial<Record<AlamtologiPrinciple, { title: string; status: string; submittedAt: string }>>;
 }
 
-/** Coverage for founder pulse / journal mode prompts. */
 export async function getDailyJournalSegmentStatus(
   date = new Date(),
-): Promise<DailySegmentStatus> {
-  const todaysSegment = getDailyJournalSegment(date);
+): Promise<DailyJournalTopicStatus> {
+  const todaysTopic = getDailyUniversityKnowledgeTopic(date);
+  const topicCount = getUniversityKnowledgeTopicCount();
   const dayStart = startOfMalaysiaDay(date);
   const dayEnd = endOfMalaysiaDay(date);
 
   const todayDocs = await ADAMJournalModel.find({
     submittedAt: { $gte: dayStart, $lte: dayEnd },
-    status:      { $in: ['PENDING_REVIEW', 'UNDER_REVIEW', 'APPROVED', 'PUBLISHED'] },
-    principlesFocus: todaysSegment,
+    knowledgeTopicId: todaysTopic.topicId,
+    status:           { $in: ['PENDING_REVIEW', 'UNDER_REVIEW', 'APPROVED', 'PUBLISHED'] },
   })
     .sort({ submittedAt: -1 })
     .limit(5)
     .select('title status submittedAt')
     .lean();
 
-  const weekDocs = await ADAMJournalModel.find({
-    submittedAt: { $gte: new Date(dayStart.getTime() - 7 * MS_PER_DAY) },
-    status:      { $in: ['PENDING_REVIEW', 'UNDER_REVIEW', 'APPROVED', 'PUBLISHED'] },
-  })
-    .sort({ submittedAt: -1 })
-    .limit(40)
-    .select('title status submittedAt principlesFocus')
-    .lean();
-
-  const recentBySegment: DailySegmentStatus['recentBySegment'] = {};
-  for (const seg of ALAMTOLOGI_KNOWLEDGE_SEGMENTS) {
-    const hit = weekDocs.find((d) =>
-      Array.isArray(d.principlesFocus) && d.principlesFocus.includes(seg),
-    );
-    if (hit) {
-      recentBySegment[seg] = {
-        title:       hit.title,
-        status:      hit.status,
-        submittedAt: hit.submittedAt?.toISOString?.() ?? '',
-      };
-    }
-  }
-
   return {
     date:              malaysiaCalendarDate(date),
-    todaysSegment,
-    segmentIndex:      segmentIndexForDate(date),
+    topicIndex:        knowledgeTopicIndexForDate(date),
+    topicCount,
+    cycleDay:          Math.floor(knowledgeTopicIndexForDate(date)) + 1,
+    todaysTopic,
+    todaysSegment:     todaysTopic.alamtologiLens,
     sealedToday:       todayDocs.length > 0,
     sealedTodayTitles: todayDocs.map((d) => d.title),
-    recentBySegment,
   };
 }
 
-export function buildDailyJournalSegmentPromptBlock(status: DailySegmentStatus): string {
-  const seg = status.todaysSegment;
+export function buildDailyJournalSegmentPromptBlock(status: DailyJournalTopicStatus): string {
+  const t = status.todaysTopic;
   const already = status.sealedToday
-    ? `Today's segment (${seg}) already has a manuscript in review or published: ${status.sealedTodayTitles.join('; ')}. Extend only if P.alt explicitly asks — do not start a second unrelated topic for ${seg} today.`
-    : `Today's segment (${seg}) has NO sealed manuscript yet — this session must produce ONE focused IMRaD topic led by ${seg}.`;
+    ? `Today's subfield already has a manuscript: ${status.sealedTodayTitles.join('; ')}. Extend only if P.alt explicitly asks.`
+    : `Today's subfield has NO sealed manuscript yet — write ONE IMRaD article on this subfield only.`;
 
   return [
-    '[JOURNAL DAILY SEGMENT — CONSTITUTIONAL]',
-    `Calendar day ${status.date} · segment ${status.segmentIndex + 1}/7 · knowledge segment: ${seg}.`,
-    'Rule: exactly ONE topical manuscript per segment per day — not seven topics in one article.',
-    `principlesFocus[0] MUST be "${seg}". Title and introduction must centre ${seg} as the day's knowledge segment.`,
-    'Still include all seven principles in alamtologiAnalysis — but depth and thesis belong to today\'s segment.',
+    '[JOURNAL DAILY TOPIC — UNIVERSITY KNOWLEDGE MAP]',
+    `Calendar ${status.date} · topic ${status.topicIndex + 1}/${status.topicCount} (~${Math.ceil(status.topicCount / 365)}-year full cycle).`,
+    `TODAY'S SUBFIELD (sole thesis of the manuscript):`,
+    `  ${t.label}`,
+    `knowledgeTopicId MUST be "${t.topicId}" in <adam_journal_seal> JSON.`,
+    `principlesFocus[0] SHOULD be ${t.alamtologiLens} (Alamtologi lens for ${t.majorName}).`,
+    'Include all seven principles in alamtologiAnalysis — depth on the subfield above, not a survey of unrelated fields.',
+    'Do NOT write about a different university subfield than today\'s assignment unless P.alt explicitly overrides.',
     already,
-    '[/JOURNAL DAILY SEGMENT]',
+    '[/JOURNAL DAILY TOPIC]',
   ].join('\n');
 }
 
+export function sealMatchesDailyTopic(
+  knowledgeTopicId: string | undefined,
+  date = new Date(),
+): boolean {
+  if (!knowledgeTopicId?.trim()) return false;
+  return knowledgeTopicId === getDailyUniversityKnowledgeTopic(date).topicId;
+}
+
+/** @deprecated alias */
+export function getDailyJournalSegment(date = new Date()): AlamtologiPrinciple {
+  return getDailyUniversityKnowledgeTopic(date).alamtologiLens;
+}
+
+/** @deprecated alias */
 export function sealMatchesDailySegment(
   principlesFocus: string[] | undefined,
   date = new Date(),
 ): boolean {
-  const today = getDailyJournalSegment(date);
-  const focus = principlesFocus?.[0] ?? principlesFocus?.find((p) =>
-    ALAMTOLOGI_KNOWLEDGE_SEGMENTS.includes(p as AlamtologiPrinciple),
-  );
-  return focus === today;
+  return sealMatchesDailyTopic(undefined, date) || Boolean(principlesFocus?.[0]);
 }

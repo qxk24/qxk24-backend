@@ -198,6 +198,10 @@ const ADAMJournalSchema = new Schema<ADAMJournalDocument>({
     default: 'public_submit',
   },
   sourceSessionId:    { type: String },
+  knowledgeTopicId:   { type: String, index: true },
+  knowledgeMajor:     { type: String },
+  knowledgeDiscipline:{ type: String },
+  knowledgeSubfield:  { type: String },
 }, {
   timestamps: true,
   collection: 'adam_journals',

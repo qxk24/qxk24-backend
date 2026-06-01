@@ -261,6 +261,10 @@ export interface AlamtologiAcademicJournal {
   journalNumber?:   string;
   source?:          'public_submit' | 'founder_adam';
   sourceSessionId?: string;
+  knowledgeTopicId?:   string;
+  knowledgeMajor?:     string;
+  knowledgeDiscipline?: string;
+  knowledgeSubfield?:  string;
 }
 
 export interface JournalContent {

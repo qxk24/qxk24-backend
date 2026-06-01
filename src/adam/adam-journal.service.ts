@@ -38,10 +38,11 @@ import {
 } from './adam-chat-response-parser';
 import { loadMessageHistory } from './adam-chat-session.service';
 import { normalizeJournalContent, normalizePrinciplesFocus } from './adam-principle-normalize';
+import { sealMatchesDailyTopic } from './adam-journal-daily-segment';
 import {
-  getDailyJournalSegment,
-  sealMatchesDailySegment,
-} from './adam-journal-daily-segment';
+  findUniversityTopicById,
+  getDailyUniversityKnowledgeTopic,
+} from './adam-university-knowledge';
 
 // ─── Generate Journal Number ──────────────────────────────────
 
@@ -332,12 +333,13 @@ export async function processFounderJournalSeal(input: {
   const sealErrors: string[] = [];
 
   const trySealList = async (seals: AdamJournalSeal[]) => {
-    const todaySeg = getDailyJournalSegment();
+    const today = getDailyUniversityKnowledgeTopic();
     for (const seal of seals) {
       try {
-        if (!sealMatchesDailySegment(seal.principlesFocus)) {
+        if (!sealMatchesDailyTopic(seal.knowledgeTopicId)) {
           sealErrors.push(
-            `Amaran: fokus hari ini ialah ${todaySeg} — principlesFocus[0] ialah ${seal.principlesFocus?.[0] ?? 'tiada'}. Jurnal disimpan; semak semula topik segmen.`,
+            `Amaran: subfield hari ini ialah "${today.label}" (knowledgeTopicId: ${today.topicId}). ` +
+            `Seal menggunakan ${seal.knowledgeTopicId ?? 'tiada id'}. Jurnal disimpan — semak topik.`,
           );
         }
         const j = await sealFounderJournalFromAdam(seal, input.sessionId);
@@ -455,11 +457,24 @@ export async function sealFounderJournalFromAdam(
   const judgment = seal.judgment ?? 'ISLAH';
   const ahriScore = calculateAHRI(content.alamtologiAnalysis ?? []);
 
+  const todayTopic = getDailyUniversityKnowledgeTopic();
+  const topic =
+    findUniversityTopicById(seal.knowledgeTopicId ?? '') ?? todayTopic;
+  const principlesFocus = normalizePrinciplesFocus(
+    seal.principlesFocus?.length
+      ? seal.principlesFocus
+      : [topic.alamtologiLens],
+  );
+
   const doc = await ADAMJournalModel.create({
     title:              seal.title,
     abstract:           seal.abstract,
     category:           seal.category ?? 'RESEARCH',
-    principlesFocus:    normalizePrinciplesFocus(seal.principlesFocus),
+    principlesFocus,
+    knowledgeTopicId:   topic.topicId,
+    knowledgeMajor:     seal.knowledgeMajor ?? topic.majorName,
+    knowledgeDiscipline: seal.knowledgeDiscipline ?? topic.disciplineName,
+    knowledgeSubfield:  seal.knowledgeSubfield ?? topic.subfield,
     authorName:         seal.authorName ?? 'Masa Bayu',
     authorEmail:        FOUNDER_JOURNAL_EMAIL,
     authorOrg:          'QXK24 · Alamtologi',
@@ -483,7 +498,7 @@ export async function sealFounderJournalFromAdam(
       targetId:    journal.id,
       targetType:  'JOURNAL',
       stage:       'SUBMISSION',
-      context:     `Founder ADAM seal. Judgment: ${judgment}. AHRI: ${ahriScore}. Session: ${sourceSessionId ?? 'n/a'}.`,
+      context:     `Founder ADAM seal. Topic: ${topic.label}. Judgment: ${judgment}. AHRI: ${ahriScore}. Session: ${sourceSessionId ?? 'n/a'}.`,
     });
   } catch (err: unknown) {
     console.error('[Journal] Founder seal audit failed:', err);
@@ -642,5 +657,9 @@ function mapToJournal(doc: any): AlamtologiAcademicJournal {
     journalNumber:     doc.journalNumber,
     source:            doc.source,
     sourceSessionId:   doc.sourceSessionId,
+    knowledgeTopicId:  doc.knowledgeTopicId,
+    knowledgeMajor:    doc.knowledgeMajor,
+    knowledgeDiscipline: doc.knowledgeDiscipline,
+    knowledgeSubfield: doc.knowledgeSubfield,
   };
 }
