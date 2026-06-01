@@ -38,6 +38,10 @@ import {
 } from './adam-chat-response-parser';
 import { loadMessageHistory } from './adam-chat-session.service';
 import { normalizeJournalContent, normalizePrinciplesFocus } from './adam-principle-normalize';
+import {
+  getDailyJournalSegment,
+  sealMatchesDailySegment,
+} from './adam-journal-daily-segment';
 
 // ─── Generate Journal Number ──────────────────────────────────
 
@@ -328,8 +332,14 @@ export async function processFounderJournalSeal(input: {
   const sealErrors: string[] = [];
 
   const trySealList = async (seals: AdamJournalSeal[]) => {
+    const todaySeg = getDailyJournalSegment();
     for (const seal of seals) {
       try {
+        if (!sealMatchesDailySegment(seal.principlesFocus)) {
+          sealErrors.push(
+            `Amaran: fokus hari ini ialah ${todaySeg} — principlesFocus[0] ialah ${seal.principlesFocus?.[0] ?? 'tiada'}. Jurnal disimpan; semak semula topik segmen.`,
+          );
+        }
         const j = await sealFounderJournalFromAdam(seal, input.sessionId);
         sealedJournals.push({ id: j.id, title: j.title });
       } catch (err: unknown) {

@@ -39,6 +39,7 @@ import { requireAuth, requireFounder } from '../../middleware/auth.middleware';
 import type { ADAMApiResponse, AlamtologiAcademicJournal } from '../../adam/adam.types';
 import type { QXK24TokenPayload } from '../../middleware/auth.middleware';
 import { ENV } from '../../config/environments';
+import { getDailyJournalSegmentStatus } from '../../adam/adam-journal-daily-segment';
 
 function isFounderRequest(c: { req: { header: (n: string) => string | undefined } }): boolean {
   const bearer = c.req.header('Authorization')?.split(' ')[1];
@@ -62,6 +63,20 @@ const SubmitJournalSchema = z.object({
   authorName:      z.string().min(2).max(200),
   authorEmail:     z.string().email(),
   authorOrg:       z.string().max(200).optional(),
+});
+
+// ─── GET /daily-segment — Today's knowledge segment (Founder) ─
+
+router.get('/daily-segment', requireFounder, async (c) => {
+  const status = await getDailyJournalSegmentStatus();
+  return c.json({
+    success:   true,
+    kernel:    'QXK24',
+    version:   ENV.QXK24_KERNEL_VERSION,
+    era:       ENV.QXK24_ERA,
+    data:      status,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // ─── GET /public — Published journals (no auth) ──────────────

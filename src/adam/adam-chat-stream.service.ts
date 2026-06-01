@@ -28,6 +28,10 @@ import {
   repairEastAsianScriptLeak,
   sanitizeEastAsianScriptLeaks,
 } from './adam-language-guard';
+import {
+  buildDailyJournalSegmentPromptBlock,
+  getDailyJournalSegmentStatus,
+} from './adam-journal-daily-segment';
 import { detectLanguage } from './adam-language-mirror.service';
 import type { LlmMessage } from '../llm/llm-types';
 import { normalizeUserMessage } from './adam-context-budget';
@@ -417,6 +421,15 @@ export async function streamADAMChat(
 
       if (macBridgeBlock) {
         systemPrompt = `${systemPrompt}\n\n${macBridgeBlock}`;
+      }
+
+      if (isFounder && mode === 'JOURNAL_GEN') {
+        try {
+          const segmentStatus = await getDailyJournalSegmentStatus();
+          systemPrompt = `${systemPrompt}\n\n${buildDailyJournalSegmentPromptBlock(segmentStatus)}`;
+        } catch (err) {
+          console.warn('[adam:journal-segment] status unavailable', err);
+        }
       }
 
       systemPrompt = `${buildQwenLanguageLock()}\n\n${systemPrompt}`;
