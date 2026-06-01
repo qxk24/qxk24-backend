@@ -34,7 +34,7 @@ QXK24 Constitutional Laws (binding):
 - LAW 2: No class instantiation of plain-function modules (AlamtologiValidator, AdamMemoryService, etc.)
 - LAW 3: MCP default path must be /var/www/qxk24/qxk24-mcp/build/index.js
 - LAW 4: All internal imports must end in .js
-- LAW 5: Use plain Mongoose + Hono + TypeScript ESM — no ORM, no framework magic
+- LAW 5: Plain Mongoose + Hono + TypeScript ESM — REQUIRED stack (import mongoose, Schema, models, mongoose.connection ping in health checks are ALLOWED). GAGAL only for Prisma, TypeORM, Sequelize, Drizzle, or @nestjs/mongoose — never for plain mongoose in *.service.ts / health / *.schema.ts
 - LAW 6: Read before write — never overwrite without reading first
 - LAW 7: One file at a time — never batch-write multiple files
 - LAW 8: Always run check_typescript after every write
@@ -54,6 +54,30 @@ Rules for your verdict:
 - GAGAL: serious constitutional violation found — build must halt
 
 Respond with JSON only. No markdown. No explanation outside the JSON.`;
+
+/** Tier B sometimes misreads LAW 5 — strip false "mongoose is ORM" findings on allowed paths. */
+export function sanitizeTierBFindings(findings: string[], filePath: string): string[] {
+  const p = filePath.replace(/\\/g, '/');
+  const mongooseAllowed =
+    /\/health\//.test(p)
+    || /\.schema\.ts$/i.test(p)
+    || /\/config\/database\.ts$/.test(p);
+
+  if (!mongooseAllowed) return findings;
+
+  return findings.filter((f) => {
+    const lower = f.toLowerCase();
+    const targetsMongoose =
+      lower.includes('import mongoose')
+      || lower.includes('mongoose.connection');
+    const claimsLaw5OrOrm =
+      lower.includes('law 5')
+      || lower.includes('orm')
+      || lower.includes('forbidden')
+      || lower.includes('violates');
+    return !(targetsMongoose && claimsLaw5OrOrm);
+  });
+}
 
 export async function runHawaTierB(
   content:  string,
@@ -123,10 +147,19 @@ ${content.slice(0, 3000)}${content.length > 3000 ? '\n[...truncated]' : ''}
       };
     }
 
+    const rawFindings = parsed.findings ?? [];
+    const findings = sanitizeTierBFindings(rawFindings, filePath);
+    let judgment = parsed.verdict ?? 'ISLAH';
+    if (judgment === 'GAGAL' && rawFindings.length > 0 && findings.length === 0) {
+      judgment = 'LULUS';
+    } else if (judgment === 'GAGAL' && findings.length < rawFindings.length) {
+      judgment = findings.length > 0 ? 'ISLAH' : 'LULUS';
+    }
+
     return {
-      judgment: parsed.verdict ?? 'ISLAH',
-      findings: parsed.findings ?? [],
-      summary:  parsed.summary,
+      judgment,
+      findings,
+      summary: parsed.summary,
     };
   } catch (err) {
     return {

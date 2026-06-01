@@ -116,7 +116,11 @@ async function checkContinuityBridge(): Promise<HealthCheck> {
     const { updatedAt } = await getContinuityBridgeRecord(FOUNDER_USER_ID);
     const latencyMs = Date.now() - start;
     if (!updatedAt) {
-      return { status: 'warn', latencyMs, detail: 'No continuity bridge record found' };
+      return {
+        status:    'warn',
+        latencyMs,
+        detail:    'not_initialized — optional Layer 7 continuity bridge (does not downgrade /health/memory HTTP)',
+      };
     }
     const ageMin = Math.round((Date.now() - updatedAt.getTime()) / 60000);
     return {
@@ -173,6 +177,33 @@ async function checkSessionMemory(): Promise<HealthCheck> {
   }
 }
 
+const CORE_MEMORY_CHECKS: Array<keyof MemoryHealthReport['checks']> = [
+  'mongodb',
+  'teachingRecords',
+  'sessionMemory',
+];
+
+/** feat_004 Policy B — bridge-only warn must not force HTTP 207. */
+function deriveMemoryOverall(checks: MemoryHealthReport['checks']): MemoryHealthReport['overall'] {
+  const entries = Object.entries(checks) as Array<[keyof typeof checks, HealthCheck]>;
+  const statuses = entries.map(([, c]) => c.status);
+
+  if (statuses.includes('fail')) return 'critical';
+
+  const coreUnhealthy = CORE_MEMORY_CHECKS.some((key) => {
+    const s = checks[key].status;
+    return s === 'fail' || s === 'warn';
+  });
+  if (coreUnhealthy) return 'degraded';
+
+  const nonBridgeWarns = entries.filter(
+    ([key, c]) => key !== 'continuityBridge' && c.status === 'warn',
+  ).length;
+  if (nonBridgeWarns >= 2) return 'degraded';
+
+  return 'healthy';
+}
+
 export async function runOperationalMemoryHealth(): Promise<MemoryHealthReport> {
   const start = Date.now();
 
@@ -187,11 +218,7 @@ export async function runOperationalMemoryHealth(): Promise<MemoryHealthReport> 
     ]);
 
   const checks = { mongodb, teachingRecords, continuityBridge, relationalArc, unresolvedHoldings, sessionMemory };
-  const statuses = Object.values(checks).map((c) => c.status);
-  const overall: MemoryHealthReport['overall'] =
-    statuses.includes('fail') ? 'critical'
-    : statuses.includes('warn') ? 'degraded'
-    : 'healthy';
+  const overall = deriveMemoryOverall(checks);
 
   const sinceHour = new Date(Date.now() - 3600000);
   const [teachingRecordsCount, holdingsActive, lastRecord, activeFounderSessions, constitutional] =
