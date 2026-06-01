@@ -2,7 +2,7 @@
  * ============================================================
  * QIUBBX MANAGEMENT SYSTEM
  * ============================================================
- * Module      : ADAM Journal Daily Topic (University Knowledge Map)
+ * Module      : ADAM Journal Daily Quota (University Knowledge Map)
  * Platform    : Backend (TypeScript)
  * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
@@ -13,24 +13,29 @@
  * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
+ *
+ * FOUNDER RULE (P.alt):
+ * Every Malaysia calendar day → one IMRaD journal per subfield.
+ * 659 subfields → 659 journals required each day (not one per day).
  */
 
 import { ADAMJournalModel } from './adam.schema';
 import type { AlamtologiPrinciple } from './adam.types';
 import {
-  getDailyUniversityKnowledgeTopic,
+  findUniversityTopicById,
   getUniversityKnowledgeTopicCount,
-  knowledgeTopicIndexForDate,
+  loadUniversityKnowledgeTopics,
   type UniversityKnowledgeTopic,
 } from './adam-university-knowledge';
 
-/** @deprecated use university map rotation — kept for Alamtologi lens labels */
 export const ALAMTOLOGI_KNOWLEDGE_SEGMENTS = [
   'MASA', 'TENAGA', 'AIR', 'API', 'BUMI', 'CAHAYA', 'RUANG',
 ] as const;
 
 const MS_PER_DAY = 86_400_000;
 const TZ_KL = 'Asia/Kuala_Lumpur';
+
+const ACTIVE_STATUSES = ['PENDING_REVIEW', 'UNDER_REVIEW', 'APPROVED', 'PUBLISHED'] as const;
 
 function malaysiaCalendarDate(date: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -41,94 +46,185 @@ function malaysiaCalendarDate(date: Date): string {
   }).format(date);
 }
 
-function startOfMalaysiaDay(date: Date): Date {
+export function startOfMalaysiaDay(date: Date): Date {
   const ymd = malaysiaCalendarDate(date);
   return new Date(`${ymd}T00:00:00+08:00`);
 }
 
-function endOfMalaysiaDay(date: Date): Date {
+export function endOfMalaysiaDay(date: Date): Date {
   return new Date(startOfMalaysiaDay(date).getTime() + MS_PER_DAY - 1);
 }
 
-export interface DailyJournalTopicStatus {
-  date:              string;
-  topicIndex:        number;
-  topicCount:        number;
-  cycleDay:          number;
-  todaysTopic:       UniversityKnowledgeTopic;
-  /** Primary Alamtologi lens for today's major category */
-  todaysSegment:     AlamtologiPrinciple;
-  sealedToday:       boolean;
-  sealedTodayTitles: string[];
+export interface DailyJournalQuotaStatus {
+  date:                 string;
+  topicCount:           number;
+  /** Constitutional target: one journal per subfield per day */
+  journalsRequiredToday: number;
+  sealedCountToday:     number;
+  pendingCountToday:    number;
+  /** Distinct subfields already sealed today */
+  sealedTopicIds:       string[];
+  /** Next subfield still missing today's journal (for draft/seal prompts) */
+  nextPendingTopic:     UniversityKnowledgeTopic | null;
+  /** Sample of pending labels (cap 12) for UI */
+  pendingPreview:       string[];
+  /** When sealing one subfield in this turn, focus here */
+  focusTopic:           UniversityKnowledgeTopic | null;
+  todaysSegment:        AlamtologiPrinciple;
+  /** @deprecated use focusTopic — first pending lens */
+  todaysTopic:          UniversityKnowledgeTopic;
+  sealedToday:          boolean;
+  sealedTodayTitles:    string[];
+}
+
+async function sealedTopicIdsForDay(date: Date): Promise<Set<string>> {
+  const dayStart = startOfMalaysiaDay(date);
+  const dayEnd = endOfMalaysiaDay(date);
+
+  const docs = await ADAMJournalModel.find({
+    submittedAt:      { $gte: dayStart, $lte: dayEnd },
+    knowledgeTopicId: { $exists: true, $ne: '' },
+    status:           { $in: [...ACTIVE_STATUSES] },
+  })
+    .select('knowledgeTopicId title')
+    .lean();
+
+  return new Set(
+    docs.map((d) => d.knowledgeTopicId).filter((id): id is string => Boolean(id)),
+  );
+}
+
+/** Next subfield that still needs today's journal. */
+export function getNextPendingDailyTopic(
+  sealedIds: Set<string>,
+): UniversityKnowledgeTopic | null {
+  for (const topic of loadUniversityKnowledgeTopics()) {
+    if (!sealedIds.has(topic.topicId)) return topic;
+  }
+  return null;
 }
 
 export async function getDailyJournalSegmentStatus(
   date = new Date(),
-): Promise<DailyJournalTopicStatus> {
-  const todaysTopic = getDailyUniversityKnowledgeTopic(date);
+  focusTopicId?: string,
+): Promise<DailyJournalQuotaStatus> {
   const topicCount = getUniversityKnowledgeTopicCount();
+  const sealedSet = await sealedTopicIdsForDay(date);
+  const sealedTopicIds = [...sealedSet];
+  const sealedCountToday = sealedTopicIds.length;
+  const pendingCountToday = Math.max(0, topicCount - sealedCountToday);
+
+  const focusFromId = focusTopicId ? findUniversityTopicById(focusTopicId) : undefined;
+  const nextPendingTopic = focusFromId ?? getNextPendingDailyTopic(sealedSet);
+  const focusTopic = focusFromId ?? nextPendingTopic;
+
+  const allTopics = loadUniversityKnowledgeTopics();
+  const pendingPreview = allTopics
+    .filter((t) => !sealedSet.has(t.topicId))
+    .slice(0, 12)
+    .map((t) => t.label);
+
   const dayStart = startOfMalaysiaDay(date);
   const dayEnd = endOfMalaysiaDay(date);
-
-  const todayDocs = await ADAMJournalModel.find({
+  const todayTitles = await ADAMJournalModel.find({
     submittedAt: { $gte: dayStart, $lte: dayEnd },
-    knowledgeTopicId: todaysTopic.topicId,
-    status:           { $in: ['PENDING_REVIEW', 'UNDER_REVIEW', 'APPROVED', 'PUBLISHED'] },
+    status:      { $in: [...ACTIVE_STATUSES] },
   })
     .sort({ submittedAt: -1 })
-    .limit(5)
-    .select('title status submittedAt')
+    .limit(20)
+    .select('title')
     .lean();
 
+  const fallbackTopic = allTopics[0]!;
+  const activeTopic = focusTopic ?? fallbackTopic;
+
   return {
-    date:              malaysiaCalendarDate(date),
-    topicIndex:        knowledgeTopicIndexForDate(date),
+    date:                  malaysiaCalendarDate(date),
     topicCount,
-    cycleDay:          Math.floor(knowledgeTopicIndexForDate(date)) + 1,
-    todaysTopic,
-    todaysSegment:     todaysTopic.alamtologiLens,
-    sealedToday:       todayDocs.length > 0,
-    sealedTodayTitles: todayDocs.map((d) => d.title),
+    journalsRequiredToday: topicCount,
+    sealedCountToday,
+    pendingCountToday,
+    sealedTopicIds,
+    nextPendingTopic,
+    pendingPreview,
+    focusTopic,
+    todaysTopic:           activeTopic,
+    todaysSegment:         activeTopic.alamtologiLens,
+    sealedToday:           sealedCountToday >= topicCount,
+    sealedTodayTitles:     todayTitles.map((d) => d.title),
   };
 }
 
-export function buildDailyJournalSegmentPromptBlock(status: DailyJournalTopicStatus): string {
-  const t = status.todaysTopic;
-  const already = status.sealedToday
-    ? `Today's subfield already has a manuscript: ${status.sealedTodayTitles.join('; ')}. Extend only if P.alt explicitly asks.`
-    : `Today's subfield has NO sealed manuscript yet — write ONE IMRaD article on this subfield only.`;
+export function buildDailyJournalSegmentPromptBlock(status: DailyJournalQuotaStatus): string {
+  const focus = status.focusTopic;
+  const focusBlock = focus
+    ? [
+      `CURRENT SUBFIELD (this seal / draft):`,
+      `  ${focus.label}`,
+      `knowledgeTopicId MUST be "${focus.topicId}".`,
+      `principlesFocus[0] SHOULD be ${focus.alamtologiLens}.`,
+    ].join('\n')
+    : 'All subfields sealed for today — only extend if P.alt requests.';
+
+  const quotaLine = status.sealedToday
+    ? `Today's quota COMPLETE: ${status.sealedCountToday}/${status.journalsRequiredToday} subfields sealed.`
+    : `Today's quota IN PROGRESS: ${status.sealedCountToday}/${status.journalsRequiredToday} sealed — ${status.pendingCountToday} subfields still need one journal each before end of day (MY).`;
 
   return [
-    '[JOURNAL DAILY TOPIC — UNIVERSITY KNOWLEDGE MAP]',
-    `Calendar ${status.date} · topic ${status.topicIndex + 1}/${status.topicCount} (~${Math.ceil(status.topicCount / 365)}-year full cycle).`,
-    `TODAY'S SUBFIELD (sole thesis of the manuscript):`,
-    `  ${t.label}`,
-    `knowledgeTopicId MUST be "${t.topicId}" in <adam_journal_seal> JSON.`,
-    `principlesFocus[0] SHOULD be ${t.alamtologiLens} (Alamtologi lens for ${t.majorName}).`,
-    'Include all seven principles in alamtologiAnalysis — depth on the subfield above, not a survey of unrelated fields.',
-    'Do NOT write about a different university subfield than today\'s assignment unless P.alt explicitly overrides.',
-    already,
-    '[/JOURNAL DAILY TOPIC]',
+    '[JOURNAL DAILY QUOTA — UNIVERSITY KNOWLEDGE MAP]',
+    'CONSTITUTIONAL RULE (P.alt): Every Malaysia calendar day, EACH of the 659 university subfields receives exactly ONE IMRaD journal.',
+    'That is 659 journals per day (one per subfield), NOT one journal per day.',
+    quotaLine,
+    focusBlock,
+    'Each manuscript: one subfield only; full seven-principle alamtologiAnalysis; unique knowledgeTopicId per seal.',
+    'After sealing this subfield, continue with the next pending subfield until 659/659 for the day.',
+    '[/JOURNAL DAILY QUOTA]',
   ].join('\n');
 }
 
-export function sealMatchesDailyTopic(
+/** Valid if topic exists in map and is not already sealed today (duplicate). */
+export async function validateDailyTopicSeal(
   knowledgeTopicId: string | undefined,
   date = new Date(),
+): Promise<{ ok: boolean; reason?: string; topic?: UniversityKnowledgeTopic }> {
+  const id = knowledgeTopicId?.trim();
+  if (!id) {
+    return { ok: false, reason: 'knowledgeTopicId is required on every daily journal seal.' };
+  }
+
+  const topic = findUniversityTopicById(id);
+  if (!topic) {
+    return { ok: false, reason: `Unknown knowledgeTopicId: ${id}` };
+  }
+
+  const sealed = await sealedTopicIdsForDay(date);
+  if (sealed.has(id)) {
+    return {
+      ok:      false,
+      reason:  `Subfield already has today's journal: ${topic.label}. Use another topicId or extend in review.`,
+      topic,
+    };
+  }
+
+  return { ok: true, topic };
+}
+
+/** @deprecated — seals must match a real map topic, not a single rotating topic */
+export function sealMatchesDailyTopic(
+  knowledgeTopicId: string | undefined,
 ): boolean {
   if (!knowledgeTopicId?.trim()) return false;
-  return knowledgeTopicId === getDailyUniversityKnowledgeTopic(date).topicId;
+  return Boolean(findUniversityTopicById(knowledgeTopicId));
 }
 
-/** @deprecated alias */
 export function getDailyJournalSegment(date = new Date()): AlamtologiPrinciple {
-  return getDailyUniversityKnowledgeTopic(date).alamtologiLens;
+  const topics = loadUniversityKnowledgeTopics();
+  if (topics.length === 0) return 'MASA';
+  return topics[0]!.alamtologiLens;
 }
 
-/** @deprecated alias */
 export function sealMatchesDailySegment(
   principlesFocus: string[] | undefined,
-  date = new Date(),
 ): boolean {
-  return sealMatchesDailyTopic(undefined, date) || Boolean(principlesFocus?.[0]);
+  return Boolean(principlesFocus?.[0]);
 }

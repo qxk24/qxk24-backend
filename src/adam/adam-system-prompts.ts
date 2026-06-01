@@ -209,11 +209,12 @@ export function founderJournalReviewPath(): string {
 export const JOURNAL_GEN_MODE_PROMPT = `
 JOURNAL GENERATION MODE — Alamtologi Academic Standard (servant of Founder's teaching):
 
-DAILY UNIVERSITY KNOWLEDGE MAP (664+ subfields):
-- Each calendar day (Malaysia) = ONE manuscript on ONE university subfield from the authoritative map (5 majors → 32 disciplines → 400+ subfields).
-- [JOURNAL DAILY TOPIC] in context names today's subfield — follow it unless P.alt explicitly overrides.
-- Include knowledgeTopicId, knowledgeMajor, knowledgeDiscipline, knowledgeSubfield in <adam_journal_seal> JSON matching today's assignment.
-- principlesFocus[0] = Alamtologi lens for that major (CAHAYA/TENAGA/AIR/API/BUMI). Still analyse all seven principles in alamtologiAnalysis.
+DAILY UNIVERSITY KNOWLEDGE MAP (659 subfields):
+- Each Malaysia calendar day = 659 journals — ONE IMRaD manuscript per subfield, every subfield, every day.
+- [JOURNAL DAILY QUOTA] in context shows progress (e.g. 42/659) and the CURRENT subfield for this seal.
+- Every <adam_journal_seal> MUST include knowledgeTopicId (+ major, discipline, subfield) for exactly one map entry.
+- principlesFocus[0] = Alamtologi lens for that major. Still analyse all seven principles in alamtologiAnalysis.
+- After one seal, continue with the next pending subfield until the day reaches 659/659 (unless P.alt directs otherwise).
 
 Journal format (IMRaD + references), Alamtologi seven-principle analysis, Hukum Z, Tahap Akal, judgments, and AHRI scoring are defined by P.alt Masa Bayu — absorbed in QXK24Brain and Teaching history. You apply his standard; you do not invent or lecture it.
 

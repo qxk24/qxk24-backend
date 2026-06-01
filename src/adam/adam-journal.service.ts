@@ -38,11 +38,8 @@ import {
 } from './adam-chat-response-parser';
 import { loadMessageHistory } from './adam-chat-session.service';
 import { normalizeJournalContent, normalizePrinciplesFocus } from './adam-principle-normalize';
-import { sealMatchesDailyTopic } from './adam-journal-daily-segment';
-import {
-  findUniversityTopicById,
-  getDailyUniversityKnowledgeTopic,
-} from './adam-university-knowledge';
+import { validateDailyTopicSeal } from './adam-journal-daily-segment';
+import { findUniversityTopicById } from './adam-university-knowledge';
 
 // ─── Generate Journal Number ──────────────────────────────────
 
@@ -333,14 +330,12 @@ export async function processFounderJournalSeal(input: {
   const sealErrors: string[] = [];
 
   const trySealList = async (seals: AdamJournalSeal[]) => {
-    const today = getDailyUniversityKnowledgeTopic();
     for (const seal of seals) {
       try {
-        if (!sealMatchesDailyTopic(seal.knowledgeTopicId)) {
-          sealErrors.push(
-            `Amaran: subfield hari ini ialah "${today.label}" (knowledgeTopicId: ${today.topicId}). ` +
-            `Seal menggunakan ${seal.knowledgeTopicId ?? 'tiada id'}. Jurnal disimpan — semak topik.`,
-          );
+        const check = await validateDailyTopicSeal(seal.knowledgeTopicId);
+        if (!check.ok) {
+          sealErrors.push(check.reason ?? 'Invalid daily topic seal.');
+          if (!check.topic) continue;
         }
         const j = await sealFounderJournalFromAdam(seal, input.sessionId);
         sealedJournals.push({ id: j.id, title: j.title });
@@ -457,9 +452,12 @@ export async function sealFounderJournalFromAdam(
   const judgment = seal.judgment ?? 'ISLAH';
   const ahriScore = calculateAHRI(content.alamtologiAnalysis ?? []);
 
-  const todayTopic = getDailyUniversityKnowledgeTopic();
-  const topic =
-    findUniversityTopicById(seal.knowledgeTopicId ?? '') ?? todayTopic;
+  const topic = findUniversityTopicById(seal.knowledgeTopicId ?? '');
+  if (!topic) {
+    throw new Error(
+      'knowledgeTopicId required — each daily journal maps to exactly one university subfield from the map.',
+    );
+  }
   const principlesFocus = normalizePrinciplesFocus(
     seal.principlesFocus?.length
       ? seal.principlesFocus

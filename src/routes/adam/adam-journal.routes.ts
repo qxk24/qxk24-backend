@@ -68,7 +68,11 @@ const SubmitJournalSchema = z.object({
 // ─── GET /daily-segment — Today's knowledge segment (Founder) ─
 
 router.get('/daily-segment', requireFounder, async (c) => {
-  const status = await getDailyJournalSegmentStatus();
+  const topicId = c.req.query('topicId');
+  const status = await getDailyJournalSegmentStatus(
+    new Date(),
+    topicId?.trim() || undefined,
+  );
   return c.json({
     success:   true,
     kernel:    'QXK24',
