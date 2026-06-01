@@ -23,7 +23,12 @@ import {
 } from './adam-web-search';
 import { resolveAdamChatModel, resolveAdamMaxTokens, resolveQwenEnableThinking } from '../config/llm-models';
 import { friendlyLlmError, isQwenDataInspectionError, llmStream, toLlmMessages } from '../llm/llm-client';
-import { buildQwenLanguageLock, repairEastAsianScriptLeak } from './adam-language-guard';
+import {
+  buildQwenLanguageLock,
+  repairEastAsianScriptLeak,
+  sanitizeEastAsianScriptLeaks,
+} from './adam-language-guard';
+import { detectLanguage } from './adam-language-mirror.service';
 import type { LlmMessage } from '../llm/llm-types';
 import { normalizeUserMessage } from './adam-context-budget';
 import {
@@ -607,7 +612,11 @@ export async function streamADAMChat(
       const broadcast = parseBroadcastBlocks(consult.cleanResponse);
       const toFounder = parseToFounderBlocks(broadcast.cleanResponse);
       const journalSeal = parseJournalSealBlocks(toFounder.cleanResponse);
-      let finalResponse = journalSeal.cleanResponse;
+      const speakerLocale = detectLanguage(userMessage).detectedLocale;
+      let finalResponse = sanitizeEastAsianScriptLeaks(
+        journalSeal.cleanResponse,
+        speakerLocale,
+      );
 
       let sealedJournals: { id: string; title: string }[] = [];
       let sealErrors: string[] = [];

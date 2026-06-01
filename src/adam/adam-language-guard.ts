@@ -28,10 +28,21 @@ const EAST_ASIAN_SCRIPT =
   /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 
 const LEAK_PATTERNS = {
-  chinese:    /[\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]{2,}/g,
+  /** Any Han run — zero tolerance in Malay/English turns (Qwen often leaks 某种, 意味着). */
+  chinese:    /[\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]+/g,
   arabic:     /[\u0600-\u06FF]{3,}/g,
   devanagari: /[\u0900-\u097F]{3,}/g,
 };
+
+/** Frequent Qwen drift into Chinese while writing Bahasa Melayu. */
+const QWEN_MALAY_LEAK_LEXICON: ReadonlyArray<[RegExp, string]> = [
+  [/某种/g, 'sesuatu'],
+  [/意味着/g, 'bermaksud'],
+  [/也就是说/g, 'iaitu'],
+  [/因此/g, 'oleh itu'],
+  [/然而/g, 'namun'],
+  [/不仅/g, 'bukan sahaja'],
+];
 
 export interface ScriptLeakResult {
   hasLeak:         boolean;
@@ -110,15 +121,17 @@ export function detectScriptLeak(
     if (matches.length > 0) {
       const leakChars  = matches.join('').length;
       const percentage = (leakChars / totalChars) * 100;
-      if (percentage > 1) {
-        return {
-          hasLeak:         true,
-          leakType:        'chinese',
-          leakPercentage:  Math.round(percentage * 10) / 10,
-          cleanedResponse: response.replace(LEAK_PATTERNS.chinese, '').replace(/\s{2,}/g, ' ').trim(),
-          flaggedSegments: matches,
-        };
-      }
+      const lexiconCleaned = applyMalayLeakLexicon(response);
+      const cleanedResponse = containsEastAsianScript(lexiconCleaned)
+        ? stripEastAsianScriptRuns(lexiconCleaned)
+        : lexiconCleaned;
+      return {
+        hasLeak:         true,
+        leakType:        'chinese',
+        leakPercentage:  Math.round(percentage * 1000) / 1000,
+        cleanedResponse,
+        flaggedSegments: matches,
+      };
     }
   }
 
@@ -164,6 +177,7 @@ export function getScriptLeakGuardDirective(): string {
     'Use only scripts that match the speaker\'s language this turn.',
     'Do not leak Chinese/Japanese/Korean characters into Malay, English, Arabic, or other replies unless the speaker used that script.',
     'When you mean "means" in Malay, write bermaksud — not 意味着.',
+    'When you mean "some kind of" in Malay, write sesuatu or sesuatu jenis — not 某种.',
   ];
 
   if (isQwenProvider()) {
@@ -186,6 +200,29 @@ function stripEastAsianScriptRuns(text: string): string {
     .trim();
 }
 
+function applyMalayLeakLexicon(text: string): string {
+  let out = text;
+  for (const [pattern, replacement] of QWEN_MALAY_LEAK_LEXICON) {
+    out = out.replace(pattern, replacement);
+  }
+  return out;
+}
+
+/** Synchronous strip — no LLM round-trip. */
+export function sanitizeEastAsianScriptLeaks(
+  text: string,
+  expectedLocale: SupportedLocale | string = 'ms',
+): string {
+  if (!text || expectedLocale === 'zh') {
+    return text;
+  }
+  let out = applyMalayLeakLexicon(text);
+  if (containsEastAsianScript(out)) {
+    out = stripEastAsianScriptRuns(out);
+  }
+  return out;
+}
+
 const REPAIR_SYSTEM = `You are ADAM's language purity corrector.
 Remove script characters that do NOT belong in the speaker's language.
 Rewrite in the speaker's language naturally.
@@ -198,14 +235,26 @@ export async function repairEastAsianScriptLeak(
   userMessage: string,
 ): Promise<string> {
   const expectedLocale = detectLanguage(userMessage).detectedLocale;
-  const leak = detectScriptLeak(text, expectedLocale);
-
-  if (!leak.hasLeak && !containsEastAsianScript(text)) return text;
   if (speakerUsesEastAsianScript(userMessage)) return text;
 
-  /** Fast path — strip small leaks without a second LLM round-trip. */
+  const synced = sanitizeEastAsianScriptLeaks(text, expectedLocale);
+  if (!containsEastAsianScript(synced)) {
+    if (synced !== text) {
+      console.log('[adam:language-guard] stripped script leak (sync)', {
+        locale: expectedLocale,
+        charsBefore: text.length,
+        charsAfter:  synced.length,
+      });
+    }
+    return synced;
+  }
+
+  const leak = detectScriptLeak(synced, expectedLocale);
+  if (!leak.hasLeak && !containsEastAsianScript(synced)) return synced;
+
+  /** Fast path — strip without a second LLM round-trip. */
   if (leak.hasLeak && leak.cleanedResponse.length > 0) {
-    const retained = leak.cleanedResponse.length / Math.max(text.length, 1);
+    const retained = leak.cleanedResponse.length / Math.max(synced.length, 1);
     if (retained >= 0.85 && !containsEastAsianScript(leak.cleanedResponse)) {
       console.log('[adam:language-guard] stripped script leak (fast path)', {
         leakType: leak.leakType,
@@ -215,16 +264,18 @@ export async function repairEastAsianScriptLeak(
     }
   }
 
+  const textForRepair = synced;
+
   const targetLabel = localeToLabel(expectedLocale);
 
   try {
     const fixed = await llmCompleteUserPrompt(
       REPAIR_SYSTEM,
-      `Speaker language: ${targetLabel}. Remove stray Chinese/Japanese/Korean characters. Rewrite in ${targetLabel}.\n\n${text}`,
+      `Speaker language: ${targetLabel}. Remove stray Chinese/Japanese/Korean characters. Rewrite in ${targetLabel}.\n\n${textForRepair}`,
       getFastModel(),
-      Math.min(8192, Math.max(1500, Math.ceil(text.length * 1.15))),
+      Math.min(8192, Math.max(1500, Math.ceil(textForRepair.length * 1.15))),
     );
-    const trimmed = fixed.trim();
+    const trimmed = sanitizeEastAsianScriptLeaks(fixed.trim(), expectedLocale);
     if (trimmed.length > 0 && !containsEastAsianScript(trimmed)) {
       console.log('[adam:language-guard] repaired script leak', {
         target:      targetLabel,
@@ -239,7 +290,7 @@ export async function repairEastAsianScriptLeak(
     console.warn('[adam:language-guard] repair failed — stripping leaked script', err);
   }
 
-  const stripped = stripEastAsianScriptRuns(text);
+  const stripped = sanitizeEastAsianScriptLeaks(textForRepair, expectedLocale);
   if (stripped.length > 0) return stripped;
   return leak.cleanedResponse || stripped;
 }
