@@ -102,7 +102,7 @@ export interface StreamADAMChatOptions {
   forceBuilder?:      boolean;
   /** Client asked backend to run builder (builderMode in POST body) */
   clientBuilderMode?: boolean;
-  /** Lab founder — evaluate every turn for codebase work (TEACHING included) */
+  /** Client believes this turn may need builder (explicit /build, BUILDER mode, code signals) */
   builderEvaluate?:   boolean;
 }
 
@@ -257,7 +257,6 @@ export async function streamADAMChat(
     const founderTeachingOnLab = isFounder
       && builderEnabled
       && (mode === 'TEACHING' || mode === 'CONSTITUTIONAL' || mode === 'JOURNAL_GEN');
-    const founderLabEvaluate = isFounder && builderEnabled && options.builderEvaluate === true;
     const hasUploads = uploadIds.length > 0;
     const forceBuilderTurn = options.forceBuilder === true
       || mode === 'BUILDER'
@@ -267,10 +266,7 @@ export async function streamADAMChat(
     if (builderEnabled && options.founderToken) {
       const access = await resolveBuilderAccess(participant);
       const activation = resolveBuilderActivation(normalizedMessage, {
-        forceBuilder:         forceBuilderTurn,
-        founderOnLab:         isFounder,
-        founderTeachingOnLab,
-        founderLabEvaluate,
+        forceBuilder: forceBuilderTurn,
       });
 
       const strongCodeTurn = activation.confidence >= 80
@@ -353,7 +349,7 @@ export async function streamADAMChat(
 
       if (clientWantsBuilder || mode === 'AUDIT') {
         let skipReason = 'no_intent';
-        let skipMessage = 'Builder did not activate for this message. Add a file path, /build, or use the BUILDER mode chip.';
+        let skipMessage = 'Builder did not activate. Start with Build: … or /build …, or select the BUILDER mode chip.';
 
         if (!access.hasAccess) {
           skipReason = 'access_denied';

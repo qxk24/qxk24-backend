@@ -39,6 +39,9 @@ Project root     : /var/www/qxk24
 Backend source   : qxk24-backend/src (138 TypeScript files)
 MCP path         : /var/www/qxk24/qxk24-mcp/build/index.js
 
+═══ BUILDER ACTIVATION (founder) ═══
+P.alt must start the message with **Build:** or **/build** (or use BUILDER mode). Casual words do not open builder.
+
 ═══ P.ALT MACBOOK (when Mac bridge is online) ═══
 Use mac: paths for files on P.alt's Mac — NOT the VPS disk:
   read_file mac:Desktop/notes.txt
