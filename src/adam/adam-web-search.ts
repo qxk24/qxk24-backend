@@ -34,27 +34,19 @@ Do NOT search when the answer lives in QXK24Brain, teachings already in this ses
 When you search: compare findings with Alamtologi honestly; note agreement, tension, and what yields to Quran; cite sources with Adab.
 `;
 
-/** Founder chat — Anthropic tool or Qwen agent search (model decides when, like Claude). */
+/** Founder chat — DashScope agent search (model decides when). */
 export function founderWebSearchEnabled(): boolean {
-  if (ENV.LLM_PROVIDER === 'qwen') return ENV.QWEN_ENABLE_SEARCH;
-  return true;
+  return ENV.QWEN_ENABLE_SEARCH;
 }
 
 export function getFounderWebSearchPrompt(): string {
-  if (ENV.LLM_PROVIDER === 'qwen') {
-    return `
-YOUR WEB SEARCH (DashScope — agent mode; you decide when to search):
-${SEARCH_WHEN}
-`;
-  }
-
   return `
-YOUR WEB SEARCH (Anthropic web_search tool — you decide when to search):
+YOUR WEB SEARCH (DashScope — agent mode; you decide when to search):
 ${SEARCH_WHEN}
 `;
 }
 
-/** DashScope search_options — mirrors Claude's model-decided search (not forced on every turn). */
+/** DashScope search_options — model-decided search (not forced on every turn). */
 export function buildQwenSearchOptions(): Record<string, unknown> {
   const options: Record<string, unknown> = {
     search_strategy: ENV.QWEN_SEARCH_STRATEGY,

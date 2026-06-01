@@ -28,6 +28,7 @@ import {
 import { getAidilStageDashboard } from '../qxk24brain/adam-stage-dashboard.service';
 import { QXK24BrainLogModel } from '../qxk24brain/qxk24brain.schema';
 import { ENV } from '../config/environments';
+import { buildFounderRevenueInsights, type FounderRevenueInsights } from '../subscriptions/subscription-revenue-insights.service';
 
 const FOUNDER_ID = 'masa-bayu';
 
@@ -70,6 +71,7 @@ export interface FounderPulsePayload {
   };
   messages24h: number;
   activity:    FounderActivityItem[];
+  revenue:     FounderRevenueInsights;
 }
 
 function snippet(text: string, max = 120): string {
@@ -94,6 +96,7 @@ export async function buildFounderPulse(): Promise<FounderPulsePayload> {
     messages24h,
     recentMessages,
     recentLogs,
+    revenue,
   ] = await Promise.all([
     sessionId
       ? checkMemoryHealthCached(FOUNDER_ID, sessionId).catch(() => null)
@@ -114,6 +117,7 @@ export async function buildFounderPulse(): Promise<FounderPulsePayload> {
       .sort({ masa_transformation: -1 })
       .limit(8)
       .lean(),
+    buildFounderRevenueInsights(),
   ]);
 
   const activity: FounderActivityItem[] = [];
@@ -219,5 +223,6 @@ export async function buildFounderPulse(): Promise<FounderPulsePayload> {
     },
     messages24h,
     activity: activity.slice(0, 40),
+    revenue,
   };
 }

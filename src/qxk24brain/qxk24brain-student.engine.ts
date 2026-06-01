@@ -10,7 +10,7 @@
  * ============================================================
  */
 
-import { resolveBrainFastModel } from '../config/anthropic-models';
+import { resolveBrainFastModel } from '../config/llm-models';
 import { llmCompleteUserPrompt } from '../llm/llm-client';
 import {
   ADAMFounderSessionModel,

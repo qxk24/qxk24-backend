@@ -29,7 +29,7 @@ When P.alt cites `2:255`, `Surah Al-Baqarah ayat 255`, etc., ADAM injects `[QURA
 
 ```env
 QURAN_CORPUS_ENABLED=true
-# QURAN_CORPUS_PATH=/var/www/qxk24/backend/data/quran/corpus.json
+# QURAN_CORPUS_PATH=/var/www/qxk24/qxk24-backend/data/quran/corpus.json
 ```
 
 ## Deploy

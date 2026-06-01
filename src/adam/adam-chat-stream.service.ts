@@ -21,8 +21,8 @@ import {
   getFounderWebSearchPrompt,
   getWebSearchGateReason,
 } from './adam-web-search';
-import { resolveAdamChatModel, resolveAdamMaxTokens, resolveQwenEnableThinking } from '../config/anthropic-models';
-import { friendlyLlmError, isQwenDataInspectionError, isQwenProvider, llmStream, toLlmMessages } from '../llm/llm-client';
+import { resolveAdamChatModel, resolveAdamMaxTokens, resolveQwenEnableThinking } from '../config/llm-models';
+import { friendlyLlmError, isQwenDataInspectionError, llmStream, toLlmMessages } from '../llm/llm-client';
 import { buildQwenLanguageLock, repairEastAsianScriptLeak } from './adam-language-guard';
 import type { LlmMessage } from '../llm/llm-types';
 import { normalizeUserMessage } from './adam-context-budget';
@@ -82,6 +82,28 @@ import {
   relayFounderMessageToStudents,
   relayStudentMessageToFounder,
 } from './adam-chat-relay.service';
+import { resolveBuilderActivation } from '../agent/adam-intent-classifier';
+import { resolveBuilderAccess } from '../middleware/builder-access.middleware';
+import {
+  formatBuilderTranscript,
+  runBuilderChatSession,
+  builderSessionIdForChat,
+  type BuilderChatEvent,
+} from '../agent/adam-builder-chat.service';
+import {
+  createBuilderAbortController,
+  releaseBuilderAbort,
+} from '../agent/adam-builder-abort.store';
+
+export interface StreamADAMChatOptions {
+  founderToken?:      string;
+  /** BUILDER or AUDIT mode — always run builder when enabled */
+  forceBuilder?:      boolean;
+  /** Client asked backend to run builder (builderMode in POST body) */
+  clientBuilderMode?: boolean;
+  /** Lab founder — evaluate every turn for codebase work (TEACHING included) */
+  builderEvaluate?:   boolean;
+}
 
 export async function streamADAMChat(
   sessionId: string,
@@ -95,6 +117,7 @@ export async function streamADAMChat(
     role:        'founder',
     sessionType: 'founder',
   },
+  options: StreamADAMChatOptions = {},
 ): Promise<void> {
   const isFounder = participant.role === 'founder';
   const isGroup = participant.sessionType === 'group';
@@ -183,6 +206,175 @@ export async function streamADAMChat(
 
     onEvent('adam_thinking', JSON.stringify({ sessionId: resolvedSessionId, mode }));
 
+    const builderEnabled = ENV.ADAM_BUILDER_ENABLED;
+    const clientWantsBuilder = options.clientBuilderMode === true
+      || options.forceBuilder === true
+      || mode === 'BUILDER';
+    const wantsBuilder = clientWantsBuilder || mode === 'AUDIT';
+
+    async function emitBuilderUnavailable(reason: string, response: string): Promise<void> {
+      const adamMessageId = await saveMessage(
+        resolvedSessionId,
+        'adam',
+        response,
+        mode,
+        'WAQF',
+        undefined,
+        isGroup ? 'group-alamtologi' : participant.userId,
+      );
+      onEvent('adam_builder_status', JSON.stringify({
+        sessionId: resolvedSessionId,
+        available: false,
+        reason,
+        message:   response,
+      }));
+      onEvent('adam_complete', JSON.stringify({
+        sessionId:   resolvedSessionId,
+        messageId:   adamMessageId,
+        response,
+        judgment:    'WAQF',
+        builderMode: false,
+      }));
+    }
+
+    if (wantsBuilder && !builderEnabled) {
+      await emitBuilderUnavailable(
+        'builder_disabled',
+        'ADAM Builder is not enabled on this server. Set ADAM_BUILDER_ENABLED=true and QXK24_ROOT on the API.',
+      );
+      return;
+    }
+
+    if (clientWantsBuilder && builderEnabled && !options.founderToken) {
+      await emitBuilderUnavailable(
+        'no_founder_token',
+        'Builder could not start — missing founder auth token on this request. Sign in again on the command board.',
+      );
+      return;
+    }
+
+    const founderTeachingOnLab = isFounder
+      && builderEnabled
+      && (mode === 'TEACHING' || mode === 'CONSTITUTIONAL' || mode === 'JOURNAL_GEN');
+    const founderLabEvaluate = isFounder && builderEnabled && options.builderEvaluate === true;
+    const hasUploads = uploadIds.length > 0;
+    const forceBuilderTurn = options.forceBuilder === true
+      || mode === 'BUILDER'
+      || mode === 'AUDIT'
+      || clientWantsBuilder;
+
+    if (builderEnabled && options.founderToken) {
+      const access = await resolveBuilderAccess(participant);
+      const activation = resolveBuilderActivation(normalizedMessage, {
+        forceBuilder:         forceBuilderTurn,
+        founderOnLab:         isFounder,
+        founderTeachingOnLab,
+        founderLabEvaluate,
+      });
+
+      const strongCodeTurn = activation.confidence >= 80
+        || forceBuilderTurn;
+      const allowBuilderWithUploads = hasUploads && (founderTeachingOnLab || clientWantsBuilder) && strongCodeTurn;
+      const canStartBuilder = activation.activate
+        && access.hasAccess
+        && (!hasUploads || allowBuilderWithUploads || forceBuilderTurn);
+
+      if (canStartBuilder) {
+        onEvent('adam_builder_status', JSON.stringify({
+          sessionId: resolvedSessionId,
+          available: true,
+          reason:    activation.reason,
+          intent:    activation.intent,
+        }));
+        const builderEvents: BuilderChatEvent[] = [];
+        let pendingApproval = false;
+        const builderSessionId = builderSessionIdForChat(resolvedSessionId);
+        const abortController = createBuilderAbortController(
+          builderSessionId,
+          [resolvedSessionId],
+        );
+
+        console.log(
+          `[ADAM Builder] Chat activation — reason=${activation.reason} intent=${activation.intent} confidence=${activation.confidence}`,
+        );
+
+        try {
+          const builderMessage = isFounder
+            ? composeFounderMessage(activation.message, teaching.context)
+            : composeStudentMessage(
+                activation.message,
+                teaching.context,
+                participant.userName,
+              );
+
+          for await (const event of runBuilderChatSession(
+            builderMessage,
+            activation.intent === 'none' ? 'write_code' : activation.intent,
+            resolvedSessionId,
+            options.founderToken,
+            abortController.signal,
+          )) {
+            if (event.type === 'heartbeat') continue;
+            builderEvents.push(event);
+            onEvent('builder', JSON.stringify(event));
+
+            if (event.type === 'approval_needed') {
+              pendingApproval = true;
+            }
+          }
+        } finally {
+          releaseBuilderAbort(builderSessionId);
+        }
+
+        const transcript = formatBuilderTranscript(builderEvents);
+        const adamMessageId = await saveMessage(
+          resolvedSessionId,
+          'adam',
+          transcript || 'Builder session finished.',
+          mode,
+          'ISLAH',
+          undefined,
+          isGroup ? 'group-alamtologi' : participant.userId,
+        );
+
+        onEvent('adam_complete', JSON.stringify({
+          sessionId:       resolvedSessionId,
+          messageId:       adamMessageId,
+          response:        transcript,
+          judgment:        'ISLAH',
+          builderMode:     true,
+          builderPending:  pendingApproval,
+          builderSessionId: `build_${resolvedSessionId}`,
+          intent:          activation.intent === 'none' ? 'write_code' : activation.intent,
+        }));
+        return;
+      }
+
+      if (clientWantsBuilder || mode === 'AUDIT') {
+        let skipReason = 'no_intent';
+        let skipMessage = 'Builder did not activate for this message. Add a file path, /build, or use the BUILDER mode chip.';
+
+        if (!access.hasAccess) {
+          skipReason = 'access_denied';
+          skipMessage = 'Builder requires founder lab access.';
+        } else if (hasUploads && !allowBuilderWithUploads && !forceBuilderTurn) {
+          skipReason = 'uploads_blocking';
+          skipMessage = 'Builder cannot run with file uploads on the same turn. Send the code task without attachments, or use BUILDER mode.';
+        } else if (!activation.activate) {
+          skipReason = activation.reason;
+        }
+
+        await emitBuilderUnavailable(skipReason, skipMessage);
+        return;
+      }
+
+      if (isFounder && !activation.activate) {
+        console.log(
+          `[ADAM Builder] Skipped — reason=${activation.reason} confidence=${activation.confidence} hasAccess=${access.hasAccess}`,
+        );
+      }
+    }
+
     if (!isFounder && !workspace) {
       void processStudentContribution(
         participant.userId,
@@ -193,7 +385,7 @@ export async function streamADAMChat(
 
     try {
       const contextStarted = Date.now();
-      const claudeMessages = await buildSmartContext(
+      const contextMessages = await buildSmartContext(
         resolvedSessionId,
         isGroup ? `[${participant.userName}]: ${messageForAdam}` : messageForAdam,
         participant,
@@ -219,9 +411,7 @@ export async function streamADAMChat(
         }),
       );
 
-      if (isQwenProvider()) {
-        systemPrompt = `${buildQwenLanguageLock()}\n\n${systemPrompt}`;
-      }
+      systemPrompt = `${buildQwenLanguageLock()}\n\n${systemPrompt}`;
 
       const modelChoice = resolveAdamChatModel({
         participant,
@@ -230,7 +420,7 @@ export async function streamADAMChat(
         hasUploads: uploadIds.length > 0,
       });
 
-      const llmMessages = toLlmMessages(claudeMessages);
+      const llmMessages = toLlmMessages(contextMessages);
       const maxTokens = resolveAdamMaxTokens(modelChoice.tier, isFounder, mode);
       const enableThinking = resolveQwenEnableThinking(modelChoice.tier, mode);
       const webSearchGateReason = isFounder ? getWebSearchGateReason(userMessage) : null;
@@ -381,11 +571,9 @@ export async function streamADAMChat(
         }
       }
 
-      if (isQwenProvider()) {
-        const repairStarted = Date.now();
-        fullResponse = await repairEastAsianScriptLeak(fullResponse, userMessage);
-        repairMs = Date.now() - repairStarted;
-      }
+      const repairStarted = Date.now();
+      fullResponse = await repairEastAsianScriptLeak(fullResponse, userMessage);
+      repairMs = Date.now() - repairStarted;
 
       console.log(
         '[adam:timing]',

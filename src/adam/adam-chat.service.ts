@@ -41,6 +41,8 @@ export {
   getChatSession,
   listChatSessions,
   deleteFounderMessage,
+  assertCanClearSessionChat,
+  clearSessionChatHistory,
   verifyADAMMessage,
   createChatSession,
 } from './adam-chat-session.service';

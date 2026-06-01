@@ -15,7 +15,7 @@
  * ============================================================
  */
 
-import { resolveBrainDeepModel } from '../config/anthropic-models';
+import { resolveBrainDeepModel } from '../config/llm-models';
 import { ENV } from '../config/environments';
 import { isLlmConfigured, llmCompleteUserPrompt } from '../llm/llm-client';
 import { prependCoreToSystem } from './adam-core';

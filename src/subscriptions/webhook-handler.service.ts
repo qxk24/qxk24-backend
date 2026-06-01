@@ -23,6 +23,7 @@ import {
   verifyStripeWebhookSignature,
   processStripeWebhookEvent,
 } from './stripe-gateway.service';
+import { notifySubscriptionActivated } from './subscription-welcome-mail.service';
 
 type SubscriptionEvent =
   | 'ACTIVATED'
@@ -170,6 +171,8 @@ async function updateSubscriptionStatus(
   };
 
   const newStatus = statusMap[event];
+  const existing = await SubscriptionModel.findOne({ providerSubId, provider });
+  const wasActive = existing?.status === SubscriptionStatus.ACTIVE;
 
   await SubscriptionModel.findOneAndUpdate(
     { providerSubId, provider },
@@ -180,4 +183,13 @@ async function updateSubscriptionStatus(
       },
     },
   );
+
+  if (event === 'ACTIVATED' && existing && !wasActive && newStatus === SubscriptionStatus.ACTIVE) {
+    const updated = await SubscriptionModel.findById(existing._id);
+    if (updated) {
+      void notifySubscriptionActivated(updated).catch((err) => {
+        console.warn('[subscription:mail] welcome failed', err);
+      });
+    }
+  }
 }

@@ -148,6 +148,18 @@ export const PROFESIONAL_PRICING: IRegionalPrice[] = [
   { region: SupportedRegion.OTHER, currency: 'USD', monthly: 65,      annual: 650,     provider: PaymentProvider.STRIPE,   extensionFee: 0 },
 ];
 
+// ─── Studio Pro PPP Pricing ──────────────────────────────────────────────────
+// RM 399/month — between Profesional (299) and Enterprise (from 2000).
+
+const STUDIO_FACTOR = 399 / 299;
+
+export const STUDIO_PRICING: IRegionalPrice[] = PROFESIONAL_PRICING.map((p) => ({
+  ...p,
+  monthly:      Math.round(p.monthly * STUDIO_FACTOR),
+  annual:       Math.round(p.annual * STUDIO_FACTOR),
+  extensionFee: 0,
+}));
+
 // ─── Enterprise Pricing ───────────────────────────────────────────────────────
 
 export type RegionalAmount = { amount: number; currency: string };
@@ -307,6 +319,13 @@ export function getProfesionalPricing(region: SupportedRegion): IRegionalPrice {
   return (
     PROFESIONAL_PRICING.find((p) => p.region === region) ??
     PROFESIONAL_PRICING.find((p) => p.region === SupportedRegion.OTHER)!
+  );
+}
+
+export function getStudioPricing(region: SupportedRegion): IRegionalPrice {
+  return (
+    STUDIO_PRICING.find((p) => p.region === region) ??
+    STUDIO_PRICING.find((p) => p.region === SupportedRegion.OTHER)!
   );
 }
 

@@ -18,7 +18,7 @@
  */
 
 import { ADAMFounderSessionModel, ADAMMessageModel } from '../adam/adam.schema';
-import { resolveBrainDeepModel } from '../config/anthropic-models';
+import { resolveBrainDeepModel } from '../config/llm-models';
 import { llmCompleteUserPrompt } from '../llm/llm-client';
 import { ADAMVaultModel } from './adam-vault.schema';
 import { prependCoreToSystem } from './adam-core';

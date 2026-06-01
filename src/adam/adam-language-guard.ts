@@ -16,7 +16,7 @@
  */
 
 import { ENV } from '../config/environments';
-import { getFastModel } from '../config/anthropic-models';
+import { getFastModel } from '../config/llm-models';
 import { isQwenProvider, llmCompleteUserPrompt } from '../llm/llm-client';
 import {
   detectLanguage,
@@ -41,17 +41,17 @@ export interface ScriptLeakResult {
   flaggedSegments: string[];
 }
 
-/** Injected at the top of every Qwen lab system prompt. */
+/** Injected at the top of every ADAM system prompt (Qwen). */
 export function buildQwenLanguageLock(): string {
   const lang = ENV.ADAM_DEFAULT_LANGUAGE.trim().toLowerCase();
   const malayDefault = lang === 'malay' || lang === 'ms' || lang === 'bm';
   const defaultLine = malayDefault
-    ? 'Constitutional default (QXK24 Lab): When the user\'s language is ambiguous, or they use Latin script without clear English-only phrasing, reply in Bahasa Melayu — not English.'
+    ? 'Constitutional default: When the user\'s language is ambiguous, or they use Latin script without clear English-only phrasing, reply in Bahasa Melayu — not English.'
     : `Constitutional default: When the user's language is unclear, reply in ${envFallbackLabel()}.`;
 
   return `
 [CRITICAL LANGUAGE RULE — DO NOT VIOLATE]
-You are ADAM. You are currently operating in the QXK24 Lab (Qwen engine).
+You are ADAM (Qwen engine).
 Your response language must EXACTLY mirror the detected language of the user's message.
 If the user writes in English → reply in English only.
 If the user writes in Bahasa Melayu → reply in Bahasa Melayu only.

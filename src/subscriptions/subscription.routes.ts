@@ -29,6 +29,7 @@ import {
 import {
   getPelajarPricing,
   getProfesionalPricing,
+  getStudioPricing,
   ENTERPRISE_PRICING,
   TIER_ACCESS,
 } from './tier-access.config';
@@ -59,6 +60,7 @@ router.get('/pricing', (c) => {
   const region      = detectRegionFromHeaders(c.req.raw.headers);
   const pelajar     = getPelajarPricing(region);
   const profesional = getProfesionalPricing(region);
+  const studio      = getStudioPricing(region);
 
   return c.json({
     region,
@@ -77,23 +79,31 @@ router.get('/pricing', (c) => {
         extensionFee:  pelajar.extensionFee,
       },
       pelajar: {
-        label:         'Student',
+        label:         'Pelajar Dev',
         monthlyAmount: pelajar.monthly,
         annualAmount:  pelajar.annual,
         currency:      pelajar.currency,
-        description:   'Alamtologi student — full memory, episodic records, continuous journey.',
+        description:   'Thinking partner with full constitutional memory — no builder mode.',
         savingsNote:   '2 months free with annual billing.',
       },
       profesional: {
-        label:         'Professional',
+        label:         'Profesional Dev',
         monthlyAmount: profesional.monthly,
         annualAmount:  profesional.annual,
         currency:      profesional.currency,
-        description:   'Full access, API, publishing rights, and workspace.',
+        description:   'Builder mode in chat — 50 build sessions per month, approve every write.',
+        savingsNote:   '2 months free with annual billing.',
+      },
+      studio: {
+        label:         'Studio Pro',
+        monthlyAmount: studio.monthly,
+        annualAmount:  studio.annual,
+        currency:      studio.currency,
+        description:   'Unlimited build sessions and priority model routing.',
         savingsNote:   '2 months free with annual billing.',
       },
       enterprise: {
-        label: 'Enterprise',
+        label: 'Enterprise Studio',
         tiers: ENTERPRISE_PRICING.map((t) => ({
           size:     t.label === 'kecil' ? 'small' : t.label === 'sederhana' ? 'medium' : 'large',
           maxUsers: t.maxUsers === -1 ? 'Unlimited' : t.maxUsers,

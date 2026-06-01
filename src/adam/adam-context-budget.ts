@@ -15,31 +15,18 @@
  * ============================================================
  */
 
-import type Anthropic from '@anthropic-ai/sdk';
 import { ENV } from '../config/environments';
+import type { LlmMessage } from '../llm/llm-types';
 
-/** Claude requires strict user/assistant alternation (after system). */
-export function coalesceAnthropicMessages(
-  messages: Anthropic.MessageParam[],
-): Anthropic.MessageParam[] {
-  const out: Anthropic.MessageParam[] = [];
+/** Strict user/assistant alternation (after system). */
+export function coalesceLlmMessages(messages: LlmMessage[]): LlmMessage[] {
+  const out: LlmMessage[] = [];
 
   for (const msg of messages) {
-    const content =
-      typeof msg.content === 'string'
-        ? msg.content
-        : Array.isArray(msg.content)
-          ? msg.content
-              .map((p) => ('text' in p && typeof p.text === 'string' ? p.text : ''))
-              .filter(Boolean)
-              .join('\n')
-          : String(msg.content ?? '');
-
+    const content = msg.content.trim();
     const last = out[out.length - 1];
     if (last && last.role === msg.role) {
-      const prev =
-        typeof last.content === 'string' ? last.content : String(last.content ?? '');
-      last.content = `${prev}\n\n${content}`.trim();
+      last.content = `${last.content}\n\n${content}`.trim();
     } else {
       out.push({ role: msg.role, content });
     }
@@ -52,7 +39,10 @@ export function coalesceAnthropicMessages(
   return out;
 }
 
-export function extractAnthropicErrorText(err: unknown): string {
+/** @deprecated Use coalesceLlmMessages */
+export const coalesceAnthropicMessages = coalesceLlmMessages;
+
+export function extractLlmErrorText(err: unknown): string {
   if (err && typeof err === 'object') {
     const e = err as {
       message?: string;
@@ -63,6 +53,9 @@ export function extractAnthropicErrorText(err: unknown): string {
   }
   return err instanceof Error ? err.message : String(err);
 }
+
+/** @deprecated Use extractLlmErrorText */
+export const extractAnthropicErrorText = extractLlmErrorText;
 
 export function truncateForAdam(
   text: string,
@@ -84,7 +77,7 @@ export function normalizeUserMessage(message: string): string {
 }
 
 export function friendlyAnthropicError(err: unknown): string {
-  const msg = extractAnthropicErrorText(err);
+  const msg = extractLlmErrorText(err);
 
   if (/context|token|too long|request size|maximum|alternat/i.test(msg)) {
     return (
@@ -98,10 +91,10 @@ export function friendlyAnthropicError(err: unknown): string {
   if (/overloaded|529|rate/i.test(msg)) {
     return 'ADAM is temporarily overloaded. Please wait a moment and try again.';
   }
-  if (/credit balance|purchase credits|billing|insufficient.*credit/i.test(msg)) {
+  if (/credit balance|purchase credits|billing|insufficient.*credit|quota|balance/i.test(msg)) {
     return (
       'ADAM is paused — teaching credits on the server need to be renewed. ' +
-      'Please ask the Founder to top up the Anthropic API account, then try again.'
+      'Please ask the Founder to top up the DashScope API account, then try again.'
     );
   }
   if (/internal server error|api_error|502|503/i.test(msg)) {

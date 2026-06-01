@@ -28,6 +28,15 @@ export interface BuildMessage {
   tool_call_id?: string;
 }
 
+export interface HawaVerdictPayload {
+  judgment:   'LULUS' | 'ISLAH' | 'GAGAL' | 'WAQF';
+  findings:   string[];
+  stop:       boolean;
+  checkpoint: 'propose_write' | 'post_tool';
+  toolName?:  string;
+  relPath?:   string;
+}
+
 export interface AgentEvent {
   type:
     | 'thinking'
@@ -37,8 +46,13 @@ export interface AgentEvent {
     | 'tool_result'
     | 'proposal'
     | 'approval_needed'
+    | 'hawa_checkpoint'
+    | 'hawa_lulus'
+    | 'hawa_hold'
+    | 'hawa_veto'
     | 'complete'
-    | 'error';
+    | 'error'
+    | 'heartbeat';
   toolName?:   string;
   toolArgs?:   Record<string, unknown>;
   result?:     string;
@@ -49,6 +63,7 @@ export interface AgentEvent {
     isNew:   boolean;
     reason:  string;
   };
+  hawa?:       HawaVerdictPayload;
   message?:    string;
   tokensUsed?: number;
   sessionId?:  string;

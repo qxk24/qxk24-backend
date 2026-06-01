@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { ENV } from '../../config/environments';
 import { getTokenUser, requireFounder } from '../../middleware/auth.middleware';
 import { importFullMemoryFromProduction } from '../../adam/adam-lab-import.service';
+import { importFullMemoryFromLab } from '../../adam/adam-consolidation-import.service';
 import {
   createStudentAccount,
   listStudentsForFounder,
@@ -119,6 +120,25 @@ router.post('/', requireFounder, zValidator('json', CreateSchema), async (c) => 
     },
     kernel: 'QXK24',
   }, 201);
+});
+
+// POST /api/adam/students/import-lab-memory — production: merge lab brain into production (one-time)
+router.post('/import-lab-memory', requireFounder, async (c) => {
+  if (ENV.QXK24_STACK === 'lab') {
+    return c.json({
+      success: false,
+      error:   'Import lab → production runs on the production API only (not /lab).',
+      kernel:  'QXK24',
+    }, 400);
+  }
+
+  try {
+    const result = await importFullMemoryFromLab();
+    return c.json({ success: true, result, kernel: 'QXK24' });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Import failed.';
+    return c.json({ success: false, error: msg, kernel: 'QXK24' }, 500);
+  }
 });
 
 // POST /api/adam/students/import-production-all — lab: full memory (brain + founder + all students)

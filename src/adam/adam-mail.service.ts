@@ -16,9 +16,80 @@
  */
 
 import { ENV } from '../config/environments';
+import {
+  buildEnterpriseWelcomeHtml,
+  buildEnterpriseWelcomeText,
+  type EnterpriseWelcomeData,
+} from './adam-mail-templates-enterprise';
 
 export function isMailConfigured(): boolean {
   return Boolean(ENV.RESEND_API_KEY.trim() && ENV.MAIL_FROM.trim());
+}
+
+interface SendMailOptions {
+  to:       string;
+  subject:  string;
+  html:     string;
+  text?:    string;
+  replyTo?: string;
+}
+
+export async function sendMail(options: SendMailOptions): Promise<boolean> {
+  const apiKey = ENV.RESEND_API_KEY.trim();
+  const from = ENV.MAIL_FROM.trim();
+  if (!apiKey || !from) return false;
+
+  const replyTo = options.replyTo?.trim()
+    || ENV.MAIL_REPLY_TO?.trim()
+    || 'enterprise@qxk24.com';
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method:  'POST',
+      headers: {
+        Authorization:  `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to:       [options.to],
+        reply_to: replyTo,
+        subject:  options.subject,
+        html:     options.html,
+        ...(options.text ? { text: options.text } : {}),
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.warn('[adam:mail] send failed', res.status, body.slice(0, 200));
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('[adam:mail] send error', err);
+    return false;
+  }
+}
+
+export async function sendEnterpriseWelcomeEmail(
+  data: EnterpriseWelcomeData,
+): Promise<boolean> {
+  if (!isMailConfigured()) return false;
+
+  const html = buildEnterpriseWelcomeHtml(data);
+  const text = buildEnterpriseWelcomeText(data);
+  const ok = await sendMail({
+    to:       data.email,
+    subject:  `Your ADAM Enterprise deployment starts now — ${data.orgName}`,
+    html,
+    text,
+    replyTo:  data.architectEmail,
+  });
+
+  if (ok) {
+    console.log(`[ADAM Mail] Enterprise welcome sent → ${data.email} (${data.orgName})`);
+  }
+  return ok;
 }
 
 export async function sendPasswordResetEmail(
@@ -39,25 +110,12 @@ export async function sendPasswordResetEmail(
   `.trim();
 
   try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method:  'POST',
-      headers: {
-        Authorization:  `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from,
-        to:      [to],
-        subject: 'Reset your ADAM Lab password',
-        html,
-      }),
+    return sendMail({
+      to,
+      subject: 'Reset your ADAM Lab password',
+      html,
+      replyTo: ENV.MAIL_REPLY_TO?.trim() || 'support@qxk24.com',
     });
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      console.warn('[adam:mail] password reset send failed', res.status, body.slice(0, 200));
-      return false;
-    }
-    return true;
   } catch (err) {
     console.warn('[adam:mail] password reset send error', err);
     return false;

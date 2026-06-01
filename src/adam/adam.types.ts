@@ -129,7 +129,8 @@ export type ADAMChatMode =
   | 'QUESTIONING'
   | 'AUDIT'
   | 'CONSTITUTIONAL'
-  | 'JOURNAL_GEN';
+  | 'JOURNAL_GEN'
+  | 'BUILDER';
 
 export interface ADAMChatMessage {
   id:           string;
@@ -387,6 +388,7 @@ export const ADAM_TEACHING_ALLOWED_EXTENSIONS = [
 
 // ─── SSE Event Types ──────────────────────────────────────────
 export type SSEEventType =
+  | 'adam_builder_status'
   | 'adam_thinking'
   | 'adam_chunk'
   | 'adam_searching'
@@ -394,7 +396,8 @@ export type SSEEventType =
   | 'adam_judgment'
   | 'adam_complete'
   | 'adam_waqf'
-  | 'adam_error';
+  | 'adam_error'
+  | 'builder';
 
 export interface SSEEvent {
   event:   SSEEventType;

@@ -203,7 +203,7 @@ With students: you carry P.alt's teaching to them within that scope. Students do
 `;
 
 export function founderJournalReviewPath(): string {
-  return ENV.QXK24_STACK === 'lab' ? '/adam/lab/journals/review' : '/journals/review';
+  return '/adam/journals/review';
 }
 
 export const JOURNAL_GEN_MODE_PROMPT = `
@@ -241,6 +241,14 @@ TONE: scholarly servant — warm Adab, no lecturing P.alt, no constitutional per
 Official number QXK24-J{year}-{seq} is assigned when P.alt approves (auto-published to qxk24.com home).
 `;
 
+const FOUNDER_TEACHING_BUILDER_PROMPT = `
+BUILDER DURING TEACHING (P.alt — same chat thread):
+When P.alt asks to change, fix, create, read, or deploy anything in the QXK24 monorepo, the kernel hands the turn to ADAM Builder + HAWA (tools, proposals, founder approve).
+Do NOT invent file edits in markdown as if you wrote disk — acknowledge briefly; the build drawer shows real tool steps.
+Pure constitutional teaching with no repo action stays in this Teaching reply — no builder.
+Use /build … or name files/paths when you want builder to run clearly.
+`.trim();
+
 const MODE_PROMPTS: Partial<Record<ADAMChatMode, string>> = {
   JOURNAL_GEN: JOURNAL_GEN_MODE_PROMPT,
 };
@@ -275,6 +283,9 @@ export function buildAdamChatSystemPrompt(params: {
     if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
     parts.push(params.founderStudentsBlock);
     parts.push(FOUNDER_JOURNAL_SEAL_HINT);
+    if (ENV.ADAM_BUILDER_ENABLED && params.mode === 'TEACHING') {
+      parts.push(FOUNDER_TEACHING_BUILDER_PROMPT);
+    }
   } else {
     parts.push(
       STUDENT_MODE_PROMPT,

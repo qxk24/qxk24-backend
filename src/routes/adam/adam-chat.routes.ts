@@ -22,9 +22,11 @@ import {
   getOrCreateSession,
   loadMessageHistory,
   deleteFounderMessage,
+  assertCanClearSessionChat,
+  clearSessionChatHistory,
   verifyADAMMessage,
 } from '../../adam/adam-chat.service';
-import { requireAuth, requireFounder } from '../../middleware/auth.middleware';
+import { requireAuth, requireFounder, getTokenUser } from '../../middleware/auth.middleware';
 import type {
   ADAMApiResponse,
   ADAMChatSession,
@@ -38,11 +40,13 @@ const router = new Hono();
 // ─── POST /api/adam/chat — Start / Continue SSE Stream ───────
 
 const ChatSchema = z.object({
-  sessionId:  z.string().optional(),
-  message:    z.string().max(100_000).optional(),
-  uploadIds:  z.array(z.string().min(1)).max(5).optional(),
-  mode:       z.enum(['TEACHING', 'QUESTIONING', 'AUDIT', 'CONSTITUTIONAL', 'JOURNAL_GEN']),
-  title:      z.string().max(120).optional(),
+  sessionId:    z.string().optional(),
+  message:      z.string().max(100_000).optional(),
+  uploadIds:    z.array(z.string().min(1)).max(5).optional(),
+  mode:         z.enum(['TEACHING', 'QUESTIONING', 'AUDIT', 'CONSTITUTIONAL', 'JOURNAL_GEN', 'BUILDER']),
+  title:        z.string().max(120).optional(),
+  builderMode:      z.boolean().optional(),
+  builderEvaluate:  z.boolean().optional(),
 }).refine(
   (data) => (data.message?.trim()?.length ?? 0) > 0 || (data.uploadIds?.length ?? 0) > 0,
   { message: 'Provide a message and/or at least one teaching file (uploadIds).' },
@@ -53,6 +57,9 @@ router.post('/', requireFounder, zValidator('json', ChatSchema), async (c) => {
   const mode      = body.mode;
   const message   = body.message?.trim() ?? '';
   const uploadIds = body.uploadIds ?? [];
+
+  const authHeader = c.req.header('Authorization');
+  const founderToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
   let sessionId = body.sessionId;
   if (!sessionId) {
@@ -67,11 +74,24 @@ router.post('/', requireFounder, zValidator('json', ChatSchema), async (c) => {
   c.header('X-QXK24-Era',    ENV.QXK24_ERA);
 
   return stream(c, async (s) => {
+    const user = getTokenUser(c);
+    const participant = {
+      userId:      user?.userId ?? 'masa-bayu',
+      userName:    user?.name ?? 'Masa Bayu',
+      role:        'founder' as const,
+      sessionType: 'founder' as const,
+    };
+
     try {
       await withSseKeepalive(s, () =>
         streamADAMChat(sessionId!, message, mode, async (event, data) => {
           await s.write(`event: ${event}\ndata: ${data}\n\n`);
-        }, uploadIds),
+        }, uploadIds, participant, {
+          founderToken,
+          forceBuilder:      body.builderMode === true || mode === 'AUDIT' || mode === 'BUILDER',
+          clientBuilderMode: body.builderMode === true,
+          builderEvaluate:   body.builderEvaluate === true,
+        }),
       );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'ADAM stream failed';
@@ -149,7 +169,11 @@ router.get('/history/:sessionId', requireFounder, async (c) => {
     }, 400);
   }
 
-  const messages = await loadMessageHistory(sessionId, 100);
+  const rawLimit = parseInt(c.req.query('limit') ?? '100', 10);
+  const limit = Number.isFinite(rawLimit)
+    ? Math.min(100, Math.max(1, rawLimit))
+    : 100;
+  const messages = await loadMessageHistory(sessionId, limit);
 
   return c.json({
     success:   true,
@@ -206,6 +230,31 @@ router.delete('/messages/:messageId', requireFounder, async (c) => {
     kernel:    'QXK24',
     timestamp: new Date().toISOString(),
   });
+});
+
+// ─── DELETE /api/adam/chat/history/:sessionId — Clear all messages ──
+
+router.delete('/history/:sessionId', requireFounder, async (c) => {
+  const sessionId = c.req.param('sessionId') ?? '';
+  if (!sessionId) {
+    return c.json({ success: false, error: 'sessionId required.', kernel: 'QXK24' }, 400);
+  }
+
+  try {
+    await assertCanClearSessionChat(sessionId, 'masa-bayu', { isFounder: true });
+    const deletedCount = await clearSessionChatHistory(sessionId);
+    return c.json({
+      success:      true,
+      sessionId,
+      deletedCount,
+      kernel:       'QXK24',
+      timestamp:    new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Could not clear chat.';
+    const status = msg.includes('denied') || msg.includes('cannot') ? 403 : 400;
+    return c.json({ success: false, error: msg, kernel: 'QXK24' }, status);
+  }
 });
 
 // ─── GET /api/adam/chat/:id — Get Single Session ──────────────

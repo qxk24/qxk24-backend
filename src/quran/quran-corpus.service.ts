@@ -28,16 +28,21 @@ let corpusCache: QuranCorpusFile | null = null;
 let corpusLoadAttempted = false;
 
 function resolveCorpusPath(): string {
+  const cwd = process.cwd();
+  const monorepoSibling = path.resolve(cwd, '..', 'qxk24-backend', 'data/quran/corpus.json');
+  const monorepoSiblingRoot = path.resolve(cwd, '..', 'qxk24-backend');
+
   const candidates = [
     ENV.QURAN_CORPUS_PATH,
-    path.resolve(process.cwd(), 'data/quran/corpus.json'),
+    fs.existsSync(monorepoSiblingRoot) ? monorepoSibling : '',
+    path.resolve(cwd, 'data/quran/corpus.json'),
     path.resolve(__dirname, '../../data/quran/corpus.json'),
   ].filter(Boolean) as string[];
 
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate;
   }
-  return candidates[0] ?? path.resolve(process.cwd(), 'data/quran/corpus.json');
+  return candidates[0] ?? path.resolve(cwd, 'data/quran/corpus.json');
 }
 
 function loadCorpus(): QuranCorpusFile | null {

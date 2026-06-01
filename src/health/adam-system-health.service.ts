@@ -74,7 +74,7 @@ export function getSystemPulse(): SystemPulse {
     era:       ENV.QXK24_ERA,
     memory:    'live',
     voice:     'active',
-    providers: ['anthropic', 'qwen'],
+    providers: ['qwen'],
     stack:     ENV.QXK24_STACK,
     kernel:    'QXK24',
     version:   ENV.QXK24_KERNEL_VERSION,

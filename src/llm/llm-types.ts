@@ -15,9 +15,7 @@
  * ============================================================
  */
 
-import type Anthropic from '@anthropic-ai/sdk';
-
-export type LlmProvider = 'anthropic' | 'qwen';
+export type LlmProvider = 'qwen';
 
 export interface LlmMessage {
   role:    'user' | 'assistant';
@@ -39,19 +37,7 @@ export interface LlmStreamParams extends LlmCompleteParams {
   onEvent?:          LlmStreamEventHandler;
 }
 
-/** Normalize Anthropic message params (string content only after coalesce). */
-export function toLlmMessages(messages: Anthropic.MessageParam[]): LlmMessage[] {
-  return messages.map((msg) => {
-    const content =
-      typeof msg.content === 'string'
-        ? msg.content
-        : Array.isArray(msg.content)
-          ? msg.content
-              .map((p) => ('text' in p && typeof p.text === 'string' ? p.text : ''))
-              .filter(Boolean)
-              .join('\n')
-          : String(msg.content ?? '');
-
-    return { role: msg.role as 'user' | 'assistant', content };
-  });
+/** Pass-through after coalesce — kept for call-site stability. */
+export function toLlmMessages(messages: LlmMessage[]): LlmMessage[] {
+  return messages;
 }

@@ -15,8 +15,8 @@
  * ============================================================
  */
 
-import type Anthropic from '@anthropic-ai/sdk';
-import { coalesceAnthropicMessages } from '../adam/adam-context-budget';
+import { coalesceLlmMessages } from '../adam/adam-context-budget';
+import type { LlmMessage } from '../llm/llm-types';
 import { buildQuranCorpusPromptBlock } from '../quran/quran-context';
 import type { ChatParticipant } from '../adam/adam-student.types';
 import {
@@ -103,9 +103,9 @@ export async function buildSmartContext(
   participant: ChatParticipant,
   workspace: WorkspaceRecord | null = null,
   chatMode?: string,
-): Promise<Anthropic.MessageParam[]> {
+): Promise<LlmMessage[]> {
   const config = getAdamMemoryConfig(participant.role, Boolean(workspace), chatMode);
-  const messages: Anthropic.MessageParam[] = [];
+  const messages: LlmMessage[] = [];
 
   messages.push({ role: 'user', content: getCorePrompt() });
   messages.push({ role: 'assistant', content: CORE_ABSORPTION_ACK });
@@ -456,5 +456,5 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
   }
 
   messages.push({ role: 'user', content: userContent });
-  return coalesceAnthropicMessages(messages);
+  return coalesceLlmMessages(messages);
 }

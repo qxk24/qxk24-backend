@@ -32,6 +32,8 @@ import {
   getOrCreateSession,
   loadMessageHistory,
   deleteFounderMessage,
+  assertCanClearSessionChat,
+  clearSessionChatHistory,
   getOrCreateGroupSession,
 } from '../../adam/adam-chat.service';
 import {
@@ -444,8 +446,37 @@ router.get('/chat/history/:sessionId', requireStudent, async (c) => {
   if (!allowed) {
     return c.json({ success: false, error: 'Session access denied.', kernel: 'QXK24' }, 403);
   }
-  const messages = await loadMessageHistory(sessionId, 100);
+  const rawLimit = parseInt(c.req.query('limit') ?? '100', 10);
+  const limit = Number.isFinite(rawLimit)
+    ? Math.min(100, Math.max(1, rawLimit))
+    : 100;
+  const messages = await loadMessageHistory(sessionId, limit);
   return c.json({ success: true, messages, sessionId, kernel: 'QXK24' });
+});
+
+// DELETE /api/adam/student/chat/history/:sessionId — clear private chat
+router.delete('/chat/history/:sessionId', requireStudent, async (c) => {
+  const user = getTokenUser(c)!;
+  const sessionId = c.req.param('sessionId') ?? '';
+  if (!sessionId) {
+    return c.json({ success: false, error: 'sessionId required.', kernel: 'QXK24' }, 400);
+  }
+
+  try {
+    await assertCanClearSessionChat(sessionId, user.userId, { isFounder: false });
+    const deletedCount = await clearSessionChatHistory(sessionId);
+    return c.json({
+      success:      true,
+      sessionId,
+      deletedCount,
+      kernel:       'QXK24',
+      timestamp:    new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Could not clear chat.';
+    const status = msg.includes('denied') || msg.includes('cannot') ? 403 : 400;
+    return c.json({ success: false, error: msg, kernel: 'QXK24' }, status);
+  }
 });
 
 // GET /api/adam/student/group/history

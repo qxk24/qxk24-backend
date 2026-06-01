@@ -19,9 +19,9 @@
  * Tier 3 — Long-term (cold): QXK24Brain unified being
  */
 
-import type { MessageParam } from '@anthropic-ai/sdk/resources/messages/messages';
+import type { LlmMessage } from '../llm/llm-types';
 import { ENV } from '../config/environments';
-import { resolveBrainDeepModel } from '../config/anthropic-models';
+import { resolveBrainDeepModel } from '../config/llm-models';
 import { isLlmConfigured, llmCompleteUserPrompt } from '../llm/llm-client';
 import { ADAMMessageModel, ADAMFounderSessionModel } from '../adam/adam.schema';
 import { getAdamMemoryConfig } from '../config/adam-memory.config';
@@ -279,9 +279,9 @@ export async function buildThreeTierContext(
   founderId: string,
   newMessage: string,
   participant: ChatParticipant,
-): Promise<MessageParam[]> {
+): Promise<LlmMessage[]> {
   const config = getAdamMemoryConfig(participant.role, false);
-  const messages: MessageParam[] = [];
+  const messages: LlmMessage[] = [];
 
   messages.push({ role: 'user', content: getCorePrompt() });
   messages.push({ role: 'assistant', content: CORE_ABSORPTION_ACK });

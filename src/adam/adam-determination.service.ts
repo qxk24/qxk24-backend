@@ -7,7 +7,7 @@
 // ============================================================
 
 import { v4 as uuidv4 } from 'uuid';
-import { getDeepModel } from '../config/anthropic-models';
+import { getDeepModel } from '../config/llm-models';
 import { llmCompleteUserPrompt } from '../llm/llm-client';
 import { ADAMAuditModel } from './adam.schema';
 import type {

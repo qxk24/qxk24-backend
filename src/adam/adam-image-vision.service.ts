@@ -15,7 +15,7 @@
  * ============================================================
  */
 
-import { getVisionModel } from '../config/anthropic-models';
+import { getVisionModel } from '../config/llm-models';
 import { getAdamLanguageDirective } from './adam-language';
 import { isLlmConfigured, llmDescribeImage } from '../llm/llm-client';
 import { normalizeFounderFile } from './adam-file-extract.service';

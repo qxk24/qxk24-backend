@@ -205,7 +205,6 @@ const ADAMJournalSchema = new Schema<ADAMJournalDocument>({
 
 ADAMJournalSchema.index({ status: 1, submittedAt: -1 });
 ADAMJournalSchema.index({ judgment: 1 });
-ADAMJournalSchema.index({ journalNumber: 1 });
 
 export const ADAMJournalModel = mongoose.model<ADAMJournalDocument>(
   'ADAMJournal',

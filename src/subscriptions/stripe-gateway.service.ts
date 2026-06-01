@@ -28,6 +28,7 @@ import {
   ISubscription,
 } from './subscription.schema';
 import { convertPencarianToPelajar } from './pencarian-tracker.service';
+import { notifySubscriptionActivated } from './subscription-welcome-mail.service';
 import { ENV } from '../config/environments';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
@@ -343,6 +344,8 @@ async function activateStripeSubscription(
   const sub = await SubscriptionModel.findById(mongoSubscriptionId);
   if (!sub) return;
 
+  const wasActive = sub.status === SubscriptionStatus.ACTIVE;
+
   let periodStart = sub.currentPeriodStart ?? new Date();
   let periodEnd = sub.currentPeriodEnd ?? new Date();
 
@@ -373,6 +376,15 @@ async function activateStripeSubscription(
 
   if (sub.tier === SubscriptionTier.PELAJAR) {
     await convertPencarianToPelajar(sub.userId);
+  }
+
+  if (!wasActive) {
+    const updated = await SubscriptionModel.findById(mongoSubscriptionId);
+    if (updated) {
+      void notifySubscriptionActivated(updated).catch((err) => {
+        console.warn('[subscription:mail] welcome failed', err);
+      });
+    }
   }
 }
 

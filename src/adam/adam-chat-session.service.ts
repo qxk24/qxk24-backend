@@ -21,12 +21,14 @@ import {
   reactivateFounderSession,
 } from '../qxk24brain/adam-sleep-wake.service';
 import { atomicSaveMessage } from '../qxk24brain/adam-atomic.service';
+import { ADAMMessageLedgerModel } from '../qxk24brain/adam-ledger.schema';
 import { refreshSessionDigestIfNeeded } from '../qxk24brain/adam-tiered-memory.service';
 import { incrementSessionCounts } from '../qxk24brain/adam-unresolved.service';
 import {
   ADAMFounderSessionModel,
   ADAMMessageModel,
 } from './adam.schema';
+import { assertStudentOwnsSession } from './adam-workspace.service';
 import {
   FOUNDER_USER_ID,
   GROUP_SESSION_ID,
@@ -316,6 +318,61 @@ export async function deleteFounderMessage(
     role:      { $in: ['founder', 'student'] },
   });
   return result.deletedCount > 0;
+}
+
+export async function assertCanClearSessionChat(
+  sessionId: string,
+  userId: string,
+  opts: { isFounder: boolean },
+): Promise<void> {
+  if (sessionId === GROUP_SESSION_ID) {
+    throw new Error('Group chat cannot be cleared.');
+  }
+
+  const session = await ADAMFounderSessionModel.findOne({ sessionId }).lean();
+  if (session) {
+    if (session.sessionType === 'group') {
+      throw new Error('Group chat cannot be cleared.');
+    }
+    if (session.sessionType === 'founder') {
+      if (!opts.isFounder) throw new Error('Session access denied.');
+      return;
+    }
+    if (session.sessionType === 'student') {
+      if (opts.isFounder || session.founderId === userId) return;
+      throw new Error('Session access denied.');
+    }
+  }
+
+  const allowed = await assertStudentOwnsSession(userId, sessionId);
+  if (!allowed) {
+    throw new Error('Session access denied.');
+  }
+}
+
+/** Removes all persisted messages for a session and resets session memory counters. */
+export async function clearSessionChatHistory(sessionId: string): Promise<number> {
+  const result = await ADAMMessageModel.deleteMany({ sessionId });
+  await ADAMMessageLedgerModel.deleteMany({ sessionId }).catch(() => {});
+
+  await ADAMFounderSessionModel.updateOne(
+    { sessionId },
+    {
+      $set: {
+        messageCount:       0,
+        sessionDigest:      '',
+        digestMessageCount: 0,
+        wakeAcknowledged:     false,
+      },
+      $unset: {
+        digestUpdatedAt:  '',
+        closureSynthesis: '',
+        masa_closed:      '',
+      },
+    },
+  );
+
+  return result.deletedCount ?? 0;
 }
 
 export async function verifyADAMMessage(

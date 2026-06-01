@@ -134,6 +134,7 @@ export const ENV = {
   /** Password reset email (Resend) */
   RESEND_API_KEY:                 optional('RESEND_API_KEY', ''),
   MAIL_FROM:                        optional('MAIL_FROM', 'ADAM Lab <noreply@qxk24.com>'),
+  MAIL_REPLY_TO:                    optional('MAIL_REPLY_TO', 'support@qxk24.com'),
   ADAM_WEB_BASE_URL:                optional('ADAM_WEB_BASE_URL', 'https://qxk24.com'),
   /** Public web URL for subscription checkout redirects */
   APP_URL:                          optional('APP_URL', optional('ADAM_WEB_BASE_URL', 'https://qxk24.com')),
@@ -148,38 +149,26 @@ export const ENV = {
   R2_SECRET_ACCESS_KEY:  optional('R2_SECRET_ACCESS_KEY'),
   R2_BUCKET_NAME:        optional('R2_BUCKET_NAME', 'qxk24-adam-knowledge'),
 
-  // Stack identity (production = Claude backup, lab = Qwen pilot)
+  // Stack identity (production + lab — both Qwen; separate DB/brain per stack)
   QXK24_STACK: optional('QXK24_STACK', 'production'),
-  /**
-   * anthropic = production Claude | qwen = DashScope
-   * Lab stack (QXK24_STACK=lab) always resolves to qwen — Claude is never called.
-   */
+  /** Always qwen — DashScope. LLM_PROVIDER env is ignored if set to anthropic. */
   LLM_PROVIDER: (() => {
-    const stack = optional('QXK24_STACK', 'production');
-    const configured = optional('LLM_PROVIDER', 'anthropic') as 'anthropic' | 'qwen';
-    if (stack === 'lab') {
-      if (configured !== 'qwen') {
-        console.warn(
-          '[QXK24] Lab stack is Qwen-only — ignoring LLM_PROVIDER=anthropic (Claude is production only).',
-        );
-      }
-      return 'qwen' as const;
+    const configured = optional('LLM_PROVIDER', 'qwen');
+    if (configured !== 'qwen') {
+      console.warn(
+        `[QXK24] LLM_PROVIDER=${configured} is deprecated — QXK24 uses Qwen only.`,
+      );
     }
-    return configured;
+    return 'qwen' as const;
   })(),
 
   // Monitoring
   SENTRY_DSN: optional('SENTRY_DSN'),
-  ANTHROPIC_API_KEY: optional('ANTHROPIC_API_KEY'),
-  /** @deprecated Use ANTHROPIC_MODEL_DEEP — kept for backward compatibility */
-  ANTHROPIC_MODEL: optional('ANTHROPIC_MODEL', 'claude-sonnet-4-6'),
-  ANTHROPIC_MODEL_DEEP: optional(
-    'ANTHROPIC_MODEL_DEEP',
-    optional('ANTHROPIC_MODEL', 'claude-sonnet-4-6'),
-  ),
-  ANTHROPIC_MODEL_FAST: optional('ANTHROPIC_MODEL_FAST', 'claude-haiku-4-5'),
 
-  // Qwen / DashScope (Lab stack — same A, different engine)
+  /** Lab DB URI — production stack only; for POST /api/adam/students/import-lab-memory */
+  LAB_MONGODB_URI: optional('LAB_MONGODB_URI'),
+
+  // Qwen / DashScope — ADAM engine (production + lab)
   DASHSCOPE_API_KEY: optional('DASHSCOPE_API_KEY'),
   QWEN_API_BASE:     optional(
     'QWEN_API_BASE',
@@ -189,7 +178,7 @@ export const ENV = {
   QWEN_MODEL_FAST: optional('QWEN_MODEL_FAST', 'qwen-turbo'),
   QWEN_MODEL_VISION: optional('QWEN_MODEL_VISION', 'qwen-vl-max'),
 
-  /** Student messages at or above this length use Sonnet (default 400) */
+  /** Student messages at or above this length use deep model (default 400) */
   ADAM_DEEP_MESSAGE_MIN_CHARS: optionalInt('ADAM_DEEP_MESSAGE_MIN_CHARS', 400),
 
   // ─── ADAM memory & output tokens — NEVER CHANGE THE SETTING (Founder approval only) ───
@@ -204,7 +193,7 @@ export const ENV = {
   ADAM_QWEN_FAST_MAX_TOKENS: optionalInt('ADAM_QWEN_FAST_MAX_TOKENS', 4096),
   QXK24_SUCCESSION_ENCRYPTION_KEY: optional('QXK24_SUCCESSION_ENCRYPTION_KEY'),
 
-  /** Qwen — DashScope web search (agent = model decides when, like Claude) */
+  /** DashScope web search (agent = model decides when to search) */
   QWEN_ENABLE_SEARCH: optional('QWEN_ENABLE_SEARCH', 'true') === 'true',
   QWEN_SEARCH_STRATEGY: optional('QWEN_SEARCH_STRATEGY', 'agent'),
   QWEN_SEARCH_ENABLE_CITATION: optional('QWEN_SEARCH_ENABLE_CITATION', 'true') === 'true',
@@ -257,6 +246,13 @@ export const ENV = {
     'ADAM_BUILDER_ALLOWED_WRITE_DIRS',
     'qxk24-backend/src,qxk24-web/app,qxk24-web/components,qxk24-web/hooks,qxk24-web/lib,docs,qxk24-mcp/src',
   ),
+  /** HOME for MCP git child (credential store lives here) */
+  ADAM_GIT_HOME: optional('ADAM_GIT_HOME', '/root'),
+  /** Optional SSH deploy key path for git_push */
+  ADAM_GIT_SSH_KEY: optional('ADAM_GIT_SSH_KEY', ''),
+
+  /** HAWA — ADAM's auditor partner (lab builder checkpoints) */
+  HAWA_ENABLED: optional('HAWA_ENABLED', 'true') === 'true',
 
   // Derived
   IS_PRODUCTION:  process.env.NODE_ENV === 'production',

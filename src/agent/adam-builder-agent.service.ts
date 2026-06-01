@@ -25,10 +25,27 @@ import {
   saveBuilderSession,
 } from './adam-builder-session.store';
 import { BUILDER_SYSTEM_PROMPT } from './adam-builder-chat.service';
+import {
+  buildStickyConstitutionBlock,
+  hasStickyConstitution,
+  loadAdamRulesFromDisk,
+} from './adam-constitution-loader';
+import {
+  abortBuilderSession,
+} from './adam-builder-abort.store';
+import {
+  auditPostTool,
+  auditProposeWrite,
+  hawaUserMessage,
+  isHawaEnabled,
+} from '../hawa/hawa-audit.service';
+import { clearHawaHold, markHawaHold } from '../hawa/hawa-hold.store';
+import type { HawaVerdict } from '../hawa/hawa.types';
 import type {
   AgentEvent,
   BuildMessage,
   BuilderSessionRecord,
+  HawaVerdictPayload,
   QwenToolCall,
 } from './adam-builder.types';
 
@@ -58,7 +75,23 @@ const MAX_LOOPS            = 25;
 const MAX_EMPTY_ROUNDS     = 3;
 const MCP_TOOL_TIMEOUT_MS  = 25_000;
 const TOOL_RESULT_MAX      = 400;
+const CONSTITUTION_RESULT_MAX = 16_000;
 const PROPOSAL_PREVIEW_MAX = 30;
+
+function toolResultForUi(
+  toolName: string,
+  toolArgs: Record<string, unknown>,
+  resultText: string,
+): string {
+  const relPath = typeof toolArgs.path === 'string' ? toolArgs.path : '';
+  if (toolName === 'get_constitution') {
+    return truncatePreview(resultText, CONSTITUTION_RESULT_MAX);
+  }
+  if (toolName === 'read_file' && relPath.includes('.adamrules')) {
+    return truncatePreview(resultText, CONSTITUTION_RESULT_MAX);
+  }
+  return truncatePreview(resultText, TOOL_RESULT_MAX);
+}
 
 type McpClientCtor = typeof import('@modelcontextprotocol/sdk/client/index.js').Client;
 type StdioTransportCtor = typeof import('@modelcontextprotocol/sdk/client/stdio.js').StdioClientTransport;
@@ -93,6 +126,9 @@ function mcpEnv(founderToken: string): Record<string, string> {
     ADAM_API_URL:       ENV.ADAM_BUILDER_API_URL || ENV.APP_BASE_URL.replace(/\/lab\/?$/, ''),
     FOUNDER_TOKEN:      founderToken,
     ALLOWED_WRITE_DIRS: ENV.ADAM_BUILDER_ALLOWED_WRITE_DIRS,
+    ADAM_GIT_HOME:      ENV.ADAM_GIT_HOME,
+    ADAM_GIT_SSH_KEY:   ENV.ADAM_GIT_SSH_KEY,
+    HOME:               ENV.ADAM_GIT_HOME || process.env.HOME || '/root',
     NODE_ENV:           ENV.NODE_ENV,
   };
 }
@@ -105,6 +141,15 @@ function tryParseJson(raw: string): Record<string, unknown> | null {
   }
 }
 
+function isPreflightBlocked(resultText: string): boolean {
+  const parsed = tryParseJson(resultText);
+  return parsed?.blocked === true;
+}
+
+function isSuccessfulWriteProposal(resultText: string): boolean {
+  return resultText.includes('📋 WRITE PROPOSAL') && /ID: prop_/.test(resultText);
+}
+
 function truncatePreview(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
   return `${text.slice(0, maxChars)}\n... (${text.length} chars)`;
@@ -114,6 +159,80 @@ function proposalPreviewFromContent(content: string): string {
   const lines = content.split('\n');
   if (lines.length <= PROPOSAL_PREVIEW_MAX) return content;
   return `${lines.slice(0, PROPOSAL_PREVIEW_MAX).join('\n')}\n\n... (${lines.length} lines total)`;
+}
+
+function toHawaPayload(verdict: HawaVerdict): HawaVerdictPayload {
+  return {
+    judgment:   verdict.judgment,
+    findings:   verdict.findings,
+    stop:       verdict.stop,
+    checkpoint: verdict.checkpoint,
+    toolName:   verdict.toolName,
+    relPath:    verdict.relPath,
+  };
+}
+
+async function* yieldHawaReview(
+  record: BuilderSessionRecord,
+  toolName: string,
+  toolArgs: Record<string, unknown>,
+  resultText: string,
+  checkpoint: 'propose_write' | 'post_tool',
+): AsyncGenerator<AgentEvent, HawaVerdict | null> {
+  if (!isHawaEnabled()) return null;
+
+  const verdict = checkpoint === 'propose_write'
+    ? auditProposeWrite(toolArgs, resultText)
+    : auditPostTool(toolName, toolArgs, resultText);
+
+  yield {
+    type:      'hawa_checkpoint',
+    message:   `HAWA is auditing ${toolName}…`,
+    sessionId: record.id,
+    hawa:      toHawaPayload(verdict),
+  };
+
+  if (verdict.judgment === 'LULUS') {
+    yield {
+      type:      'hawa_lulus',
+      message:   hawaUserMessage(verdict),
+      sessionId: record.id,
+      hawa:      toHawaPayload(verdict),
+    };
+    return verdict;
+  }
+
+  if (verdict.judgment === 'ISLAH' && !verdict.stop) {
+    yield {
+      type:      'hawa_hold',
+      message:   hawaUserMessage(verdict),
+      sessionId: record.id,
+      hawa:      toHawaPayload(verdict),
+    };
+    return verdict;
+  }
+
+  markHawaHold(record.id, verdict);
+  abortBuilderSession(record.id);
+
+  yield {
+    type:      'hawa_veto',
+    message:   hawaUserMessage(verdict),
+    sessionId: record.id,
+    hawa:      toHawaPayload(verdict),
+  };
+
+  record.messages.push({
+    role:    'user',
+    content: [
+      'HAWA (constitutional auditor) halted this build.',
+      hawaUserMessage(verdict),
+      'Founder may resume after review. Correct violations before continuing.',
+    ].join('\n\n'),
+  });
+  saveBuilderSession(record);
+
+  return verdict;
 }
 
 function extractProposal(resultText: string, toolArgs: Record<string, unknown>): AgentEvent['proposal'] {
@@ -272,7 +391,7 @@ export class AdamBuilderAgentService {
 
     if (!res.ok) {
       const err = await res.text();
-      throw new Error(`Qwen API error ${res.status}: ${err}`);
+      throw new Error(`Builder model error ${res.status}: ${err}`);
     }
 
     return res.json() as Promise<QwenResponse>;
@@ -295,6 +414,25 @@ export class AdamBuilderAgentService {
 
   private persistSession(record: BuilderSessionRecord): void {
     saveBuilderSession(record);
+  }
+
+  private async injectStickyConstitution(
+    record: BuilderSessionRecord,
+    founderToken: string,
+  ): Promise<string> {
+    let constitutionText = await loadAdamRulesFromDisk();
+
+    if (!constitutionText) {
+      const { result } = await this.executeTool('get_constitution', {}, founderToken);
+      constitutionText = result;
+    }
+
+    const block = buildStickyConstitutionBlock(constitutionText);
+    const systemIdx = record.messages.findIndex((m) => m.role === 'system');
+    const insertAt = systemIdx >= 0 ? systemIdx + 1 : 0;
+
+    record.messages.splice(insertAt, 0, { role: 'user', content: block });
+    return block;
   }
 
   private async handleAbort(
@@ -328,6 +466,34 @@ export class AdamBuilderAgentService {
     };
     await this.ensureConnected(founderToken);
 
+    if (!hasStickyConstitution(record.messages)) {
+      yield {
+        type:      'thinking',
+        message:   'Loading CODE LAWS from .adamrules…',
+        sessionId: record.id,
+      };
+
+      try {
+        const block = await this.injectStickyConstitution(record, founderToken);
+        this.persistSession(record);
+        yield {
+          type:      'tool_result',
+          toolName:  'get_constitution',
+          result:    truncatePreview(block, CONSTITUTION_RESULT_MAX),
+          message:   'Constitution loaded — CODE LAWS 1–10 sticky in context',
+          sessionId: record.id,
+        };
+      } catch (err) {
+        yield {
+          type:      'error',
+          message:   `Failed to load .adamrules: ${(err as Error).message}`,
+          sessionId: record.id,
+        };
+        deleteBuilderSession(record.id);
+        return;
+      }
+    }
+
     let emptyRounds = 0;
 
     while (record.loopCount < MAX_LOOPS) {
@@ -337,7 +503,7 @@ export class AdamBuilderAgentService {
 
       yield {
         type:      'qwen_thinking',
-        message:   `Qwen is deciding the next step… (${record.loopCount})`,
+        message:   `ADAM is thinking… (step ${record.loopCount})`,
         sessionId: record.id,
       };
 
@@ -347,7 +513,7 @@ export class AdamBuilderAgentService {
       } catch (err) {
         yield {
           type: 'error',
-          message: `Qwen error: ${(err as Error).message}`,
+          message: `ADAM builder error: ${(err as Error).message}`,
           sessionId: record.id,
         };
         deleteBuilderSession(record.id);
@@ -355,6 +521,15 @@ export class AdamBuilderAgentService {
       }
 
       const choice = qwenResponse.choices[0];
+      if (!choice) {
+        yield {
+          type:      'error',
+          message:   'ADAM builder error: empty model response.',
+          sessionId: record.id,
+        };
+        deleteBuilderSession(record.id);
+        return;
+      }
       record.totalTokens += qwenResponse.usage?.completion_tokens ?? 0;
       this.persistSession(record);
 
@@ -366,7 +541,9 @@ export class AdamBuilderAgentService {
           deleteBuilderSession(record.id);
           yield {
             type:        'complete',
-            message:     finalText,
+            message:     finalText.length > 0
+              ? `✅ Task completed.\n\n${finalText}`
+              : '✅ Task completed.',
             tokensUsed:  record.totalTokens,
             sessionId:   record.id,
           };
@@ -463,21 +640,50 @@ export class AdamBuilderAgentService {
         }
 
         if (toolName === 'propose_file_write') {
+          record.messages.push({
+            role:         'tool',
+            tool_call_id: toolCall.id,
+            content:      resultText,
+          });
+          this.persistSession(record);
+
+          if (isPreflightBlocked(resultText) || !isSuccessfulWriteProposal(resultText)) {
+            yield {
+              type:      'tool_result',
+              toolName,
+              result:    toolResultForUi(toolName, toolArgs, resultText),
+              message:   'Pre-flight blocked — ADAM self-correcting…',
+              sessionId: record.id,
+            };
+            continue;
+          }
+
+          const hawaPropose = yield* yieldHawaReview(
+            record,
+            toolName,
+            toolArgs,
+            resultText,
+            'propose_write',
+          );
+          if (hawaPropose?.stop) {
+            yield {
+              type:      'tool_result',
+              toolName,
+              result:    toolResultForUi(toolName, toolArgs, resultText),
+              message:   'HAWA veto — task halted',
+              sessionId: record.id,
+            };
+            return;
+          }
+
           const proposal = extractProposal(resultText, toolArgs);
           yield {
             type:      'proposal',
             toolName,
-            result:    truncatePreview(resultText, TOOL_RESULT_MAX),
+            result:    toolResultForUi(toolName, toolArgs, resultText),
             proposal,
             sessionId: record.id,
           };
-
-          record.messages.push({
-            role:          'tool',
-            tool_call_id:  toolCall.id,
-            content:       resultText,
-          });
-          this.persistSession(record);
 
           yield {
             type:      'approval_needed',
@@ -490,7 +696,7 @@ export class AdamBuilderAgentService {
         yield {
           type:      'tool_result',
           toolName,
-          result:    truncatePreview(resultText, TOOL_RESULT_MAX),
+          result:    toolResultForUi(toolName, toolArgs, resultText),
           message:   `${toolName} complete`,
           sessionId: record.id,
         };
@@ -501,6 +707,17 @@ export class AdamBuilderAgentService {
           content:      resultText,
         });
         this.persistSession(record);
+
+        const hawaPost = yield* yieldHawaReview(
+          record,
+          toolName,
+          toolArgs,
+          resultText,
+          'post_tool',
+        );
+        if (hawaPost?.stop) {
+          return;
+        }
       }
     }
 
@@ -538,11 +755,21 @@ export class AdamBuilderAgentService {
     founderToken: string,
     resumeNote: string,
     signal?: AbortSignal,
+    clearHawa: boolean = false,
   ): AsyncGenerator<AgentEvent> {
     const record = getBuilderSession(sessionId);
     if (!record) {
       yield { type: 'error', message: 'Build session expired or not found.', sessionId };
       return;
+    }
+
+    if (clearHawa) {
+      clearHawaHold(sessionId);
+      yield {
+        type:      'hawa_lulus',
+        message:   'HAWA: Founder resumed — ADAM may continue.',
+        sessionId: record.id,
+      };
     }
 
     yield* this.runAgentLoop(record, founderToken, resumeNote, signal);

@@ -20,7 +20,7 @@
  * C = New entity born — A and B erased, C becomes new A
  */
 
-import { resolveBrainDeepModel } from '../config/anthropic-models';
+import { resolveBrainDeepModel } from '../config/llm-models';
 import { ENV } from '../config/environments';
 import { llmCompleteUserPrompt } from '../llm/llm-client';
 import type { QXK24BrainMasterDocument } from './qxk24brain.schema';
@@ -113,7 +113,7 @@ function normalizePrinciple(value: string): string {
   return allowed.includes(upper) ? upper : 'CAHAYA';
 }
 
-function parseJsonFromClaude<T>(raw: string, fallback: T): T {
+function parseJsonFromLlm<T>(raw: string, fallback: T): T {
   const trimmed = raw.trim();
   try {
     return JSON.parse(trimmed) as T;
@@ -161,7 +161,7 @@ async function callBrainJson<T>(
     BRAIN_MODEL(),
     maxTokens,
   );
-  return parseJsonFromClaude(text, fallback);
+  return parseJsonFromLlm(text, fallback);
 }
 
 // ─── Get or Create Master Entity ──────────────────────────────

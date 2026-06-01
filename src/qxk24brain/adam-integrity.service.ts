@@ -15,7 +15,7 @@
  * ============================================================
  */
 
-import { resolveBrainDeepModel } from '../config/anthropic-models';
+import { resolveBrainDeepModel } from '../config/llm-models';
 import { llmCompleteUserPrompt } from '../llm/llm-client';
 import { prependCoreToSystem } from './adam-core';
 import { computeEntityChecksum } from './adam-checksum';
