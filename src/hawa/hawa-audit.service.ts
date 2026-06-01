@@ -18,7 +18,7 @@
  */
 
 import { ENV } from '../config/environments';
-import { hawaValidateProposedContent } from './hawa-preflight';
+import { hawaPrepareProposedContent, hawaValidateProposedContent } from './hawa-preflight';
 import type { HawaCheckpoint, HawaJudgment, HawaVerdict } from './hawa.types';
 
 function tryParseJson(raw: string): Record<string, unknown> | null {
@@ -72,7 +72,7 @@ export function auditProposeWrite(
   mcpResultText: string,
 ): HawaVerdict {
   const relPath = typeof toolArgs.path === 'string' ? toolArgs.path : '';
-  const content = typeof toolArgs.content === 'string' ? toolArgs.content : '';
+  const rawContent = typeof toolArgs.content === 'string' ? toolArgs.content : '';
   const reason  = typeof toolArgs.reason === 'string' ? toolArgs.reason : '';
 
   const findings: string[] = [];
@@ -81,7 +81,7 @@ export function auditProposeWrite(
     findings.push('HAWA: Missing file path on write proposal');
   }
 
-  if (!content.trim()) {
+  if (!rawContent.trim()) {
     findings.push('HAWA: Empty file content — proposal rejected');
   }
 
@@ -92,9 +92,19 @@ export function auditProposeWrite(
   const protectedPath = isProtectedWritePath(relPath);
   if (protectedPath) findings.push(protectedPath);
 
-  if (content) {
-    findings.push(...hawaValidateProposedContent(content, relPath));
-  }
+  const { content: auditContent, fixesApplied } = rawContent.trim()
+    ? hawaPrepareProposedContent(rawContent, relPath)
+    : { content: rawContent, fixesApplied: [] as string[] };
+
+  const autoFixAdvisories = fixesApplied.map(
+    (f) => `HAWA auto-fix (aligned with MCP): ${f}`,
+  );
+
+  const constitutionalFindings: string[] = auditContent
+    ? hawaValidateProposedContent(auditContent, relPath)
+    : [];
+
+  findings.push(...constitutionalFindings);
 
   const parsed = tryParseJson(mcpResultText);
   if (parsed?.blocked === true) {
@@ -107,20 +117,20 @@ export function auditProposeWrite(
     );
   }
 
-  if (findings.length === 0) {
-    return verdict('LULUS', [], 'propose_write', false, {
+  if (constitutionalFindings.length === 0) {
+    return verdict('LULUS', autoFixAdvisories, 'propose_write', false, {
       toolName: 'propose_file_write',
       relPath,
     });
   }
 
-  const hasHard = findings.some((f) =>
+  const hasHard = constitutionalFindings.some((f) =>
     f.startsWith('LAW ') || f.startsWith('HAWA: Protected') || f.includes('secret'),
   );
 
   return verdict(
     hasHard ? 'GAGAL' : 'ISLAH',
-    findings,
+    [...findings, ...autoFixAdvisories],
     'propose_write',
     hasHard,
     { toolName: 'propose_file_write', relPath },

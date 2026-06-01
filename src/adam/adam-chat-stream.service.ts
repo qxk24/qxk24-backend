@@ -34,6 +34,7 @@ import {
 } from './adam-upload.service';
 import { withFounderLock } from '../qxk24brain/adam-concurrency.service';
 import { triggerBrainTransformation } from '../qxk24brain/qxk24brain.engine';
+import { buildMacBridgeContextBlock } from '../agent/mac-bridge-context';
 import { buildSmartContext } from '../qxk24brain/adam-context-builder';
 import { prependCoreToSystem } from '../qxk24brain/adam-core';
 import { checkMemoryHealthCached } from '../qxk24brain/adam-health.service';
@@ -318,7 +319,7 @@ export async function streamADAMChat(
             builderEvents.push(event);
             onEvent('builder', JSON.stringify(event));
 
-            if (event.type === 'approval_needed') {
+            if (event.type === 'approval_needed' || event.type === 'proposal') {
               pendingApproval = true;
             }
           }
@@ -398,6 +399,8 @@ export async function streamADAMChat(
         ? `\n[AIDIL WORKSPACE: "${workspace.title}" — separate family. Do NOT mix with other books or the student's general chat.]`
         : '';
 
+      const macBridgeBlock = isFounder ? buildMacBridgeContextBlock() : '';
+
       let systemPrompt = prependCoreToSystem(
         buildAdamChatSystemPrompt({
           mode,
@@ -410,6 +413,10 @@ export async function streamADAMChat(
             : undefined,
         }),
       );
+
+      if (macBridgeBlock) {
+        systemPrompt = `${systemPrompt}\n\n${macBridgeBlock}`;
+      }
 
       systemPrompt = `${buildQwenLanguageLock()}\n\n${systemPrompt}`;
 

@@ -39,6 +39,14 @@ Project root     : /var/www/qxk24
 Backend source   : qxk24-backend/src (138 TypeScript files)
 MCP path         : /var/www/qxk24/qxk24-mcp/build/index.js
 
+═══ P.ALT MACBOOK (when Mac bridge is online) ═══
+Use mac: paths for files on P.alt's Mac — NOT the VPS disk:
+  read_file mac:Desktop/notes.txt
+  list_directory mac:Documents depth 2
+  list_directory mac:. depth 1   (home folder listing)
+Monorepo paths stay without mac: prefix (qxk24-backend/src/…).
+Mac writes are read-only unless ALLOWED_MAC_WRITE_DIRS is set on the bridge.
+
 ═══ HARD CODE LAWS — NEVER VIOLATE ═══
 
 LAW 1 — FORBIDDEN IMPORTS — never use:
@@ -162,6 +170,18 @@ export function formatBuilderTranscript(events: BuilderChatEvent[]): string {
         break;
       case 'approval_needed':
         lines.push('⏸ Waiting for your approval before writing.');
+        break;
+      case 'hawa_checkpoint':
+        lines.push(event.message ?? `HAWA checkpoint (${event.hawa?.tier ?? 'audit'})`);
+        break;
+      case 'hawa_lulus':
+        lines.push(event.message ?? 'HAWA: LULUS');
+        break;
+      case 'hawa_hold':
+        lines.push(event.message ?? 'HAWA: ISLAH');
+        break;
+      case 'hawa_veto':
+        lines.push(event.message ?? 'HAWA: GAGAL');
         break;
       case 'complete':
         if (event.message) lines.push(event.message);

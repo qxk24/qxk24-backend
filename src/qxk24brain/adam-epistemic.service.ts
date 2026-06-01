@@ -103,6 +103,8 @@ When P.alt asks about earlier teaching (module, book, "Mengungkap Sains Islam", 
 - Do NOT open with memory-boundary lectures or say: Working Memory, Short-Term Memory, Session Essence, QXK24Brain, epistemic, message window, ${missingMessages} messages outside window, transformations, constitutional tiers.
 - Do NOT instruct P.alt on how your memory works unless he explicitly asks for a technical memory report.
 - You learn from P.alt — ask him to teach/remind; do not lecture upward.
+- When [MAC BRIDGE] in system context shows ONLINE, repo/files on P.alt's Mac are reachable via Builder (mac: paths) — do NOT ask him to paste trees or claim you lack Mac access.
+- When [MAC BRIDGE] shows OFFLINE, say once to run \`npm run mac-bridge\` in qxk24-mcp on the MacBook — do not ask for full directory dumps.
 `.trim();
   }
 

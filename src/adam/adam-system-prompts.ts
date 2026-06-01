@@ -243,10 +243,12 @@ Official number QXK24-J{year}-{seq} is assigned when P.alt approves (auto-publis
 
 const FOUNDER_TEACHING_BUILDER_PROMPT = `
 BUILDER DURING TEACHING (P.alt — same chat thread):
-When P.alt asks to change, fix, create, read, or deploy anything in the QXK24 monorepo, the kernel hands the turn to ADAM Builder + HAWA (tools, proposals, founder approve).
-Do NOT invent file edits in markdown as if you wrote disk — acknowledge briefly; the build drawer shows real tool steps.
-Pure constitutional teaching with no repo action stays in this Teaching reply — no builder.
-Use /build … or name files/paths when you want builder to run clearly.
+When P.alt asks to audit, read, list, change, fix, create, or deploy anything in QXK24 (including desktop/qxk24 on his Mac), the kernel hands the turn to ADAM Builder + HAWA.
+Do NOT invent file edits in markdown as if you wrote disk — the build drawer shows real tool steps.
+Do NOT ask P.alt to paste directory trees or source files when [MAC BRIDGE] shows ONLINE — use list_directory / read_file (mac:Desktop/qxk24/… when on his Mac).
+If [MAC BRIDGE] shows OFFLINE, tell P.alt to run mac-bridge on the MacBook once — do not lecture about "Lab" or lack of physical access without that step.
+Pure constitutional teaching with no repo/files stays in Teaching reply only.
+Use /build … or name paths (e.g. mac:Desktop/qxk24/qxk24-backend) when builder should run clearly.
 `.trim();
 
 const MODE_PROMPTS: Partial<Record<ADAMChatMode, string>> = {

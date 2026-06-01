@@ -32,6 +32,7 @@ import adamFounderRoutes from '../routes/adam/adam-founder.routes';
 import adamWorkspaceRoutes from '../routes/adam/adam-workspace.routes';
 import subscriptionRoutes from '../subscriptions/subscription.routes';
 import adamBuilderRoutes from '../agent/adam-builder.routes';
+import adamMacBridgeRoutes from '../agent/adam-mac-bridge.routes';
 import { ENV } from '../config/environments';
 import {
   getSystemPulse,
@@ -82,6 +83,7 @@ export function registerRoutes(app: Hono): void {
   app.route('/api/workspaces',         adamWorkspaceRoutes);
   app.route('/api/subscriptions',    subscriptionRoutes);
   app.route('/api/adam/agent',       adamBuilderRoutes);
+  app.route('/api/adam/mac-bridge',  adamMacBridgeRoutes);
 
   // ── 404 Fallback ─────────────────────────────────────
   app.notFound((c) => {

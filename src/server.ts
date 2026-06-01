@@ -21,17 +21,17 @@ import { logger } from 'hono/logger';
 import { secureHeaders } from 'hono/secure-headers';
 import { serve } from '@hono/node-server';
 
-import { ENV } from './config/environments';
-import { assertLlmConfigured } from './llm/llm-client';
-import { connectDatabase } from './config/database';
-import { uploadBodyLimit } from './middleware/upload-limit.middleware';
-import { registerRoutes } from './server/route-registry';
-import { startAdamReflectionScheduler } from './qxk24brain/adam-reflection-scheduler';
-import { startAdamAtomicRecoveryScheduler } from './qxk24brain/adam-atomic-recovery.scheduler';
-import { startAdamIntegrityScheduler } from './qxk24brain/adam-integrity-scheduler';
-import { startAdamRedundancyScheduler } from './qxk24brain/adam-redundancy.scheduler';
-import { connectConcurrencyRedis, disconnectConcurrencyRedis } from './qxk24brain/adam-concurrency.service';
-import { initStudentRegistry } from './adam/adam-student.service';
+import { ENV } from './config/environments.js';
+import { assertLlmConfigured } from './llm/llm-client.js';
+import { connectDatabase } from './config/database.js';
+import { uploadBodyLimit } from './middleware/upload-limit.middleware.js';
+import { registerRoutes } from './server/route-registry.js';
+import { startAdamReflectionScheduler } from './qxk24brain/adam-reflection-scheduler.js';
+import { startAdamAtomicRecoveryScheduler } from './qxk24brain/adam-atomic-recovery.scheduler.js';
+import { startAdamIntegrityScheduler } from './qxk24brain/adam-integrity-scheduler.js';
+import { startAdamRedundancyScheduler } from './qxk24brain/adam-redundancy.scheduler.js';
+import { connectConcurrencyRedis, disconnectConcurrencyRedis } from './qxk24brain/adam-concurrency.service.js';
+import { initStudentRegistry } from './adam/adam-student.service.js';
 
 const app = new Hono();
 

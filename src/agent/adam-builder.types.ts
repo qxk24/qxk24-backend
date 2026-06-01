@@ -35,6 +35,7 @@ export interface HawaVerdictPayload {
   checkpoint: 'propose_write' | 'post_tool';
   toolName?:  string;
   relPath?:   string;
+  tier?:      'A' | 'B' | 'A+B';
 }
 
 export interface AgentEvent {
@@ -76,4 +77,7 @@ export interface BuilderSessionRecord {
   totalTokens: number;
   createdAt:   number;
   updatedAt:   number;
+  /** True after propose_file_write until founder LULUS or reject. */
+  awaitingFounderLulus?: boolean;
+  pendingProposalId?:   string;
 }

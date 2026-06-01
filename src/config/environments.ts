@@ -254,6 +254,9 @@ export const ENV = {
   /** HAWA — ADAM's auditor partner (lab builder checkpoints) */
   HAWA_ENABLED: optional('HAWA_ENABLED', 'true') === 'true',
 
+  /** Route Builder MCP through founder Mac (qxk24-mcp mac-bridge daemon) */
+  ADAM_MAC_BRIDGE_ENABLED: optional('ADAM_MAC_BRIDGE_ENABLED', 'false') === 'true',
+
   // Derived
   IS_PRODUCTION:  process.env.NODE_ENV === 'production',
   IS_DEVELOPMENT: process.env.NODE_ENV !== 'production'

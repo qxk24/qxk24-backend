@@ -28,6 +28,8 @@ export interface HawaVerdict {
   checkpoint: HawaCheckpoint;
   toolName?:  string;
   relPath?:   string;
+  /** Which audit tier produced this verdict (propose_write flow). */
+  tier?:      'A' | 'B' | 'A+B';
 }
 
 export interface HawaHoldRecord {

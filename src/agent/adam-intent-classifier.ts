@@ -74,6 +74,9 @@ const BUILD_PATTERNS: Array<{ pattern: RegExp; intent: BuildIntent; weight: numb
   { pattern: /\b(codebase|source code|backend|frontend|qxk24-backend|qxk24-web|qxk24-mcp)\b/i, intent: 'search_codebase', weight: 82 },
   { pattern: /\b(schema|migration|route|component|hook|service\.ts|\.module\.css)\b/i, intent: 'write_code', weight: 78 },
   { pattern: /\b(index|duplicate|unique constraint|indeks)\b/i, intent: 'fix_bug', weight: 72 },
+  { pattern: /\b(audit|auditing|auditkan|menyemak|semak|review)\b/i, intent: 'read_code', weight: 90 },
+  { pattern: /\bdesktop\/qxk24\b/i, intent: 'read_code', weight: 95 },
+  { pattern: /\bmac:/i, intent: 'read_code', weight: 100 },
 ];
 
 /** Paths, extensions, or monorepo markers that imply a code/build task. */
@@ -83,7 +86,7 @@ export function hasCodeBuildSignals(message: string): boolean {
 
   return (
     /(?:^|[\s"'`(])[\w.-]+\.(?:tsx?|jsx?|mjs|cjs|css|json|md)\b/i.test(t)
-    || /(?:qxk24-backend|qxk24-web|qxk24-mcp|src\/|components\/|hooks\/|dist\/)/i.test(t)
+    || /(?:qxk24-backend|qxk24-web|qxk24-mcp|desktop\/qxk24|mac:|src\/|components\/|hooks\/|dist\/)/i.test(t)
     || /\b(?:propose_file_write|check_typescript|get_project_structure|get_constitution)\b/i.test(t)
     || /\/build\b/i.test(t)
   );
@@ -130,6 +133,15 @@ export function classifyIntent(
   };
 }
 
+/** Founder asks to audit/review repo on Mac desktop or monorepo paths. */
+export function isFounderRepoAuditRequest(message: string): boolean {
+  const t = message.trim();
+  if (!t) return false;
+  const wantsReview = /\b(audit|auditing|auditkan|menyemak|semak|review|teliti|periksa)\b/i.test(t);
+  const namesRepo = /\b(qxk24-backend|qxk24-web|qxk24-mcp|desktop\/qxk24|qxk24\/qxk24-backend)\b/i.test(t);
+  return wantsReview && namesRepo;
+}
+
 export function resolveBuilderActivation(
   rawMessage: string,
   options: {
@@ -143,6 +155,16 @@ export function resolveBuilderActivation(
   const intentResult = classifyIntent(message, {
     teachingOnLab: options.founderTeachingOnLab || options.founderLabEvaluate,
   });
+
+  if (options.founderOnLab && isFounderRepoAuditRequest(message)) {
+    return {
+      activate:   true,
+      intent:     'read_code',
+      message,
+      reason:     'founder_repo_audit',
+      confidence: 95,
+    };
+  }
 
   if (options.forceBuilder || forced) {
     return {

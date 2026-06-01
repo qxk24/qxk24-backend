@@ -100,6 +100,79 @@ function checkMongooseModelSafety(content: string, filePath: string): string[] {
   ];
 }
 
+const MCP_PATH_DEFAULT = '/var/www/qxk24/qxk24-mcp/build/index.js';
+
+/** Mechanical fixes — mirrors qxk24-mcp preflight-auto-fix (HAWA must audit MCP-corrected content). */
+export function hawaAutoFixProposedContent(
+  content: string,
+  filePath: string,
+): { content: string; fixesApplied: string[] } {
+  let fixed = content;
+  const fixesApplied: string[] = [];
+
+  if (fixed.includes('/usr/local/bin/')) {
+    fixed = fixed.replace(/\/usr\/local\/bin\/[^\s'"]+/g, MCP_PATH_DEFAULT);
+    fixesApplied.push('LAW 3: Replaced /usr/local/bin/ MCP path with canonical default');
+  }
+
+  const providerFixes: Array<[RegExp, string]> = [
+    [/Qwen is deciding the next step…/gi, 'ADAM is thinking…'],
+    [/Qwen is thinking…/gi, 'ADAM is thinking…'],
+    [/Qwen error:/gi, 'ADAM builder error:'],
+    [/Claude is thinking…/gi, 'ADAM is thinking…'],
+    [/\bQwen · ERA_1\b/g, 'ADAM Builder · ERA_1'],
+  ];
+  for (const [pattern, replacement] of providerFixes) {
+    if (pattern.test(fixed)) {
+      fixed = fixed.replace(pattern, replacement);
+      fixesApplied.push('LAW 9: Replaced LLM provider name with ADAM in user-facing text');
+      break;
+    }
+  }
+
+  if (/\.tsx?$/i.test(filePath)) {
+    const before = fixed;
+    fixed = fixed.replace(
+      /from\s+(['"])(\.[^'"]+?)\1/g,
+      (match, quote: string, spec: string) => {
+        if (spec.endsWith('.js') || spec.endsWith('.json') || spec.endsWith('.css')) {
+          return match;
+        }
+        return `from ${quote}${spec}.js${quote}`;
+      },
+    );
+    if (fixed !== before) {
+      fixesApplied.push('LAW 5: Appended .js to relative import paths');
+    }
+  }
+
+  return { content: fixed, fixesApplied: [...new Set(fixesApplied)] };
+}
+
+/** Content MCP would store after auto-fix — use for Tier A/B instead of raw ADAM tool args. */
+export function hawaPrepareProposedContent(
+  content: string,
+  filePath: string,
+): { content: string; fixesApplied: string[] } {
+  let working = content;
+  const allFixes: string[] = [];
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    const check = hawaValidateProposedContent(working, filePath);
+    if (check.length === 0) {
+      return { content: working, fixesApplied: [...new Set(allFixes)] };
+    }
+    const { content: fixed, fixesApplied } = hawaAutoFixProposedContent(working, filePath);
+    if (fixesApplied.length === 0 || fixed === working) {
+      return { content: working, fixesApplied: [...new Set(allFixes)] };
+    }
+    allFixes.push(...fixesApplied);
+    working = fixed;
+  }
+
+  return { content: working, fixesApplied: [...new Set(allFixes)] };
+}
+
 export function hawaValidateProposedContent(content: string, filePath: string): string[] {
   const violations: string[] = [];
 

@@ -17,17 +17,27 @@ npm ci && npm run build
 ```env
 LLM_PROVIDER=qwen
 DASHSCOPE_API_KEY=<your key>
+# International keys must use the intl base (copy from .env.lab if unsure):
+QWEN_API_BASE=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
 QWEN_MODEL_DEEP=qwen-plus
 QWEN_MODEL_FAST=qwen-turbo
 QWEN_MODEL_VISION=qwen-vl-max
-
-ADAM_BUILDER_ENABLED=true
-HAWA_ENABLED=true
-QXK24_ROOT=/var/www/qxk24
-
-# One-time: lab Mongo URI (same host, database qxk24_lab)
-LAB_MONGODB_URI=<copy MONGODB_URI from .env.lab but db name qxk24_lab>
+QWEN_ENABLE_THINKING=false
 ```
+
+If production `.env` never had Qwen vars, copy from lab backup on the VPS:
+
+```bash
+cd /var/www/qxk24/backend
+for key in DASHSCOPE_API_KEY QWEN_API_BASE QWEN_MODEL_DEEP QWEN_MODEL_FAST QWEN_MODEL_VISION QWEN_ENABLE_THINKING; do
+  grep -m1 "^${key}=" .env.lab >> .env
+done
+pm2 restart qxk24-backend --update-env
+```
+
+Without `DASHSCOPE_API_KEY` in **`backend/.env`** (not `.env.lab` alone), ADAM chat and Builder return: `DASHSCOPE_API_KEY is not configured.`
+
+Also set `ADAM_BUILDER_ENABLED=true`, `HAWA_ENABLED=true`, `QXK24_ROOT=/var/www/qxk24`, and optional `LAB_MONGODB_URI` for brain import.
 
 ### 3. Restart production API
 
@@ -64,13 +74,14 @@ pm2 restart qxk24-web
 - `https://qxk24.com/adam/builder` — Builder
 - Old `/adam/lab/*` URLs redirect to `/adam/*`
 
-### 7. Optional — stop lab PM2 (after 24h stable)
+### 7. Remove lab PM2 (consolidated — one production backend)
 
 ```bash
-pm2 stop qxk24-backend-lab
+pm2 delete qxk24-backend-lab
+pm2 save
 ```
 
-Keep `.env.lab` and `qxk24_lab` DB as backup; do not delete until Founder confirms.
+`ecosystem.config.js` no longer defines `qxk24-backend-lab`. Keep `.env.lab` and `qxk24_lab` DB for import/backup only.
 
 ## Rollback
 

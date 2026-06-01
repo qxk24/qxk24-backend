@@ -39,8 +39,15 @@ import {
   hawaUserMessage,
   isHawaEnabled,
 } from '../hawa/hawa-audit.service';
+import { hawaPrepareProposedContent } from '../hawa/hawa-preflight';
+import { runHawaTierB } from '../hawa/hawa-tier-b.service';
 import { clearHawaHold, markHawaHold } from '../hawa/hawa-hold.store';
 import type { HawaVerdict } from '../hawa/hawa.types';
+import {
+  callToolViaMacBridge,
+  getMacBridgeTools,
+  isMacBridgeConnected,
+} from './mac-bridge.store';
 import type {
   AgentEvent,
   BuildMessage,
@@ -73,10 +80,19 @@ const ADAM_SYSTEM_PROMPT = BUILDER_SYSTEM_PROMPT;
 
 const MAX_LOOPS            = 25;
 const MAX_EMPTY_ROUNDS     = 3;
-const MCP_TOOL_TIMEOUT_MS  = 25_000;
+const MCP_TOOL_TIMEOUT_MS            = 25_000;
+const MCP_TOOL_TIMEOUT_MAC_MS        = 120_000;
+const MCP_TOOL_TIMEOUT_MAC_LIST_MS   = 120_000;
 const TOOL_RESULT_MAX      = 400;
 const CONSTITUTION_RESULT_MAX = 16_000;
 const PROPOSAL_PREVIEW_MAX = 30;
+
+/** ADAM must not call these — only founder HTTP approve / reject routes. */
+const FOUNDER_ONLY_MCP_TOOLS = new Set([
+  'approve_write',
+  'approve_all_writes',
+  'reject_write',
+]);
 
 function toolResultForUi(
   toolName: string,
@@ -150,6 +166,33 @@ function isSuccessfulWriteProposal(resultText: string): boolean {
   return resultText.includes('📋 WRITE PROPOSAL') && /ID: prop_/.test(resultText);
 }
 
+function isMacBridgePathArg(value: unknown): boolean {
+  return typeof value === 'string' && (value.startsWith('mac:') || value.startsWith('@mac/'));
+}
+
+function resolveMcpToolTimeoutMs(
+  toolName: string,
+  toolArgs: Record<string, unknown>,
+): number {
+  if (!ENV.ADAM_MAC_BRIDGE_ENABLED || !isMacBridgeConnected()) {
+    return MCP_TOOL_TIMEOUT_MS;
+  }
+
+  const pathArg = toolArgs.path;
+  const onMacPath = isMacBridgePathArg(pathArg);
+
+  if (
+    toolName === 'list_directory'
+    || toolName === 'get_project_structure'
+    || toolName === 'search_codebase'
+    || toolName === 'find_file'
+  ) {
+    return onMacPath ? MCP_TOOL_TIMEOUT_MAC_LIST_MS : MCP_TOOL_TIMEOUT_MAC_MS;
+  }
+
+  return MCP_TOOL_TIMEOUT_MAC_MS;
+}
+
 function truncatePreview(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
   return `${text.slice(0, maxChars)}\n... (${text.length} chars)`;
@@ -169,29 +212,42 @@ function toHawaPayload(verdict: HawaVerdict): HawaVerdictPayload {
     checkpoint: verdict.checkpoint,
     toolName:   verdict.toolName,
     relPath:    verdict.relPath,
+    tier:       verdict.tier,
   };
 }
 
-async function* yieldHawaReview(
-  record: BuilderSessionRecord,
-  toolName: string,
-  toolArgs: Record<string, unknown>,
-  resultText: string,
-  checkpoint: 'propose_write' | 'post_tool',
-): AsyncGenerator<AgentEvent, HawaVerdict | null> {
-  if (!isHawaEnabled()) return null;
-
-  const verdict = checkpoint === 'propose_write'
-    ? auditProposeWrite(toolArgs, resultText)
-    : auditPostTool(toolName, toolArgs, resultText);
-
-  yield {
-    type:      'hawa_checkpoint',
-    message:   `HAWA is auditing ${toolName}…`,
-    sessionId: record.id,
-    hawa:      toHawaPayload(verdict),
+function mergeTierVerdicts(tierA: HawaVerdict, tierB: HawaVerdict): HawaVerdict {
+  if (tierA.judgment === 'GAGAL' || tierB.judgment === 'GAGAL') {
+    return {
+      ...tierB,
+      judgment: 'GAGAL',
+      findings: [...tierA.findings, ...tierB.findings],
+      stop:     true,
+      tier:     'A+B',
+    };
+  }
+  if (tierA.judgment === 'ISLAH' || tierB.judgment === 'ISLAH') {
+    return {
+      ...tierB,
+      judgment: 'ISLAH',
+      findings: [...tierA.findings, ...tierB.findings],
+      stop:     false,
+      tier:     'A+B',
+    };
+  }
+  return {
+    ...tierB,
+    judgment: 'LULUS',
+    findings: [],
+    stop:     false,
+    tier:     'A+B',
   };
+}
 
+async function* yieldHawaFinal(
+  record: BuilderSessionRecord,
+  verdict: HawaVerdict,
+): AsyncGenerator<AgentEvent, HawaVerdict> {
   if (verdict.judgment === 'LULUS') {
     yield {
       type:      'hawa_lulus',
@@ -233,6 +289,138 @@ async function* yieldHawaReview(
   saveBuilderSession(record);
 
   return verdict;
+}
+
+async function* yieldHawaProposeReview(
+  record: BuilderSessionRecord,
+  toolArgs: Record<string, unknown>,
+  resultText: string,
+): AsyncGenerator<AgentEvent, HawaVerdict | null> {
+  const relPath = typeof toolArgs.path === 'string' ? toolArgs.path : '';
+  const rawContent = typeof toolArgs.content === 'string' ? toolArgs.content : '';
+  const reason  = typeof toolArgs.reason === 'string' ? toolArgs.reason : '';
+  const content = rawContent.trim()
+    ? hawaPrepareProposedContent(rawContent, relPath).content
+    : rawContent;
+
+  yield {
+    type:      'thinking',
+    message:   'HAWA Tier A — constitutional pre-flight…',
+    sessionId: record.id,
+    toolName:  'hawa_audit',
+  };
+
+  const tierA = auditProposeWrite(toolArgs, resultText);
+  const tierAVerdict: HawaVerdict = { ...tierA, tier: 'A' };
+
+  yield {
+    type:      'hawa_checkpoint',
+    message:   `HAWA Tier A: ${tierA.judgment}`,
+    sessionId: record.id,
+    hawa:      toHawaPayload(tierAVerdict),
+  };
+
+  if (tierA.judgment === 'GAGAL' && tierA.stop) {
+    if (tierA.findings.length) {
+      yield {
+        type:      'thinking',
+        message:   `HAWA GAGAL (Tier A) — ${tierA.findings.join(' | ')}`,
+        sessionId: record.id,
+        toolName:  'hawa_audit',
+      };
+    }
+    return yield* yieldHawaFinal(record, tierAVerdict);
+  }
+
+  if (tierA.judgment === 'ISLAH' && tierA.findings.length) {
+    yield {
+      type:      'thinking',
+      message:   `HAWA ISLAH (Tier A) — ${tierA.findings.join(' | ')}`,
+      sessionId: record.id,
+      toolName:  'hawa_audit',
+    };
+  }
+
+  yield {
+    type:      'thinking',
+    message:   'HAWA Tier B — semantic audit running…',
+    sessionId: record.id,
+    toolName:  'hawa_audit',
+  };
+
+  const tierBResult = await runHawaTierB(content, relPath, reason);
+  const tierBVerdict: HawaVerdict = {
+    judgment:   tierBResult.judgment,
+    findings:   tierBResult.findings,
+    stop:       tierBResult.judgment === 'GAGAL',
+    checkpoint: 'propose_write',
+    toolName:   'propose_file_write',
+    relPath,
+    tier:       'B',
+  };
+
+  yield {
+    type:      'hawa_checkpoint',
+    message:   `HAWA Tier B: ${tierBResult.judgment}`,
+    sessionId: record.id,
+    hawa:      toHawaPayload(tierBVerdict),
+  };
+
+  if (tierBResult.judgment === 'GAGAL') {
+    yield {
+      type:      'thinking',
+      message:   `HAWA GAGAL (Tier B) — ${tierBResult.findings.join(' | ')}`,
+      sessionId: record.id,
+      toolName:  'hawa_audit',
+    };
+    return yield* yieldHawaFinal(record, mergeTierVerdicts(tierAVerdict, tierBVerdict));
+  }
+
+  if (tierBResult.judgment === 'ISLAH' && tierBResult.findings.length) {
+    yield {
+      type:      'thinking',
+      message:   `HAWA ISLAH (Tier B) — ${tierBResult.findings.join(' | ')}`,
+      sessionId: record.id,
+      toolName:  'hawa_audit',
+    };
+  }
+
+  if (tierBResult.judgment === 'LULUS') {
+    yield {
+      type:      'thinking',
+      message:   'HAWA LULUS (Tier A+B) — proposal may proceed to founder LULUS',
+      sessionId: record.id,
+      toolName:  'hawa_audit',
+    };
+  }
+
+  const combined = mergeTierVerdicts(tierAVerdict, tierBVerdict);
+  return yield* yieldHawaFinal(record, combined);
+}
+
+async function* yieldHawaReview(
+  record: BuilderSessionRecord,
+  toolName: string,
+  toolArgs: Record<string, unknown>,
+  resultText: string,
+  checkpoint: 'propose_write' | 'post_tool',
+): AsyncGenerator<AgentEvent, HawaVerdict | null> {
+  if (!isHawaEnabled()) return null;
+
+  if (checkpoint === 'propose_write') {
+    return yield* yieldHawaProposeReview(record, toolArgs, resultText);
+  }
+
+  const postVerdict = auditPostTool(toolName, toolArgs, resultText);
+
+  yield {
+    type:      'hawa_checkpoint',
+    message:   `HAWA is auditing ${toolName}…`,
+    sessionId: record.id,
+    hawa:      toHawaPayload(postVerdict),
+  };
+
+  return yield* yieldHawaFinal(record, postVerdict);
 }
 
 function extractProposal(resultText: string, toolArgs: Record<string, unknown>): AgentEvent['proposal'] {
@@ -279,6 +467,16 @@ export class AdamBuilderAgentService {
   }
 
   private async connect(founderToken: string): Promise<void> {
+    if (ENV.ADAM_MAC_BRIDGE_ENABLED && isMacBridgeConnected()) {
+      this.mcpClient = null;
+      this.mcpTools = getMacBridgeTools();
+      if (!this.mcpTools.length) {
+        throw new Error('Mac bridge connected but no tools registered — restart mac-bridge on Mac.');
+      }
+      console.log(`[ADAM Builder] Mac bridge — ${this.mcpTools.length} tools`);
+      return;
+    }
+
     await loadMcpSdk();
     if (!ClientClass || !StdioTransportClass) {
       throw new Error('MCP SDK failed to load.');
@@ -308,11 +506,19 @@ export class AdamBuilderAgentService {
     toolArgs: Record<string, unknown>,
     founderToken: string,
   ): Promise<string> {
+    if (ENV.ADAM_MAC_BRIDGE_ENABLED && isMacBridgeConnected()) {
+      return callToolViaMacBridge(
+        toolName,
+        toolArgs,
+        resolveMcpToolTimeoutMs(toolName, toolArgs),
+      );
+    }
+
     await this.ensureConnected(founderToken);
     if (!this.mcpClient) throw new Error('MCP client not connected.');
 
     const result = await this.mcpClient.callTool({
-      name: toolName,
+      name:      toolName,
       arguments: toolArgs,
     });
 
@@ -402,8 +608,25 @@ export class AdamBuilderAgentService {
     toolArgs: Record<string, unknown>,
     founderToken: string,
   ): Promise<{ result: string; timedOut: boolean }> {
+    if (FOUNDER_ONLY_MCP_TOOLS.has(toolName)) {
+      return {
+        result: [
+          '⛔ BLOCKED: approve_write / reject_write are founder-only.',
+          'ADAM must use propose_file_write, then wait for founder LULUS in the build drawer.',
+          'The kernel writes the file only after the founder taps Approve.',
+        ].join(' '),
+        timedOut: false,
+      };
+    }
+
     try {
-      const result = await this.callToolWithTimeout(toolName, toolArgs, founderToken);
+      const timeoutMs = resolveMcpToolTimeoutMs(toolName, toolArgs);
+      const result = await this.callToolWithTimeout(
+        toolName,
+        toolArgs,
+        founderToken,
+        timeoutMs,
+      );
       return { result, timedOut: false };
     } catch (err) {
       const message = (err as Error).message;
@@ -616,26 +839,35 @@ export class AdamBuilderAgentService {
         );
 
         if (timedOut) {
-          yield {
-            type:      'error',
-            message:   `Tool "${toolName}" timed out — reconnecting MCP…`,
-            sessionId: record.id,
-          };
-          try {
-            await this.reconnectMcp(founderToken);
-            yield {
-              type:      'thinking',
-              message:   'Reconnected to MCP — continuing…',
-              sessionId: record.id,
-            };
-          } catch (reconnErr) {
+          const onMacBridge = ENV.ADAM_MAC_BRIDGE_ENABLED && isMacBridgeConnected();
+          if (onMacBridge) {
             yield {
               type:      'error',
-              message:   `MCP reconnect failed: ${(reconnErr as Error).message}`,
+              message:   `Tool "${toolName}" timed out on Mac bridge. Use a narrower path (e.g. mac:Desktop/qxk24/qxk24-backend) and list depth 1–2 — not mac:Desktop depth 4.`,
               sessionId: record.id,
             };
-            deleteBuilderSession(record.id);
-            return;
+          } else {
+            yield {
+              type:      'error',
+              message:   `Tool "${toolName}" timed out — reconnecting MCP…`,
+              sessionId: record.id,
+            };
+            try {
+              await this.reconnectMcp(founderToken);
+              yield {
+                type:      'thinking',
+                message:   'Reconnected to MCP — continuing…',
+                sessionId: record.id,
+              };
+            } catch (reconnErr) {
+              yield {
+                type:      'error',
+                message:   `MCP reconnect failed: ${(reconnErr as Error).message}`,
+                sessionId: record.id,
+              };
+              deleteBuilderSession(record.id);
+              return;
+            }
           }
         }
 
@@ -677,6 +909,10 @@ export class AdamBuilderAgentService {
           }
 
           const proposal = extractProposal(resultText, toolArgs);
+          record.awaitingFounderLulus = true;
+          record.pendingProposalId = proposal?.id;
+          saveBuilderSession(record);
+
           yield {
             type:      'proposal',
             toolName,
@@ -687,7 +923,7 @@ export class AdamBuilderAgentService {
 
           yield {
             type:      'approval_needed',
-            message:   `Waiting for your approval of: ${String(toolArgs.path ?? '')}`,
+            message:   `Waiting for founder LULUS: ${String(toolArgs.path ?? '')}`,
             sessionId: record.id,
           };
           return;
@@ -771,6 +1007,10 @@ export class AdamBuilderAgentService {
         sessionId: record.id,
       };
     }
+
+    record.awaitingFounderLulus = false;
+    record.pendingProposalId = undefined;
+    saveBuilderSession(record);
 
     yield* this.runAgentLoop(record, founderToken, resumeNote, signal);
   }
