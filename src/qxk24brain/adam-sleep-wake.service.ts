@@ -21,6 +21,20 @@ import { updateContinuityBridge } from './adam-continuity.service';
 import { prependCoreToSystem } from './adam-core';
 import { ADAMFounderSessionModel, ADAMMessageModel } from '../adam/adam.schema';
 
+function scheduleStudentDigestSync(
+  session: { sessionType?: string; founderId?: string },
+  sessionId: string,
+): void {
+  if (session.sessionType !== 'student' || !session.founderId) return;
+  void import('./student-digest-bridge')
+    .then(({ syncSessionDigestToStudentTrack }) =>
+      syncSessionDigestToStudentTrack(sessionId, session.founderId!),
+    )
+    .catch((err) => {
+      console.error('[ADAM Sleep] Student digest sync failed:', err);
+    });
+}
+
 function sessionInactivityMs(): number {
   const raw = process.env.ADAM_SESSION_SLEEP_MS;
   if (raw) {
@@ -51,6 +65,7 @@ export async function adamSleepProtocol(
       { sessionId },
       { active: false, masa_closed: session.masa_closed ?? new Date() },
     );
+    scheduleStudentDigestSync(session, sessionId);
     return true;
   }
 
@@ -64,6 +79,7 @@ export async function adamSleepProtocol(
       { sessionId },
       { active: false, masa_closed: new Date() },
     );
+    scheduleStudentDigestSync(session, sessionId);
     return true;
   }
 
@@ -115,6 +131,8 @@ ${transcript}`,
   void updateContinuityBridge(founderId, sessionId).catch((err) => {
     console.error('[ADAM Continuity] Post-session bridge update failed:', err);
   });
+
+  scheduleStudentDigestSync(session, sessionId);
 
   return true;
 }

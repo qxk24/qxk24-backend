@@ -31,6 +31,7 @@ import {
   ensureStudentTrackRow,
   updateStudentConstitutionalState,
 } from '../qxk24brain/qxk24brain-student.engine';
+import { lazySyncPriorSessionDigest } from '../qxk24brain/student-digest-bridge';
 
 const CURRENT_SESSION_TURNS = 20;
 const TURN_CHAR_CAP = 6_000;
@@ -231,6 +232,8 @@ export async function buildStudentContinuityBridge(
   triggerMessage = '',
 ): Promise<string> {
   try {
+    void lazySyncPriorSessionDigest(studentId, sessionId).catch(() => {});
+
     const [master, sessions, workspaces, constitutionalState] = await Promise.all([
       getOrCreateMaster(FOUNDER_USER_ID),
       ADAMFounderSessionModel.find({

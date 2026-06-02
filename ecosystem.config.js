@@ -42,5 +42,20 @@ module.exports = {
       max_restarts: 10,
       autorestart: true,
     },
+    {
+      name: 'student-digest-sync',
+      script: './dist/jobs/student-digest-sync.job.js',
+      instances: 1,
+      exec_mode: 'fork',
+      watch: false,
+      autorestart: false,
+      cron_restart: '*/30 * * * *',
+      env_production: {
+        NODE_ENV: 'production',
+      },
+      error_file: path.join(logsDir, 'digest-sync-err.log'),
+      out_file: path.join(logsDir, 'digest-sync-out.log'),
+      time: true,
+    },
   ],
 };
