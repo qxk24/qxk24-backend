@@ -69,7 +69,10 @@ import {
   CONSULT_PHRASE,
 } from './adam-system-prompts';
 import { buildFounderStudentsAwarenessBlock } from './adam-student-registry.service';
-import { buildStudentContinuityBridge } from './student-continuity-bridge';
+import {
+  buildStudentContinuityBridge,
+  writeStudentStateAfterTurn,
+} from './student-continuity-bridge';
 import {
   founderWantsStudentRelay,
   founderWantsJournalSeal,
@@ -839,6 +842,15 @@ export async function streamADAMChat(
           userMessage,
           finalResponse,
         ).catch((err) => console.error('[ADAM Workspace] understanding update:', err));
+      }
+
+      if (!isFounder) {
+        void writeStudentStateAfterTurn(
+          participant.userId,
+          participant.userName,
+          finalResponse,
+          userMessage,
+        );
       }
 
       if (teaching.uploadIds.length) {

@@ -25,12 +25,19 @@ import {
 import { getUserWorkspaces } from './adam-workspace.service';
 import { FOUNDER_USER_ID } from './adam-student.types';
 import { getOrCreateMaster } from '../qxk24brain/qxk24brain.engine';
-import { buildStudentBookMessageRecall } from '../qxk24brain/qxk24brain-student.engine';
+import {
+  buildStudentBookMessageRecall,
+  getStudentConstitutionalState,
+  ensureStudentTrackRow,
+  updateStudentConstitutionalState,
+} from '../qxk24brain/qxk24brain-student.engine';
 
 const CURRENT_SESSION_TURNS = 20;
 const TURN_CHAR_CAP = 6_000;
 const PRIOR_SESSIONS_COUNT = 5;
 const PRIOR_TOPIC_CAP = 200;
+const PRIOR_SESSION_SUMMARY_CHARS = 200;
+const OPEN_QUESTIONS_CAP = 5;
 
 function trimText(text: string, maxChars: number): string {
   if (!text) return '';
@@ -127,6 +134,92 @@ async function getPriorSessionSummaries(
   return out;
 }
 
+function formatConstitutionalStateBlock(
+  studentName: string,
+  state: Awaited<ReturnType<typeof getStudentConstitutionalState>>,
+  trackFallback: {
+    constitutionalLevel?: number;
+    masteredTopics?: string[];
+    openQuestions?: string[];
+    zpdReadiness?: boolean;
+    lastSessionSummary?: string;
+    understanding?: string;
+    transformationCount?: number;
+  } | undefined,
+): string[] {
+  const level = state?.constitutionalLevel ?? trackFallback?.constitutionalLevel ?? 1;
+  const mastered = state?.masteredTopics ?? trackFallback?.masteredTopics ?? [];
+  const openQ = state?.openQuestions ?? trackFallback?.openQuestions ?? [];
+  const zpd = state?.zpdReadiness ?? trackFallback?.zpdReadiness ?? false;
+  const lastSummary =
+    state?.lastSessionSummary ?? trackFallback?.lastSessionSummary ?? '';
+  const understanding =
+    state?.understanding ?? trackFallback?.understanding ?? 'Not yet assessed';
+  const transforms =
+    state?.transformationCount ?? trackFallback?.transformationCount ?? 0;
+
+  return [
+    'Constitutional Knowledge State:',
+    `- Knowledge Level : Level ${level} of 6`,
+    `- Mastered Topics : ${mastered.length ? mastered.join(', ') : 'None yet'}`,
+    `- ZPD Status      : ${zpd ? 'Ready to advance to next level' : 'Consolidating current level'}`,
+    `- Transformation  : ${transforms} verified transformation(s)`,
+    `- Understanding   : ${trimText(understanding, 500)}`,
+    '',
+    'Open Questions (carry forward):',
+    openQ.length
+      ? openQ.slice(0, OPEN_QUESTIONS_CAP).map((q) => `  - ${trimText(q, 120)}`).join('\n')
+      : '  None recorded',
+    '',
+    'Last Session Summary (fast read):',
+    lastSummary.trim()
+      ? `  ${trimText(lastSummary, PRIOR_SESSION_SUMMARY_CHARS)}`
+      : '  No prior session summary yet',
+    '',
+  ];
+}
+
+/**
+ * Post-reply hook: persist open questions + last session summary on StudentTrack.
+ */
+export async function writeStudentStateAfterTurn(
+  studentId: string,
+  studentName: string,
+  adamReply: string,
+  studentMessage: string,
+): Promise<void> {
+  try {
+    await ensureStudentTrackRow(studentId, studentName);
+
+    const existing = await getStudentConstitutionalState(studentId);
+    if (!existing) return;
+
+    const isQuestion = studentMessage.trim().endsWith('?');
+    const existingOpen = existing.openQuestions ?? [];
+
+    const appearsUnresolved =
+      isQuestion &&
+      /tidak ada dalam konteks|boleh.*kongsikan|please share|tidak pasti|not in my current context/i.test(
+        adamReply,
+      );
+
+    const updatedOpen = appearsUnresolved
+      ? [...new Set([...existingOpen, studentMessage.trim().slice(0, 120)])].slice(
+          -OPEN_QUESTIONS_CAP,
+        )
+      : existingOpen;
+
+    const lastSessionSummary = trimText(adamReply.replace(/\s+/g, ' '), PRIOR_SESSION_SUMMARY_CHARS);
+
+    await updateStudentConstitutionalState(studentId, {
+      openQuestions: updatedOpen,
+      lastSessionSummary,
+    });
+  } catch (err) {
+    console.error('[StudentContinuityBridge] writeStudentStateAfterTurn:', err);
+  }
+}
+
 /**
  * Build [STUDENT CONTINUITY BRIDGE] for system prompt (student turns only).
  * Fail-open: returns minimal bridge on error — never breaks chat.
@@ -138,7 +231,7 @@ export async function buildStudentContinuityBridge(
   triggerMessage = '',
 ): Promise<string> {
   try {
-    const [master, sessions, workspaces] = await Promise.all([
+    const [master, sessions, workspaces, constitutionalState] = await Promise.all([
       getOrCreateMaster(FOUNDER_USER_ID),
       ADAMFounderSessionModel.find({
         founderId:   studentId,
@@ -146,6 +239,7 @@ export async function buildStudentContinuityBridge(
         active:      true,
       }).lean(),
       getUserWorkspaces(studentId),
+      getStudentConstitutionalState(studentId),
     ]);
 
     const track = master.studentTracks?.find((t) => t.studentId === studentId);
@@ -162,6 +256,7 @@ export async function buildStudentContinuityBridge(
       'When the student refers to a book or earlier thread, use book workspaces and session lines below.',
       'Do NOT say ingatan / forgot / short-term memory. Use CONSTITUTIONAL MEMORY LAW only if absent below.',
       '',
+      ...formatConstitutionalStateBlock(studentName, constitutionalState, track),
       'Status Ilmu Semasa (current learning context):',
     ];
 
@@ -182,7 +277,7 @@ export async function buildStudentContinuityBridge(
       );
     }
 
-    if (track?.understanding?.trim()) {
+    if (track?.understanding?.trim() && !constitutionalState?.understanding) {
       lines.push(`- Brain track: ${messageSnippet(track.understanding, 500)}`);
     }
     lines.push('');

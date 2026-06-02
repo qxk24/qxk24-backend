@@ -168,6 +168,13 @@ export interface StudentTrack {
   understanding:        string;
   transformationCount:  number;
   masa_last_updated:    Date;
+  /** AIDIL knowledge level 1–6 (Teaching Bridge v2 may advance) */
+  constitutionalLevel?: number;
+  masteredTopics?:      string[];
+  openQuestions?:       string[];
+  zpdReadiness?:        boolean;
+  /** Fast-read summary from last ADAM reply (per turn hook) */
+  lastSessionSummary?:  string;
 }
 
 export interface BrainSessionContext {
@@ -243,6 +250,11 @@ const QXK24BrainMasterSchema = new Schema<QXK24BrainMasterDocument>({
     understanding:       String,
     transformationCount: Number,
     masa_last_updated:   Date,
+    constitutionalLevel: { type: Number, default: 1, min: 1, max: 6 },
+    masteredTopics:      { type: [String], default: [] },
+    openQuestions:       { type: [String], default: [] },
+    zpdReadiness:        { type: Boolean, default: false },
+    lastSessionSummary:  { type: String, default: '' },
   }],
   sessionContext: {
     currentSessionId: String,

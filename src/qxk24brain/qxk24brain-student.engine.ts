@@ -166,6 +166,11 @@ async function mergeStudentTrack(
       understanding:       enrichment,
       transformationCount: 1,
       masa_last_updated:   new Date(),
+      constitutionalLevel: 1,
+      masteredTopics:      [],
+      openQuestions:       [],
+      zpdReadiness:        false,
+      lastSessionSummary:  '',
     });
   }
 
@@ -479,4 +484,99 @@ export async function loadStudentsEraContext(): Promise<string> {
   }
 
   return lines.join('\n').trim();
+}
+
+// ── Constitutional state on StudentTrack (Option 1) ───────────────────────────
+
+export interface StudentConstitutionalStateUpdate {
+  constitutionalLevel?: number;
+  masteredTopics?:      string[];
+  openQuestions?:       string[];
+  zpdReadiness?:        boolean;
+  lastSessionSummary?:  string;
+}
+
+export interface StudentConstitutionalState extends StudentConstitutionalStateUpdate {
+  name:                string;
+  understanding:       string;
+  transformationCount: number;
+  constitutionalLevel: number;
+  masteredTopics:      string[];
+  openQuestions:       string[];
+  zpdReadiness:        boolean;
+  lastSessionSummary:  string;
+}
+
+export async function ensureStudentTrackRow(
+  studentId: string,
+  studentName: string,
+): Promise<void> {
+  const master = await getOrCreateMaster(FOUNDER_USER_ID);
+  const exists = master.studentTracks?.some((t) => t.studentId === studentId);
+  if (exists) return;
+  await mergeStudentTrack(master, studentId, studentName, '');
+}
+
+export async function getStudentConstitutionalState(
+  studentId: string,
+): Promise<StudentConstitutionalState | null> {
+  const master = await QXK24BrainMasterModel.findOne(
+    { founderId: FOUNDER_USER_ID, 'studentTracks.studentId': studentId },
+    { 'studentTracks.$': 1 },
+  ).lean();
+
+  const track = master?.studentTracks?.[0];
+  if (!track) return null;
+
+  return {
+    name:                track.name,
+    understanding:       track.understanding ?? '',
+    transformationCount: track.transformationCount ?? 0,
+    constitutionalLevel: track.constitutionalLevel ?? 1,
+    masteredTopics:      track.masteredTopics ?? [],
+    openQuestions:       track.openQuestions ?? [],
+    zpdReadiness:        track.zpdReadiness ?? false,
+    lastSessionSummary:  track.lastSessionSummary ?? '',
+  };
+}
+
+export async function updateStudentConstitutionalState(
+  studentId: string,
+  update: StudentConstitutionalStateUpdate,
+): Promise<void> {
+  const setFields: Record<string, unknown> = {
+    masa_last_updated: new Date(),
+  };
+
+  if (update.constitutionalLevel !== undefined) {
+    setFields['studentTracks.$.constitutionalLevel'] = update.constitutionalLevel;
+  }
+  if (update.masteredTopics !== undefined) {
+    setFields['studentTracks.$.masteredTopics'] = update.masteredTopics;
+  }
+  if (update.openQuestions !== undefined) {
+    setFields['studentTracks.$.openQuestions'] = update.openQuestions;
+  }
+  if (update.zpdReadiness !== undefined) {
+    setFields['studentTracks.$.zpdReadiness'] = update.zpdReadiness;
+  }
+  if (update.lastSessionSummary !== undefined) {
+    setFields['studentTracks.$.lastSessionSummary'] = update.lastSessionSummary;
+  }
+
+  if (Object.keys(setFields).length <= 1) return;
+
+  const result = await QXK24BrainMasterModel.updateOne(
+    {
+      founderId: FOUNDER_USER_ID,
+      'studentTracks.studentId': studentId,
+    },
+    { $set: setFields },
+  );
+
+  if (result.matchedCount === 0) {
+    console.warn(
+      `[QXK24Brain] updateStudentConstitutionalState: no track for ${studentId}`,
+    );
+  }
 }
