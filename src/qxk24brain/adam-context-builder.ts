@@ -80,7 +80,6 @@ import {
 } from '../adam/adam-language-mirror.service';
 import { getOrCreateMaster } from './qxk24brain.engine';
 import {
-  buildStudentContinuityContext,
   getStudentTrackSummary,
   loadStudentsEraContext,
 } from './qxk24brain-student.engine';
@@ -120,12 +119,7 @@ export async function buildSmartContext(
       ? getStudentTrackSummary(participant.userId)
       : Promise.resolve('');
 
-  const studentContinuityPromise =
-    participant.role === 'student'
-      ? buildStudentContinuityContext(participant.userId, sessionId)
-      : Promise.resolve('');
-
-  const [anchor, wakeBlock, master, tiers, studentTrack, studentContinuity] = await Promise.all([
+  const [anchor, wakeBlock, master, tiers, studentTrack] = await Promise.all([
     buildConstitutionalAnchor(
       FOUNDER_USER_ID,
       sessionId,
@@ -142,7 +136,6 @@ export async function buildSmartContext(
       config.BRAIN_CHARS,
     ),
     studentTrackPromise,
-    studentContinuityPromise,
   ]);
 
   messages.push({ role: 'user', content: anchor });
@@ -385,9 +378,6 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
       longTermBlock += `\n\n${workspaceContextBlock(workspace)}`;
     } else if (studentTrack) {
       longTermBlock += `\n${studentTrack}`;
-    }
-    if (studentContinuity) {
-      longTermBlock += `\n\n${studentContinuity}`;
     }
   }
 

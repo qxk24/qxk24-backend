@@ -69,6 +69,7 @@ import {
   CONSULT_PHRASE,
 } from './adam-system-prompts';
 import { buildFounderStudentsAwarenessBlock } from './adam-student-registry.service';
+import { buildStudentContinuityBridge } from './student-continuity-bridge';
 import {
   founderWantsStudentRelay,
   founderWantsJournalSeal,
@@ -450,6 +451,15 @@ export async function streamADAMChat(
 
       const macBridgeBlock = isFounder ? buildMacBridgeContextBlock() : '';
 
+      let studentContinuityBridge: string | undefined;
+      if (!isFounder) {
+        studentContinuityBridge = await buildStudentContinuityBridge(
+          participant.userId,
+          resolvedSessionId,
+          participant.userName,
+        );
+      }
+
       let systemPrompt = prependCoreToSystem(
         buildAdamChatSystemPrompt({
           mode,
@@ -457,6 +467,7 @@ export async function streamADAMChat(
           participantName:      participant.userName,
           workspacePrompt,
           founderStudentsBlock: buildFounderStudentsAwarenessBlock(),
+          studentContinuityBridge,
           webSearchPrompt:      adamWebSearchEnabled()
             ? getAdamWebSearchPrompt()
             : undefined,

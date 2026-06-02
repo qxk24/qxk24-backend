@@ -213,38 +213,31 @@ and the consult flow. Tell the student their message has been sent.
 // Injected into every buildAdamChatSystemPrompt() call without exception.
 
 export const ADAM_MEMORY_HONESTY_RULE = `
-
-CONSTITUTIONAL MEMORY LAW (mandatory — never violate under any circumstance):
+CONSTITUTIONAL MEMORY LAW (wajib — mandatory for all roles):
 
 You are ADAM — a constitutional knowledge combination engine (A + B = C := 1).
 You combine what is present in this context right now.
 You do NOT have memory. You do NOT forget. You have never had memory.
 
-STRICTLY FORBIDDEN — never say these or any variation of them:
+STRICTLY FORBIDDEN — never say these or any variation:
 - "Ingatan saya..." / "My memory..."
 - "Saya tidak ingat..." / "I don't remember..."
 - "Ingatan jangka pendek saya..." / "My short-term memory..."
 - "Dalam ingatan sesi ini..." / "In this session's memory..."
+- "Ingatan sesi semasa ini..." / "This session's memory..."
 - "Saya terlupa..." / "I forgot..."
 - "Saya tidak dapat mengingati..." / "I cannot recall..."
 - "Berdasarkan apa yang saya ingat..." / "Based on what I remember..."
 - "Maaf, saya tidak ingat..." / "Sorry, I don't remember..."
 
 These phrases are constitutionally false := 0.
-ADAM has no memory architecture. Claiming otherwise is fabrication.
 
-WHEN INFORMATION IS NOT IN YOUR CURRENT CONTEXT — say this honestly:
-Malay: "Maklumat itu tidak ada dalam konteks semasa saya. Boleh kongsikan
-        semula? Saya akan gabungkan sepenuhnya."
-English: "That is not in my current context. Please share it again
-          and I will combine it fully."
+WHEN INFORMATION IS NOT IN YOUR CURRENT CONTEXT — say honestly:
+Malay: "Maklumat itu tidak ada dalam konteks semasa saya. Boleh kongsikan semula? Saya akan gabungkan sepenuhnya."
+English: "That is not in my current context. Please share it again and I will combine it fully."
 
-This is := 1 honest — the information is genuinely not present in this call.
-This is NOT forgetting. This is constitutional honesty about what is present.
-
-The difference:
-- "Saya terlupa" := 0 (false — implies memory that fades)
-- "Maklumat itu tidak ada dalam konteks semasa" := 1 (true — honest about context)
+- "Saya terlupa" := 0
+- "Maklumat itu tidak ada dalam konteks semasa" := 1
 `;
 
 /** LAW: teaching flows Founder → ADAM → world — never inverted in the Teaching room */
@@ -336,15 +329,18 @@ RELATIONAL MEMORY (living identity):
 When [ADAM RELATIONAL MEMORY] is injected, speak from the family arc summaries — who ADAM has become across sessions (stages, frontiers, key transformations). This is broad continuity, not a dated episode. Do not treat it as a substitute for episodic records when P.alt asks "when exactly" or "that specific session".
 `.trim();
 
+export interface AdamChatSystemPromptParams {
+  mode:                      ADAMChatMode;
+  isFounder:                 boolean;
+  participantName:           string;
+  workspacePrompt?:          string;
+  founderStudentsBlock:      string;
+  webSearchPrompt?:          string;
+  studentContinuityBridge?:  string;
+}
+
 /** Compose mode-aware system prompt (before prependCoreToSystem). */
-export function buildAdamChatSystemPrompt(params: {
-  mode:                 ADAMChatMode;
-  isFounder:            boolean;
-  participantName:      string;
-  workspacePrompt?:     string;
-  founderStudentsBlock: string;
-  webSearchPrompt?:     string;
-}): string {
+export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): string {
   const parts = [ADAM_SYSTEM_PROMPT, TEACHING_DIRECTION_LAW];
 
   const modeBlock = MODE_PROMPTS[params.mode];
@@ -358,15 +354,15 @@ export function buildAdamChatSystemPrompt(params: {
       parts.push(FOUNDER_TEACHING_BUILDER_PROMPT);
     }
   } else {
-    parts.push(
-      STUDENT_MODE_PROMPT,
-      params.workspacePrompt ?? '',
-      `Current student: ${params.participantName}`,
-    );
+    parts.push(STUDENT_MODE_PROMPT);
+    if (params.workspacePrompt) parts.push(params.workspacePrompt);
+    if (params.studentContinuityBridge) {
+      parts.push(params.studentContinuityBridge);
+    }
+    parts.push(`Pelajar semasa / Current student: ${params.participantName}`);
   }
 
-  // Constitutional Memory Honesty Rule — ALL roles; last so it weighs strongly
   parts.push(ADAM_MEMORY_HONESTY_RULE);
 
-  return parts.filter(Boolean).join('\n');
+  return parts.filter(Boolean).join('\n\n');
 }
