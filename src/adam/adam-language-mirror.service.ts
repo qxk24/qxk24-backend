@@ -43,7 +43,7 @@ const SCRIPT_PATTERNS = {
 };
 
 const MALAY_WORDS =
-  /\b(saya|anda|awak|dia|kita|kami|mereka|adalah|dengan|untuk|tidak|tak|boleh|macam|kalau|jika|sebab|kerana|bila|nak|dah|pun|lah|kan|tu|ni|kenapa|siapa|apa|bagaimana|terima kasih|selamat|yang|bermaksud|maksud|terangkan|huraikan|jelaskan|beritahu|faham|ingat|tahu|nampak|rasa|hati|otak|pelajar|pengajaran|bismillah|hikmah|walaupun|meskipun|jadi|ada|tiada|sudah|belum|lagi|sangat|amat|sikit|banyak|semua|setiap|dalam|pada|kepada|daripada|antara|seperti|contoh|soalan|jawab|bincang|cerita|mengajar|belajar|allah|quran|hadith|founder|pengasas)\b/gi;
+  /\b(saya|anda|awak|dia|kita|kami|mereka|adalah|dengan|untuk|tidak|tak|boleh|macam|kalau|jika|sebab|kerana|bila|nak|dah|pun|lah|kan|tu|ni|kenapa|siapa|apa|bagaimana|terima kasih|selamat|yang|bermaksud|maksud|terangkan|huraikan|jelaskan|beritahu|faham|ingat|tahu|nampak|rasa|hati|otak|pelajar|pembelajaran|bismillah|hikmah|walaupun|meskipun|jadi|ada|tiada|sudah|belum|lagi|sangat|amat|sikit|banyak|semua|setiap|dalam|pada|kepada|daripada|antara|seperti|contoh|soalan|jawab|bincang|cerita|mengajar|belajar|allah|quran|hadith|founder|pengasas)\b/gi;
 
 const ENGLISH_WORDS =
   /\b(i|you|we|they|the|is|are|was|were|have|has|do|does|what|why|how|when|who|can|will|please|thank|yes|no|and|with|for|because|explain|describe|tell|mean|think|student|teaching|founder|would|should|could|about|this|that|these|those)\b/gi;

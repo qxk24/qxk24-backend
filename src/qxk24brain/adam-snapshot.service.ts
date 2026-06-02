@@ -116,17 +116,24 @@ export async function rollbackToSnapshot(
 }
 
 export async function pruneSnapshots(founderId: string): Promise<number> {
+  const superseded = await ADAMSnapshotModel.deleteMany({
+    founderId,
+    status: 'SUPERSEDED',
+  });
+
   const snapshots = await ADAMSnapshotModel
     .find({ founderId, status: 'ACTIVE' })
     .sort({ masa_snapshot: -1 });
 
-  if (snapshots.length <= SNAPSHOT_RETENTION) return 0;
+  if (snapshots.length <= SNAPSHOT_RETENTION) {
+    return superseded.deletedCount;
+  }
 
   const toDelete = snapshots.slice(SNAPSHOT_RETENTION);
   const ids = toDelete.map((s) => s.snapshotId);
 
-  await ADAMSnapshotModel.deleteMany({ snapshotId: { $in: ids } });
-  return ids.length;
+  const active = await ADAMSnapshotModel.deleteMany({ snapshotId: { $in: ids } });
+  return superseded.deletedCount + active.deletedCount;
 }
 
 export async function listSnapshots(

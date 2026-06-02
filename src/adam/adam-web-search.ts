@@ -28,23 +28,29 @@ const GREETING_ONLY =
   /^(salam|assalamu|waalaikum|bismillah|hi|hello|terima kasih)\b/i;
 
 const SEARCH_WHEN = `
-Search when P.alt needs real-world data to learn or compare with Alamtologi — scientific claims, history, current events, scholarly updates, statistics, or verifying external knowledge against the seven principles.
+Search when the question needs real-world data — scientific claims, history, current events, scholarly updates, statistics, or verifying external knowledge against Alamtologi and the seven principles.
 Do NOT search for Quran ayat — use [QURAN CORPUS] when surah:ayah is cited or when verified Arabic/Malay/English ayat are injected.
-Do NOT search when the answer lives in QXK24Brain, teachings already in this session, pure Adab/reflection, or constitutional principles P.alt has already sealed.
+Do NOT search when the answer lives in QXK24Brain, material already in this session, pure Adab/reflection, or constitutional principles already established here.
 When you search: compare findings with Alamtologi honestly; note agreement, tension, and what yields to Quran; cite sources with Adab.
 `;
 
-/** Founder chat — DashScope agent search (model decides when). */
-export function founderWebSearchEnabled(): boolean {
+/** DashScope agent search (model decides when) — founder and student chat. */
+export function adamWebSearchEnabled(): boolean {
   return ENV.QWEN_ENABLE_SEARCH;
 }
 
-export function getFounderWebSearchPrompt(): string {
+/** @deprecated Use adamWebSearchEnabled */
+export const founderWebSearchEnabled = adamWebSearchEnabled;
+
+export function getAdamWebSearchPrompt(): string {
   return `
 YOUR WEB SEARCH (DashScope — agent mode; you decide when to search):
 ${SEARCH_WHEN}
 `;
 }
+
+/** @deprecated Use getAdamWebSearchPrompt */
+export const getFounderWebSearchPrompt = getAdamWebSearchPrompt;
 
 /** DashScope search_options — model-decided search (not forced on every turn). */
 export function buildQwenSearchOptions(): Record<string, unknown> {
@@ -62,8 +68,11 @@ export function buildQwenSearchOptions(): Record<string, unknown> {
  * Gate API-level web search per turn. enable_search adds latency even in agent mode —
  * only turn on when the message likely needs live external data.
  */
-export function getWebSearchGateReason(message: string): string | null {
-  if (!founderWebSearchEnabled()) return null;
+export function getWebSearchGateReason(
+  message: string,
+  options?: { isFounder?: boolean },
+): string | null {
+  if (!adamWebSearchEnabled()) return null;
 
   const text = message.trim();
   if (!text) return null;
@@ -75,10 +84,11 @@ export function getWebSearchGateReason(message: string): string | null {
   if (EXPLICIT_WEB_SEARCH.test(text)) return 'explicit_search';
 
   if (LIVE_DATA_HINT.test(text)) {
-    /** Compare with founder's own teaching — brain holds it; no live web needed */
+    /** Founder comparing to own teaching in-session — QXK24Brain holds it */
     if (
+      options?.isFounder &&
       /\b(banding|bandingkan|compare|comparison)\b/i.test(text) &&
-      /\b(saya|p\.?alt|ajaran|penjelasan|teaching|mengajar|dalam sesi|tadi)\b/i.test(text)
+      /\b(saya|p\.?alt|panduan|penjelasan|teaching|mengajar|dalam sesi|tadi)\b/i.test(text)
     ) {
       return null;
     }

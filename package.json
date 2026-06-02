@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit",
     "quran:fetch": "node scripts/fetch-quran-corpus.mjs",
     "backfill:teaching-records": "ts-node --transpile-only src/scripts/backfill-teaching-records.ts",
-    "backfill:teaching-records:lab": "QXK24_STACK=lab ts-node --transpile-only src/scripts/backfill-teaching-records.ts"
+    "backfill:teaching-records:lab": "QXK24_STACK=lab ts-node --transpile-only src/scripts/backfill-teaching-records.ts",
+    "atlas:audit": "node scripts/atlas-storage-rescue.mjs",
+    "atlas:rescue": "node scripts/atlas-storage-rescue.mjs --execute logs,ledger,snapshots"
   },
   "engines": {
     "node": ">=18.0.0"

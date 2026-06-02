@@ -182,7 +182,7 @@ export async function recordTeachingTransformation(
 }
 
 export function founderAsksTeachingRecall(message: string): boolean {
-  return /\b(remember|recall|ingat|ingatkan|do you remember|what did we discuss|what did i teach|when you first|when i first|autobiograph|cerita|kisah|bila kita|sesi itu|teaching record|rekod ajaran)\b/i.test(
+  return /\b(remember|recall|ingat|ingatkan|do you remember|what did we discuss|what did i teach|when you first|when i first|autobiograph|cerita|kisah|bila kita|sesi itu|teaching record|rekod pembelajaran)\b/i.test(
     message,
   );
 }

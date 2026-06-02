@@ -17,8 +17,8 @@
 
 import { ENV } from '../config/environments';
 import {
-  founderWebSearchEnabled,
-  getFounderWebSearchPrompt,
+  adamWebSearchEnabled,
+  getAdamWebSearchPrompt,
   getWebSearchGateReason,
 } from './adam-web-search';
 import { resolveAdamChatModel, resolveAdamMaxTokens, resolveQwenEnableThinking } from '../config/llm-models';
@@ -413,8 +413,8 @@ export async function streamADAMChat(
           participantName:      participant.userName,
           workspacePrompt,
           founderStudentsBlock: buildFounderStudentsAwarenessBlock(),
-          webSearchPrompt:      isFounder && founderWebSearchEnabled()
-            ? getFounderWebSearchPrompt()
+          webSearchPrompt:      adamWebSearchEnabled()
+            ? getAdamWebSearchPrompt()
             : undefined,
         }),
       );
@@ -444,7 +444,7 @@ export async function streamADAMChat(
       const llmMessages = toLlmMessages(contextMessages);
       const maxTokens = resolveAdamMaxTokens(modelChoice.tier, isFounder, mode);
       const enableThinking = resolveQwenEnableThinking(modelChoice.tier, mode);
-      const webSearchGateReason = isFounder ? getWebSearchGateReason(userMessage) : null;
+      const webSearchGateReason = getWebSearchGateReason(userMessage, { isFounder });
       const enableWebSearch = Boolean(webSearchGateReason);
 
       if (enableWebSearch) {

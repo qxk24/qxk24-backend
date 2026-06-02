@@ -65,6 +65,23 @@ const ADAMSnapshotSchema = new Schema<ADAMSnapshotDocument>({
 
 ADAMSnapshotSchema.index({ founderId: 1, status: 1, masa_snapshot: -1 });
 
+/** Atlas M0: auto-purge successful rollbacks; ACTIVE docs lack this field and are kept. */
+const supersededTtlHours = parseInt(process.env.ADAM_SNAPSHOT_SUPERSEDED_TTL_HOURS ?? '24', 10) || 24;
+ADAMSnapshotSchema.index(
+  { masa_superseded: 1 },
+  { expireAfterSeconds: supersededTtlHours * 60 * 60 },
+);
+
+/** Rollback-used snapshots — partial TTL so ACTIVE/SUPERSEDED indexes stay valid. */
+const restoredTtlHours = parseInt(process.env.ADAM_SNAPSHOT_RESTORED_TTL_HOURS ?? '168', 10) || 168;
+ADAMSnapshotSchema.index(
+  { masa_restored: 1 },
+  {
+    expireAfterSeconds: restoredTtlHours * 60 * 60,
+    partialFilterExpression: { status: 'RESTORED' },
+  },
+);
+
 export const ADAMSnapshotModel = mongoose.model<ADAMSnapshotDocument>(
   'ADAMSnapshot',
   ADAMSnapshotSchema,

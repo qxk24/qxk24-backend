@@ -16,6 +16,7 @@
  */
 
 import mongoose from 'mongoose';
+import { withMongoRetry } from '../config/database';
 import { ENV } from '../config/environments';
 import { FOUNDER_USER_ID } from '../adam/adam-student.types';
 import { ADAMFounderSessionModel, ADAMMessageModel } from '../adam/adam.schema';
@@ -84,11 +85,13 @@ export function getSystemPulse(): SystemPulse {
 async function checkMongoDB(): Promise<HealthCheck> {
   const start = Date.now();
   try {
-    const state = mongoose.connection.readyState;
-    if (state !== 1) {
-      return { status: 'fail', latencyMs: Date.now() - start, detail: `MongoDB readyState: ${state}` };
-    }
-    await mongoose.connection.db?.admin().ping();
+    await withMongoRetry(async () => {
+      const state = mongoose.connection.readyState;
+      if (state !== 1) {
+        throw new Error(`MongoDB readyState: ${state}`);
+      }
+      await mongoose.connection.db?.admin().ping();
+    });
     return { status: 'ok', latencyMs: Date.now() - start, detail: 'MongoDB connected and responsive' };
   } catch (err) {
     return { status: 'fail', latencyMs: Date.now() - start, detail: `MongoDB error: ${(err as Error).message}` };
