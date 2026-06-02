@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDeepModel } from '../config/llm-models';
 import { llmCompleteUserPrompt } from '../llm/llm-client';
 import { ADAMJournalModel } from './adam.schema';
+import { endOfMalaysiaDay, startOfMalaysiaDay } from './adam-journal-daily-segment';
 import type {
   AlamtologiAcademicJournal,
   JournalCategory,
@@ -519,31 +520,211 @@ export async function getJournalAudits(journalId: string): Promise<ADAMAuditRepo
 
 // ─── List Journals ────────────────────────────────────────────
 
-export async function listJournals(filter: {
-  status?:   string;
-  judgment?: string;
-  limit?:    number;
-  skip?:     number;
-}): Promise<{ journals: AlamtologiAcademicJournal[]; total: number }> {
+const JOURNAL_LIST_SUMMARY_SELECT =
+  'title abstract category principlesFocus authorName ahriScore hukumZAnalysis tahapAkalAchieved cVLevel judgment status submittedAt reviewedAt publishedAt reviewNotes journalNumber knowledgeTopicId knowledgeMajor knowledgeDiscipline knowledgeSubfield source';
+
+const EMPTY_JOURNAL_CONTENT: AlamtologiAcademicJournal['content'] = {
+  introduction:        '',
+  background:          '',
+  methodology:         '',
+  alamtologiAnalysis:  [],
+  findings:            '',
+  discussion:          '',
+  conclusion:          '',
+  references:          [],
+};
+
+export interface JournalListFilter {
+  status?:            string;
+  judgment?:          string;
+  limit?:             number;
+  skip?:              number;
+  q?:                 string;
+  /** Malaysia calendar day YYYY-MM-DD (submittedAt) */
+  date?:              string;
+  /** Published month YYYY-MM (publishedAt, public catalogue) */
+  publishedMonth?:    string;
+  knowledgeMajor?:    string;
+  knowledgeTopicId?:  string;
+  /** Omit full IMRaD body — safe for 600+ row lists */
+  summary?:           boolean;
+}
+
+function buildJournalListQuery(filter: JournalListFilter): Record<string, unknown> {
   const query: Record<string, unknown> = {};
-  if (filter.status)   query.status   = filter.status;
-  if (filter.judgment) query.judgment = filter.judgment;
+  if (filter.status)            query.status            = filter.status;
+  if (filter.judgment)          query.judgment          = filter.judgment;
+  if (filter.knowledgeMajor)    query.knowledgeMajor    = filter.knowledgeMajor;
+  if (filter.knowledgeTopicId)  query.knowledgeTopicId  = filter.knowledgeTopicId;
+
+  if (filter.date?.trim()) {
+    const day = new Date(`${filter.date.trim()}T12:00:00+08:00`);
+    query.submittedAt = { $gte: startOfMalaysiaDay(day), $lte: endOfMalaysiaDay(day) };
+  }
+
+  if (filter.publishedMonth?.trim()) {
+    const [y, m] = filter.publishedMonth.trim().split('-');
+    if (y && m) {
+      const monthStart = new Date(`${y}-${m}-01T00:00:00+08:00`);
+      const nextMonth = new Date(monthStart);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      query.publishedAt = { $gte: monthStart, $lt: nextMonth };
+    }
+  }
+
+  const q = filter.q?.trim();
+  if (q) {
+    const rx = new RegExp(escapeRegex(q), 'i');
+    query.$or = [
+      { title: rx },
+      { abstract: rx },
+      { knowledgeSubfield: rx },
+      { knowledgeDiscipline: rx },
+      { knowledgeTopicId: rx },
+      { authorName: rx },
+      { journalNumber: rx },
+    ];
+  }
+
+  return query;
+}
+
+export async function listJournals(
+  filter: JournalListFilter,
+): Promise<{ journals: AlamtologiAcademicJournal[]; total: number }> {
+  const query = buildJournalListQuery(filter);
+  const limit = Math.min(Math.max(filter.limit ?? 20, 1), 100);
+  const skip  = Math.max(filter.skip ?? 0, 0);
+
+  let finder = ADAMJournalModel.find(query)
+    .sort({ submittedAt: -1 })
+    .skip(skip)
+    .limit(limit);
+
+  if (filter.summary) {
+    finder = finder.select(JOURNAL_LIST_SUMMARY_SELECT) as typeof finder;
+  }
+
+  const [docs, total] = await Promise.all([
+    finder.lean(),
+    ADAMJournalModel.countDocuments(query),
+  ]);
+
+  const summary = Boolean(filter.summary);
+  return {
+    journals: docs.map((doc) => mapToJournal(doc, { summary })),
+    total,
+  };
+}
+
+export const REVIEW_CHAIN_MAX = 700;
+
+/** Ordered journal ids for keyboard prev/next in founder review */
+export async function getJournalReviewChain(
+  filter: JournalListFilter,
+): Promise<{ ids: string[]; total: number }> {
+  const query = buildJournalListQuery(filter);
+  const limit = Math.min(filter.limit ?? REVIEW_CHAIN_MAX, REVIEW_CHAIN_MAX);
 
   const [docs, total] = await Promise.all([
     ADAMJournalModel.find(query)
       .sort({ submittedAt: -1 })
-      .skip(filter.skip  ?? 0)
-      .limit(filter.limit ?? 20)
+      .select('_id')
+      .limit(limit)
       .lean(),
     ADAMJournalModel.countDocuments(query),
   ]);
 
-  return { journals: docs.map(mapToJournal), total };
+  return {
+    ids: docs.map((d) => d._id.toString()),
+    total,
+  };
 }
 
-/** Public catalogue — published journals only */
-export async function listPublishedJournals(limit = 24, skip = 0) {
-  return listJournals({ status: 'PUBLISHED', limit, skip });
+export interface BulkApproveJournalsOptions {
+  date?:             string;
+  status?:           string;
+  knowledgeMajor?:   string;
+  q?:                string;
+  ids?:              string[];
+  reviewNotes?:      string;
+  publish?:          boolean;
+  limit?:            number;
+}
+
+export interface BulkApproveJournalsResult {
+  requested:  number;
+  processed:  number;
+  published:  number;
+  skipped:    number;
+  failures:   { id: string; error: string }[];
+}
+
+/** Founder bulk approve + publish (capped per request) */
+export async function bulkApproveJournals(
+  opts: BulkApproveJournalsOptions,
+): Promise<BulkApproveJournalsResult> {
+  const cap = Math.min(Math.max(opts.limit ?? 25, 1), 50);
+  const notes = opts.reviewNotes?.trim() || 'Bulk Founder approval.';
+  const publish = opts.publish !== false;
+
+  let ids = opts.ids?.map((id) => id.trim()).filter(Boolean) ?? [];
+  if (ids.length === 0) {
+    const chain = await getJournalReviewChain({
+      date:           opts.date,
+      status:         opts.status ?? 'PENDING_REVIEW',
+      knowledgeMajor: opts.knowledgeMajor,
+      q:              opts.q,
+      limit:          cap,
+    });
+    ids = chain.ids;
+  } else {
+    ids = ids.slice(0, cap);
+  }
+
+  let processed = 0;
+  let published = 0;
+  let skipped = 0;
+  const failures: { id: string; error: string }[] = [];
+
+  for (const id of ids) {
+    try {
+      const doc = await ADAMJournalModel.findById(id).select('status').lean();
+      if (!doc || doc.status !== 'PENDING_REVIEW') {
+        skipped += 1;
+        continue;
+      }
+      const result = await approveJournal(id, notes, { publish });
+      if (result) {
+        processed += 1;
+        if (result.status === 'PUBLISHED') published += 1;
+      } else {
+        skipped += 1;
+      }
+    } catch (err: unknown) {
+      failures.push({
+        id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  return { requested: ids.length, processed, published, skipped, failures };
+}
+
+/** Public catalogue — published journals only (summary rows) */
+export async function listPublishedJournals(
+  limit = 24,
+  skip = 0,
+  extra: Omit<JournalListFilter, 'status' | 'limit' | 'skip'> = {},
+) {
+  return listJournals({
+    status:  'PUBLISHED',
+    limit,
+    skip,
+    summary: true,
+    ...extra,
+  });
 }
 
 function escapeRegex(value: string): string {
@@ -568,7 +749,7 @@ export async function listJournalsForStudent(
     .limit(limit)
     .lean();
 
-  return docs.map(mapToJournal);
+  return docs.map((doc) => mapToJournal(doc));
 }
 
 // ─── Approve and Publish Journal ─────────────────────────────
@@ -631,7 +812,11 @@ export async function publishJournal(id: string): Promise<AlamtologiAcademicJour
 
 // ─── Map Document to Type ─────────────────────────────────────
 
-function mapToJournal(doc: any): AlamtologiAcademicJournal {
+function mapToJournal(
+  doc: any,
+  opts?: { summary?: boolean },
+): AlamtologiAcademicJournal {
+  const useSummary = opts?.summary && !doc.content;
   return {
     id:                doc._id.toString(),
     title:             doc.title,
@@ -639,9 +824,9 @@ function mapToJournal(doc: any): AlamtologiAcademicJournal {
     category:          doc.category,
     principlesFocus:   doc.principlesFocus,
     authorName:        doc.authorName,
-    authorEmail:       doc.authorEmail,
+    authorEmail:       doc.authorEmail ?? '',
     authorOrg:         doc.authorOrg,
-    content:           doc.content,
+    content:           useSummary ? EMPTY_JOURNAL_CONTENT : doc.content,
     ahriScore:         doc.ahriScore,
     hukumZAnalysis:    doc.hukumZAnalysis,
     tahapAkalAchieved: doc.tahapAkalAchieved,

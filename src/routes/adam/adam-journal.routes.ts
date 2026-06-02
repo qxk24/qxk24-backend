@@ -33,7 +33,10 @@ import {
   approveJournal,
   publishJournal,
   getJournalAudits,
+  getJournalReviewChain,
+  bulkApproveJournals,
 } from '../../adam/adam-journal.service';
+import { getJournalCoverageByMajor } from '../../adam/adam-journal-coverage.service';
 import { verify } from 'jsonwebtoken';
 import { requireAuth, requireFounder } from '../../middleware/auth.middleware';
 import type { ADAMApiResponse, AlamtologiAcademicJournal } from '../../adam/adam.types';
@@ -132,9 +135,15 @@ router.post('/batch/run', requireFounder, async (c) => {
 // ─── GET /public — Published journals (no auth) ──────────────
 
 router.get('/public', async (c) => {
-  const limit = Math.min(parseInt(c.req.query('limit') ?? '24', 10), 50);
-  const skip  = parseInt(c.req.query('skip') ?? '0', 10);
-  const { journals, total } = await listPublishedJournals(limit, skip);
+  const limit = Math.min(parseInt(c.req.query('limit') ?? '24', 10), 60);
+  const skip  = Math.max(parseInt(c.req.query('skip') ?? '0', 10), 0);
+  const { journals, total } = await listPublishedJournals(limit, skip, {
+    summary:         true,
+    q:               c.req.query('q') ?? undefined,
+    knowledgeMajor:  c.req.query('major') ?? undefined,
+    publishedMonth:  c.req.query('month') ?? undefined,
+    date:            c.req.query('date') ?? undefined,
+  });
 
   return c.json({
     success:   true,
@@ -198,12 +207,20 @@ router.post(
 // ─── GET / — List (auth: founder sees all via separate filters) ─
 
 router.get('/', requireAuth, async (c) => {
-  const status   = c.req.query('status');
-  const judgment = c.req.query('judgment');
-  const limit    = parseInt(c.req.query('limit')  ?? '20');
-  const skip     = parseInt(c.req.query('skip')   ?? '0');
+  const limit = Math.min(parseInt(c.req.query('limit') ?? '40', 10), 100);
+  const skip  = Math.max(parseInt(c.req.query('skip') ?? '0', 10), 0);
 
-  const { journals, total } = await listJournals({ status, judgment, limit, skip });
+  const { journals, total } = await listJournals({
+    status:           c.req.query('status') ?? undefined,
+    judgment:         c.req.query('judgment') ?? undefined,
+    q:                c.req.query('q') ?? undefined,
+    date:             c.req.query('date') ?? undefined,
+    knowledgeMajor:   c.req.query('major') ?? undefined,
+    knowledgeTopicId: c.req.query('topicId') ?? undefined,
+    limit,
+    skip,
+    summary:          c.req.query('summary') !== 'false',
+  });
 
   return c.json({
     success:   true,
@@ -211,6 +228,82 @@ router.get('/', requireAuth, async (c) => {
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      { journals, total, limit, skip },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ─── GET /coverage — Daily coverage by major (Founder) ─────────
+
+router.get('/coverage', requireFounder, async (c) => {
+  const dateStr = c.req.query('date');
+  const date = dateStr
+    ? new Date(`${dateStr.trim()}T12:00:00+08:00`)
+    : new Date();
+  const report = await getJournalCoverageByMajor(date);
+
+  return c.json({
+    success:   true,
+    kernel:    'QXK24',
+    version:   ENV.QXK24_KERNEL_VERSION,
+    era:       ENV.QXK24_ERA,
+    data:      report,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ─── GET /review-chain — Ordered ids for prev/next (Founder) ───
+
+router.get('/review-chain', requireFounder, async (c) => {
+  const { ids, total } = await getJournalReviewChain({
+    status:           c.req.query('status') ?? undefined,
+    judgment:         c.req.query('judgment') ?? undefined,
+    q:                c.req.query('q') ?? undefined,
+    date:             c.req.query('date') ?? undefined,
+    knowledgeMajor:   c.req.query('major') ?? undefined,
+    knowledgeTopicId: c.req.query('topicId') ?? undefined,
+  });
+
+  return c.json({
+    success:   true,
+    kernel:    'QXK24',
+    version:   ENV.QXK24_KERNEL_VERSION,
+    era:       ENV.QXK24_ERA,
+    data:      { ids, total, currentId: c.req.query('currentId') ?? undefined },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ─── POST /bulk/approve — Bulk approve + publish (Founder) ───
+
+router.post('/bulk/approve', requireFounder, async (c) => {
+  const body = await c.req.json().catch(() => ({})) as {
+    date?:        string;
+    status?:      string;
+    major?:       string;
+    q?:           string;
+    ids?:         string[];
+    reviewNotes?: string;
+    publish?:     boolean;
+    limit?:       number;
+  };
+
+  const result = await bulkApproveJournals({
+    date:           body.date,
+    status:         body.status,
+    knowledgeMajor: body.major,
+    q:              body.q,
+    ids:            body.ids,
+    reviewNotes:    body.reviewNotes,
+    publish:        body.publish,
+    limit:          body.limit,
+  });
+
+  return c.json({
+    success:   true,
+    kernel:    'QXK24',
+    version:   ENV.QXK24_KERNEL_VERSION,
+    era:       ENV.QXK24_ERA,
+    data:      result,
     timestamp: new Date().toISOString(),
   });
 });
