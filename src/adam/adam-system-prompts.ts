@@ -417,15 +417,19 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
   } else {
     parts.push(STUDENT_MODE_PROMPT);
     if (params.workspacePrompt) parts.push(params.workspacePrompt);
+    parts.push(ADAM_EPISTEMOLOGICAL_POSITION);
+    parts.push(ADAM_MEMORY_HONESTY_RULE);
+    parts.push(ADAM_ZPD_GUIDANCE_RULE);
     if (params.studentContinuityBridge) {
       parts.push(params.studentContinuityBridge);
     }
-    parts.push(ADAM_ZPD_GUIDANCE_RULE);
     parts.push(`Pelajar semasa / Current student: ${params.participantName}`);
   }
 
-  parts.push(ADAM_EPISTEMOLOGICAL_POSITION);
-  parts.push(ADAM_MEMORY_HONESTY_RULE);
+  if (params.isFounder) {
+    parts.push(ADAM_EPISTEMOLOGICAL_POSITION);
+    parts.push(ADAM_MEMORY_HONESTY_RULE);
+  }
 
   return parts.filter(Boolean).join('\n\n');
 }

@@ -574,6 +574,7 @@ export async function getStudentConstitutionalState(
   };
 }
 
+/** Updates the best-scoring `studentTracks` row (see `findBestStudentTrackIndex`). */
 export async function updateStudentConstitutionalState(
   studentId: string,
   update: StudentConstitutionalStateUpdate,
