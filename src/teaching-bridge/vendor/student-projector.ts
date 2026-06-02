@@ -32,11 +32,20 @@ export function deriveTopicKey(unit: {
   nodeB: string;
   family: string;
   subRegion: string;
+  principle?: string;
 }): string {
-  const base = unit.family
-    ? unit.family.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
-    : unit.nodeA.toLowerCase().split(/\s+/)[0] ?? 'topic';
-  return base.slice(0, 40) || 'topic';
+  const familySlug = (unit.family ?? unit.subRegion ?? 'general')
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .slice(0, 30);
+
+  const nodeSlug = (unit.principle ?? unit.nodeA ?? '')
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .slice(0, 20);
+
+  return nodeSlug ? `${familySlug}__${nodeSlug}` : familySlug;
 }
 
 export function evaluateLevelAdvance(
@@ -72,6 +81,7 @@ export async function projectUnitToStudents(
     nodeB:     unit.B?.content ?? unit.nodeB ?? '',
     family:    unit.family ?? unit.subRegion ?? '',
     subRegion: unit.subRegion ?? 'general',
+    principle: unit.principle ?? unit.A?.content ?? unit.nodeA ?? '',
   });
   const results: StudentProjectionResult[] = [];
   const studentIds = await getAllActiveStudentIds();
