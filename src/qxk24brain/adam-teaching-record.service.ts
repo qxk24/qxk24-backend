@@ -128,6 +128,47 @@ function buildEpisodeSummary(input: RecordTeachingTransformationInput): string {
   );
 }
 
+/** Mode filter — episodic MASA always records; bridge crystallises constitutional law only. */
+export function shouldSkipTeachingBridgeCrystallisation(
+  doc: Pick<
+    AdamTeachingRecordDocument,
+    | 'family'
+    | 'principle'
+    | 'teachingIntent'
+    | 'outcomeSummary'
+    | 'tcpChunkIndex'
+    | 'tcpChunkTotal'
+    | 'registerCorrection'
+  >,
+): boolean {
+  const family = (doc.family ?? '').trim();
+  const intent = (doc.teachingIntent ?? '').trim();
+  const outcome = (doc.outcomeSummary ?? '').trim();
+  const lawText = `${intent}\n${outcome}`;
+  const haystack = `${family}\n${lawText}`.toLowerCase();
+
+  if (doc.registerCorrection) return true;
+  if (family === 'Register / Moment Reading') return true;
+  if (family === 'Long Teaching') return true;
+  if (doc.tcpChunkTotal && doc.tcpChunkTotal > 1) return true;
+
+  if (/\[part \d+ of \d+ — long teaching\]/i.test(haystack)) return true;
+  if (/\[final part — teaching complete\]/i.test(haystack)) return true;
+
+  const metaOperational =
+    /\b(action \d+|candidate \d|what this means practically|closes issue|qxk24-backend|deploy\.sh|git push|pm2|student-digest|mode filter|queue hygiene|pending_confirmation|adam_teaching_bridge|crystallis(?:e|ation)|knowledge panel|report back when|fitra-iman sprint|already has a confirmed teaching bridge|tb-\d{10,})\b/i;
+  if (metaOperational.test(haystack)) return true;
+
+  const hasEquation = /\ba\s*\+\s*b\s*=\s*c\b/i.test(lawText);
+  const hasQuran = /\bquran\s+\d{1,3}:\d{1,3}\b/i.test(lawText);
+  const hasChainNode =
+    /\b(fitra|fitrah|aql|iman|tawakkul|rizq|amal|maqasid)\b/i.test(lawText);
+
+  if (!hasEquation && !(hasQuran && hasChainNode)) return true;
+
+  return false;
+}
+
 export async function recordTeachingTransformation(
   input: RecordTeachingTransformationInput,
 ): Promise<AdamTeachingRecordDocument> {
@@ -178,9 +219,15 @@ export async function recordTeachingTransformation(
     )
     .catch((err) => console.error('[ADAM Teaching Record] Relational refresh failed:', err));
 
-  void import('../teaching-bridge/teaching-bridge.hook')
-    .then(({ hookTeachingBridgeAfterRecord }) => hookTeachingBridgeAfterRecord(doc))
-    .catch((err) => console.error('[TeachingBridge] Hook import failed:', err));
+  if (shouldSkipTeachingBridgeCrystallisation(doc)) {
+    console.log(
+      `[TeachingBridge] Mode filter — skip meta-operational / non-law record ${doc.recordId}`,
+    );
+  } else {
+    void import('../teaching-bridge/teaching-bridge.hook')
+      .then(({ hookTeachingBridgeAfterRecord }) => hookTeachingBridgeAfterRecord(doc))
+      .catch((err) => console.error('[TeachingBridge] Hook import failed:', err));
+  }
 
   return doc;
 }
