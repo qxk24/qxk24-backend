@@ -677,13 +677,15 @@ export async function applyConfirmedUnitToStudent(
 
 export async function applyConfirmedUnitToAllStudents(
   confirmedUnit: ConfirmedUnitProjectionInput,
-): Promise<void> {
+): Promise<number> {
   const { getStudentAccounts } = await import('../adam/adam-student.service');
   const students = getStudentAccounts();
+  let projected = 0;
 
   for (const student of students) {
     try {
       await applyConfirmedUnitToStudent(student.userId, confirmedUnit);
+      projected++;
     } catch (err) {
       console.error(
         `[TeachingBridge] applyConfirmedUnitToStudent failed for ${student.userId}:`,
@@ -691,4 +693,6 @@ export async function applyConfirmedUnitToAllStudents(
       );
     }
   }
+
+  return projected;
 }

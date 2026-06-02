@@ -59,8 +59,9 @@ router.post('/confirm', requireFounder, zValidator('json', ConfirmSchema), async
   const confirmed = await bridge.getConfirmedUnits();
   const record = confirmed.find((r) => r.crystallisedUnitId === body.crystallisedUnitId);
 
+  let projectedStudents = 0;
   if (record?.unit) {
-    await applyConfirmedUnitToAllStudents({
+    projectedStudents = await applyConfirmedUnitToAllStudents({
       id:        record.unit.id,
       level:     record.unit.level,
       family:    record.unit.family,
@@ -74,6 +75,7 @@ router.post('/confirm', requireFounder, zValidator('json', ConfirmSchema), async
     success: true,
     aidilUnitId: result.aidilUnitId,
     crystallisedUnitId: body.crystallisedUnitId,
+    projectedStudents,
   });
 });
 
