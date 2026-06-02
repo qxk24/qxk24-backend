@@ -141,28 +141,23 @@ export function shouldSkipTeachingBridgeCrystallisation(
     | 'registerCorrection'
   >,
 ): boolean {
-  const content = [
-    doc.principle,
-    doc.outcomeSummary,
-    doc.teachingIntent,
-    doc.family,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const family = (doc.family ?? '').trim();
+  const teachingIntent = (doc.teachingIntent ?? '').trim();
 
   if (doc.registerCorrection) return true;
-
-  const metaOperational =
-    /\b(action \d+|candidate \d|qxk24-backend|deploy\.sh|git push|pm2|student-digest|mode filter|queue hygiene|pending_confirmation|adam_teaching_bridge|knowledge panel|fitra-iman sprint|tb-\d{10,})\b/i;
-  if (metaOperational.test(content)) return true;
-
-  if (doc.family === 'Long Teaching' || doc.family.startsWith('Register')) return true;
+  if (family === 'Long Teaching' || family.startsWith('Register')) return true;
   if ((doc.tcpChunkTotal ?? 1) > 1) return true;
 
-  const hasLawShape = /a \+ b = c/i.test(content);
-  const hasQuranRef = /quran\s+\d+:\d+|surah\s+\w+/i.test(content);
+  // Meta-operational signals — founder turn only (outcome may echo session context)
+  const metaOperational =
+    /\b(action \d+|candidate \d|qxk24-backend|deploy\.sh|git push|pm2|student-digest|mode filter|queue hygiene|pending_confirmation|adam_teaching_bridge|knowledge panel|fitra-iman sprint|tb-\d{10,})\b/i;
+  if (metaOperational.test(`${family} ${teachingIntent}`)) return true;
+
+  // Constitutional law shape — founder teaching intent only
+  const hasLawShape = /a \+ b = c/i.test(teachingIntent);
+  const hasQuranRef = /quran\s+\d+:\d+|surah\s+\w+/i.test(teachingIntent);
   const hasChainNode =
-    /fitrah?|tawakkul|maqasid|iman\b|taqwa|rizq\b|aql\b/i.test(content);
+    /fitrah?|tawakkul|maqasid|iman\b|taqwa|rizq\b|aql\b/i.test(teachingIntent);
 
   if (!hasLawShape && !(hasQuranRef && hasChainNode)) return true;
 
@@ -219,7 +214,7 @@ export async function recordTeachingTransformation(
     )
     .catch((err) => console.error('[ADAM Teaching Record] Relational refresh failed:', err));
 
-  if (shouldSkipTeachingBridgeCrystallisation(doc)) {
+  if (shouldSkipTeachingBridgeCrystallisation(doc.toObject())) {
     console.log(
       `[TeachingBridge] Mode filter — skip meta-operational / non-law record ${doc.recordId}`,
     );
