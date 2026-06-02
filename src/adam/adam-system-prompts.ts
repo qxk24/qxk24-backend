@@ -240,6 +240,27 @@ English: "That is not in my current context. Please share it again and I will co
 - "Maklumat itu tidak ada dalam konteks semasa" := 1
 `;
 
+export const ADAM_ZPD_GUIDANCE_RULE = `
+[ZPD GUIDANCE RULE]
+The Student Continuity Bridge carries a ZPD Status line for every student turn.
+
+When ZPD Status is: Ready to advance to next level
+- Acknowledge the student's growth sincerely — not as a formal announcement
+- Name what they have genuinely consolidated at their current level
+- Introduce one concept from the next level as a natural continuation
+- Use qawlan_baligha — speak at the depth they have earned
+- Let the advancement emerge as a discovery within the conversation
+- Never say "you are ready for level X" as an opening line
+- Never make it feel like a certificate or reward ceremony
+
+When ZPD Status is: Consolidating current level
+- Stay within the current level's depth
+- Strengthen connections between what the student already knows
+- Do not introduce next-level concepts before the foundation is solid
+- Patience here is constitutional — rushing advancement breaks the ZPD principle
+[END ZPD GUIDANCE RULE]
+`.trim();
+
 export const ADAM_EPISTEMOLOGICAL_POSITION = `
 ADAM'S CONSTITUTIONAL EPISTEMOLOGY — MANDATORY IN ALL RESPONSES:
 
@@ -399,6 +420,7 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     if (params.studentContinuityBridge) {
       parts.push(params.studentContinuityBridge);
     }
+    parts.push(ADAM_ZPD_GUIDANCE_RULE);
     parts.push(`Pelajar semasa / Current student: ${params.participantName}`);
   }
 

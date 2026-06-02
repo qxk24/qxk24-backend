@@ -24,9 +24,41 @@ import { getStudentAccounts } from '../adam/adam-student.service';
 import { getUserWorkspaces } from '../adam/adam-workspace.service';
 import { getOrCreateMaster } from './qxk24brain.engine';
 import { prependCoreToSystem } from './adam-core';
-import { QXK24BrainMasterModel } from './qxk24brain.schema';
+import { QXK24BrainMasterModel, type StudentTrack } from './qxk24brain.schema';
 
 const BRAIN_MODEL = () => resolveBrainFastModel();
+
+function scoreStudentTrack(track: StudentTrack): number {
+  return (track.masteredTopics?.length ?? 0) * 10 + (track.constitutionalLevel ?? 1);
+}
+
+function findBestStudentTrack(
+  tracks: StudentTrack[],
+  studentId: string,
+): StudentTrack | null {
+  const matching = tracks.filter((t) => t.studentId === studentId);
+  if (!matching.length) return null;
+
+  return matching.reduce((prev, curr) =>
+    (scoreStudentTrack(curr) > scoreStudentTrack(prev) ? curr : prev),
+  );
+}
+
+function findBestStudentTrackIndex(tracks: StudentTrack[], studentId: string): number {
+  let bestIdx = -1;
+  let bestScore = -1;
+
+  for (let i = 0; i < tracks.length; i++) {
+    if (tracks[i].studentId !== studentId) continue;
+    const s = scoreStudentTrack(tracks[i]);
+    if (s > bestScore) {
+      bestScore = s;
+      bestIdx = i;
+    }
+  }
+
+  return bestIdx;
+}
 
 interface AlignmentResult {
   aligned:       boolean;
@@ -150,7 +182,7 @@ async function mergeStudentTrack(
   enrichment: string,
 ): Promise<void> {
   const tracks = [...(master.studentTracks ?? []).map((t) => ({ ...t }))];
-  const idx = tracks.findIndex((t) => t.studentId === studentId);
+  const idx = findBestStudentTrackIndex(tracks, studentId);
 
   if (idx >= 0) {
     tracks[idx] = {
@@ -330,7 +362,7 @@ async function recordStudentContact(
   const line =
     `[Contact ${stamp}] ${studentName}: "${messageSnippet(message, 200)}" — ${note}`;
   const tracks = [...(master.studentTracks ?? []).map((t) => ({ ...t }))];
-  const idx = tracks.findIndex((t) => t.studentId === studentId);
+  const idx = findBestStudentTrackIndex(tracks, studentId);
 
   if (idx >= 0) {
     tracks[idx] = {
@@ -521,22 +553,24 @@ export async function getStudentConstitutionalState(
   studentId: string,
 ): Promise<StudentConstitutionalState | null> {
   const master = await QXK24BrainMasterModel.findOne(
-    { founderId: FOUNDER_USER_ID, 'studentTracks.studentId': studentId },
-    { 'studentTracks.$': 1 },
+    { founderId: FOUNDER_USER_ID },
+    { studentTracks: 1 },
   ).lean();
 
-  const track = master?.studentTracks?.[0];
-  if (!track) return null;
+  if (!master?.studentTracks?.length) return null;
+
+  const best = findBestStudentTrack(master.studentTracks as StudentTrack[], studentId);
+  if (!best) return null;
 
   return {
-    name:                track.name,
-    understanding:       track.understanding ?? '',
-    transformationCount: track.transformationCount ?? 0,
-    constitutionalLevel: track.constitutionalLevel ?? 1,
-    masteredTopics:      track.masteredTopics ?? [],
-    openQuestions:       track.openQuestions ?? [],
-    zpdReadiness:        track.zpdReadiness ?? false,
-    lastSessionSummary:  track.lastSessionSummary ?? '',
+    name:                best.name,
+    understanding:       best.understanding ?? '',
+    transformationCount: best.transformationCount ?? 0,
+    constitutionalLevel: best.constitutionalLevel ?? 1,
+    masteredTopics:      best.masteredTopics ?? [],
+    openQuestions:       best.openQuestions ?? [],
+    zpdReadiness:        best.zpdReadiness ?? false,
+    lastSessionSummary:  best.lastSessionSummary ?? '',
   };
 }
 
@@ -544,41 +578,48 @@ export async function updateStudentConstitutionalState(
   studentId: string,
   update: StudentConstitutionalStateUpdate,
 ): Promise<void> {
+  const master = await QXK24BrainMasterModel.findOne(
+    { founderId: FOUNDER_USER_ID },
+    { studentTracks: 1 },
+  ).lean();
+
+  const tracks = (master?.studentTracks ?? []) as StudentTrack[];
+  const idx = findBestStudentTrackIndex(tracks, studentId);
+
+  if (idx < 0) {
+    console.warn(
+      `[QXK24Brain] updateStudentConstitutionalState: no track for ${studentId}`,
+    );
+    return;
+  }
+
   const setFields: Record<string, unknown> = {
     masa_last_updated: new Date(),
   };
+  const prefix = `studentTracks.${idx}`;
 
   if (update.constitutionalLevel !== undefined) {
-    setFields['studentTracks.$.constitutionalLevel'] = update.constitutionalLevel;
+    setFields[`${prefix}.constitutionalLevel`] = update.constitutionalLevel;
   }
   if (update.masteredTopics !== undefined) {
-    setFields['studentTracks.$.masteredTopics'] = update.masteredTopics;
+    setFields[`${prefix}.masteredTopics`] = update.masteredTopics;
   }
   if (update.openQuestions !== undefined) {
-    setFields['studentTracks.$.openQuestions'] = update.openQuestions;
+    setFields[`${prefix}.openQuestions`] = update.openQuestions;
   }
   if (update.zpdReadiness !== undefined) {
-    setFields['studentTracks.$.zpdReadiness'] = update.zpdReadiness;
+    setFields[`${prefix}.zpdReadiness`] = update.zpdReadiness;
   }
   if (update.lastSessionSummary !== undefined) {
-    setFields['studentTracks.$.lastSessionSummary'] = update.lastSessionSummary;
+    setFields[`${prefix}.lastSessionSummary`] = update.lastSessionSummary;
   }
 
   if (Object.keys(setFields).length <= 1) return;
 
-  const result = await QXK24BrainMasterModel.updateOne(
-    {
-      founderId: FOUNDER_USER_ID,
-      'studentTracks.studentId': studentId,
-    },
+  await QXK24BrainMasterModel.updateOne(
+    { founderId: FOUNDER_USER_ID },
     { $set: setFields },
   );
-
-  if (result.matchedCount === 0) {
-    console.warn(
-      `[QXK24Brain] updateStudentConstitutionalState: no track for ${studentId}`,
-    );
-  }
 }
 
 // ── Teaching Bridge — student projection (Leg 2) ─────────────────────────────
@@ -621,6 +662,16 @@ export async function applyConfirmedUnitToStudent(
     constitutionalLevel: shouldAdvance ? newLevel : currentLevel,
     zpdReadiness,
   });
+
+  if (zpdReadiness) {
+    const { emitZpdGrowthSignal } = await import('../teaching-bridge/zpd-growth-signal');
+    void emitZpdGrowthSignal(
+      studentId,
+      shouldAdvance ? newLevel : currentLevel,
+      topicKey,
+      updatedTopics.length,
+    );
+  }
 }
 
 export async function applyConfirmedUnitToAllStudents(
