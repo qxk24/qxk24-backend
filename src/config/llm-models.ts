@@ -48,6 +48,19 @@ const DEEP_MESSAGE_PATTERNS = [
   /\b(teach|teaching|ajar|mengajar|brain|otak)\b/i,
 ];
 
+/** Student substantive cues — Flow Like Water: sense depth, route to deep model */
+const STUDENT_DEPTH_SIGNALS = [
+  /\b(explain|describe|what is|what are|why|how|tell me|define|meaning)\b/i,
+  /\b(difference|compare|relationship|connection|between)\b/i,
+  /\b(jelaskan|huraikan|apakah|kenapa|bagaimana|maksud|cerita|terangkan)\b/i,
+  /\b(tafsir|fiqh|aqidah|quran|hadith|sunnah|sirah|imam|salat|zakat)\b/i,
+  /\b(alamtologi|aidil|adam|plas|constitutional|maqasid)\b/i,
+  /\b(science|biology|physics|chemistry|psychology|history|economy)\b/i,
+];
+
+/** Below founder ADAM_DEEP_MESSAGE_MIN_CHARS — short questions can still be substantive */
+const STUDENT_DEEP_MIN_CHARS = 80;
+
 export function getDeepModel(): string {
   return ENV.QWEN_MODEL_DEEP;
 }
@@ -98,9 +111,49 @@ function resolveFounderModel(
   return { model: getFastModel(), tier: 'fast', reason: 'founder_routine' };
 }
 
+function resolveStudentModel(
+  mode: ADAMChatMode,
+  message: string,
+  hasUploads: boolean,
+): ResolvedAdamModel {
+  if (hasUploads) {
+    return { model: getDeepModel(), tier: 'deep', reason: 'student_uploads' };
+  }
+
+  const text = message.trim();
+
+  if (DEEP_MODES.includes(mode)) {
+    return {
+      model:  getDeepModel(),
+      tier:   'deep',
+      reason: `mode_${mode.toLowerCase()}`,
+    };
+  }
+
+  const isSubstantive =
+    text.length >= STUDENT_DEEP_MIN_CHARS ||
+    STUDENT_DEPTH_SIGNALS.some((p) => p.test(text)) ||
+    mode === 'TEACHING' ||
+    mode === 'QUESTIONING';
+
+  if (isSubstantive) {
+    return {
+      model:  getDeepModel(),
+      tier:   'deep',
+      reason: 'student_substantive',
+    };
+  }
+
+  return {
+    model:  getFastModel(),
+    tier:   'fast',
+    reason: 'student_simple',
+  };
+}
+
 export function resolveAdamMaxTokens(
   tier: ModelTier,
-  isFounder: boolean,
+  _isFounder: boolean,
   mode?: ADAMChatMode,
 ): number {
   if (mode === 'JOURNAL_GEN') {
@@ -108,7 +161,8 @@ export function resolveAdamMaxTokens(
   }
   // NEVER CHANGE THE SETTING — fast tier floor 4096; lower values truncate ADAM mid-thought
   if (tier === 'fast') return ENV.ADAM_QWEN_FAST_MAX_TOKENS;
-  return isFounder ? ENV.ADAM_FOUNDER_DEEP_MAX_TOKENS : ENV.ADAM_STUDENT_DEEP_MAX_TOKENS;
+  // Deep — same cap for founder and student (knowledge has no rank)
+  return ENV.ADAM_FOUNDER_DEEP_MAX_TOKENS;
 }
 
 export function resolveQwenEnableThinking(
@@ -128,19 +182,9 @@ export function resolveAdamChatModel(params: {
   hasUploads:  boolean;
 }): ResolvedAdamModel {
   const { participant, mode, message, hasUploads } = params;
-  const text = message.trim();
-  const len = text.length;
 
   if (participant.role === 'founder') {
     return resolveFounderModel(mode, message, hasUploads);
-  }
-
-  if (hasUploads) {
-    return {
-      model:  getDeepModel(),
-      tier:   'deep',
-      reason: 'teaching_upload',
-    };
   }
 
   if (participant.sessionType === 'group') {
@@ -151,43 +195,7 @@ export function resolveAdamChatModel(params: {
     };
   }
 
-  if (DEEP_MODES.includes(mode)) {
-    return {
-      model:  getDeepModel(),
-      tier:   'deep',
-      reason: `mode_${mode.toLowerCase()}`,
-    };
-  }
-
-  if (len >= ENV.ADAM_DEEP_MESSAGE_MIN_CHARS) {
-    return {
-      model:  getDeepModel(),
-      tier:   'deep',
-      reason: 'long_message',
-    };
-  }
-
-  if (mode === 'QUESTIONING') {
-    return {
-      model:  getFastModel(),
-      tier:   'fast',
-      reason: 'student_routine',
-    };
-  }
-
-  if (DEEP_MESSAGE_PATTERNS.some((re) => re.test(text))) {
-    return {
-      model:  getDeepModel(),
-      tier:   'deep',
-      reason: 'substantive_topic',
-    };
-  }
-
-  return {
-    model:  getFastModel(),
-    tier:   'fast',
-    reason: 'routine_student_chat',
-  };
+  return resolveStudentModel(mode, message, hasUploads);
 }
 
 /** Brain transformation and constitutional writes — always deep */

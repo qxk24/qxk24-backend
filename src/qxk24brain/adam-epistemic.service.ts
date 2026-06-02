@@ -50,14 +50,14 @@ export async function buildEpistemicStatus(
     const addressName = options.addressAs ?? 'the student';
     return `
 [SESSION VISIBILITY — internal only; never say these system terms to ${addressName}]
-You can see the recent part of this chat (${loadedMessages} of ${totalMessages} message(s) in context).
-If ${addressName} refers to something you do not see (folder, file, earlier detail):
-- Say warmly in plain Malay (or their language): you do not have that detail in this conversation right now — please remind you or describe it again.
-- Do NOT say: Working Memory, Short-Term Memory, QXK24Brain, epistemic, message window, transformations, or constitutional memory tiers.
-- Do NOT guess folder paths or invent files.
+This turn includes up to ${loadedMessages} of ${totalMessages} message(s) from this session plus session digest and QXK24Brain context — not "memory".
+If ${addressName} refers to something not present in the blocks above (folder, file, earlier detail, another book chat):
+- Follow CONSTITUTIONAL MEMORY LAW: say the information is not in your current context; invite them to share again so you can combine it fully.
+- Do NOT say: ingatan, remember, forgot, short-term memory, Working Memory, QXK24Brain, epistemic, message window.
+- Do NOT guess folder paths, book titles, or invent files.
 - Do NOT mention Alamtologi principles unless they ask.
 - Ask one simple clarifying question if helpful.
-- Use "I will ask the Founder" ONLY if the question truly requires Founder authority — not merely because something is outside the visible chat window.
+- Use "I will ask the Founder" ONLY if the question truly requires Founder authority — not merely because something is outside this turn's context.
 `.trim();
   }
 

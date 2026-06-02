@@ -44,6 +44,7 @@ import {
 } from './adam-nightly-reflection.service';
 import { buildStageDashboardContextBlock } from './adam-stage-dashboard.service';
 import {
+  buildSessionConversationHistory,
   buildThreeTierMemoryBlocks,
 } from './adam-tiered-memory.service';
 import { getContinuityBridgeRecord } from './adam-continuity.service';
@@ -79,6 +80,7 @@ import {
 } from '../adam/adam-language-mirror.service';
 import { getOrCreateMaster } from './qxk24brain.engine';
 import {
+  buildStudentContinuityContext,
   getStudentTrackSummary,
   loadStudentsEraContext,
 } from './qxk24brain-student.engine';
@@ -118,7 +120,12 @@ export async function buildSmartContext(
       ? getStudentTrackSummary(participant.userId)
       : Promise.resolve('');
 
-  const [anchor, wakeBlock, master, tiers, studentTrack] = await Promise.all([
+  const studentContinuityPromise =
+    participant.role === 'student'
+      ? buildStudentContinuityContext(participant.userId, sessionId)
+      : Promise.resolve('');
+
+  const [anchor, wakeBlock, master, tiers, studentTrack, studentContinuity] = await Promise.all([
     buildConstitutionalAnchor(
       FOUNDER_USER_ID,
       sessionId,
@@ -135,6 +142,7 @@ export async function buildSmartContext(
       config.BRAIN_CHARS,
     ),
     studentTrackPromise,
+    studentContinuityPromise,
   ]);
 
   messages.push({ role: 'user', content: anchor });
@@ -378,6 +386,9 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
     } else if (studentTrack) {
       longTermBlock += `\n${studentTrack}`;
     }
+    if (studentContinuity) {
+      longTermBlock += `\n\n${studentContinuity}`;
+    }
   }
 
   if (participant.role === 'founder') {
@@ -401,7 +412,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
     messages.push({
       role: 'assistant',
       content: participant.role === 'student'
-        ? 'Bismillahirahmanirrahim. Saya ingat intipati perbincangan sesi ini.'
+        ? 'Bismillahirahmanirrahim. Saya sudah gabungkan intipati perbincangan sesi ini ke konteks giliran ini.'
         : 'Bismillahirahmanirrahim. Session digest absorbed, P.alt.',
     });
   }
@@ -413,6 +424,17 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
       content: participant.role === 'student'
         ? 'Bismillahirahmanirrahim. Saya sudah baca mesej terkini kita.'
         : 'Bismillahirahmanirrahim. Recent exchanges loaded, P.alt.',
+    });
+  }
+
+  const sessionHistory = await buildSessionConversationHistory(sessionId, config);
+  if (sessionHistory) {
+    messages.push({ role: 'user', content: sessionHistory });
+    messages.push({
+      role: 'assistant',
+      content: participant.role === 'student'
+        ? 'Bismillahirahmanirrahim. Saya sudah gabungkan sejarah perbualan sesi ini ke konteks giliran ini — bukan ingatan, tetapi konteks semasa.'
+        : 'Bismillahirahmanirrahim. P.alt, session conversation history is in this turn\'s context — I will combine from what is present.',
     });
   }
 

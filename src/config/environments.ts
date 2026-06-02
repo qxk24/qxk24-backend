@@ -188,7 +188,8 @@ export const ENV = {
   /** Max output tokens — founder deep / teaching turns */
   ADAM_FOUNDER_DEEP_MAX_TOKENS: optionalInt('ADAM_FOUNDER_DEEP_MAX_TOKENS', 8192),
   /** Max output tokens — student deep turns */
-  ADAM_STUDENT_DEEP_MAX_TOKENS: optionalInt('ADAM_STUDENT_DEEP_MAX_TOKENS', 4096),
+  /** Default 8192 — deep student turns use ADAM_FOUNDER_DEEP_MAX_TOKENS in resolveAdamMaxTokens */
+  ADAM_STUDENT_DEEP_MAX_TOKENS: optionalInt('ADAM_STUDENT_DEEP_MAX_TOKENS', 8192),
   /** Qwen turbo — minimum 4096; never reduce for “speed” (robotic truncated replies) */
   ADAM_QWEN_FAST_MAX_TOKENS: optionalInt('ADAM_QWEN_FAST_MAX_TOKENS', 4096),
   QXK24_SUCCESSION_ENCRYPTION_KEY: optional('QXK24_SUCCESSION_ENCRYPTION_KEY'),

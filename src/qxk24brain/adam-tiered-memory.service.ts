@@ -24,7 +24,10 @@ import { ENV } from '../config/environments';
 import { resolveBrainDeepModel } from '../config/llm-models';
 import { isLlmConfigured, llmCompleteUserPrompt } from '../llm/llm-client';
 import { ADAMMessageModel, ADAMFounderSessionModel } from '../adam/adam.schema';
-import { getAdamMemoryConfig } from '../config/adam-memory.config';
+import {
+  getAdamMemoryConfig,
+  type AdamMemoryTierConfig,
+} from '../config/adam-memory.config';
 import { prependCoreToSystem, getCorePrompt, CORE_ABSORPTION_ACK } from './adam-core';
 import { buildConstitutionalAnchor } from './adam-anchor.service';
 import { smartTruncate } from './adam-smart-truncate';
@@ -84,6 +87,47 @@ export async function getWorkingMemory(
 ═══ WORKING MEMORY (Last ${working.length} exchanges — complete, never truncated) ═══
 ${working.map(formatWorkingLine).join('\n\n')}
 ═══ END WORKING MEMORY ═══`.trim();
+}
+
+/** Session message history for this turn — context, not memory (MESSAGE_WINDOW × MESSAGE_CHARS). */
+export async function buildSessionConversationHistory(
+  sessionId: string,
+  config: AdamMemoryTierConfig,
+  excludeLatest = true,
+): Promise<string> {
+  const fetchLimit = config.MESSAGE_WINDOW + (excludeLatest ? 1 : 0);
+
+  const recent = await ADAMMessageModel
+    .find({ sessionId })
+    .sort({ createdAt: -1 })
+    .limit(fetchLimit)
+    .lean();
+
+  recent.reverse();
+
+  let slice = recent;
+  if (excludeLatest && slice.length > 0) {
+    slice = slice.slice(0, -1);
+  }
+  slice = slice.slice(-config.MESSAGE_WINDOW);
+
+  if (slice.length === 0) return '';
+
+  const lines = slice.map((msg) => {
+    const who = msg.speakerName?.trim()
+      ? `${msg.role.toUpperCase()} · ${msg.speakerName}`
+      : msg.role.toUpperCase();
+    let content = msg.content;
+    if (content.length > config.MESSAGE_CHARS) {
+      content = `${content.slice(0, config.MESSAGE_CHARS)}…[trimmed]`;
+    }
+    return `[${who}]: ${content}`;
+  });
+
+  return `
+═══ CONVERSATION HISTORY (this session — context for this turn, not memory) ═══
+${lines.join('\n\n')}
+═══ END CONVERSATION HISTORY ═══`.trim();
 }
 
 // ── TIER 2: Short-Term Memory (Warm) ─────────────────────────────────────

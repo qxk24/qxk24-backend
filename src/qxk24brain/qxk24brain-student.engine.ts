@@ -182,6 +182,50 @@ export async function getStudentTrackSummary(studentId: string): Promise<string>
   return `[Student track — ${track.name}]: ${track.understanding}`;
 }
 
+/** Book workspaces + other session digests — cross-thread context (not memory). */
+export async function buildStudentContinuityContext(
+  studentId: string,
+  currentSessionId: string,
+): Promise<string> {
+  const [sessions, workspaces] = await Promise.all([
+    ADAMFounderSessionModel.find({
+      founderId:   studentId,
+      sessionType: 'student',
+      active:      true,
+    })
+      .sort({ lastActiveAt: -1 })
+      .lean(),
+    getUserWorkspaces(studentId),
+  ]);
+
+  const wsBySession = new Map(workspaces.map((w) => [w.sessionId, w]));
+  const sections: string[] = [];
+
+  for (const sess of sessions) {
+    if (sess.sessionId === currentSessionId) continue;
+    const ws = wsBySession.get(sess.sessionId);
+    const label = ws ? `Book workspace: "${ws.title}"` : 'Earlier general chat';
+    const parts: string[] = [`## ${label}`];
+    if (ws?.unifiedUnderstanding?.trim()) {
+      parts.push(ws.unifiedUnderstanding.trim().slice(0, 1_200));
+    }
+    if (sess.sessionDigest?.trim()) {
+      parts.push(`Session essence:\n${sess.sessionDigest.trim().slice(0, 800)}`);
+    }
+    if (parts.length > 1) sections.push(parts.join('\n'));
+  }
+
+  if (sections.length === 0) return '';
+
+  return [
+    '[STUDENT CONTINUITY — other chats with this student; context for this turn, not memory]',
+    'When they refer to a book or earlier thread, combine from here if present.',
+    'Do not say you forgot — use CONSTITUTIONAL MEMORY LAW only if the topic is absent below.',
+    '',
+    ...sections,
+  ].join('\n');
+}
+
 function messageSnippet(content: string, max = 320): string {
   return content
     .replace(/<adam_judgment>[\s\S]*?<\/adam_judgment>/g, '')
