@@ -580,3 +580,63 @@ export async function updateStudentConstitutionalState(
     );
   }
 }
+
+// ── Teaching Bridge — student projection (Leg 2) ─────────────────────────────
+
+export interface ConfirmedUnitProjectionInput {
+  id?:        string;
+  level:      number;
+  family:     string;
+  subRegion:  string;
+  nodeA:      string;
+  nodeB:      string;
+}
+
+export async function applyConfirmedUnitToStudent(
+  studentId: string,
+  confirmedUnit: ConfirmedUnitProjectionInput,
+): Promise<void> {
+  const { deriveTopicKey, evaluateLevelAdvance } = await import(
+    '../teaching-bridge/vendor/student-projector'
+  );
+
+  await ensureStudentTrackRow(studentId, studentId);
+  const existing = await getStudentConstitutionalState(studentId);
+  if (!existing) return;
+
+  const currentLevel  = existing.constitutionalLevel ?? 1;
+  const currentTopics = existing.masteredTopics ?? [];
+
+  if (confirmedUnit.level > currentLevel + 1) return;
+
+  const topicKey = deriveTopicKey(confirmedUnit);
+  const updatedTopics = [...new Set([...currentTopics, topicKey])];
+  const { shouldAdvance, newLevel, zpdReadiness } = evaluateLevelAdvance(
+    currentLevel,
+    updatedTopics,
+  );
+
+  await updateStudentConstitutionalState(studentId, {
+    masteredTopics:      updatedTopics,
+    constitutionalLevel: shouldAdvance ? newLevel : currentLevel,
+    zpdReadiness,
+  });
+}
+
+export async function applyConfirmedUnitToAllStudents(
+  confirmedUnit: ConfirmedUnitProjectionInput,
+): Promise<void> {
+  const { getStudentAccounts } = await import('../adam/adam-student.service');
+  const students = getStudentAccounts();
+
+  for (const student of students) {
+    try {
+      await applyConfirmedUnitToStudent(student.userId, confirmedUnit);
+    } catch (err) {
+      console.error(
+        `[TeachingBridge] applyConfirmedUnitToStudent failed for ${student.userId}:`,
+        err,
+      );
+    }
+  }
+}

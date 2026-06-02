@@ -33,6 +33,7 @@ import adamWorkspaceRoutes from '../routes/adam/adam-workspace.routes';
 import subscriptionRoutes from '../subscriptions/subscription.routes';
 import adamBuilderRoutes from '../agent/adam-builder.routes';
 import adamMacBridgeRoutes from '../agent/adam-mac-bridge.routes';
+import teachingBridgeRoutes from '../teaching-bridge/teaching-bridge.routes';
 import { ENV } from '../config/environments';
 import {
   getSystemPulse,
@@ -73,6 +74,7 @@ export function registerRoutes(app: Hono): void {
   app.route('/api/adam/upload',        adamUploadRoutes);
   app.route('/api/adam/knowledge',     adamKnowledgeRoutes);
   app.route('/api/adam/brain',         qxk24BrainRoutes);
+  app.route('/api/adam/teaching-bridge', teachingBridgeRoutes);
   app.route('/api/adam/student',       adamStudentRoutes);
   app.route('/api/adam/students',      adamStudentsRoutes);
   app.route('/api/adam/consults',      adamConsultRoutes);

@@ -178,6 +178,10 @@ export async function recordTeachingTransformation(
     )
     .catch((err) => console.error('[ADAM Teaching Record] Relational refresh failed:', err));
 
+  void import('../teaching-bridge/teaching-bridge.hook')
+    .then(({ hookTeachingBridgeAfterRecord }) => hookTeachingBridgeAfterRecord(doc))
+    .catch((err) => console.error('[TeachingBridge] Hook import failed:', err));
+
   return doc;
 }
 
