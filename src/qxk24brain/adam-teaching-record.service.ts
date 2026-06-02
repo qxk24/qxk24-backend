@@ -141,30 +141,30 @@ export function shouldSkipTeachingBridgeCrystallisation(
     | 'registerCorrection'
   >,
 ): boolean {
-  const family = (doc.family ?? '').trim();
-  const intent = (doc.teachingIntent ?? '').trim();
-  const outcome = (doc.outcomeSummary ?? '').trim();
-  const lawText = `${intent}\n${outcome}`;
-  const haystack = `${family}\n${lawText}`.toLowerCase();
+  const content = [
+    doc.principle,
+    doc.outcomeSummary,
+    doc.teachingIntent,
+    doc.family,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   if (doc.registerCorrection) return true;
-  if (family === 'Register / Moment Reading') return true;
-  if (family === 'Long Teaching') return true;
-  if (doc.tcpChunkTotal && doc.tcpChunkTotal > 1) return true;
-
-  if (/\[part \d+ of \d+ — long teaching\]/i.test(haystack)) return true;
-  if (/\[final part — teaching complete\]/i.test(haystack)) return true;
 
   const metaOperational =
-    /\b(action \d+|candidate \d|what this means practically|closes issue|qxk24-backend|deploy\.sh|git push|pm2|student-digest|mode filter|queue hygiene|pending_confirmation|adam_teaching_bridge|crystallis(?:e|ation)|knowledge panel|report back when|fitra-iman sprint|already has a confirmed teaching bridge|tb-\d{10,})\b/i;
-  if (metaOperational.test(haystack)) return true;
+    /\b(action \d+|candidate \d|qxk24-backend|deploy\.sh|git push|pm2|student-digest|mode filter|queue hygiene|pending_confirmation|adam_teaching_bridge|knowledge panel|fitra-iman sprint|tb-\d{10,})\b/i;
+  if (metaOperational.test(content)) return true;
 
-  const hasEquation = /\ba\s*\+\s*b\s*=\s*c\b/i.test(lawText);
-  const hasQuran = /\bquran\s+\d{1,3}:\d{1,3}\b/i.test(lawText);
+  if (doc.family === 'Long Teaching' || doc.family.startsWith('Register')) return true;
+  if ((doc.tcpChunkTotal ?? 1) > 1) return true;
+
+  const hasLawShape = /a \+ b = c/i.test(content);
+  const hasQuranRef = /quran\s+\d+:\d+|surah\s+\w+/i.test(content);
   const hasChainNode =
-    /\b(fitra|fitrah|aql|iman|tawakkul|rizq|amal|maqasid)\b/i.test(lawText);
+    /fitrah?|tawakkul|maqasid|iman\b|taqwa|rizq\b|aql\b/i.test(content);
 
-  if (!hasEquation && !(hasQuran && hasChainNode)) return true;
+  if (!hasLawShape && !(hasQuranRef && hasChainNode)) return true;
 
   return false;
 }
