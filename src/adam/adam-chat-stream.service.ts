@@ -104,6 +104,10 @@ import {
   createBuilderAbortController,
   releaseBuilderAbort,
 } from '../agent/adam-builder-abort.store';
+import {
+  fetchPlasPrescan,
+  formatPlasBlockedResponse,
+} from './adam-gateway-client';
 
 export interface StreamADAMChatOptions {
   founderToken?:      string;
@@ -212,6 +216,46 @@ export async function streamADAMChat(
         { workspaceId: workspace.workspaceId, nucleusUid: null },
         { nucleusUid: userMessageId },
       );
+    }
+
+    if (!isFounder) {
+      const plasPrescan = await fetchPlasPrescan({
+        input: messageForAdam,
+        studentId: participant.userId,
+        sessionId: resolvedSessionId,
+      });
+
+      if (plasPrescan?.shortCircuit) {
+        const blockedResponse = formatPlasBlockedResponse(plasPrescan);
+        const k24Address = await generateK24Address(mode);
+        const messageId = await saveMessage(
+          resolvedSessionId,
+          'adam',
+          blockedResponse,
+          mode,
+          'WAQF',
+          k24Address,
+          isGroup ? 'group-alamtologi' : participant.userId,
+          {
+            speakerId:   'adam',
+            speakerName: 'ADAM',
+            sessionType: participant.sessionType,
+          },
+        );
+
+        onEvent('adam_complete', JSON.stringify({
+          sessionId:      resolvedSessionId,
+          messageId,
+          k24Address,
+          judgment:       'WAQF',
+          response:       blockedResponse,
+          mode,
+          plasBlocked:    true,
+          plasThreat:     plasPrescan.metadata?.threatCategory,
+          gatewayUnavailable: plasPrescan.unavailable === true,
+        }));
+        return;
+      }
     }
 
     onEvent('adam_thinking', JSON.stringify({ sessionId: resolvedSessionId, mode }));

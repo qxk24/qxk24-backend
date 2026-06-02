@@ -254,6 +254,13 @@ export const ENV = {
   /** HAWA — ADAM's auditor partner (lab builder checkpoints) */
   HAWA_ENABLED: optional('HAWA_ENABLED', 'true') === 'true',
 
+  /** ADAM Gateway (qxk24-adam) — Plas Point-1 prescan for production chat */
+  ADAM_GATEWAY_URL: optional('ADAM_GATEWAY_URL', 'http://127.0.0.1:4010'),
+  ADAM_GATEWAY_PLAS_ENABLED: optional('ADAM_GATEWAY_PLAS_ENABLED', 'false') === 'true',
+  ADAM_GATEWAY_TIMEOUT_MS: optionalInt('ADAM_GATEWAY_TIMEOUT_MS', 8000),
+  /** When true, block student turns if gateway prescan is unreachable */
+  ADAM_GATEWAY_PLAS_FAIL_CLOSED: optional('ADAM_GATEWAY_PLAS_FAIL_CLOSED', 'false') === 'true',
+
   /** Route Builder MCP through founder Mac (qxk24-mcp mac-bridge daemon) */
   ADAM_MAC_BRIDGE_ENABLED: optional('ADAM_MAC_BRIDGE_ENABLED', 'false') === 'true',
 
