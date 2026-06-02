@@ -25,6 +25,7 @@ import {
 import { getUserWorkspaces } from './adam-workspace.service';
 import { FOUNDER_USER_ID } from './adam-student.types';
 import { getOrCreateMaster } from '../qxk24brain/qxk24brain.engine';
+import { buildStudentBookMessageRecall } from '../qxk24brain/qxk24brain-student.engine';
 
 const CURRENT_SESSION_TURNS = 20;
 const TURN_CHAR_CAP = 6_000;
@@ -134,6 +135,7 @@ export async function buildStudentContinuityBridge(
   studentId: string,
   sessionId: string,
   studentName: string,
+  triggerMessage = '',
 ): Promise<string> {
   try {
     const [master, sessions, workspaces] = await Promise.all([
@@ -200,6 +202,13 @@ export async function buildStudentContinuityBridge(
         }
       }
       lines.push('');
+    }
+
+    if (triggerMessage.trim() && sessionIds.length > 0) {
+      const bookRecall = await buildStudentBookMessageRecall(sessionIds, triggerMessage);
+      if (bookRecall) {
+        lines.push(bookRecall, '');
+      }
     }
 
     const currentSess = sessions.find((s) => s.sessionId === sessionId);

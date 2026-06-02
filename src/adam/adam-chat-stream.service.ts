@@ -457,6 +457,7 @@ export async function streamADAMChat(
           participant.userId,
           resolvedSessionId,
           participant.userName,
+          messageForAdam,
         );
       }
 

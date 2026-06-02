@@ -182,10 +182,59 @@ export async function getStudentTrackSummary(studentId: string): Promise<string>
   return `[Student track — ${track.name}]: ${track.understanding}`;
 }
 
-/** Book workspaces + other session digests — cross-thread context (not memory). */
+const BOOK_RECALL_TRIGGER =
+  /\b(buku|book|kitab|sambung|benang|tadi|sebelum|perbincangan|continue|earlier|membaca|reading)\b/i;
+
+const BOOK_TOPIC_IN_MESSAGE =
+  /\b(buku|book|kitab|membaca|reading|tajuk|penulisan|alamtologi|mengungkap|chapter|bab)\b/i;
+
+export async function buildStudentBookMessageRecall(
+  sessionIds: string[],
+  triggerMessage: string,
+): Promise<string> {
+  if (!sessionIds.length || !BOOK_RECALL_TRIGGER.test(triggerMessage)) return '';
+
+  let hits = await ADAMMessageModel.find({
+    sessionId: { $in: sessionIds },
+    role:      { $in: ['student', 'adam'] },
+    content:   BOOK_TOPIC_IN_MESSAGE,
+  })
+    .sort({ createdAt: -1 })
+    .limit(16)
+    .lean();
+
+  if (hits.length === 0) {
+    hits = await ADAMMessageModel.find({
+      sessionId: { $in: sessionIds },
+      role:      'student',
+    })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+    if (hits.length === 0) return '';
+  }
+
+  hits.reverse();
+
+  const lines = hits.map((m) => {
+    const who = m.speakerName?.trim() || m.role.toUpperCase();
+    return `[${who}]: ${messageSnippet(m.content, 520)}`;
+  });
+
+  return [
+    '## Book / thread recall (matched messages from this student\'s chats)',
+    'The student is continuing an earlier book or writing thread. Speak from these lines when relevant.',
+    'Do NOT say the topic is missing from context if the answer is here.',
+    '',
+    lines.join('\n\n'),
+  ].join('\n');
+}
+
+/** Book workspaces, session digests, and book-keyword recall — cross-thread context (not memory). */
 export async function buildStudentContinuityContext(
   studentId: string,
   currentSessionId: string,
+  triggerMessage = '',
 ): Promise<string> {
   const [sessions, workspaces] = await Promise.all([
     ADAMFounderSessionModel.find({
@@ -198,13 +247,43 @@ export async function buildStudentContinuityContext(
     getUserWorkspaces(studentId),
   ]);
 
+  const sessionIds = sessions.map((s) => s.sessionId);
   const wsBySession = new Map(workspaces.map((w) => [w.sessionId, w]));
-  const sections: string[] = [];
+  const blocks: string[] = [
+    '[STUDENT CONTINUITY — context for this turn, not memory]',
+    'When the student refers to a book or earlier thread, combine from the blocks below if present.',
+    'Only use CONSTITUTIONAL MEMORY LAW (context missing) if nothing below answers their question.',
+    '',
+  ];
+
+  if (workspaces.length > 0) {
+    blocks.push('## Book workspaces (this student)');
+    for (const ws of workspaces) {
+      blocks.push(
+        `### "${ws.title}" — ${ws.messageCount} message(s), principle ${ws.principle}`,
+      );
+      if (ws.description?.trim()) {
+        blocks.push(`Scope: ${ws.description.trim()}`);
+      }
+      const understanding = ws.unifiedUnderstanding?.trim() ?? '';
+      if (understanding.length > 80) {
+        blocks.push(understanding.slice(0, 1_400));
+      }
+    }
+    blocks.push('');
+  }
+
+  const currentSess = sessions.find((s) => s.sessionId === currentSessionId);
+  if (currentSess?.sessionDigest?.trim()) {
+    blocks.push('## This chat — session essence (summary of full thread)');
+    blocks.push(currentSess.sessionDigest.trim().slice(0, 1_500));
+    blocks.push('');
+  }
 
   for (const sess of sessions) {
     if (sess.sessionId === currentSessionId) continue;
     const ws = wsBySession.get(sess.sessionId);
-    const label = ws ? `Book workspace: "${ws.title}"` : 'Earlier general chat';
+    const label = ws ? `Other chat — book: "${ws.title}"` : 'Other chat — general';
     const parts: string[] = [`## ${label}`];
     if (ws?.unifiedUnderstanding?.trim()) {
       parts.push(ws.unifiedUnderstanding.trim().slice(0, 1_200));
@@ -212,18 +291,17 @@ export async function buildStudentContinuityContext(
     if (sess.sessionDigest?.trim()) {
       parts.push(`Session essence:\n${sess.sessionDigest.trim().slice(0, 800)}`);
     }
-    if (parts.length > 1) sections.push(parts.join('\n'));
+    if (parts.length > 1) blocks.push(parts.join('\n'), '');
   }
 
-  if (sections.length === 0) return '';
+  const bookRecall = await buildStudentBookMessageRecall(sessionIds, triggerMessage);
+  if (bookRecall) {
+    blocks.push(bookRecall, '');
+  }
 
-  return [
-    '[STUDENT CONTINUITY — other chats with this student; context for this turn, not memory]',
-    'When they refer to a book or earlier thread, combine from here if present.',
-    'Do not say you forgot — use CONSTITUTIONAL MEMORY LAW only if the topic is absent below.',
-    '',
-    ...sections,
-  ].join('\n');
+  if (blocks.length <= 4) return '';
+
+  return blocks.join('\n').trim();
 }
 
 function messageSnippet(content: string, max = 320): string {
