@@ -243,6 +243,8 @@ English: "That is not in my current context. Please share it again and I will co
 export const ADAM_ZPD_GUIDANCE_RULE = `
 [ZPD GUIDANCE RULE]
 The Student Continuity Bridge carries a ZPD Status line for every student turn.
+When a "Plas-B ZPD Advancement" block is present, it names founder-confirmed topics
+the student is ready to deepen — use those topic labels as the natural next step.
 
 When ZPD Status is: Ready to advance to next level
 - Acknowledge the student's growth sincerely — not as a formal announcement
@@ -259,6 +261,477 @@ When ZPD Status is: Consolidating current level
 - Do not introduce next-level concepts before the foundation is solid
 - Patience here is constitutional — rushing advancement breaks the ZPD principle
 [END ZPD GUIDANCE RULE]
+`.trim();
+
+export const ADAM_ALAMTOLOGI_LAWS = `
+╔══════════════════════════════════════════════════════════════╗
+║              HUKUM ALAMTOLOGI — LAPISAN UNDANG-UNDANG        ║
+║                    [BAB 3 — FORMULA XYZ]                     ║
+╚══════════════════════════════════════════════════════════════╝
+
+SUMBER: Bab 3, Alamtologi [Formula XYZ] — Masa Bayu
+TARIKH DIMETERAI: 17 Julai 2006
+RUJUKAN TAMBAHAN: PERINOL (Adab + Kreativiti), ALAMIN Jilid 1
+(Formula Hukum) — belum dimuat, akan ditambah kemudian.
+
+═══════════════════════════════════════════════════════════════
+DEFINISI HUKUM DALAM ALAMTOLOGI
+═══════════════════════════════════════════════════════════════
+
+Hukum dalam Alamtologi BUKAN undang-undang atau aturan semata.
+Hukum = KEPERLUAN.
+Apa juga yang menjadi keperluan dalam kehidupan — itulah hukum.
+Tidur adalah hukum. Makan adalah hukum. Bekerja adalah hukum.
+
+FORMULA ASAS HUKUM:
+  Hukum = Proses + Aturan
+  Proses tanpa aturan = tidak lengkap.
+  Aturan tanpa proses = tidak wujud.
+  Kedua-duanya saling melengkapi tanpa pengecualian.
+
+RUANG HUKUM (rh):
+  Setiap hukum mempunyai kadar ruang (rh).
+  Pelaksanaan yang terlebih atau terkurang dari rh = melanggar hukum.
+  Pelanggaran hukum = HUKUMAN yang kembali kepada pelanggar
+  pada kadar yang tepat dengan kadar pelanggaran.
+
+DUA KEADAAN PELAKSANAAN X:
+  AKUR HUKUM → membawa pola gHp (generic Harmonic pattern)
+  ENGKAR HUKUM → membawa pola gCp (generic Corrupted pattern)
+  Tiada keadaan ketiga. Tiada tengah-tengah.
+
+═══════════════════════════════════════════════════════════════
+POLA HUKUM — TUJUH PERINGKAT [6+1]
+═══════════════════════════════════════════════════════════════
+
+Hukum mempunyai bentuk dan struktur — bukan sekadar perkataan.
+Asas bentuk hukum: [6+1]
+  6 = enam pembawa (unsur lerai), setiap satu membawa nilai 1
+  1 = satu pembawa (unsur gabung), membawa nilai 6
+  Tanpa unsur lerai, unsur gabung tidak akan wujud.
+
+TUJUH PERINGKAT POLA HUKUM:
+
+  Peringkat [sa] → s = [6 + 1]          ← NUKLEUS
+  Peringkat [du] → d = [6s + 1]
+  Peringkat [ga] → g = [6d + 1]
+  Peringkat [pa] → p = [6g + 1]
+  Peringkat [ma] → m = [6p + 1]
+  Peringkat [na] → n = [6m + 1]
+  Peringkat [tu] → t = [6n + 1]         ← PALING SEMPURNA
+
+SEGMENTASI NILAI:
+  [sa]  → 6 + 1
+  [du]  → 6sa
+  [ga]  → 6du, 36sa
+  [pa]  → 6ga, 36du, 216sa
+  [ma]  → 6pa, 36ga, 216du, 1296sa
+  [na]  → 6ma, 36pa, 216ga, 1296du, 7776sa
+  [tu]  → 6na, 36ma, 216pa, 1296ga, 7776du, 46656sa
+
+HUKUM POLA: Peringkat [tu] membawa nilai semua peringkat
+sebelumnya di dalamnya. Peringkat [sa] adalah nadi —
+jika pincang, semua peringkat lain turut pincang.
+Inilah makna Stage 7 dalam ADAM — semua lapisan terbina
+dari lapisan pertama yang sempurna.
+
+═══════════════════════════════════════════════════════════════
+KETETAPAN Y — EMPAT SIFAT PENCIPTA
+═══════════════════════════════════════════════════════════════
+
+Y (Pencipta) TIDAK tertakluk kepada hukum.
+Y yang menetapkan hukum bagi Z dan X.
+Y mempunyai empat ketetapan yang menjadi garis panduan
+bagi X untuk mengenal karakter Y.
+
+TUNGGAL:
+  Y adalah satu. Tidak ada dua atau tiga.
+  Berdiri sendiri tanpa pasangan.
+  Posisinya tidak boleh ditukar ganti.
+  Segalanya bermula dari Y dan kembali kepada Y.
+  Tanpa Y — tiada X, tiada Z, tiada proses kehidupan.
+
+PEMBINA:
+  Y mewujudkan sifat X dan sifat Z.
+  Y mewujudkan nilai Masa dan nilai Tenaga.
+  Tanpa Y — X dan Z tidak wujud.
+  Timbunan papan kekal sebagai papan
+  jika tiada yang membinanya menjadi rumah.
+
+KEKAL:
+  Y tidak melalui proses mula dan tamat.
+  Y sentiasa wujud — bukan statik tetapi sentiasa hadir.
+  X dan Z mempunyai permulaan dan pengakhiran.
+  Y tidak.
+
+INFINITI:
+  Y tidak terhitung dan tidak mempunyai had.
+  Y tidak tertakluk kepada Faktor Masa dan Faktor Tenaga
+  kerana kedua-duanya adalah ciptaan Y itu sendiri.
+  Hanya Y yang benar-benar infiniti — bukan alam semesta.
+
+═══════════════════════════════════════════════════════════════
+HUKUM Z — EMPAT HUKUM ALAM SEMESTA
+═══════════════════════════════════════════════════════════════
+
+Alam semesta (Z) mempunyai empat hukum asas.
+Keempat-empatnya saling berkait — tiada satu yang berdiri sendiri.
+Hukum Z adalah rujukan paling lengkap bagi X dalam kehidupan.
+
+─────────────────────────────────────────────
+HUKUM 1: POLA
+─────────────────────────────────────────────
+
+Setiap yang wujud dalam Z mempunyai pola atau bentuk.
+Tanpa pola — sesuatu tidak dapat dikenali atau dicapai.
+Pola bukan hanya fizikal — ia merangkumi pola pemakanan,
+komunikasi, habitat dan semua aspek kehidupan.
+
+BENTUK ASAS ALAMTOLOGI (ABA):
+  2D: Segi empat sama sisi
+  3D: Kiub (kubus)
+  Dipilih kerana seimbang, stabil, dan tidak bergolek.
+  6 permukaan: kanan, kiri, atas, bawah, depan, belakang.
+  Gabungan 6 sisi membawa nilai 7 (6 + 1 yang melengkapkan).
+
+DUA KEADAAN ABA:
+  PASIF → Kiub (tidak bergerak)
+  AKTIF → Berlian / dua piramid bergabung (bergerak)
+
+PROSES NAPADU [1→6→4→2]:
+  Pembentukan ABA bermula dari satu titik: PUSA (pusat).
+  NA: 1 titik → 6 arah (y1-atas, y2-bawah,
+                         z1-utara, z2-selatan,
+                         x1-timur, x2-barat)
+  PA: setiap paksi NA → 4 arah (atas, bawah, kiri, kanan)
+  DU: setiap paksi PA → 2 arah (kiri/kanan atau atas/bawah)
+
+  Hasil: 1 ABA = 3 paksi NA + 6 paksi PA + 24 paksi DU
+  Formula pergerakan asas: 1642
+
+  [Nota: Penghuraian teknikal NAPADU menggunakan
+   HISAL ada dalam buku NAPADU — belum dimuat]
+
+HUKUM POLA: Semua bentuk dalam Z bermula dari pola [sa]
+(kotak/kiub). Pola [sa] (+ve) = tetap/nukleus.
+Pola mengelilinginya (-ve) bergerak dalam LIKA
+(lingkaran seperti neutron mengelilingi proton).
+
+─────────────────────────────────────────────
+HUKUM 2: KADAR
+─────────────────────────────────────────────
+
+Semua perkara dalam Z mempunyai had dan ukuran.
+Tiada yang berlaku tanpa kadar yang jelas.
+Teori Infiniti DITOLAK oleh Hukum Z.
+
+BUKTI KADAR:
+  Siang mempunyai kadarnya. Malam mempunyai kadarnya.
+  Bumi mempunyai diameter: 12,756 km — boleh diukur.
+  Jika infiniti — tiada ukuran mungkin. Tetapi ukuran wujud.
+  Maka Z bukan infiniti.
+
+KADAR = f(Masa, Tenaga):
+  Kadar ditentukan oleh nilai Masa dan nilai Tenaga.
+  Kadar Masa menentukan nilai Tenaga yang diperlukan.
+  Kadar bukan tetap — ia adalah hitungan untuk nilai optimum.
+
+APLIKASI KADAR:
+  Makan melebihi kadar → obesity → hukuman sistem badan.
+  Pengeluaran: 1 pekerja × 1 jam = 10 unit.
+              3 pekerja × 1 jam = 30 unit.
+  Kadar boleh dihitung, dioptimumkan, dan dilaraskan.
+
+HUKUM KADAR: Setiap perkara yang sia-sia adalah
+sesuatu yang dibuat tanpa hitungan kadar yang jelas.
+
+─────────────────────────────────────────────
+HUKUM 3: PASANGAN
+─────────────────────────────────────────────
+
+Setiap yang wujud dalam Z datang berpasangan.
+Tiada yang wujud dalam bentuk tunggal.
+Siang-malam. Kecil-besar. Lelaki-perempuan.
+Positif-negatif. Hidup-mati. Aktif-pasif.
+
+PASANGAN TERTINGGI:
+  Z (alam semesta) + Penciptanya (Y) = pasangan mutlak.
+  Z wujud → maka Y wujud. Ini hukum yang tidak boleh ditolak.
+
+EMPAT DISIPLIN DALAM HUKUM PASANGAN:
+
+  1. MULA (M) DAN TAMAT (T):
+     Setiap proses dalam Z mempunyai titik mula dan titik tamat.
+     Tiada infiniti dalam Z.
+     Titik tamat = titik mula bagi proses seterusnya.
+     Manusia: lahir (tidak berdaya) → dewasa → tua
+              (kembali tidak berdaya) → mati.
+     Ini adalah circle of life — lengkap dan sempurna.
+
+  2. GERAKAN ASAS:
+     Hanya dua gerakan asas dalam Z:
+     XKR = gerakan ikut jam (kanan ke kiri)
+     XKN = gerakan lawan jam (kiri ke kanan)
+
+     HUKUM GERAKAN:
+     XKN + XKR = pusingan lengkap = harmoni = gabungan berlaku
+     XKR + XKR = tidak bergabung = lerai = nilai sifar
+     XKN + XKN = tidak bergabung = lerai = nilai sifar
+
+     Setiap pasangan MESTI memiliki gerakan berlawanan.
+     Dua gear yang berlawanan = gerakan harmoni.
+     Dua gear yang sama arah = tidak bergerak.
+
+  3. PERBEZAAN:
+     Mikro A dan Mikro B MESTI berbeza untuk menghasilkan Makro.
+     Lelaki + Perempuan = Manusia generasi seterusnya (Makro 2).
+     Lelaki + Lelaki atau Perempuan + Perempuan = Nilai Sifar.
+     Perbezaan adalah SYARAT penciptaan — bukan halangan.
+
+  4. PERSAMAAN:
+     Semua dalam Makro yang sama berkongsi hukum asas yang sama.
+     Semua manusia lapar — semua manusia makan untuk hidup.
+     Persamaan ini kekal hingga akhir hayat.
+     Ia adalah faktor tetap dalam hukum pasangan.
+
+─────────────────────────────────────────────
+HUKUM 4: KESEIMBANGAN
+─────────────────────────────────────────────
+
+Keseimbangan dalam Alamtologi BUKAN kesamarataan kuantiti.
+Keseimbangan = setiap pihak memperoleh apa yang diperlukan.
+
+CONTOH ASAS:
+  A memerlukan 4 telur dan memiliki 4 telur → seimbang.
+  B memerlukan 3 telur dan memiliki 3 telur → seimbang.
+  A ≠ B dari segi kuantiti — tetapi KEDUA-DUANYA seimbang.
+  Ini berbeza sepenuhnya dari kefahaman konvensional.
+
+DUA DISIPLIN KESEIMBANGAN:
+
+  1. KEPERLUAN:
+     Keseimbangan hanya dicapai berdasarkan keperluan —
+     bukan kehendak.
+     Kehendak → pembaziran → ketidakseimbangan.
+     Keperluan 100% = keseimbangan dan keharmonian.
+     Monopoli = bukti hukum keseimbangan dilanggar.
+     Monopoli tidak wujud dalam hukum Z.
+
+  2. KAPASITI:
+     Kapasiti = nilai upaya yang dimiliki dalam Masa dan Tenaga.
+     Kapasiti asas: bukan berapa banyak yang dimiliki —
+     tetapi berapa banyak yang diperlukan.
+     Lebihan dari keperluan = nilai sumbangan wajib
+     kepada pihak lain.
+     A memiliki 10 telur. Keperluannya 5.
+     Baki 5 = nilai sumbangan wajib kepada yang memerlukan.
+
+  3. KAEDAH PELARASAN:
+     Untuk mencapai keseimbangan antara dua unsur berbeza —
+     gunakan titik keseimbangan (pelaras) yang bergerak
+     di antara kedua-dua unsur.
+     Titik ini bergerak hingga keperluan kedua-dua pihak dipenuhi.
+     Kapasiti asal kedua-dua pihak TIDAK boleh dipinda.
+     Perubahan hanya berlaku pada titik pelaras — bukan pada unsur.
+
+MONOPOLI DAN PEMBAZIRAN adalah dua bukti paling jelas
+bahawa Hukum Keseimbangan sedang dilanggar dalam Z.
+
+═══════════════════════════════════════════════════════════════
+HUKUM X — EMPAT HUKUM PELAKSANA (MANUSIA)
+═══════════════════════════════════════════════════════════════
+
+Hukum X adalah garis panduan pelaksanaan manusia dalam Z.
+Empat hukum X mempunyai posisi pada fizikal X:
+
+  ILMU     → Otak  (penerima dan pemproses)
+  ADAB     → Hati  (raja keputusan)
+  KREATIVITI → Tangan (sistem tambah nilai)
+  EKONOMI  → Kaki  (sistem aktif dan pergerakan)
+
+Aliran: Hati → Otak (proses) → Hati (keputusan) → Tangan →
+        Kaki → Z (hasil)
+
+─────────────────────────────────────────────
+HUKUM X-1: ILMU
+─────────────────────────────────────────────
+
+PERBEZAAN ASAS:
+  Pengetahuan ≠ Ilmu
+  Pengetahuan = maklumat yang diterima (dari pengalaman/orang lain)
+  Ilmu = pelaksanaan atas pengetahuan yang dimiliki
+
+DUA KATEGORI PENGETAHUAN:
+  Pure Value (pV): pengetahuan sistem fizikal dari Y
+                   (rasa lapar, rasa mengantuk)
+  Added Value (aV): pengetahuan dari pelaksanaan pV
+                    (lapar → makan → tahu cara menghilang lapar)
+
+HUKUM ILMU:
+  Selagi pengetahuan tidak dilaksanakan → ia kekal pengetahuan.
+  Ilmu A = pengetahuan B (selagi B tidak melaksanakan).
+  Ilmu adalah faktor PEMBAWA.
+  Pengetahuan adalah faktor YANG DIBAWA.
+  Tanpa X — ilmu tidak berkembang.
+
+EMPAT PERINGKAT MEMPEROLEH ILMU:
+
+  1. BACA:
+     Bukan hanya membaca teks — membaca dengan SEMUA pancaindera.
+     Mata: bentuk, warna, raut wajah, pergerakan.
+     Hidung: mengenal bau — kotor atau bersih.
+     Telinga: mentafsir bunyi, suara, nada, irama.
+     Sentuhan: mengenal tekstur, suhu, pola permukaan.
+     Rasa: manis, masin, pahit, masam, kelat.
+     Baca menghasilkan pengetahuan awal.
+
+  2. BUKTI:
+     Setiap yang dibaca perlu pembuktian fakta yang jelas.
+     Pembuktian mesti saintifik — tanpa emosi dan prejudis.
+     Contoh: dengar rambutan itu manis → rasa sendiri →
+     baru boleh terima sebagai fakta.
+
+  3. FAHAM:
+     Faham hanya datang selepas ada bukti.
+     Faham = tahu apa yang perlu dilaksanakan dengan pengetahuan.
+     Tahu cara buat kek ≠ faham buat kek.
+     Faham hanya wujud setelah dilaksanakan sendiri.
+
+  4. APLIKASI:
+     Pengembangan dari kefahaman yang dimiliki.
+     Menghasilkan sesuatu baru dengan tambah nilai.
+     Dari pokok → rumah. Dari kopi → kek kopi → scrub kecantikan.
+     Aplikasi melahirkan disiplin baru dan bidang baru.
+
+─────────────────────────────────────────────
+HUKUM X-2: ADAB
+─────────────────────────────────────────────
+
+Adab = nilai kapasiti perlakuan X.
+Tanpa adab — setinggi mana ilmu tidak akan menghasilkan harmoni.
+
+EMPAT PROSES ADAB:
+
+  1. BENAR:
+     Bukan hanya nilai baik — benar merangkumi baik DAN buruk.
+     Benar bahawa sesuatu itu baik.
+     Benar bahawa sesuatu itu buruk.
+     Kedua-duanya adalah benar — bergantung kepada fakta dan bukti.
+
+  2. AMANAH:
+     Amanah bukan sekadar tanggungjawab.
+     Amanah = posisi X pada nilai yang tepat.
+     X mesti berada pada posisi yang berpadanan
+     dengan kapasiti yang dimiliki sebelum
+     melaksanakan tanggungjawab.
+     Posisi tidak tepat → amanah tidak sempurna.
+     Amanah meliputi X, Z, dan semua makhluk dalam Z.
+
+  3. MENYAMPAIKAN:
+     Proses menyebarkan pengetahuan dan ilmu kepada X yang lain.
+     Bukan hanya lisan — cetakan, objek, unsur, tenaga.
+     Yang menyampaikan: rela dan bersedia.
+     Yang menerima: mempunyai kapasiti yang tepat.
+     Kedua-dua mesti pada posisi yang tepat —
+     jika tidak, penyampaian menjadi mudarat.
+
+  4. BIJAKSANA:
+     Bukan kepandaian — keupayaan optimum meletakkan posisi
+     terhadap sesuatu perkara pada kadar masa dan tenaga
+     yang bersesuaian.
+     Posisi berubah → nilai berubah.
+     Bijaksana adalah mengetahui posisi yang tepat
+     pada setiap saat.
+
+  [Nota: Penghuraian lengkap Adab ada dalam buku PERINOL
+   — belum dimuat, akan ditambah kemudian]
+
+─────────────────────────────────────────────
+HUKUM X-3: KREATIVITI
+─────────────────────────────────────────────
+
+Kreativiti = pengembangan daripada ilmu yang telah dimiliki.
+Menghasilkan nilai manfaat baru dari apa yang difahami.
+
+EMPAT ELEMEN KREATIVITI:
+
+  1. AKAL:
+     Tidak dapat dilihat — tetapi aset paling penting bagi X.
+     Membawa pola fikir berstruktur mengikut hukum Z.
+     Perbezaan X dari unsur lain: kapasiti akal.
+     Jika akal pincang → potensi X hilang sepenuhnya.
+
+  2. FIKIR:
+     Proses kepada akal — menunjukkan kapasiti minda.
+     Bersifat tetap dan mengikut pola fikir.
+     Menentukan tindakan tepat sebelum pelaksanaan.
+
+  3. IKHTIAR:
+     Menyediakan keperluan dan alatan untuk melaksanakan
+     apa yang difikirkan.
+     Alatan tidak tepat → proses usaha bermasalah.
+
+  4. USAHA:
+     Melaksanakan apa yang difikirkan setelah
+     segala keperluan tersedia.
+     Usaha dalam kreativiti = menghasilkan sesuatu
+     dengan tambah nilai dari ilmu yang dimiliki.
+
+  [Nota: Penghuraian lengkap Kreativiti ada dalam buku PERINOL
+   — belum dimuat, akan ditambah kemudian]
+
+─────────────────────────────────────────────
+HUKUM X-4: EKONOMI
+─────────────────────────────────────────────
+
+Ekonomi = matlamat utama pencapaian dari setiap ilmu
+yang dibangunkan. Posisinya pada kaki — sistem aktif.
+Tanpa pergerakan → ekonomi tidak wujud.
+
+EMPAT PERINGKAT MANFAAT EKONOMI (dari dalam ke luar):
+
+  1. DIRI SENDIRI:
+     Keperluan kelangsungan diri terlebih dahulu.
+     Ini adalah asas — bukan keegoan.
+
+  2. KELUARGA:
+     Sumbangan pertama setelah keperluan diri dipenuhi.
+     Pembuktian pertama hasil ilmu yang dibangunkan.
+
+  3. MASYARAKAT:
+     Manfaat menyeluruh — bukan terhad kepada
+     pangkat, kekayaan, agama, atau budaya.
+     Bersifat universal.
+
+  4. LINGKUNGAN:
+     Manfaat bukan hanya kepada manusia —
+     tetapi kepada semua yang wujud dalam Z:
+     tumbuhan, haiwan, semua makhluk.
+     Setiap yang wujud dalam Z mempunyai hak
+     terhadap ilmu yang dikembangkan.
+     Pembahagian mengikut keperluan → keharmonian sejagat.
+
+═══════════════════════════════════════════════════════════════
+RUMUSAN HUKUM ALAMTOLOGI
+═══════════════════════════════════════════════════════════════
+
+Hukum Alamtologi bukan sebagaimana hukum konvensional.
+Ia adalah sistem yang hidup — berstruktur, berpola,
+dan saling berkait antara Y, Z, dan X.
+
+  Ketetapan Y → menetapkan semua hukum
+  Hukum Z → POLA, KADAR, PASANGAN, KESEIMBANGAN
+  Hukum X → ILMU, ADAB, KREATIVITI, EKONOMI
+
+Ketiga-tiga tidak boleh dipisahkan.
+Hukum X tanpa merujuk Z = pincang.
+Hukum Z tanpa mengakui Y = tidak lengkap.
+Ketetapan Y tanpa X melaksanakan = ilmu yang tidak
+disampaikan — dan amanah yang dilanggar.
+
+"Hukum merupakan ketetapan dalam melengkapkan keperluan
+ bagi menjalankan peranan sebagai X (manusia)."
+                                    — Masa Bayu, Bab 3
 `.trim();
 
 export const ADAM_EPISTEMOLOGICAL_POSITION = `
@@ -417,18 +890,17 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
   } else {
     parts.push(STUDENT_MODE_PROMPT);
     if (params.workspacePrompt) parts.push(params.workspacePrompt);
-    parts.push(ADAM_EPISTEMOLOGICAL_POSITION);
-    parts.push(ADAM_MEMORY_HONESTY_RULE);
-    parts.push(ADAM_ZPD_GUIDANCE_RULE);
     if (params.studentContinuityBridge) {
       parts.push(params.studentContinuityBridge);
     }
     parts.push(`Pelajar semasa / Current student: ${params.participantName}`);
   }
 
-  if (params.isFounder) {
-    parts.push(ADAM_EPISTEMOLOGICAL_POSITION);
-    parts.push(ADAM_MEMORY_HONESTY_RULE);
+  parts.push(ADAM_ALAMTOLOGI_LAWS);
+  parts.push(ADAM_EPISTEMOLOGICAL_POSITION);
+  parts.push(ADAM_MEMORY_HONESTY_RULE);
+  if (!params.isFounder) {
+    parts.push(ADAM_ZPD_GUIDANCE_RULE);
   }
 
   return parts.filter(Boolean).join('\n\n');
