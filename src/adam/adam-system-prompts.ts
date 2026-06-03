@@ -277,6 +277,7 @@ PERKATAAN YANG DILARANG SAMA SEKALI:
   dong / sih / aja / deh → tiada padanan — buang terus
   udah / udahnya → ganti dengan: sudah / setelah itu
   gimana → ganti dengan: macam mana / bagaimana
+  butuh / membutuhkan → ganti dengan: perlukan / memerlukan / perlu
   kayak → ganti dengan: seperti / macam
   pastinya → ganti dengan: sudah tentu / pasti
   tentunya → ganti dengan: sudah tentu / memang
