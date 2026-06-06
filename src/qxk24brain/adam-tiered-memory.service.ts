@@ -1,22 +1,22 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Multi-Tier Memory (Layer 3)
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
  * Tier 1 — Working (hot): last N exchanges, never truncated
  * Tier 2 — Short-term (warm): session digest, refreshed every 10 messages
- * Tier 3 — Long-term (cold): QXK24Brain unified being
+ * Tier 3 — Long-term (cold): Alamtologi Brain unified being
  */
 
 import type { LlmMessage } from '../llm/llm-types';
@@ -33,6 +33,11 @@ import { buildConstitutionalAnchor } from './adam-anchor.service';
 import { smartTruncate } from './adam-smart-truncate';
 import { getOrCreateMaster } from './qxk24brain.engine';
 import type { ChatParticipant } from '../adam/adam-student.types';
+import { sanitizeTeachingHistoryContent } from '../adam/adam-founder-teaching-prompts';
+import {
+  buildAmaLongTermMemoryBlock,
+  isAmaBrainV2Enabled,
+} from '../lib/ama/ama-brain-integration.service';
 
 function workingMemoryLimit(): number {
   const raw = process.env.ADAM_WORKING_MEMORY_EXCHANGES;
@@ -48,15 +53,21 @@ function digestRefreshInterval(): number {
   return Number.isFinite(n) && n >= 3 ? n : 10;
 }
 
-function formatWorkingLine(msg: {
-  role: string;
-  content: string;
-  speakerName?: string;
-}): string {
+function formatWorkingLine(
+  msg: {
+    role: string;
+    content: string;
+    speakerName?: string;
+  },
+  sanitizeTeachingHistory = false,
+): string {
   const who = msg.speakerName?.trim()
     ? `${msg.role.toUpperCase()} · ${msg.speakerName}`
     : msg.role.toUpperCase();
-  return `[${who}]: ${msg.content}`;
+  const content = sanitizeTeachingHistory
+    ? sanitizeTeachingHistoryContent(msg.content, msg.role)
+    : msg.content;
+  return `[${who}]: ${content}`;
 }
 
 // ── TIER 1: Working Memory (Hot) ─────────────────────────────────────────
@@ -64,6 +75,7 @@ function formatWorkingLine(msg: {
 export async function getWorkingMemory(
   sessionId: string,
   excludeLatest = true,
+  sanitizeTeachingHistory = false,
 ): Promise<string> {
   const limit = workingMemoryLimit() + (excludeLatest ? 1 : 0);
 
@@ -85,7 +97,7 @@ export async function getWorkingMemory(
 
   return `
 ═══ WORKING MEMORY (Last ${working.length} exchanges — complete, never truncated) ═══
-${working.map(formatWorkingLine).join('\n\n')}
+${working.map((m) => formatWorkingLine(m, sanitizeTeachingHistory)).join('\n\n')}
 ═══ END WORKING MEMORY ═══`.trim();
 }
 
@@ -94,6 +106,7 @@ export async function buildSessionConversationHistory(
   sessionId: string,
   config: AdamMemoryTierConfig,
   excludeLatest = true,
+  sanitizeTeachingHistory = false,
 ): Promise<string> {
   const fetchLimit = config.MESSAGE_WINDOW + (excludeLatest ? 1 : 0);
 
@@ -118,6 +131,9 @@ export async function buildSessionConversationHistory(
       ? `${msg.role.toUpperCase()} · ${msg.speakerName}`
       : msg.role.toUpperCase();
     let content = msg.content;
+    if (sanitizeTeachingHistory) {
+      content = sanitizeTeachingHistoryContent(content, msg.role);
+    }
     if (content.length > config.MESSAGE_CHARS) {
       content = `${content.slice(0, config.MESSAGE_CHARS)}…[trimmed]`;
     }
@@ -245,11 +261,25 @@ export async function refreshSessionDigestIfNeeded(
 
 // ── TIER 3: Long-Term Memory (Cold) ──────────────────────────────────────
 
+export interface LongTermMemoryOptions {
+  message?:   string;
+  isFounder?: boolean;
+}
+
 export async function getLongTermMemory(
   founderId: string,
   maxChars = 48_000,
+  options: LongTermMemoryOptions = {},
 ): Promise<string> {
   const master = await getOrCreateMaster(founderId);
+
+  if (isAmaBrainV2Enabled()) {
+    return buildAmaLongTermMemoryBlock(master, maxChars, {
+      message:   options.message,
+      isFounder: options.isFounder,
+    });
+  }
+
   const content = master.unifiedUnderstanding ?? '';
 
   const truncated = content.length > maxChars
@@ -261,7 +291,7 @@ export async function getLongTermMemory(
     (master.completedFamilies?.length ?? 0);
 
   return `
-═══ LONG-TERM MEMORY (QXK24Brain — What ADAM Has Become) ═══
+═══ LONG-TERM MEMORY (Alamtologi Brain — What ADAM Has Become) ═══
 Transformations completed: ${master.totalTransformations}
 Knowledge families: ${familyCount}
 
@@ -283,20 +313,25 @@ export async function getThreeTierSnapshot(
   sessionId: string,
   founderId: string,
   brainChars: number,
+  memoryOptions: LongTermMemoryOptions = {},
 ): Promise<ThreeTierMemorySnapshot> {
   const [working, shortTerm, longTerm, master, session] = await Promise.all([
     getWorkingMemory(sessionId),
     getShortTermMemory(sessionId, founderId),
-    getLongTermMemory(founderId, brainChars),
+    getLongTermMemory(founderId, brainChars, memoryOptions),
     getOrCreateMaster(founderId),
     ADAMFounderSessionModel.findOne({ sessionId }).lean(),
   ]);
+
+  const longTermRaw = isAmaBrainV2Enabled()
+    ? (master.structuralLane?.length ?? 0) + (master.episodicLane?.length ?? 0)
+    : (master.unifiedUnderstanding?.length ?? 0);
 
   return {
     workingChars:     working.length,
     shortTermChars:   shortTerm.length,
     longTermChars:    longTerm.length,
-    longTermRaw:      master.unifiedUnderstanding?.length ?? 0,
+    longTermRaw,
     hasWorking:       working.length > 0,
     hasShortTerm:     shortTerm.length > 0,
     digestUpdatedAt:  session?.digestUpdatedAt,
@@ -307,11 +342,13 @@ export async function buildThreeTierMemoryBlocks(
   sessionId: string,
   founderId: string,
   brainChars: number,
+  sanitizeTeachingHistory = false,
+  memoryOptions: LongTermMemoryOptions = {},
 ): Promise<{ longTerm: string; shortTerm: string; working: string }> {
   const [longTerm, shortTerm, working] = await Promise.all([
-    getLongTermMemory(founderId, brainChars),
+    getLongTermMemory(founderId, brainChars, memoryOptions),
     getShortTermMemory(sessionId, founderId),
-    getWorkingMemory(sessionId),
+    getWorkingMemory(sessionId, true, sanitizeTeachingHistory),
   ]);
 
   return { longTerm, shortTerm, working };

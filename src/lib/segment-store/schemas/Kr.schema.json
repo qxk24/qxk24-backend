@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "Kr.schema.json",
+  "title": "AMA Segment Kr — Structural Lane",
+  "type": "object",
+  "required": ["timestamp", "sourceId"],
+  "additionalProperties": false,
+  "properties": {
+    "formula":   { "type": "string" },
+    "usul":      { "type": "string" },
+    "algoritma": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "sourceId":  { "type": "string", "minLength": 1 }
+  }
+}

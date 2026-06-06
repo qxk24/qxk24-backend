@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "Dn.schema.json",
+  "title": "AMA Segment Dn — Working Memory / Layer 5",
+  "type": "object",
+  "required": ["timestamp", "sourceId"],
+  "additionalProperties": false,
+  "properties": {
+    "wmLoad":            { "type": "number", "minimum": 0 },
+    "decisionPoint":     { "type": "string" },
+    "responseLatency":   { "type": "number", "minimum": 0 },
+    "layer5OutputHash":  { "type": "string" },
+    "timestamp":         { "type": "string", "format": "date-time" },
+    "sourceId":          { "type": "string", "minLength": 1 }
+  }
+}

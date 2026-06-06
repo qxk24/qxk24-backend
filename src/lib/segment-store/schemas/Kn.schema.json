@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "Kn.schema.json",
+  "title": "AMA Segment Kn — Episodic Lane",
+  "type": "object",
+  "required": ["episodeId", "timestamp", "sourceId"],
+  "additionalProperties": false,
+  "properties": {
+    "episodeId":   { "type": "string", "minLength": 1 },
+    "timestamp":   { "type": "string", "format": "date-time" },
+    "emotionTag":  { "type": "string" },
+    "location":    { "type": "string" },
+    "audioHash":   { "type": "string" },
+    "rasaWeight":  { "type": "integer", "minimum": 1, "maximum": 10 },
+    "sourceId":    { "type": "string", "minLength": 1 },
+    "evidenceText": { "type": "string" }
+  }
+}

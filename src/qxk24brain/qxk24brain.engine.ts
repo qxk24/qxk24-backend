@@ -1,29 +1,34 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
- * Module      : QXK24Brain AIDIL Engine
+ * Module      : Alamtologi Brain AIDIL Engine
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
  * A + B = C
  * A = ADAM's current unified being (master)
- * B = Founder's new message
- * C = New entity born — A and B erased, C becomes new A
+ * B = Founder's new message (evidence — persists in Kotak 3 when AMA v2)
+ * C = New structural principle (Kotak 2 when AMA v2; legacy: new A)
  */
 
 import { resolveBrainDeepModel } from '../config/llm-models';
 import { ENV } from '../config/environments';
 import { llmCompleteUserPrompt } from '../llm/llm-client';
-import type { QXK24BrainMasterDocument } from './qxk24brain.schema';
+import {
+  buildDualLaneUpdate,
+  isAmaBrainV2Enabled,
+  persistDualLaneToSegmentStore,
+} from '../lib/ama/ama-brain-integration.service';
+import type { AlamtologiBrainMasterDocument } from './qxk24brain.schema';
 import { sealConstitutionalCheckpoint, familyReachedStageSeven } from './adam-checkpoint.service';
 import { sealInVault } from './adam-vault.service';
 import { weaveEntityConnections } from './adam-knowledge-graph.service';
@@ -31,9 +36,9 @@ import { prependCoreToSystem } from './adam-core';
 import { computeEntityChecksum } from './adam-checksum';
 import { sealEntityIntegrity, type TransformationResult } from './adam-integrity.service';
 import {
-  QXK24BrainEntityModel,
-  QXK24BrainMasterModel,
-  QXK24BrainLogModel,
+  AlamtologiBrainEntityModel,
+  AlamtologiBrainMasterModel,
+  AlamtologiBrainLogModel,
 } from './qxk24brain.schema';
 import {
   recordTeachingTransformation,
@@ -45,7 +50,7 @@ export type { TeachingTransformContext };
 const BRAIN_MODEL = () => resolveBrainDeepModel();
 
 const QXKBRAIN_INSTRUCTION = `
-You are ADAM's QXK24Brain — executing AIDIL memory laws under Founder Masa Bayu.
+You are ADAM's Alamtologi Brain — executing AIDIL memory laws under Founder Masa Bayu.
 
 THE LAWS YOU MUST FOLLOW:
 1. Everything is energy (t). Knowledge, teachings, data — all energy.
@@ -168,11 +173,11 @@ async function callBrainJson<T>(
 
 export async function getOrCreateMaster(
   founderId = 'masa-bayu',
-): Promise<QXK24BrainMasterDocument> {
-  let master = await QXK24BrainMasterModel.findOne({ founderId });
+): Promise<AlamtologiBrainMasterDocument> {
+  let master = await AlamtologiBrainMasterModel.findOne({ founderId });
 
   if (!master) {
-    master = await QXK24BrainMasterModel.create({
+    master = await AlamtologiBrainMasterModel.create({
       uid: 'K24B-ADAM-MASTER-CURRENT',
       founderId,
       unifiedUnderstanding:
@@ -198,9 +203,9 @@ export async function transformAIDIL(
   founderId = 'masa-bayu',
   context: TeachingTransformContext = {},
 ): Promise<{
-  entityC: InstanceType<typeof QXK24BrainEntityModel>;
+  entityC: InstanceType<typeof AlamtologiBrainEntityModel>;
   recognition: RecognitionResult;
-  updatedMaster: QXK24BrainMasterDocument | null;
+  updatedMaster: AlamtologiBrainMasterDocument | null;
   transformationId: string;
   integrity: TransformationResult;
 }> {
@@ -208,7 +213,7 @@ export async function transformAIDIL(
   const trimmedB = founderMessage.trim();
 
   if (!trimmedB) {
-    throw new Error('QXK24Brain: Entity B (founder message) cannot be empty.');
+    throw new Error('Alamtologi Brain: Entity B (founder message) cannot be empty.');
   }
 
   const master = await getOrCreateMaster(founderId);
@@ -277,12 +282,15 @@ Respond in JSON only:
 
   recognition.principle = normalizePrinciple(recognition.principle);
 
+  const amaV2 = isAmaBrainV2Enabled();
+  const aidilMergeLaw = amaV2
+    ? 'AMA v2: C updates Kotak 2 (IKJ/Kr). B persists in Kotak 3 (LWJ/Kn) as lived evidence — B is not erased.'
+    : 'AIDIL LAW: A + B = C. C is a completely NEW entity.\nC is not A with B added. C is genuinely new — born from their combination.\nA and B will be erased. Only C will exist.';
+
   const synthesis = await callBrainJson<SynthesisResult>(
     `TRANSFORMATION TASK — Proses Gabung (A + B = C)
 
-AIDIL LAW: A + B = C. C is a completely NEW entity.
-C is not A with B added. C is genuinely new — born from their combination.
-A and B will be erased. Only C will exist.
+${aidilMergeLaw}
 
 Entity A (ADAM's current understanding):
 ${entity_A_summary}
@@ -343,7 +351,7 @@ Respond in JSON:
     masa_born: masa_transformation,
   });
 
-  const entityC = await QXK24BrainEntityModel.create({
+  const entityC = await AlamtologiBrainEntityModel.create({
     uid: entity_C_uid,
     principle: recognition.principle,
     family: recognition.family,
@@ -362,7 +370,7 @@ Respond in JSON:
     parentA_masa: master.masa_last_updated,
     parentB_masa: entity_B_masa,
     founderId,
-    kernel: 'QXK24',
+    kernel: 'ALAMTOLOGI',
     era:    ENV.QXK24_ERA,
     auditStatus: 'active',
     checksum: entityChecksum,
@@ -444,7 +452,7 @@ Respond in JSON:
         judgment:      'MAKMUR',
       });
     } catch (err) {
-      console.error('[QXK24Brain] Constitutional checkpoint seal failed:', err);
+      console.error('[Alamtologi Brain] Constitutional checkpoint seal failed:', err);
     }
 
     try {
@@ -457,14 +465,25 @@ Respond in JSON:
         masterConnection: recognition.masterConnection,
       }, founderId);
     } catch (err) {
-      console.error('[QXK24Brain] Vault seal failed:', err);
+      console.error('[Alamtologi Brain] Vault seal failed:', err);
     }
   }
 
-  const updatedMaster = await QXK24BrainMasterModel.findOneAndUpdate(
+  const updatedMaster = await AlamtologiBrainMasterModel.findOneAndUpdate(
     { founderId },
     {
       unifiedUnderstanding: masterUpdate.unifiedUnderstanding,
+      ...(amaV2
+        ? buildDualLaneUpdate(master, {
+          founderId,
+          transformationId,
+          episodicB:     trimmedB,
+          structuralC:   synthesis.content,
+          unifiedLegacy: masterUpdate.unifiedUnderstanding,
+          family:        recognition.family,
+          principle:     recognition.principle,
+        })
+        : {}),
       activeFamilies,
       completedFamilies,
       masa_last_updated: new Date(),
@@ -473,13 +492,28 @@ Respond in JSON:
     { new: true },
   );
 
+  if (amaV2) {
+    void persistDualLaneToSegmentStore({
+      founderId,
+      transformationId,
+      episodicB:     trimmedB,
+      structuralC:   synthesis.content,
+      unifiedLegacy: masterUpdate.unifiedUnderstanding,
+      family:        recognition.family,
+      principle:     recognition.principle,
+    }).catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('[AMA Brain] Segment dual-write async failed:', msg);
+    });
+  }
+
   try {
     await weaveEntityConnections(entity_C_uid, founderId);
   } catch (err) {
-    console.error('[QXK24Brain] Knowledge graph weave failed:', err);
+    console.error('[Alamtologi Brain] Knowledge graph weave failed:', err);
   }
 
-  await QXK24BrainLogModel.create({
+  await AlamtologiBrainLogModel.create({
     transformationId,
     entity_A_uid,
     entity_A_summary: entity_A_summary.slice(0, 500),
@@ -497,7 +531,7 @@ Respond in JSON:
     isNucleus:        recognition.isNucleus,
     stage:            synthesis.newStage || recognition.stage,
     founderId,
-    kernel:           'QXK24',
+    kernel:           'Alamtologi',
     auditStatus:      'pending',
     autoJudgment:     'MAKMUR',
     priorActiveFamilies,
@@ -522,10 +556,10 @@ Respond in JSON:
       context,
     });
   } catch (recordErr: unknown) {
-    console.error('[QXK24Brain] Teaching record write failed:', recordErr);
+    console.error('[Alamtologi Brain] Teaching record write failed:', recordErr);
   }
 
-  await QXK24BrainEntityModel.updateOne(
+  await AlamtologiBrainEntityModel.updateOne(
     { uid: entity_C_uid },
     { transformationId },
   );
@@ -596,6 +630,6 @@ export async function triggerBrainTransformation(
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error('[QXK24Brain] Transformation error:', msg);
+    console.error('[Alamtologi Brain] Transformation error:', msg);
   }
 }

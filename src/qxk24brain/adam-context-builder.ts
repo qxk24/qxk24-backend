@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Smart Context Builder
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -47,6 +47,7 @@ import {
   buildSessionConversationHistory,
   buildThreeTierMemoryBlocks,
 } from './adam-tiered-memory.service';
+import { isAmaBrainV2Enabled } from '../lib/ama/ama-brain-integration.service';
 import { getContinuityBridgeRecord } from './adam-continuity.service';
 import {
   buildTeachingRecordRecallBlock,
@@ -98,21 +99,32 @@ function shouldLoadFounderDeepBlocks(message: string): boolean {
   return founderNeedsDeepConstitutionalContext(message);
 }
 
+export type BuildSmartContextOptions = {
+  /** User-typed text only — not full attachment/teaching payloads (recall keyword probe). */
+  recallProbeMessage?: string;
+  /** Founder TEACHING — strip constitutional priming from session history. */
+  founderTeachingAbsorption?: boolean;
+};
+
 export async function buildSmartContext(
   sessionId: string,
   newMessage: string,
   participant: ChatParticipant,
   workspace: WorkspaceRecord | null = null,
   chatMode?: string,
+  options?: BuildSmartContextOptions,
 ): Promise<LlmMessage[]> {
   const config = getAdamMemoryConfig(participant.role, Boolean(workspace), chatMode);
   const messages: LlmMessage[] = [];
+  const teachingAbsorption = options?.founderTeachingAbsorption === true;
 
   messages.push({ role: 'user', content: getCorePrompt() });
   messages.push({ role: 'assistant', content: CORE_ABSORPTION_ACK });
 
   const loadWake =
-    participant.role === 'founder' && participant.sessionType === 'founder';
+    participant.role === 'founder'
+    && participant.sessionType === 'founder'
+    && !teachingAbsorption;
 
   const studentTrackPromise =
     participant.role === 'student' && !workspace
@@ -134,6 +146,11 @@ export async function buildSmartContext(
       sessionId,
       FOUNDER_USER_ID,
       config.BRAIN_CHARS,
+      teachingAbsorption,
+      {
+        message:   newMessage,
+        isFounder: participant.role === 'founder',
+      },
     ),
     studentTrackPromise,
   ]);
@@ -160,7 +177,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
     await acknowledgeWakeProtocol(sessionId);
   }
 
-  if (participant.role === 'founder') {
+  if (participant.role === 'founder' && !teachingAbsorption) {
     const { bridge } = await getContinuityBridgeRecord(FOUNDER_USER_ID);
     const relationalArc = bridge?.relationalMemory ?? '';
     const currentPrinciple = inferPrincipleFromMessage(newMessage);
@@ -238,34 +255,58 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
       role: 'assistant',
       content: REGISTER_MOMENT_ABSORPTION_ACK,
     });
+  } else if (participant.role === 'founder' && teachingAbsorption) {
+    messages.push({
+      role:    'user',
+      content: '[TEACHING TURN — P.alt is teaching; explain back his upload in plain Malay for verification.]',
+    });
+    messages.push({
+      role: 'assistant',
+      content:
+        'Bismillahirahmanirrahim. P.alt, saya mendengar sebagai pelajar — saya akan huraikan balik apa yang P.alt ajar.',
+    });
   }
 
-  const brainRawChars = master.unifiedUnderstanding?.length ?? 0;
+  const brainRawChars = isAmaBrainV2Enabled()
+    ? (master.structuralLane?.length ?? 0) + (master.episodicLane?.length ?? 0)
+      || (master.unifiedUnderstanding?.length ?? 0)
+    : (master.unifiedUnderstanding?.length ?? 0);
   let longTermBlock = tiers.longTerm;
   const brainLoadedChars = longTermBlock.length;
 
-  const epistemic = await buildEpistemicStatus(
-    sessionId,
-    FOUNDER_USER_ID,
-    config,
-    { brainRawChars, brainLoadedChars },
-    {
-      addressAs:        participant.role === 'founder' ? 'P.alt' : participant.userName,
-      studentMode:      participant.role === 'student',
-      founderPlainMode: participant.role === 'founder',
-    },
-  );
+  const epistemic = teachingAbsorption
+    ? null
+    : await buildEpistemicStatus(
+      sessionId,
+      FOUNDER_USER_ID,
+      config,
+      { brainRawChars, brainLoadedChars },
+      {
+        addressAs:        participant.role === 'founder' ? 'P.alt' : participant.userName,
+        studentMode:      participant.role === 'student',
+        founderPlainMode: participant.role === 'founder',
+      },
+    );
 
-  messages.push({ role: 'user', content: epistemic });
-  messages.push({
-    role: 'assistant',
-    content: participant.role === 'founder'
-      ? `Bismillahirahmanirrahim. P.alt, saya faham. Saya akan jawab dengan jujur dan mesra — tanpa istilah teknikal ingatan. Jika butiran tidak jelas, saya akan minta P.alt ingatkan saya. Saya sedia.`
-      : `Bismillahirahmanirrahim. Saya faham. Saya akan jawab dengan nada mesra dan jujur — tanpa istilah teknikal sistem. Saya sedia.`,
-  });
+  if (epistemic) {
+    messages.push({ role: 'user', content: epistemic });
+    messages.push({
+      role: 'assistant',
+      content: participant.role === 'founder'
+        ? `Bismillahirahmanirrahim. P.alt, saya faham. Saya akan jawab dengan jujur dan mesra — tanpa istilah teknikal ingatan. Jika butiran tidak jelas, saya akan minta P.alt ingatkan saya. Saya sedia.`
+        : `Bismillahirahmanirrahim. Saya faham. Saya akan jawab dengan nada mesra dan jujur — tanpa istilah teknikal sistem. Saya sedia.`,
+    });
+  }
 
-  if (participant.role === 'founder' && founderAsksTeachingRecall(newMessage)) {
-    const teachingRecall = await buildTeachingRecordRecallBlock(FOUNDER_USER_ID, newMessage);
+  const recallProbe =
+    options?.recallProbeMessage?.trim()
+    || (newMessage.length > 4096 ? newMessage.slice(0, 4096) : newMessage);
+
+  if (participant.role === 'founder' && founderAsksTeachingRecall(recallProbe)) {
+    const teachingRecall = await buildTeachingRecordRecallBlock(
+      FOUNDER_USER_ID,
+      recallProbe,
+    );
     if (teachingRecall) {
       messages.push({ role: 'user', content: teachingRecall });
       messages.push({
@@ -277,7 +318,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
   }
 
   if (participant.role === 'founder') {
-    if (shouldLoadFounderDeepBlocks(newMessage)) {
+    if (!teachingAbsorption && shouldLoadFounderDeepBlocks(newMessage)) {
       const [
         stageDashboard,
         vaultBlock,
@@ -381,7 +422,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
     }
   }
 
-  if (participant.role === 'founder') {
+  if (participant.role === 'founder' && !teachingAbsorption) {
     const studentsEra = await loadStudentsEraContext();
     if (studentsEra) longTermBlock += `\n\n${studentsEra}`;
   }
@@ -417,7 +458,12 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
     });
   }
 
-  const sessionHistory = await buildSessionConversationHistory(sessionId, config);
+  const sessionHistory = await buildSessionConversationHistory(
+    sessionId,
+    config,
+    true,
+    teachingAbsorption,
+  );
   if (sessionHistory) {
     messages.push({ role: 'user', content: sessionHistory });
     messages.push({
@@ -463,7 +509,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
     messages.push({
       role: 'assistant',
       content:
-        'Bismillahirahmanirrahim. Verified ayat received — Rasm Uthmani with Malay and English translations. I will quote ayat only from this corpus, without tafsir in brackets, and compare all other knowledge under Alamtologi with Quran as supreme (LAW_002).',
+        'Bismillahirahmanirrahim. Verified ayat received — Rasm Uthmani with Pickthall English. I will quote ayat only from this corpus, without tafsir in brackets, and compare all other knowledge under Alamtologi with Quran as supreme (LAW_002).',
     });
   }
 

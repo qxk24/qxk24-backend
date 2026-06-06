@@ -14,8 +14,11 @@
     "quran:fetch": "node scripts/fetch-quran-corpus.mjs",
     "backfill:teaching-records": "ts-node --transpile-only src/scripts/backfill-teaching-records.ts",
     "backfill:teaching-records:lab": "QXK24_STACK=lab ts-node --transpile-only src/scripts/backfill-teaching-records.ts",
+    "finalise:journal": "ts-node --transpile-only src/scripts/finalise-journal.ts",
+    "migrate:journal-v2": "node scripts/migrate-journal-schema-v2.mjs",
     "atlas:audit": "node scripts/atlas-storage-rescue.mjs",
-    "atlas:rescue": "node scripts/atlas-storage-rescue.mjs --execute logs,ledger,snapshots"
+    "atlas:rescue": "node scripts/atlas-storage-rescue.mjs --execute logs,ledger,snapshots",
+    "ama:neuro-validate": "ts-node --transpile-only src/scripts/ama-neuro-validate.ts"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -31,12 +34,18 @@
     "google-auth-library": "^9.15.1",
     "hono": "^4.2.7",
     "jsonwebtoken": "^9.0.2",
+    "jszip": "^3.10.1",
     "mammoth": "^1.12.0",
+    "mongodb": "6.20.0",
     "mongoose": "^8.0.0",
     "pdf-parse": "^2.4.5",
+    "ppt": "^0.0.2",
     "redis": "^6.0.0",
     "uuid": "^9.0.0",
     "zod": "^3.22.4"
+  },
+  "overrides": {
+    "mongodb": "6.20.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Route Registry
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -21,6 +21,7 @@ import adamAuthRoutes from '../routes/adam/adam-auth.routes';
 import adamChatRoutes from '../routes/adam/adam-chat.routes';
 import adamDeterminationRoutes from '../routes/adam/adam-determination.routes';
 import adamJournalRoutes from '../routes/adam/adam-journal.routes';
+import adamJournalWriteRoutes from '../routes/adam/adam-journal-write.routes';
 import adamSuccessionRoutes from '../routes/adam/adam-succession.routes';
 import adamUploadRoutes from '../routes/adam/adam-upload.routes';
 import adamKnowledgeRoutes from '../routes/adam/adam-knowledge.routes';
@@ -33,12 +34,26 @@ import adamWorkspaceRoutes from '../routes/adam/adam-workspace.routes';
 import subscriptionRoutes from '../subscriptions/subscription.routes';
 import adamBuilderRoutes from '../agent/adam-builder.routes';
 import adamMacBridgeRoutes from '../agent/adam-mac-bridge.routes';
+import adamBlogRoutes from '../routes/adam/adam-blog.routes';
+import adamTesterRoutes from '../routes/adam/adam-tester.routes';
 import teachingBridgeRoutes from '../teaching-bridge/teaching-bridge.routes';
+import llmPipelineRoutes from '../llm-pipeline/llm-pipeline.routes';
 import { ENV } from '../config/environments';
+import { PLATFORM_KERNEL } from '../config/platform-identity';
 import {
   getSystemPulse,
   runOperationalMemoryHealth,
 } from '../health/adam-system-health.service';
+import { amaNeuroRoutes } from '../lib/ama/ama-neuro.routes';
+import {
+  getAmaNeuroHealthSnapshot,
+  isNeuroValidationGatePassed,
+} from '../lib/ama/ama-neuro-validation.service';
+import {
+  isAmaBrainV2Enabled,
+  isAmaNeuroValidationEnabled,
+  isAmaTamatOassEnabled,
+} from '../lib/ama/ama.config';
 
 export function registerRoutes(app: Hono): void {
 
@@ -46,14 +61,21 @@ export function registerRoutes(app: Hono): void {
   app.get('/health', (c) => {
     return c.json({
       status:      'operational',
-      kernel:      'QXK24',
+      kernel:      PLATFORM_KERNEL,
       version:     ENV.QXK24_KERNEL_VERSION,
       era:         ENV.QXK24_ERA,
       eraName:     ENV.QXK24_ERA_NAME,
       stack:       ENV.QXK24_STACK,
       llmProvider: ENV.LLM_PROVIDER,
       timestamp:   new Date().toISOString(),
-      domain:      'api.qxk24.com',
+      domain:      'api.alamtologi.com',
+      ama: isAmaBrainV2Enabled()
+        ? {
+            tamatOass:       isAmaTamatOassEnabled(),
+            neuroValidation: isAmaNeuroValidationEnabled(),
+            ...getAmaNeuroHealthSnapshot(),
+          }
+        : { brainV2: false, gatePassed: false },
     });
   });
 
@@ -67,6 +89,25 @@ export function registerRoutes(app: Hono): void {
     return c.json(report, httpStatus);
   });
 
+  /** V8 process heap — for upload/OOM ops (distinct from constitutional /health/memory). */
+  app.get('/health/heap', (c) => {
+    const m = process.memoryUsage();
+    const heap_used = m.heapUsed;
+    const heap_total = m.heapTotal;
+    const ratio = heap_total > 0 ? heap_used / heap_total : 0;
+    const status = ratio > 0.92 ? 'critical' : ratio > 0.8 ? 'warn' : 'ok';
+    return c.json({
+      status,
+      heap_used,
+      heap_total,
+      ratio:     Math.round(ratio * 1000) / 1000,
+      rss:       m.rss,
+      external:  m.external,
+      arrayBuffers: m.arrayBuffers,
+      timestamp: new Date().toISOString(),
+    }, status === 'critical' ? 503 : 200);
+  });
+
   // ── Constitutional ────────────────────────────────────
   app.route('/api/constitutional', constitutionalRoutes);
   app.route('/api/adam/auth',          adamAuthRoutes);
@@ -74,13 +115,18 @@ export function registerRoutes(app: Hono): void {
   app.route('/api/adam/upload',        adamUploadRoutes);
   app.route('/api/adam/knowledge',     adamKnowledgeRoutes);
   app.route('/api/adam/brain',         qxk24BrainRoutes);
+  app.route('/api/adam/ama/neuro',     amaNeuroRoutes);
   app.route('/api/adam/teaching-bridge', teachingBridgeRoutes);
+  app.route('/api/adam/llm-pipeline', llmPipelineRoutes);
   app.route('/api/adam/student',       adamStudentRoutes);
   app.route('/api/adam/students',      adamStudentsRoutes);
   app.route('/api/adam/consults',      adamConsultRoutes);
   app.route('/api/adam/founder',       adamFounderRoutes);
   app.route('/api/adam/determination', adamDeterminationRoutes);
   app.route('/api/adam/journal',       adamJournalRoutes);
+  app.route('/api/adam/journal/write', adamJournalWriteRoutes);
+  app.route('/api/adam/blog',          adamBlogRoutes);
+  app.route('/api/adam/tester',        adamTesterRoutes);
   app.route('/api/adam/succession',    adamSuccessionRoutes);
   app.route('/api/workspaces',         adamWorkspaceRoutes);
   app.route('/api/subscriptions',    subscriptionRoutes);
@@ -92,15 +138,17 @@ export function registerRoutes(app: Hono): void {
     return c.json({
       success: false,
       error:   'Route not found.',
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
       version: ENV.QXK24_KERNEL_VERSION
     }, 404);
   });
 
-  console.log('[QXK24] Routes registered:');
+  console.log('[ALAMTOLOGI] Routes registered:');
   console.log('  GET  /health');
   console.log('  GET  /health/pulse');
   console.log('  GET  /health/memory');
+  console.log('  GET  /health/heap');
+  console.log('  *    /api/adam/ama/neuro (founder · Langkah 6)');
   console.log('  *    /api/constitutional');
   console.log('  *    /api/adam/auth');
   console.log('  *    /api/adam/chat');
@@ -114,6 +162,8 @@ export function registerRoutes(app: Hono): void {
   console.log('  *    /api/adam/consults');
   console.log('  *    /api/adam/determination');
   console.log('  *    /api/adam/journal');
+  console.log('  *    /api/adam/journal/write  (V2 dedicated writing system)');
+  console.log('  *    /api/adam/blog');
   console.log('  *    /api/adam/succession');
   console.log('  *    /api/workspaces');
   console.log('  *    /api/subscriptions');

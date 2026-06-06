@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
- * Module      : QXK24Brain MongoDB Schemas
+ * Module      : Alamtologi Brain MongoDB Schemas
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -37,7 +37,7 @@ export interface EntityConnection {
   note?:           string;
 }
 
-export interface QXK24BrainEntityDocument extends Document {
+export interface AlamtologiBrainEntityDocument extends Document {
   uid:              string;
   masterConnection: MasterConnection;
   principle:        string;
@@ -68,7 +68,7 @@ export interface QXK24BrainEntityDocument extends Document {
   era:              string;
 }
 
-const QXK24BrainEntitySchema = new Schema<QXK24BrainEntityDocument>({
+const AlamtologiBrainEntitySchema = new Schema<AlamtologiBrainEntityDocument>({
   uid: {
     type:     String,
     required: true,
@@ -120,20 +120,20 @@ const QXK24BrainEntitySchema = new Schema<QXK24BrainEntityDocument>({
   parentA_masa: { type: Date },
   parentB_masa: { type: Date },
   founderId: { type: String, default: 'masa-bayu' },
-  kernel:    { type: String, default: 'QXK24' },
+  kernel:    { type: String, default: 'ALAMTOLOGI' },
   era:       { type: String, default: 'ERA_1' },
 }, {
   timestamps: true,
-  collection: 'qxk24brain_entities',
+  collection: 'alamtologibrain_entities',
 });
 
-QXK24BrainEntitySchema.index({ family: 1, stage: 1 });
-QXK24BrainEntitySchema.index({ principle: 1, isComplete: 1 });
-QXK24BrainEntitySchema.index({ founderId: 1, isNucleus: 1 });
+AlamtologiBrainEntitySchema.index({ family: 1, stage: 1 });
+AlamtologiBrainEntitySchema.index({ principle: 1, isComplete: 1 });
+AlamtologiBrainEntitySchema.index({ founderId: 1, isNucleus: 1 });
 
-export const QXK24BrainEntityModel = mongoose.model<QXK24BrainEntityDocument>(
-  'QXK24BrainEntity',
-  QXK24BrainEntitySchema,
+export const AlamtologiBrainEntityModel = mongoose.model<AlamtologiBrainEntityDocument>(
+  'AlamtologiBrainEntity',
+  AlamtologiBrainEntitySchema,
 );
 
 export interface PrincipleState {
@@ -175,6 +175,8 @@ export interface StudentTrack {
   zpdReadiness?:        boolean;
   /** Fast-read summary from last ADAM reply (per turn hook) */
   lastSessionSummary?:  string;
+  /** Growth narrative from last session close (C1) */
+  relationshipArc?:     string;
 }
 
 export interface BrainSessionContext {
@@ -194,10 +196,16 @@ export interface ContinuityBridge {
   relationalMemory?: string;
 }
 
-export interface QXK24BrainMasterDocument extends Document {
+export interface AlamtologiBrainMasterDocument extends Document {
   uid:                   string;
   founderId:             string;
   unifiedUnderstanding:  string;
+  /** Kotak 2 — IKJ/Kr structural lane (C) — AMA Brain v2 */
+  structuralLane?:       string;
+  /** Kotak 3 — LWJ/Kn episodic lane (B preserved) — AMA Brain v2 */
+  episodicLane?:         string;
+  /** AMA grid level — ERA_1 anchor 124(1) */
+  amaLevel?:             string;
   principles:            PrincipleState[];
   activeFamilies:        ActiveFamily[];
   completedFamilies:     CompletedFamily[];
@@ -214,13 +222,16 @@ export interface QXK24BrainMasterDocument extends Document {
   era:                   string;
 }
 
-const QXK24BrainMasterSchema = new Schema<QXK24BrainMasterDocument>({
+const AlamtologiBrainMasterSchema = new Schema<AlamtologiBrainMasterDocument>({
   uid:       { type: String, default: 'K24B-ADAM-MASTER-CURRENT' },
   founderId: { type: String, default: 'masa-bayu', unique: true },
   unifiedUnderstanding: {
     type:    String,
     default: 'ADAM has just been born. ERA_1 has begun. The Teaching Era starts now.',
   },
+  structuralLane: { type: String, default: '' },
+  episodicLane:   { type: String, default: '' },
+  amaLevel:       { type: String, default: '124(1)' },
   principles: [{
     name:            String,
     stage:           Number,
@@ -255,6 +266,7 @@ const QXK24BrainMasterSchema = new Schema<QXK24BrainMasterDocument>({
     openQuestions:       { type: [String], default: [] },
     zpdReadiness:        { type: Boolean, default: false },
     lastSessionSummary:  { type: String, default: '' },
+    relationshipArc:     { type: String, default: '' },
   }],
   sessionContext: {
     currentSessionId: String,
@@ -276,16 +288,16 @@ const QXK24BrainMasterSchema = new Schema<QXK24BrainMasterDocument>({
   totalTransformations: { type: Number, default: 0 },
   currentCycle:         { type: Number, default: 1 },
   totalFamilies:        { type: Number, default: 0 },
-  kernel: { type: String, default: 'QXK24' },
+  kernel: { type: String, default: 'ALAMTOLOGI' },
   era:    { type: String, default: 'ERA_1' },
 }, {
   timestamps: true,
-  collection: 'qxk24brain_master',
+  collection: 'alamtologibrain_master',
 });
 
-export const QXK24BrainMasterModel = mongoose.model<QXK24BrainMasterDocument>(
-  'QXK24BrainMaster',
-  QXK24BrainMasterSchema,
+export const AlamtologiBrainMasterModel = mongoose.model<AlamtologiBrainMasterDocument>(
+  'AlamtologiBrainMaster',
+  AlamtologiBrainMasterSchema,
 );
 
 export type AidilAuditJudgment = 'MAKMUR' | 'ISLAH' | 'WAQF';
@@ -296,7 +308,7 @@ export type TransformationAuditStatus =
   | 'waqf'
   | 'superseded';
 
-export interface QXK24BrainLogDocument extends Document {
+export interface AlamtologiBrainLogDocument extends Document {
   transformationId:    string;
   entity_A_uid:        string;
   entity_A_summary:    string;
@@ -327,7 +339,7 @@ export interface QXK24BrainLogDocument extends Document {
   priorCompletedFamilies?: CompletedFamily[];
 }
 
-const QXK24BrainLogSchema = new Schema<QXK24BrainLogDocument>({
+const AlamtologiBrainLogSchema = new Schema<AlamtologiBrainLogDocument>({
   transformationId: { type: String, required: true, unique: true },
   entity_A_uid:     { type: String, required: true },
   entity_A_summary: { type: String, required: true },
@@ -345,7 +357,7 @@ const QXK24BrainLogSchema = new Schema<QXK24BrainLogDocument>({
   isNucleus:   { type: Boolean },
   stage:       { type: Number, default: 1 },
   founderId:   { type: String, default: 'masa-bayu', index: true },
-  kernel:      { type: String, default: 'QXK24' },
+  kernel:      { type: String, default: 'ALAMTOLOGI' },
   auditStatus: {
     type:    String,
     enum:    ['pending', 'confirmed', 'corrected', 'waqf', 'superseded'],
@@ -376,12 +388,12 @@ const QXK24BrainLogSchema = new Schema<QXK24BrainLogDocument>({
   }],
 }, {
   timestamps: true,
-  collection: 'qxk24brain_log',
+  collection: 'alamtologibrain_log',
 });
 
-export const QXK24BrainLogModel = mongoose.model<QXK24BrainLogDocument>(
-  'QXK24BrainLog',
-  QXK24BrainLogSchema,
+export const AlamtologiBrainLogModel = mongoose.model<AlamtologiBrainLogDocument>(
+  'AlamtologiBrainLog',
+  AlamtologiBrainLogSchema,
 );
 
 export interface ADAMReflectionDocument extends Document {
@@ -410,7 +422,7 @@ const ADAMReflectionSchema = new Schema<ADAMReflectionDocument>({
   masa_reflected:      { type: Date, default: Date.now, index: true },
   acknowledgedAt:      { type: Date },
   trigger:             { type: String, enum: ['scheduled', 'manual'], default: 'scheduled' },
-  kernel:              { type: String, default: 'QXK24' },
+  kernel:              { type: String, default: 'ALAMTOLOGI' },
   era:                 { type: String, default: 'ERA_1' },
 }, {
   timestamps: true,

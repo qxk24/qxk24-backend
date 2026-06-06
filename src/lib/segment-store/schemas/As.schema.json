@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "As.schema.json",
+  "title": "AMA Segment As — Attention / Autonomic Integration",
+  "type": "object",
+  "required": ["timestamp", "sourceId"],
+  "additionalProperties": false,
+  "properties": {
+    "thetaAlphaCoherence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "rsaGain":             { "type": "number", "minimum": 0, "maximum": 1 },
+    "hrvSdnn":             { "type": "number", "minimum": 0 },
+    "attentionDuration":   { "type": "number", "minimum": 0 },
+    "timestamp":           { "type": "string", "format": "date-time" },
+    "sourceId":            { "type": "string", "minLength": 1 }
+  }
+}

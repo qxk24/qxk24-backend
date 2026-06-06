@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "Bh.schema.json",
+  "title": "AMA Segment Bh — Physiological Rh",
+  "type": "object",
+  "required": ["timestamp", "sourceId"],
+  "additionalProperties": false,
+  "properties": {
+    "breathDepthCm":   { "type": "number", "minimum": 0 },
+    "hrvRmssdMs":      { "type": "number", "minimum": 0 },
+    "vagalTone":       { "type": "number" },
+    "microbiotaScore": { "type": "number" },
+    "timestamp":       { "type": "string", "format": "date-time" },
+    "sourceId":        { "type": "string", "minLength": 1 }
+  }
+}
