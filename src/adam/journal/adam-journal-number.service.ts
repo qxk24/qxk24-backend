@@ -1,9 +1,20 @@
 /**
  * ============================================================
- * Module      : ADAM Journal Number Generator
- * Generates atomic, sequential journal numbers per year.
- * e.g. ALM-J2026-001, ALM-J2026-002 ...
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
+ * Module      : ADAM Journal Number Generator
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-04
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
+ *
+ * Generates atomic, sequential journal numbers per year (e.g. QXK24-J2026-001).
  */
 
 import mongoose from 'mongoose';

@@ -1,8 +1,20 @@
 /**
  * ============================================================
- * Module      : ADAM Journal Section Service
- * Handles save and approve for each of the 8 sections.
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
+ * Module      : ADAM Journal Section Service
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-04
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
+ *
+ * Save and approve for each of the 9 V2 movement sections.
  */
 
 import {
@@ -10,6 +22,7 @@ import {
   JournalSectionKey,
   SECTION_MIN_WORDS,
   JOURNAL_SECTION_KEYS,
+  JOURNAL_V2_SECTION_COUNT,
 } from './adam-journal-v2.schema';
 
 function countWords(text: string): number {
@@ -101,7 +114,7 @@ export async function approveJournalSection(
 
   console.log(
     `[journal:section] Approved "${sectionKey}" on ${journalNumber} — ` +
-    `${updated.approvedSections.length}/8 sections approved`,
+    `${updated.approvedSections.length}/${JOURNAL_V2_SECTION_COUNT} sections approved`,
   );
   return { approvedSections: updated.approvedSections };
 }

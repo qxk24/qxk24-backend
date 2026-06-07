@@ -271,6 +271,8 @@ export interface AlamtologiAcademicJournal {
   /** Section bodies while status === DRAFT */
   draftSections?:      Record<string, string>;
   lastCompletedSection?: string;
+  /** Set after migrate:journal-quran-split — skip re-migration */
+  sectionSchemaVersion?: string;
   sourceLanguage?:     JournalLocale;
   translations?:       Partial<Record<JournalLocale, JournalTranslationRecord>>;
   copyright?:          string;

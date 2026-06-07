@@ -29,27 +29,28 @@ function parseReferenceLines(text: string): string[] {
     .filter((line) => line.length > 8);
 }
 
-/** Map eight movement sections → IMRaD content store. */
+/** Map nine movement sections → IMRaD content store. */
 export function draftSectionsToJournalContent(
   sections: Partial<Record<JournalSectionId, string>>,
 ): JournalContent {
   const m1 = sections.movement_1_human_opening?.trim() ?? '';
   const m2 = sections.movement_2_achievement?.trim() ?? '';
   const m3 = sections.movement_3_honest_wall?.trim() ?? '';
-  const m4 = sections.movement_4_alamtologi?.trim() ?? '';
-  const m5 = sections.movement_5_application?.trim() ?? '';
-  const m6 = sections.movement_6_invitation?.trim() ?? '';
+  const m4 = sections.movement_4_quran?.trim() ?? '';
+  const m5 = sections.movement_5_alamtologi?.trim() ?? '';
+  const m6 = sections.movement_6_application?.trim() ?? '';
+  const m7 = sections.movement_7_invitation?.trim() ?? '';
   const refsText = sections.references?.trim() ?? '';
 
   return normalizeJournalContent({
     introduction: m1,
     background:   [m2, m3].filter(Boolean).join('\n\n'),
-    methodology:  m5
-      ? `Applied Alamtologi constitutional methodology.\n\n${m5.slice(0, 2500)}`
+    methodology:  m6
+      ? `Applied Alamtologi constitutional methodology.\n\n${m6.slice(0, 2500)}`
       : 'Alamtologi constitutional analysis methodology.',
-    findings:     [m2, m3].filter(Boolean).join('\n\n') || m4.slice(0, 4000),
-    discussion:   [m4, m5].filter(Boolean).join('\n\n'),
-    conclusion:   m6,
+    findings:     [m2, m3, m4].filter(Boolean).join('\n\n') || m5.slice(0, 4000),
+    discussion:   [m4, m5, m6].filter(Boolean).join('\n\n'),
+    conclusion:   m7,
     references:   parseReferenceLines(refsText),
     alamtologiAnalysis: [],
   });

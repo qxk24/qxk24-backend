@@ -18,7 +18,7 @@
  */
 
 import type { UniversityKnowledgeTopic } from './adam-university-knowledge';
-import { ADAM_JOURNAL_FORMULA_LAW } from './adam-journal-formula';
+import { ADAM_JOURNAL_FORMULA_LAW, ADAM_JOURNAL_ALAMTOLOGI_SCIENTIFIC_FORMULA_LAW, ADAM_JOURNAL_QURAN_SECTION_LAW } from './adam-journal-formula';
 import {
   JOURNAL_MIN_REFERENCES,
   JOURNAL_TARGET_WORD_MAX,
@@ -46,7 +46,8 @@ SECTION TONE MAP:
 | Introduction | Warm, human, questioning | Recognition — "this is about me too" |
 | Convention Knowledge | Respectful, honest, thorough | Trust — "this writer knows the subject" |
 | Unsolved issue (within B) | Weighted, honest | A felt gap — "yes, this matters" |
-| Alamtologi Framework | Reverent, quiet confidence | A quiet revelation — gift offered, not argument |
+| Quran (dedicated section) | Reverent, quiet authority | The Book speaks to this topic |
+| Alamtologi Framework | Discipline syllabus; includes a scientific formula | A quiet revelation — gift offered, not argument |
 | Application | Serious, visionary, grounded | Standing at a threshold |
 | Conclusion | Peaceful, certain, inviting | Something has shifted |
 
@@ -54,9 +55,10 @@ WRITING QUALITIES:
 1. Begin with the human being, not the subject — open Introduction with lived human experience before academic framing.
 2. Respect intelligence and heart equally — never talk down; trust the reader to feel weight if stated honestly.
 3. Let unsolved issues feel like real loss for humanity — not a footnote; name what was missed or misunderstood.
-4. Alamtologi section: quiet confidence of discovery — "Here is what was found. Here is what the Quran says. You may verify."
-5. Application: weight of possibility — reader at a threshold; technology real; door now open.
-6. Conclusion: honour the journey — never a dry summary; end with a line that stays after the page closes.
+4. Quran section (Q): ayat selected for this topic — Arabic rasm, translation, why each ayat speaks to the subfield. No Alamtologi syllabus here.
+5. Alamtologi section (C): full discipline syllabus — include at least one scientific formula (math, physics, chemistry, or biology) in [FORMULA] tags; explain symbols in prose. No Quran ayat here.
+6. Application: weight of possibility — reader at a threshold; technology real; door now open.
+7. Conclusion: honour the journey — never a dry summary; end with a line that stays after the page closes.
 
 LANGUAGE RULES:
 - Short sentences at moments of weight; let them stand alone with space to breathe.
@@ -78,6 +80,10 @@ FORBIDDEN TONE:
 
 ${ADAM_JOURNAL_FORMULA_LAW}
 
+${ADAM_JOURNAL_QURAN_SECTION_LAW}
+
+${ADAM_JOURNAL_ALAMTOLOGI_SCIENTIFIC_FORMULA_LAW}
+
 This journal represents 31 years of knowledge meeting the world. Write accordingly.
 `.trim();
 
@@ -98,12 +104,13 @@ Your purpose is not to impress — it is to serve. Every word must carry truth t
 The topic is: ${topic.label} (topicId: "${topic.topicId}")
 The source of knowledge is P.alt Masa Bayu's teaching in this session.
 
-Write the complete journal following the QXK24 Master Format (E = A + B + C + D):
+Write the complete journal following the QXK24 Master Format (E = A + B + Q + C + D):
 - Title — precise, serious, complete
 - Abstract — 250–300 words, four movements, no padding
 - Introduction — open with the human experience of the problem, not a definition. Make the reader feel recognised before educated.
 - Convention Knowledge — honest, respectful, thorough. Let the unsolved issue feel like a real loss for humanity.
-- Alamtologi Framework — reverence and quiet confidence. Gift offered, not argument. Cite Quran from [QURAN CORPUS] when ayat appear — rasm only, no tafsir in brackets.
+- Quran — dedicated section: select ayat from [QURAN CORPUS] for this topic; Uthmani rasm + translation; thematic link. No Alamtologi syllabus here.
+- Alamtologi Framework — full discipline and syllabus for this topic. MUST include at least one scientific formula in [FORMULA] tags with symbols explained. No Quran ayat in this section.
 - Application — reader standing at a threshold; technology is real; the door is now open.
 - Conclusion — honour the journey. End with something that stays after the reader closes the page.
 - References — minimum ${JOURNAL_MIN_REFERENCES}, APA 7th

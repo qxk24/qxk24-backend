@@ -63,9 +63,10 @@ describe('Fix 1 — Accumulator word count', () => {
       movement_1_human_opening: 'Human opening paragraph. '.repeat(40),
       movement_2_achievement:   'Achievement section text. '.repeat(50),
       movement_3_honest_wall:   'Honest wall content. '.repeat(50),
-      movement_4_alamtologi:    'Alamtologi framework. '.repeat(60),
-      movement_5_application:   'Application technology. '.repeat(60),
-      movement_6_invitation:    'Invitation closing. '.repeat(50),
+      movement_4_quran:         'Quran ayat section. '.repeat(50),
+      movement_5_alamtologi:    'Alamtologi framework. '.repeat(60),
+      movement_6_application:   'Application technology. '.repeat(60),
+      movement_7_invitation:    'Invitation closing. '.repeat(50),
       references:               'Author, A. (2024). '.repeat(30),
     };
 
@@ -75,8 +76,8 @@ describe('Fix 1 — Accumulator word count', () => {
     expect(totalWords).toBeLessThan(JOURNAL_TARGET_WORD_MIN);
     expect(meetsJournalLengthMinimum(manuscript)).toBe(false);
 
-    sections.movement_4_alamtologi =
-      (sections.movement_4_alamtologi ?? '') + 'Extended framework. '.repeat(2_500);
+    sections.movement_5_alamtologi =
+      (sections.movement_5_alamtologi ?? '') + 'Extended framework. '.repeat(2_500);
 
     const expanded = assembleManuscriptFromSections(sections);
     const totalWords2 = countJournalWords(expanded);
@@ -278,7 +279,7 @@ transfer of energy between beings and systems.
 
   it('lists abstract as the first interactive saveable section', () => {
     expect(INTERACTIVE_SAVEABLE_SECTIONS[0]).toBe('title_and_abstract');
-    expect(INTERACTIVE_SAVEABLE_SECTIONS).toHaveLength(8);
+    expect(INTERACTIVE_SAVEABLE_SECTIONS).toHaveLength(9);
   });
 
   it('detects abstract from ADAM reply structure', () => {

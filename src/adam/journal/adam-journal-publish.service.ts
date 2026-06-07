@@ -1,9 +1,20 @@
 /**
  * ============================================================
- * Module      : ADAM Journal Publish Service
- * Transitions status from PENDING_REVIEW → PUBLISHED.
- * Auction remains NOT_STARTED (deferred to Phase 2).
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
+ * Module      : ADAM Journal Publish Service
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-04
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
+ *
+ * Transitions status PENDING_REVIEW → PUBLISHED. Auction deferred to Phase 2.
  */
 
 import { JournalV2Model } from './adam-journal-v2.schema';

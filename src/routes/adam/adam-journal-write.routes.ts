@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Journal Write Routes (V2)
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-04
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -22,8 +22,8 @@
  * POST /api/adam/journal/write/:journalNumber/section/:sectionKey/save
  * POST /api/adam/journal/write/:journalNumber/section/:sectionKey/approve
  * POST /api/adam/journal/write/:journalNumber/seal
- * POST /api/adam/journal/write/:journalNumber/publish
- * GET  /api/adam/journal/write/list
+ * POST /api/adam/journal/write/:journalNumber/section/:sectionKey/generate
+ * POST /api/adam/journal/write/:journalNumber/generate-all
  */
 
 import { Hono } from 'hono';
@@ -40,6 +40,10 @@ import {
 } from '../../adam/journal/adam-journal-section.service';
 import { sealJournal } from '../../adam/journal/adam-journal-seal.service';
 import { publishJournalV2 } from '../../adam/journal/adam-journal-publish.service';
+import {
+  generateAllJournalV2Sections,
+  generateJournalV2Section,
+} from '../../adam/journal/adam-journal-v2-generate.service';
 import {
   JournalV2Model,
   JOURNAL_SECTION_KEYS,
@@ -250,6 +254,41 @@ router.post(
     }
   },
 );
+
+router.post(
+  '/:journalNumber/section/:sectionKey/generate',
+  requireFounder,
+  async (c) => {
+    try {
+      const { journalNumber, sectionKey } = c.req.param();
+
+      if (!JOURNAL_SECTION_KEYS.includes(sectionKey as JournalSectionKey)) {
+        return fail(c, `Invalid sectionKey: "${sectionKey}"`, 400);
+      }
+
+      const result = await generateJournalV2Section(
+        journalNumber,
+        sectionKey as JournalSectionKey,
+      );
+
+      return ok(c, { journalNumber, ...result });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return fail(c, msg, 400);
+    }
+  },
+);
+
+router.post('/:journalNumber/generate-all', requireFounder, async (c) => {
+  try {
+    const { journalNumber } = c.req.param();
+    const result = await generateAllJournalV2Sections(journalNumber);
+    return ok(c, { journalNumber, ...result });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return fail(c, msg, 400);
+  }
+});
 
 router.post('/:journalNumber/seal', requireFounder, async (c) => {
   try {

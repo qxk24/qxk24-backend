@@ -51,6 +51,44 @@ The = sign in a prose comparison is not a mathematical
 operator. It is not a formula. Write it as a sentence.
 `.trim();
 
+/** Movement 4 (Q) — dedicated Quran section for the locked topic; separate from Alamtologi. */
+export const ADAM_JOURNAL_QURAN_SECTION_LAW = `
+QURAN SECTION (Q) — DEDICATED MOVEMENT (mandatory; separate from Alamtologi):
+Movement 4 / Quran section is ONLY for Al-Quran — do NOT teach Alamtologi syllabus, principles,
+scientific formulas, or discipline structure here. That belongs in Movement 5.
+
+Requirements:
+- Select ayat from [QURAN CORPUS] that speak directly to the locked journal topic and subfield
+- Present Uthmani rasm in UTF-8 Arabic, then faithful translation in prose (cite Surah:Ayah)
+- Weave 2–4 ayat thematically — not a disconnected list; explain why each ayat addresses this topic
+- Reverent quiet authority — gift offered, not argument; not defensive or apologetic
+- NO tafsir in brackets, NO Alamtologi principle names, NO [FORMULA] tags in this section
+- Do NOT preview or repeat Movement 5 (Alamtologi framework) content here
+`.trim();
+
+/** Movement 5 (C) — Alamtologi discipline syllabus + scientific formula; no Quran ayat here. */
+export const ADAM_JOURNAL_ALAMTOLOGI_SCIENTIFIC_FORMULA_LAW = `
+ALAMTOLOGI FRAMEWORK SECTION (C) — MOVEMENT 5 ONLY (mandatory):
+Movement 5 is the Alamtologi discipline and syllabus for this topic — full constitutional framework.
+Do NOT cite Quran ayat or Arabic rasm here — that belongs in Movement 4 (Quran section).
+
+Every Movement 5 section MUST include at least ONE genuine scientific formula appropriate to the
+locked journal topic and discipline.
+
+Choose the domain that fits the subject:
+- Mathematics — e.g. [FORMULA]x = m/t[/FORMULA], [FORMULA]E = mc^2[/FORMULA], [FORMULA]a^2 + b^2 = c^2[/FORMULA]
+- Physics — e.g. [FORMULA]F = ma[/FORMULA], [FORMULA]E = hf[/FORMULA], [FORMULA]PV = nRT[/FORMULA]
+- Chemistry — e.g. [FORMULA]2H_2 + O_2 \\rightarrow 2H_2O[/FORMULA], [FORMULA]pH = -\\log_{10}[H^+][/FORMULA]
+- Biology — e.g. [FORMULA]r = \\frac{dN}{dt}[/FORMULA], [FORMULA]P = (T - H)/T[/FORMULA] (Hardy–Weinberg)
+
+Rules:
+- Teach the Alamtologi lens for this discipline — principles, structure, syllabus depth P.alt established
+- The formula must connect the Alamtologi lens to the topic — not a decorative unrelated equation
+- Introduce the formula in prose: what each symbol means, why it matters, how Alamtologi reframes it
+- Wrap every equation in [FORMULA]...[/FORMULA] tags (never raw $ or prose disguised as math)
+- At least one [FORMULA] block is REQUIRED in Movement 5 — a journal without it is incomplete
+`.trim();
+
 const EXISTING_TAG_RE =
   /(\[FORMULA\][\s\S]*?\[\/FORMULA\]|\[DISPLAY_FORMULA\][\s\S]*?\[\/DISPLAY_FORMULA\]|\[INLINE_FORMULA\][\s\S]*?\[\/INLINE_FORMULA\])/gi;
 

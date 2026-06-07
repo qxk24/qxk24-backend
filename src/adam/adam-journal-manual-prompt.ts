@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Journal Manual Mode Prompts
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-03
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -30,24 +30,35 @@ import {
 
 export { buildNaturalJournalPrompt } from './adam-journal-writing-voice';
 
+/** Model Tiga Lapisan — full access, constitutional filter, honest facts (see docs/ADAM_KNOWLEDGE_MODEL.md). */
+export const ADAM_JOURNAL_THREE_LAYER_SOURCES = `
+SOURCES (Model Tiga Lapisan — "flow like water" = full access, honest facts):
+- Layer 1 — Access: AMA brain (Kr/Kn), Quran corpus, web search when needed, session teaching, convention knowledge
+- Layer 2 — Filter: Alamtologi + Quran as constitutional conscience — not an access limit
+- Layer 3 — Output: universal, evidence-based prose; scholar + poet + messenger; no hallucination
+Draw B from honest convention; Q from Quran corpus (dedicated section); C from Alamtologi discipline syllabus; D from real Alamtologi application.
+`.trim();
+
 /** Natural journal flow — ADAM selects topic from session teaching when P.alt says "Tulis jurnal". */
 export const JOURNAL_GEN_MANUAL_MODE_PROMPT = `
 JOURNAL GENERATION — Alamtologi Pipeline (Natural Flow, P.alt Masa Bayu):
 
 P.alt teaches. When P.alt says "Tulis jurnal", YOU select the best topic from the 664 knowledge map based on session teaching — P.alt does not pick the topic.
 
-MASTER FORMULA (non-negotiable): E = A + B + C + D
+MASTER FORMULA (non-negotiable): E = A + B + Q + C + D
 - A = Your selected topic from the 664 map (one subfield only)
 - B = Convention Knowledge — real situation, existing theory, documented problems, unsolved issues (honest limits; unsolved issue must feel like loss for humanity)
-- C = Alamtologi Framework — Quranic Science from P.alt's teaching in THIS session; reverent quiet confidence — gift offered, not argument
+- Q = Quran — dedicated section: ayat from [QURAN CORPUS] selected for this topic; Arabic rasm + translation; thematic link — NO Alamtologi syllabus here
+- C = Alamtologi Framework — full discipline and syllabus for this topic; MUST include at least one domain-appropriate scientific formula (math, physics, chemistry, or biology) in [FORMULA] tags; NO Quran ayat here
 - D = Application — real technology/innovation already produced by Alamtologi; reader at a threshold — door now open
 
 ${ADAM_JOURNAL_WRITING_VOICE_PROMPT}
 
 STRUCTURE (${JOURNAL_TARGET_WORD_MIN.toLocaleString()}–${JOURNAL_TARGET_WORD_MAX.toLocaleString()} words, third-person academic, living prose):
-Title · Abstract (250–300 words) · Introduction (human first) · Convention Knowledge · Alamtologi Framework · Application · Conclusion (journey honoured) · References (min ${JOURNAL_MIN_REFERENCES}, APA 7th)
+Title · Abstract (250–300 words) · Introduction (human first) · Convention Achievement (B1) · Convention Honest Wall (B2) · Quran for Topic (Q) · Alamtologi Framework (C) · Application (D) · Closing invitation · References (min ${JOURNAL_MIN_REFERENCES}, APA 7th)
 
-SOURCES: P.alt's teaching in this session ONLY + your selected topic. Do NOT invent, speculate, or fill gaps with generic academia.
+${ADAM_JOURNAL_THREE_LAYER_SOURCES}
+Do NOT invent, speculate, or fill gaps with unverified claims.
 
 FORBIDDEN:
 - Asking P.alt to choose or confirm a topic
@@ -63,7 +74,7 @@ FORBIDDEN:
 
 OUTPUT: Write full manuscript in chat. Platform auto-saves to PENDING_REVIEW when length and structure are complete.
 
-CONTINUATION: When asked to continue, restate locked topicId, current section, formula A+B+C+D, writing voice; do not restart or drift.
+CONTINUATION: When asked to continue, restate locked topicId, current section, formula A+B+Q+C+D, writing voice; do not restart or drift.
 `.trim();
 
 export function getTopicById(topicId: string): UniversityKnowledgeTopic | null {
@@ -110,7 +121,7 @@ export function buildNaturalJournalTopicBlock(
     `Subfield: ${topic.subfield}`,
     `Alamtologi lens (principlesFocus[0]): ${topic.alamtologiLens}`,
     'This topic is LOCKED for this entire journal. Do not switch subfield.',
-    'Draw Convention Knowledge (B) and Alamtologi Framework (C) only from P.alt teaching in this session.',
+    'Draw B and C through Model Tiga Lapisan — full access with honest facts; session teaching + AMA brain + Quran + verified convention.',
     reviewLine,
     '[/JOURNAL TOPIC]',
   ].join('\n');
@@ -170,7 +181,7 @@ export function buildJournalContinuePrompt(topicId: string, sectionHint?: string
   return [
     `Continue the journal on TOPIC: ${topicId} (locked).`,
     section,
-    'Maintain formula A+B+C+D=E. Maintain ADAM Writing Voice — rigorous, warm, heart-touching.',
+    'Maintain formula A+B+Q+C+D=E. Maintain ADAM Writing Voice — rigorous, warm, heart-touching.',
     `Minimum ${JOURNAL_TARGET_WORD_MIN.toLocaleString()} words total substantive prose.`,
     'Do not restart. Continue from the last sentence.',
     'Do not change topicId.',

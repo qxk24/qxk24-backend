@@ -46,9 +46,10 @@ const MOVEMENT_N_TO_SECTION: Record<string, JournalSectionId> = {
   '1': 'movement_1_human_opening',
   '2': 'movement_2_achievement',
   '3': 'movement_3_honest_wall',
-  '4': 'movement_4_alamtologi',
-  '5': 'movement_5_application',
-  '6': 'movement_6_invitation',
+  '4': 'movement_4_quran',
+  '5': 'movement_5_alamtologi',
+  '6': 'movement_6_application',
+  '7': 'movement_7_invitation',
 };
 
 function logJournalDraftSkip(
@@ -60,9 +61,10 @@ function logJournalDraftSkip(
 
 const USER_SECTION_PATTERNS: ReadonlyArray<[RegExp, JournalSectionId]> = [
   [/\b(references|rujukan|bibliografi)\b/i, 'references'],
-  [/\b(movement\s*[_\-\s]?6|m\s*6\b|invitation|jemputan|kesimpulan)\b/i, 'movement_6_invitation'],
-  [/\b(movement\s*[_\-\s]?5|m\s*5\b|application|aplikasi)\b/i, 'movement_5_application'],
-  [/\b(movement\s*[_\-\s]?4|m\s*4\b|alamtologi\s+framework|rangka\s+kerja\s+alamtologi)\b/i, 'movement_4_alamtologi'],
+  [/\b(movement\s*[_\-\s]?7|m\s*7\b|invitation|jemputan|kesimpulan)\b/i, 'movement_7_invitation'],
+  [/\b(movement\s*[_\-\s]?6|m\s*6\b|application|aplikasi)\b/i, 'movement_6_application'],
+  [/\b(movement\s*[_\-\s]?5|m\s*5\b|alamtologi\s+framework|rangka\s+kerja\s+alamtologi|silibus)\b/i, 'movement_5_alamtologi'],
+  [/\b(movement\s*[_\-\s]?4|m\s*4\b|quran|al-quran|alquran|ayat)\b/i, 'movement_4_quran'],
   [/\b(movement\s*[_\-\s]?3|m\s*3\b|honest\s+wall|dinding\s+jujur)\b/i, 'movement_3_honest_wall'],
   [/\b(movement\s*[_\-\s]?2|m\s*2\b|achievement|pencapaian|konvension)\b/i, 'movement_2_achievement'],
   [/\b(movement\s*[_\-\s]?1|m\s*1\b|human\s+opening|pengenalan)\b/i, 'movement_1_human_opening'],
@@ -108,12 +110,12 @@ export function inferJournalSectionFromAdamResponse(adamText: string): JournalSe
 
   if (
     /(?:^|\n)(?:Abstract|Abstrak)[:\s]*\n([\s\S]{80,})/im.test(text)
-    && !/\bmovement\s*[2-6]\b/i.test(text)
+    && !/\bmovement\s*[2-7]\b/i.test(text)
   ) {
     return 'title_and_abstract';
   }
 
-  const movementN = text.match(/\bMovement\s*([1-6])\b/i);
+  const movementN = text.match(/\bMovement\s*([1-7])\b/i);
   if (movementN?.[1]) {
     return MOVEMENT_N_TO_SECTION[movementN[1]] ?? null;
   }

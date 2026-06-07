@@ -122,8 +122,8 @@ export async function enrichSystemPromptForJournalGen(input: {
         systemPrompt = `${systemPrompt}\n\n${buildNaturalJournalPrompt(journalTopic, reviewHint)}`;
       } else {
         systemPrompt = `${systemPrompt}\n\n[JOURNAL SECTION MODE]
-P.alt ordered Tulis jurnal. The platform writes ONE section per turn (8 sections total).
-Each section saves to MongoDB immediately. Use [FORMULA] tags for math. Prose only — no JSON/XML seals.`;
+P.alt ordered Tulis jurnal. The platform writes ONE section per turn (9 sections total).
+Each section saves to MongoDB immediately. Use [FORMULA] tags for math in Movement 5 only. Prose only — no JSON/XML seals.`;
       }
       const founderTeachingChars = input.contextMessages
         .filter((m) => m.role === 'user')

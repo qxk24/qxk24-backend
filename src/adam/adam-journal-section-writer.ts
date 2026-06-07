@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Journal Section Writer
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-04
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -19,7 +19,8 @@
 
 import type { LlmMessage } from '../llm/llm-types';
 import type { UniversityKnowledgeTopic } from './adam-university-knowledge';
-import { ADAM_JOURNAL_FORMULA_LAW } from './adam-journal-formula';
+import { ADAM_JOURNAL_FORMULA_LAW, ADAM_JOURNAL_ALAMTOLOGI_SCIENTIFIC_FORMULA_LAW, ADAM_JOURNAL_QURAN_SECTION_LAW } from './adam-journal-formula';
+import { ADAM_JOURNAL_THREE_LAYER_SOURCES } from './adam-journal-manual-prompt';
 import {
   countJournalWords,
   JOURNAL_MIN_REFERENCES,
@@ -98,7 +99,8 @@ function buildSectionPrompt(
   const shared = `
 Write ONLY this journal section: **${heading}**
 Topic (locked): ${topic.label} — topicId "${topic.topicId}"
-Source: P.alt Masa Bayu's teaching in this session. Third-person academic voice.
+Third-person academic voice — scholar + poet + messenger.
+${ADAM_JOURNAL_THREE_LAYER_SOURCES}
 ${ADAM_JOURNAL_FORMULA_LAW}
 Output substantive prose only — no JSON, no <adam_journal_seal>, no meta promises.
 ${priorBlock}`.trim();
@@ -127,17 +129,24 @@ Convention Knowledge (Part B1) — respectful, thorough account of what the fiel
 
 Convention Knowledge (Part B2) — unsolved issue as real loss for humanity; honest limits of convention.`;
 
-    case 'movement_4_alamtologi':
+    case 'movement_4_quran':
       return `${shared}
 
-Alamtologi Framework (C) — quiet confidence; Quranic rasm only from session teaching (UTF-8 Arabic), no tafsir in brackets. Hukum Z tables if relevant.`;
+Quran Section (Q) — dedicated ayat for this topic only. Arabic rasm + translation + thematic link to the locked subfield.
+${ADAM_JOURNAL_QURAN_SECTION_LAW}`;
 
-    case 'movement_5_application':
+    case 'movement_5_alamtologi':
+      return `${shared}
+
+Alamtologi Framework (C) — full discipline syllabus and constitutional lens for this topic. No Quran ayat here.
+${ADAM_JOURNAL_ALAMTOLOGI_SCIENTIFIC_FORMULA_LAW}`;
+
+    case 'movement_6_application':
       return `${shared}
 
 Application (D) — reader at a threshold; technology real; door now open.`;
 
-    case 'movement_6_invitation':
+    case 'movement_7_invitation':
       return `${shared}
 
 Conclusion — honour the journey; end with a line that stays after the page closes. No dry summary.`;

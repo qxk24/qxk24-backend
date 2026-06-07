@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Journal Routes
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -251,10 +251,11 @@ router.get('/public/:id/translation/:locale', async (c) => {
   }
 });
 
-// ─── POST /submit — Anyone may submit ────────────────────────
+// ─── POST /submit — Founder + ADAM only (public submit disabled) ─
 
 router.post(
   '/submit',
+  requireFounder,
   zValidator('json', SubmitJournalSchema),
   async (c) => {
     const body    = c.req.valid('json');

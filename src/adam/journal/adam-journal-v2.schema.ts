@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Journal V2 Schema (Dedicated Writing System)
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-04
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -24,13 +24,16 @@ export const JOURNAL_SECTION_KEYS = [
   'movement_1_human_opening',
   'movement_2_achievement',
   'movement_3_honest_wall',
-  'movement_4_alamtologi_framework',
-  'movement_5_application',
-  'movement_6_invitation',
+  'movement_4_quran',
+  'movement_5_alamtologi_framework',
+  'movement_6_application',
+  'movement_7_invitation',
   'references',
 ] as const;
 
 export type JournalSectionKey = typeof JOURNAL_SECTION_KEYS[number];
+
+export const JOURNAL_V2_SECTION_COUNT = JOURNAL_SECTION_KEYS.length;
 
 // ── Minimum word count per section ───────────────────────────
 
@@ -39,9 +42,10 @@ export const SECTION_MIN_WORDS: Record<JournalSectionKey, number> = {
   movement_1_human_opening:         400,
   movement_2_achievement:           600,
   movement_3_honest_wall:           600,
-  movement_4_alamtologi_framework:  700,
-  movement_5_application:           500,
-  movement_6_invitation:            250,
+  movement_4_quran:                 500,
+  movement_5_alamtologi_framework:  700,
+  movement_6_application:           500,
+  movement_7_invitation:            250,
   references:                        50,
 };
 
@@ -91,6 +95,8 @@ export interface JournalV2Document extends Document {
   sections:         Partial<Record<JournalSectionKey, string>>;
   approvedSections: JournalSectionKey[];
   totalWords:       number;
+  /** Migration marker — e.g. 2026-06-quran-split */
+  sectionSchemaVersion?: string;
 
   // Session
   writingSessionId: string;
@@ -151,6 +157,7 @@ const JournalV2Schema = new Schema<JournalV2Document>(
     sections:         { type: sectionsSchema, default: () => ({}) },
     approvedSections: { type: [String], default: [] },
     totalWords:       { type: Number, default: 0 },
+    sectionSchemaVersion: { type: String, default: '' },
 
     // Session
     writingSessionId: { type: String, default: '' },

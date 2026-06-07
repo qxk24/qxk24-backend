@@ -180,8 +180,8 @@ function makeReadyJournal(overrides: Partial<{
 describe('ADAM Journal Write System — Preflight Suite (35 tests)', () => {
 
   describe('1. Schema constants', () => {
-    it('1.1 — JOURNAL_SECTION_KEYS has exactly 8 entries', () => {
-      expect(JOURNAL_SECTION_KEYS).toHaveLength(8);
+    it('1.1 — JOURNAL_SECTION_KEYS has exactly 9 entries', () => {
+      expect(JOURNAL_SECTION_KEYS).toHaveLength(9);
     });
 
     it('1.2 — JOURNAL_SECTION_KEYS contains the correct ordered keys', () => {
@@ -190,9 +190,10 @@ describe('ADAM Journal Write System — Preflight Suite (35 tests)', () => {
         'movement_1_human_opening',
         'movement_2_achievement',
         'movement_3_honest_wall',
-        'movement_4_alamtologi_framework',
-        'movement_5_application',
-        'movement_6_invitation',
+        'movement_4_quran',
+        'movement_5_alamtologi_framework',
+        'movement_6_application',
+        'movement_7_invitation',
         'references',
       ]);
     });
@@ -309,20 +310,25 @@ describe('ADAM Journal Write System — Preflight Suite (35 tests)', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('4.8 — accepts movement_4 at 700 words (highest minimum)', () => {
+    it('4.8 — accepts movement_5 at 700 words (highest minimum)', () => {
       const result = validateSectionSave(
-        'movement_4_alamtologi_framework',
+        'movement_5_alamtologi_framework',
         makeWords(700),
       );
       expect(result.valid).toBe(true);
     });
 
-    it('4.9 — rejects movement_4 at 699 words', () => {
+    it('4.9 — rejects movement_5 at 699 words', () => {
       const result = validateSectionSave(
-        'movement_4_alamtologi_framework',
+        'movement_5_alamtologi_framework',
         makeWords(699),
       );
       expect(result.valid).toBe(false);
+    });
+
+    it('4.10 — accepts movement_4_quran at 500 words', () => {
+      const result = validateSectionSave('movement_4_quran', makeWords(500));
+      expect(result.valid).toBe(true);
     });
   });
 
@@ -381,7 +387,7 @@ describe('ADAM Journal Write System — Preflight Suite (35 tests)', () => {
     });
 
     it('6.6 — rejects seal when one section is missing from approvedSections', () => {
-      const partial = JOURNAL_SECTION_KEYS.slice(0, 7);
+      const partial = JOURNAL_SECTION_KEYS.slice(0, 8);
       const result  = validateSeal(makeReadyJournal({ approvedSections: partial }));
       expect(result.valid).toBe(false);
       expect(result.error).toContain('references');
