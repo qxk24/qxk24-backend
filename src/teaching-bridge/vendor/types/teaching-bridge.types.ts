@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Teaching Bridge Types
  * Platform    : Backend (TypeScript)
@@ -34,6 +34,10 @@ export interface CrystallisedUnit {
   relationship: string;
   nodeB: string;
   synthesis: string;
+  /** Full founder teaching text (BM) — primary display when present */
+  founderTeaching?: string;
+  /** ADAM brain outcome when synthesis is founder teaching */
+  adamReflection?: string;
   level: number;
   subRegion: string;
   family: string;

@@ -1,10 +1,10 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Consult Routes (Founder)
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
@@ -34,7 +34,7 @@ router.get('/', requireFounder, async (c) => {
     success: true,
     consults,
     total:   consults.length,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
   });
 });
 
@@ -43,9 +43,9 @@ router.post('/:id/resolve', requireFounder, async (c) => {
   const consultId = c.req.param('id') ?? '';
   const ok = await resolveConsult(consultId);
   if (!ok) {
-    return c.json({ success: false, error: 'Consult not found.', kernel: 'QXK24' }, 404);
+    return c.json({ success: false, error: 'Consult not found.', kernel: 'ALAMTOLOGI' }, 404);
   }
-  return c.json({ success: true, consultId, kernel: 'QXK24' });
+  return c.json({ success: true, consultId, kernel: 'ALAMTOLOGI' });
 });
 
 // GET /api/adam/consults/group/history — Founder read-only group chat
@@ -57,7 +57,7 @@ router.get('/group/history', requireFounder, async (c) => {
     messages,
     sessionId,
     readOnly: true,
-    kernel:   'QXK24',
+    kernel:   'Alamtologi',
   });
 });
 

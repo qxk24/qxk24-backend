@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Transformation Integrity Guard (Layer 2)
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -21,8 +21,8 @@ import { prependCoreToSystem } from './adam-core';
 import { computeEntityChecksum } from './adam-checksum';
 import { ADAMIntegrityScanModel } from './adam-integrity.schema';
 import {
-  QXK24BrainEntityModel,
-  QXK24BrainLogModel,
+  AlamtologiBrainEntityModel,
+  AlamtologiBrainLogModel,
 } from './qxk24brain.schema';
 
 export type EntityIntegrityStatus = 'VERIFIED' | 'CORRUPTED' | 'REBUILT' | 'PENDING';
@@ -46,7 +46,7 @@ function parseSynthesisContent(raw: string): string {
 }
 
 export async function verifyEntity(uid: string): Promise<boolean> {
-  const entity = await QXK24BrainEntityModel.findOne({ uid }).lean();
+  const entity = await AlamtologiBrainEntityModel.findOne({ uid }).lean();
   if (!entity) return false;
 
   if (entity.auditStatus === 'dissolved' || entity.auditStatus === 'waqf') {
@@ -62,7 +62,7 @@ export async function verifyEntity(uid: string): Promise<boolean> {
   });
 
   if (!entity.checksum) {
-    await QXK24BrainEntityModel.updateOne(
+    await AlamtologiBrainEntityModel.updateOne(
       { uid },
       { checksum: expected, integrity_status: 'VERIFIED' },
     );
@@ -73,7 +73,7 @@ export async function verifyEntity(uid: string): Promise<boolean> {
 }
 
 export async function sealEntityIntegrity(uid: string): Promise<TransformationResult> {
-  const entity = await QXK24BrainEntityModel.findOne({ uid }).lean();
+  const entity = await AlamtologiBrainEntityModel.findOne({ uid }).lean();
   if (!entity) {
     return {
       success:     false,
@@ -93,7 +93,7 @@ export async function sealEntityIntegrity(uid: string): Promise<TransformationRe
 
   const valid = !entity.checksum || entity.checksum === checksum;
 
-  await QXK24BrainEntityModel.updateOne(
+  await AlamtologiBrainEntityModel.updateOne(
     { uid },
     {
       checksum,
@@ -118,7 +118,7 @@ async function rerunTransformation(
 ): Promise<string> {
   const raw = await llmCompleteUserPrompt(
     prependCoreToSystem(
-      'You are ADAM QXK24Brain — integrity rebuild. A + B = C. Respond JSON only.',
+      'You are ADAM Alamtologi Brain — integrity rebuild. A + B = C. Respond JSON only.',
     ),
     `INTEGRITY REBUILD — Re-synthesize Entity C from lineage.
 
@@ -149,7 +149,7 @@ async function rebuildEntity(entity: {
   masa_born: Date;
 }): Promise<boolean> {
   try {
-    const log = await QXK24BrainLogModel.findOne({ entity_C_uid: entity.uid }).lean();
+    const log = await AlamtologiBrainLogModel.findOne({ entity_C_uid: entity.uid }).lean();
 
     let rebuiltContent = log?.entity_C_content?.trim() ?? '';
 
@@ -177,7 +177,7 @@ async function rebuildEntity(entity: {
       masa_born: entity.masa_born,
     });
 
-    await QXK24BrainEntityModel.findOneAndUpdate(
+    await AlamtologiBrainEntityModel.findOneAndUpdate(
       { uid: entity.uid },
       {
         content:          rebuiltContent,
@@ -188,7 +188,7 @@ async function rebuildEntity(entity: {
     );
 
     if (log && log.entity_C_content !== rebuiltContent) {
-      await QXK24BrainLogModel.updateOne(
+      await AlamtologiBrainLogModel.updateOne(
         { transformationId: log.transformationId },
         {
           entity_C_content: rebuiltContent,
@@ -214,7 +214,7 @@ export async function runIntegrityScan(
   rebuilt:   number;
   skipped:   number;
 }> {
-  const entities = await QXK24BrainEntityModel.find({ founderId }).lean();
+  const entities = await AlamtologiBrainEntityModel.find({ founderId }).lean();
   let verified = 0;
   let corrupted = 0;
   let rebuilt = 0;
@@ -232,7 +232,7 @@ export async function runIntegrityScan(
       verified += 1;
     } else {
       corrupted += 1;
-      await QXK24BrainEntityModel.updateOne(
+      await AlamtologiBrainEntityModel.updateOne(
         { uid: entity.uid },
         { integrity_status: 'CORRUPTED' },
       );
@@ -251,7 +251,7 @@ export async function runIntegrityScan(
     rebuilt,
     skipped,
     masa_scan: new Date(),
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
   });
 
   console.log(

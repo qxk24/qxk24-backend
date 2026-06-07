@@ -1,24 +1,24 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Transformation Audit
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
 
 import {
-  QXK24BrainEntityModel,
-  QXK24BrainLogModel,
-  QXK24BrainMasterModel,
+  AlamtologiBrainEntityModel,
+  AlamtologiBrainLogModel,
+  AlamtologiBrainMasterModel,
   type AidilAuditJudgment,
   type TransformationAuditStatus,
 } from './qxk24brain.schema';
@@ -60,7 +60,7 @@ export async function listTransformationsForAudit(
   const query: Record<string, unknown> = { founderId };
   if (options.status) query.auditStatus = options.status;
 
-  const docs = await QXK24BrainLogModel.find(query)
+  const docs = await AlamtologiBrainLogModel.find(query)
     .sort({ masa_transformation: -1 })
     .limit(limit)
     .lean();
@@ -88,7 +88,7 @@ async function dissolveEntityC(
   transformationId: string,
   reason: string,
 ): Promise<void> {
-  await QXK24BrainEntityModel.updateOne(
+  await AlamtologiBrainEntityModel.updateOne(
     { uid: entityCUid },
     {
       auditStatus:       'dissolved',
@@ -109,7 +109,7 @@ async function restoreMasterFromLog(
   },
 ): Promise<void> {
   const understanding = log.entity_A_full ?? log.entity_A_summary ?? '';
-  await QXK24BrainMasterModel.updateOne(
+  await AlamtologiBrainMasterModel.updateOne(
     { founderId },
     {
       unifiedUnderstanding: understanding,
@@ -142,7 +142,7 @@ export async function judgeTransformation(
   message: string;
   replacementTransformationId?: string;
 }> {
-  const log = await QXK24BrainLogModel.findOne({ transformationId, founderId });
+  const log = await AlamtologiBrainLogModel.findOne({ transformationId, founderId });
   if (!log) {
     return { ok: false, message: 'Transformation not found.' };
   }
@@ -155,7 +155,7 @@ export async function judgeTransformation(
   const { judgment, correction } = input;
 
   if (judgment === 'MAKMUR') {
-    await QXK24BrainLogModel.updateOne(
+    await AlamtologiBrainLogModel.updateOne(
       { transformationId },
       {
         auditStatus:       'confirmed',
@@ -164,7 +164,7 @@ export async function judgeTransformation(
         auditedAt:         now,
       },
     );
-    await QXK24BrainEntityModel.updateOne(
+    await AlamtologiBrainEntityModel.updateOne(
       { uid: log.entity_C_uid },
       { auditStatus: 'active', transformationId },
     );
@@ -175,7 +175,7 @@ export async function judgeTransformation(
   }
 
   if (judgment === 'WAQF') {
-    await QXK24BrainLogModel.updateOne(
+    await AlamtologiBrainLogModel.updateOne(
       { transformationId },
       {
         auditStatus:       'waqf',
@@ -184,7 +184,7 @@ export async function judgeTransformation(
         auditedAt:         now,
       },
     );
-    await QXK24BrainEntityModel.updateOne(
+    await AlamtologiBrainEntityModel.updateOne(
       { uid: log.entity_C_uid },
       {
         auditStatus:       'waqf',
@@ -210,7 +210,7 @@ export async function judgeTransformation(
     await restoreMasterFromLog(founderId, log);
     await dissolveEntityC(log.entity_C_uid, transformationId, correction);
 
-    await QXK24BrainLogModel.updateOne(
+    await AlamtologiBrainLogModel.updateOne(
       { transformationId },
       {
         auditStatus:       'superseded',
@@ -230,11 +230,11 @@ export async function judgeTransformation(
     const newId = result.transformationId;
 
     if (newId) {
-      await QXK24BrainLogModel.updateOne(
+      await AlamtologiBrainLogModel.updateOne(
         { transformationId },
         { replacementTransformationId: newId },
       );
-      await QXK24BrainLogModel.updateOne(
+      await AlamtologiBrainLogModel.updateOne(
         { transformationId: newId },
         { correctedFromId: transformationId },
       );
@@ -253,7 +253,7 @@ export async function judgeTransformation(
 export async function buildTransformationAuditContextBlock(
   founderId = 'masa-bayu',
 ): Promise<string> {
-  const pending = await QXK24BrainLogModel.countDocuments({
+  const pending = await AlamtologiBrainLogModel.countDocuments({
     founderId,
     auditStatus: 'pending',
   });

@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Upload / Body Size Limit Middleware
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -26,7 +26,7 @@ function onBodyTooLarge(c: Context) {
   return c.json({
     success: false,
     error:   `Request body exceeds the maximum upload size of ${UPLOAD_MAX_MB}MB.`,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     limit: {
       maxBytes: UPLOAD_MAX_BYTES,
       maxMb:    UPLOAD_MAX_MB,

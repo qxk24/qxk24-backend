@@ -1,6 +1,6 @@
 # ADAM Lab — Qwen pilot deployment
 
-Production **Claude backup** stays at `/adam` → `qxk24-backend` (port 5000, DB `qxk24`).
+Production ADAM stays at `/adam` → `qxk24-backend` (port 5000, DB `qxk24`, Qwen/DashScope).
 
 Lab **Qwen pilot** runs at `/adam/lab` → `qxk24-backend-lab` (port **5002**, DB `qxk24_lab`). Do not use 5001 on this VPS — it is usually `qiubbx-admin-api`.
 
@@ -17,10 +17,10 @@ Same codebase. Same constitutional **A**. Different engine **B**.
 ```bash
 # On Mac — sync web source to VPS
 rsync -avz -e "ssh -p 2222" --exclude node_modules --exclude .next \
-  ~/Desktop/qxk24/qxk24-web/ root@89.117.49.12:/var/www/qxk24/web/
+  ~/Desktop/qxk24/qxk24-web/ root@89.117.49.12:/var/www/qxk24/qxk24-web/
 
 # On VPS — env + build + restart
-cd /var/www/qxk24/web
+cd /var/www/qxk24/qxk24-web
 grep -q NEXT_PUBLIC_QXK24_LAB_API_URL .env.production 2>/dev/null || \
   echo 'NEXT_PUBLIC_QXK24_LAB_API_URL=https://api.qxk24.com/lab' >> .env.production
 npm ci && npm run build
@@ -54,7 +54,7 @@ Place **above** `location /`. The trailing slash on `proxy_pass` strips `/lab/` 
 
 Health checks:
 
-- Production: `https://api.qxk24.com/health` → `"llmProvider":"anthropic"`
+- Production: `https://api.qxk24.com/health` → `"llmProvider":"qwen","stack":"production"`
 - Lab: `https://api.qxk24.com/lab/health` → `"llmProvider":"qwen","stack":"lab"`
 
 ## Troubleshooting

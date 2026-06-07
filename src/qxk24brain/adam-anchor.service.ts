@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Constitutional Anchor
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -19,7 +19,7 @@ import { ADAMMessageModel } from '../adam/adam.schema';
 import type { ChatParticipant } from '../adam/adam-student.types';
 import type { WorkspaceRecord } from '../adam/adam-workspace.service';
 import { getAdamMemoryConfig } from '../config/adam-memory.config';
-import { QXK24BrainMasterModel } from './qxk24brain.schema';
+import { AlamtologiBrainMasterModel } from './qxk24brain.schema';
 import { getContinuityBridge } from './adam-continuity.service';
 import { getOrCreateMaster } from './qxk24brain.engine';
 
@@ -146,7 +146,7 @@ export async function updateSessionSummary(
       })
       .join('\n');
 
-    await QXK24BrainMasterModel.updateOne(
+    await AlamtologiBrainMasterModel.updateOne(
       { founderId },
       {
         sessionContext: {
@@ -158,6 +158,6 @@ export async function updateSessionSummary(
       },
     );
   } catch (err) {
-    console.error('[QXK24Brain] Session summary update failed:', err);
+    console.error('[Alamtologi Brain] Session summary update failed:', err);
   }
 }

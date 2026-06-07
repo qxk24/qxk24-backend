@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Subscription Access Service
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -46,7 +46,7 @@ export interface SubscriptionAccess {
 }
 
 function upgradeUrl(path = '/plans'): string {
-  const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://qxk24.com').replace(/\/$/, '');
+  const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
   return `${base}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
@@ -82,6 +82,39 @@ export async function resolveSubscriptionAccess(userId: string): Promise<Subscri
       };
     }
     return { canChat: true, tier: paidSub.tier, status: paidSub.status };
+  }
+
+  const testerSub = await SubscriptionModel.findOne({
+    userId,
+    tier:   SubscriptionTier.TESTER,
+    status: SubscriptionStatus.ACTIVE,
+  });
+
+  if (testerSub?.pencarianUsage) {
+    const usage = testerSub.pencarianUsage;
+    const limit = usage.totalMessagesLimit + usage.extensionMessagesAdded;
+    return {
+      canChat:   true,
+      tier:      SubscriptionTier.TESTER,
+      status:    testerSub.status,
+      pencarian: pencarianSnapshot(usage.totalMessagesUsed, limit, usage.currentStage),
+    };
+  }
+
+  const revokedTester = await SubscriptionModel.findOne({
+    userId,
+    tier:   SubscriptionTier.TESTER,
+    status: SubscriptionStatus.CANCELLED,
+  });
+
+  if (revokedTester) {
+    return {
+      canChat:    false,
+      tier:       SubscriptionTier.TESTER,
+      status:     revokedTester.status,
+      message:    'Tester access has been revoked. Contact the Alamtologi team.',
+      upgradeUrl: upgradeUrl('/plans'),
+    };
   }
 
   const pausedSub = await SubscriptionModel.findOne({

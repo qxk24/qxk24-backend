@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Teaching Bridge Routes
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-02
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -25,6 +25,7 @@ import {
   applyConfirmedUnitToAllStudents,
   applyConfirmedUnitToStudent,
 } from '../qxk24brain/qxk24brain-student.engine';
+import { generateTrainingExamplesFromUnit } from '../llm-pipeline/training-example-generator';
 
 const router = new Hono();
 
@@ -68,6 +69,26 @@ router.post('/confirm', requireFounder, zValidator('json', ConfirmSchema), async
       subRegion: record.unit.subRegion,
       nodeA:     record.unit.nodeA,
       nodeB:     record.unit.nodeB,
+    });
+
+    const u = record.unit;
+    void generateTrainingExamplesFromUnit({
+      crystallisedUnitId: body.crystallisedUnitId,
+      nodeA:              u.nodeA,
+      nodeB:              u.nodeB,
+      relationship:       u.relationship,
+      synthesis:          u.synthesis,
+      founderTeaching:    u.founderTeaching,
+      adamReflection:     u.adamReflection,
+      family:             u.family,
+      subRegion:          u.subRegion,
+      primaryAuthority:   u.primaryAuthority,
+      quranReference:     u.quranReference,
+      level:              u.level,
+      confirmedBy,
+      maqasidDimensions:  u.maqasidDimensions,
+    }).catch((err) => {
+      console.error('[LLM Pipeline] Training example generation failed:', err);
     });
   }
 

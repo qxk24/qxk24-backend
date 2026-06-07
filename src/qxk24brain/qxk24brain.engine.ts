@@ -482,6 +482,7 @@ Respond in JSON:
           unifiedLegacy: masterUpdate.unifiedUnderstanding,
           family:        recognition.family,
           principle:     recognition.principle,
+          skipEpisodicAppend: context.skipEpisodicAppend === true,
         })
         : {}),
       activeFamilies,
@@ -501,6 +502,7 @@ Respond in JSON:
       unifiedLegacy: masterUpdate.unifiedUnderstanding,
       family:        recognition.family,
       principle:     recognition.principle,
+      skipEpisodicAppend: context.skipEpisodicAppend === true,
     }).catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn('[AMA Brain] Segment dual-write async failed:', msg);

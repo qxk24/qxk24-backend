@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Teaching Bridge — Coordinator
  * Platform    : Backend (TypeScript)
@@ -16,12 +16,14 @@
  */
 
 import type { Collection, Db } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import {
   crystalliseTeachingRecord,
   confirmCrystallisedUnit,
   rejectCrystallisedUnit,
   type TeachingRecord,
 } from './crystalliser';
+import { enrichCrystallisedUnitDisplay } from './synthesis-picker';
 import type {
   CrystallisationResult,
   TeachingBridgeRecord,
@@ -41,10 +43,12 @@ export async function ensureTeachingBridgeIndexes(db: Db): Promise<void> {
 export class TeachingBridge {
   private teachingBridgeCol: Collection<TeachingBridgeRecord>;
   private knowledgeUnitsCol: Collection;
+  private teachingRecordsCol: Collection;
 
   constructor(db: Db) {
     this.teachingBridgeCol = db.collection<TeachingBridgeRecord>('adam_teaching_bridge');
     this.knowledgeUnitsCol = db.collection('adam_knowledge_units');
+    this.teachingRecordsCol = db.collection('adam_teaching_records');
     void ensureTeachingBridgeIndexes(db);
   }
 
@@ -73,10 +77,45 @@ export class TeachingBridge {
   }
 
   async getPendingUnits(): Promise<TeachingBridgeRecord[]> {
-    return this.teachingBridgeCol
+    const records = await this.teachingBridgeCol
       .find({ status: 'pending_confirmation' })
       .sort({ createdAt: -1 })
       .toArray();
+    return Promise.all(records.map((r) => this.enrichPendingRecord(r)));
+  }
+
+  /** Backfill Malay founder teaching for cards crystallised before synthesis-picker */
+  private async enrichPendingRecord(
+    record: TeachingBridgeRecord,
+  ): Promise<TeachingBridgeRecord> {
+    const unit = record.unit;
+    if (unit.founderTeaching?.trim()) return record;
+
+    const sourceId = record.sourceTeachingRecordId;
+    if (!ObjectId.isValid(sourceId)) return record;
+
+    let founderTeaching = '';
+    try {
+      const teachingDoc = await this.teachingRecordsCol.findOne({
+        _id: new ObjectId(sourceId),
+      });
+      if (typeof teachingDoc?.teachingIntent === 'string') {
+        founderTeaching = teachingDoc.teachingIntent.trim();
+      }
+    } catch {
+      return record;
+    }
+
+    if (!founderTeaching) return record;
+
+    const enriched = enrichCrystallisedUnitDisplay(founderTeaching, unit.synthesis);
+    return {
+      ...record,
+      unit: {
+        ...unit,
+        ...enriched,
+      },
+    };
   }
 
   async getConfirmedUnits(since?: Date): Promise<TeachingBridgeRecord[]> {

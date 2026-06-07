@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Enterprise Mail Templates
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-01
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -62,7 +62,7 @@ export function buildEnterpriseWelcomeHtml(data: EnterpriseWelcomeData): string 
       color: '#0d9488',
       bg:    '#f0fdfa',
       title: 'Private deployment',
-      desc:  'Your QXK24 architect sets up ADAM on your VPS or preferred cloud infrastructure. You receive SSH confirmation and health check URLs.',
+      desc:  'Your Alamtologi architect sets up ADAM on your VPS or preferred cloud infrastructure. You receive SSH confirmation and health check URLs.',
     },
     {
       day:   'Day 3',
@@ -100,7 +100,7 @@ export function buildEnterpriseWelcomeHtml(data: EnterpriseWelcomeData): string 
     { icon: '🧠', color: '#6366f1', label: 'Constitutional memory', desc: 'ADAM carries your .adamrules and codebase context into every session' },
     { icon: '🏷️', color: '#0d9488', label: 'White-label identity', desc: 'ADAM speaks under your brand — name, voice, and domain' },
     { icon: '🔒', color: '#ec4899', label: 'Private deployment', desc: 'All data stays on your infrastructure — nothing leaves your server' },
-    { icon: '📞', color: '#f59e0b', label: 'Monthly architect call', desc: 'A dedicated 60-minute strategy session with your QXK24 architect' },
+    { icon: '📞', color: '#f59e0b', label: 'Monthly architect call', desc: 'A dedicated 60-minute strategy session with your Alamtologi architect' },
   ];
 
   const slaRows: [string, string][] = [
@@ -212,7 +212,7 @@ export function buildEnterpriseWelcomeHtml(data: EnterpriseWelcomeData): string 
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td style="padding-right:8px;">
-                  <a href="https://qxk24.com/adam/enterprise/onboarding" style="display:block;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;padding:14px 20px;border-radius:12px;text-align:center;letter-spacing:0.3px;">Start Onboarding →</a>
+                  <a href="https://alamtologi.com/adam/enterprise/onboarding" style="display:block;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;padding:14px 20px;border-radius:12px;text-align:center;letter-spacing:0.3px;">Start Onboarding →</a>
                 </td>
                 <td style="padding-left:8px;">
                   <a href="mailto:${architectEmail}" style="display:block;background-color:#f0fdfa;border:2px solid #0d9488;color:#0d9488;text-decoration:none;font-size:14px;font-weight:800;padding:12px 20px;border-radius:12px;text-align:center;letter-spacing:0.3px;">Email Your Architect</a>
@@ -241,12 +241,12 @@ export function buildEnterpriseWelcomeHtml(data: EnterpriseWelcomeData): string 
         <tr>
           <td style="padding:20px 44px 28px;text-align:center;border-top:1px solid #f1f5f9;">
             <p style="margin:0 0 8px;font-size:12px;color:#94a3b8;line-height:1.7;">
-              QXK24 Sdn Bhd &nbsp;·&nbsp; Kuala Lumpur, Malaysia<br/>
-              <a href="https://qxk24.com/account" style="color:#94a3b8;text-decoration:underline;">Manage subscription</a>
+              Alamtologi &nbsp;·&nbsp; Kuala Lumpur, Malaysia<br/>
+              <a href="https://alamtologi.com/account" style="color:#94a3b8;text-decoration:underline;">Manage subscription</a>
               &nbsp;·&nbsp;
-              <a href="https://qxk24.com/privacy" style="color:#94a3b8;text-decoration:underline;">Privacy</a>
+              <a href="https://alamtologi.com/privacy" style="color:#94a3b8;text-decoration:underline;">Privacy</a>
               &nbsp;·&nbsp;
-              <a href="mailto:enterprise@qxk24.com" style="color:#94a3b8;text-decoration:underline;">Support</a>
+              <a href="mailto:enterprise@alamtologi.com" style="color:#94a3b8;text-decoration:underline;">Support</a>
             </p>
             <p style="margin:6px 0 0;font-size:11px;color:#cbd5e1;">
               You received this because ${orgName} activated an Enterprise Studio subscription.<br/>
@@ -277,5 +277,5 @@ First renewal: ${data.renewalDate}
 ${data.pilotEndDate ? `Pilot ends: ${data.pilotEndDate}\n` : ''}
 Reply to this email for anything urgent.
 
-— QXK24 Enterprise · enterprise@qxk24.com`;
+— Alamtologi Enterprise · enterprise@alamtologi.com`;
 }

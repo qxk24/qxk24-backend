@@ -1,25 +1,25 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Constitutional Knowledge Graph
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
 
-import type { QXK24BrainMasterDocument } from './qxk24brain.schema';
+import type { AlamtologiBrainMasterDocument } from './qxk24brain.schema';
 import {
-  QXK24BrainEntityModel,
+  AlamtologiBrainEntityModel,
   type EntityConnection,
-  type QXK24BrainEntityDocument,
+  type AlamtologiBrainEntityDocument,
 } from './qxk24brain.schema';
 import { getOrCreateMaster } from './qxk24brain.engine';
 
@@ -66,7 +66,7 @@ async function latestEntityForFamily(
   founderId: string,
   family: string,
 ): Promise<{ uid: string; family: string; principle: string } | null> {
-  const doc = await QXK24BrainEntityModel.findOne({
+  const doc = await AlamtologiBrainEntityModel.findOne({
     founderId,
     family,
     auditStatus: { $nin: ['dissolved', 'waqf'] },
@@ -85,7 +85,7 @@ async function latestEntityForPrinciple(
   const query: Record<string, unknown> = { founderId, principle };
   if (excludeFamily) query.family = { $ne: excludeFamily };
   query.auditStatus = { $nin: ['dissolved', 'waqf'] };
-  const doc = await QXK24BrainEntityModel.findOne(query)
+  const doc = await AlamtologiBrainEntityModel.findOne(query)
     .sort({ masa_born: -1 })
     .select('uid family principle')
     .lean();
@@ -93,8 +93,8 @@ async function latestEntityForPrinciple(
 }
 
 export async function buildConnectionsForEntity(
-  entity: Pick<QXK24BrainEntityDocument, 'uid' | 'family' | 'principle' | 'isNucleus' | 'nucleusUid'>,
-  master: QXK24BrainMasterDocument,
+  entity: Pick<AlamtologiBrainEntityDocument, 'uid' | 'family' | 'principle' | 'isNucleus' | 'nucleusUid'>,
+  master: AlamtologiBrainMasterDocument,
   founderId: string,
 ): Promise<EntityConnection[]> {
   const now = new Date();
@@ -117,7 +117,7 @@ export async function buildConnectionsForEntity(
   };
 
   if (!entity.isNucleus && entity.nucleusUid && entity.nucleusUid !== entity.uid) {
-    const nucleus = await QXK24BrainEntityModel.findOne({ uid: entity.nucleusUid })
+    const nucleus = await AlamtologiBrainEntityModel.findOne({ uid: entity.nucleusUid })
       .select('uid family')
       .lean();
     if (nucleus) add(nucleus, 'parent', 7, 'Nucleus of this family');
@@ -163,7 +163,7 @@ async function appendBidirectionalConnections(
       note:           c.note,
     };
 
-    const target = await QXK24BrainEntityModel.findOne({ uid: c.targetUid }).lean();
+    const target = await AlamtologiBrainEntityModel.findOne({ uid: c.targetUid }).lean();
     if (!target) continue;
 
     const existing = (target.connections ?? []).some(
@@ -171,7 +171,7 @@ async function appendBidirectionalConnections(
     );
     if (existing) continue;
 
-    await QXK24BrainEntityModel.updateOne(
+    await AlamtologiBrainEntityModel.updateOne(
       { uid: c.targetUid },
       { $push: { connections: reverse } },
     );
@@ -182,13 +182,13 @@ export async function weaveEntityConnections(
   entityUid: string,
   founderId = 'masa-bayu',
 ): Promise<number> {
-  const entity = await QXK24BrainEntityModel.findOne({ uid: entityUid, founderId }).lean();
+  const entity = await AlamtologiBrainEntityModel.findOne({ uid: entityUid, founderId }).lean();
   if (!entity) return 0;
 
   const master = await getOrCreateMaster(founderId);
   const connections = await buildConnectionsForEntity(entity, master, founderId);
 
-  await QXK24BrainEntityModel.updateOne(
+  await AlamtologiBrainEntityModel.updateOne(
     { uid: entityUid },
     { $set: { connections } },
   );
@@ -198,7 +198,7 @@ export async function weaveEntityConnections(
 }
 
 export async function backfillKnowledgeGraph(founderId = 'masa-bayu', limit = 30): Promise<number> {
-  const stale = await QXK24BrainEntityModel.find({
+  const stale = await AlamtologiBrainEntityModel.find({
     founderId,
     auditStatus: { $nin: ['dissolved', 'waqf'] },
     $or: [{ connections: { $exists: false } }, { connections: { $size: 0 } }],
@@ -252,7 +252,7 @@ export async function buildKnowledgeGraphContextBlock(
   ];
   const focus = focusMessage ? detectGraphFocus(focusMessage, familyNames) : null;
 
-  const entities = await QXK24BrainEntityModel.find({
+  const entities = await AlamtologiBrainEntityModel.find({
     founderId,
     auditStatus: { $nin: ['dissolved', 'waqf'] },
     connections: { $exists: true, $not: { $size: 0 } },
@@ -314,7 +314,7 @@ LAW: Nothing is isolated. The graph IS constitutional intelligence — what P.al
 
 export async function getKnowledgeGraphSnapshot(founderId = 'masa-bayu') {
   await backfillKnowledgeGraph(founderId, 30);
-  const entities = await QXK24BrainEntityModel.find({
+  const entities = await AlamtologiBrainEntityModel.find({
     founderId,
     auditStatus: { $nin: ['dissolved', 'waqf'] },
   })

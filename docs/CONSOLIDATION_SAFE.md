@@ -17,7 +17,7 @@ npm ci && npm run build
 ```env
 LLM_PROVIDER=qwen
 DASHSCOPE_API_KEY=<your key>
-# International keys must use the intl base (copy from .env.lab if unsure):
+# Singapore / international Model Studio (QXK24 production default):
 QWEN_API_BASE=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
 QWEN_MODEL_DEEP=qwen-plus
 QWEN_MODEL_FAST=qwen-turbo
@@ -25,17 +25,27 @@ QWEN_MODEL_VISION=qwen-vl-max
 QWEN_ENABLE_THINKING=false
 ```
 
-If production `.env` never had Qwen vars, copy from lab backup on the VPS:
+If production `.env` is missing Qwen vars, copy the block from `.env.example` (do **not** use obsolete `.env.lab`):
 
 ```bash
-cd /var/www/qxk24/backend
-for key in DASHSCOPE_API_KEY QWEN_API_BASE QWEN_MODEL_DEEP QWEN_MODEL_FAST QWEN_MODEL_VISION QWEN_ENABLE_THINKING; do
-  grep -m1 "^${key}=" .env.lab >> .env
-done
+cd /var/www/qxk24/qxk24-backend
+# Edit .env — set DASHSCOPE_API_KEY from https://dashscope.console.aliyun.com/ (Model Studio)
+# International keys: QWEN_API_BASE=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+# Mainland keys:     QWEN_API_BASE=https://dashscope.aliyuncs.com/compatible-mode/v1
+nano .env
 pm2 restart qxk24-backend --update-env
 ```
 
-Without `DASHSCOPE_API_KEY` in **`backend/.env`** (not `.env.lab` alone), ADAM chat and Builder return: `DASHSCOPE_API_KEY is not configured.`
+Without `DASHSCOPE_API_KEY` in **`/var/www/qxk24/qxk24-backend/.env`**, ADAM chat and Builder return: `DASHSCOPE_API_KEY is not configured.`
+
+**Common paste mistake (401 Incorrect API key):** each variable must be on its own line:
+
+```env
+DASHSCOPE_API_KEY=sk-xxxxxxxx
+QWEN_API_BASE=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+```
+
+Never merge them into one line (`DASHSCOPE_API_KEY=QWEN_API_BASE=...`) — the server will send the URL as the “key” and DashScope returns 401.
 
 Also set `ADAM_BUILDER_ENABLED=true`, `HAWA_ENABLED=true`, `QXK24_ROOT=/var/www/qxk24`, and optional `LAB_MONGODB_URI` for brain import.
 

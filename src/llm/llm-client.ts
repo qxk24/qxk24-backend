@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : LLM Provider Client (Qwen / DashScope)
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -84,9 +84,6 @@ export function isQwenDataInspectionError(err: unknown): boolean {
   const msg = extractLlmErrorText(err);
   return /DataInspectionFailed|data_inspection_failed|inappropriate content/i.test(msg);
 }
-
-/** @deprecated Use friendlyLlmError — kept for existing imports */
-export const friendlyAnthropicError = friendlyLlmError;
 
 async function qwenComplete(params: LlmCompleteParams & { enableThinking?: boolean }): Promise<string> {
   const body: Record<string, unknown> = {

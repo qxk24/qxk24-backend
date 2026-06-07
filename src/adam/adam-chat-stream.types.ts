@@ -1,0 +1,76 @@
+/**
+ * ============================================================
+ * ALAMTOLOGI-QURANIC SCIENCE
+ * ============================================================
+ * Module : ADAM Chat Stream Types
+ * Platform : Backend (TypeScript)
+ * ALAMTOLOGI : Kernel v1.7.0
+ * Founder : Masa Bayu
+ * Created : 2026-06-04
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by Alamtologi. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
+ */
+
+import type { ADAMAnswerStyle, ADAMChatMode, SSEEventType } from './adam.types';
+import type { ChatParticipant } from './adam-student.types';
+import type { LlmMessage } from '../llm/llm-types';
+import type { UniversityKnowledgeTopic } from './adam-university-knowledge';
+import type { JournalSectionId } from './adam-journal-section.types';
+
+export interface StreamADAMChatOptions {
+  founderToken?:      string;
+  answerStyle?:       ADAMAnswerStyle;
+  /** @deprecated Natural flow: ADAM selects topic. Autonomous batch may pass focus id. */
+  journalTopicId?:    string;
+  journalAutonomous?: boolean;
+  forceBuilder?:      boolean;
+  clientBuilderMode?: boolean;
+  builderEvaluate?:   boolean;
+}
+
+export type AdamStreamOnceFn = (
+  messages: LlmMessage[],
+  withSearch: boolean,
+) => Promise<string>;
+
+export type AdamOnEventFn = (event: SSEEventType, data: string) => void;
+
+export interface JournalGenContext {
+  journalTopic:           UniversityKnowledgeTopic | null;
+  journalTopicId:         string | undefined;
+  wantsJournalWrite:      boolean;
+  journalWriteBySections: boolean;
+  systemPrompt:           string;
+}
+
+export interface JournalStreamResult {
+  fullResponse:           string;
+  sectionJournalComplete: boolean;
+  sectionDraftMap?:       Partial<Record<JournalSectionId, string>>;
+  streamMs:               number;
+  repairMs:               number;
+}
+
+export interface AdamChatTurnShell {
+  resolvedSessionId: string;
+  userMessage:       string;
+  normalizedMessage: string;
+  messageForAdam:    string;
+  mode:              ADAMChatMode;
+  isFounder:         boolean;
+  isGroup:           boolean;
+  participant:       ChatParticipant;
+  options:           StreamADAMChatOptions;
+  onEvent:           AdamOnEventFn;
+  uploadIds:         string[];
+  teaching: {
+    context:   string;
+    fileNames: string[];
+    uploadIds: string[];
+  };
+  userMessageId:     string;
+}

@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module : University Knowledge Map Generator
  * Platform : Node.js

@@ -7,15 +7,14 @@ ADAM uses a **local verified corpus** for Quran text — not web search, not mod
 | Field | Source |
 |-------|--------|
 | Arabic | Rasm Uthmani (Medina mushaf script) |
-| Malay | Abdullah Muhammad Basmeih |
-| English | Saheeh International |
+| English | M. Pickthall (Mohammed Marmaduke William Pickthall) |
 
 **Tafsir policy:** Footnotes in `<sup>…</sup>`, HTML, and `[brackets]` are **stripped at ingest**. Only ayat text is stored.
 
 ## Build corpus (required once per server)
 
 ```bash
-cd qxk24-backend
+cd alm-backend
 npm run quran:fetch
 ```
 
@@ -29,7 +28,7 @@ When P.alt cites `2:255`, `Surah Al-Baqarah ayat 255`, etc., ADAM injects `[QURA
 
 ```env
 QURAN_CORPUS_ENABLED=true
-# QURAN_CORPUS_PATH=/var/www/qxk24/qxk24-backend/data/quran/corpus.json
+# QURAN_CORPUS_PATH=/var/www/alamtologi/alm-backend/data/quran/corpus.json
 ```
 
 ## Deploy

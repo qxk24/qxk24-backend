@@ -1,11 +1,11 @@
-# QXK24 API — nginx site example (api.qxk24.com)
-# Required for ADAM file uploads (PDF/DOCX up to 30 MB).
+# QXK24 API — nginx site example (api.alamtologi.com)
+# Required for ADAM file uploads (PDF/DOCX up to 100 MB).
 # Default nginx client_max_body_size is 1m — uploads fail without this.
 
 server {
-    server_name api.qxk24.com;
+    server_name api.alamtologi.com;
 
-    client_max_body_size 35m;
+    client_max_body_size 110m;  # was 35m on VPS — raise to match UPLOAD_MAX_FILE_MB=100
 
     location /lab/ {
         proxy_pass http://127.0.0.1:5002/;

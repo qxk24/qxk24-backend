@@ -2,7 +2,7 @@
 // QXK24 ADAM Teaching Engine — Journal Generation Service
 // File: src/adam/adam-journal.service.ts
 // Version: 1.0.0
-// Author: QXK24 Constitutional Kernel
+// Author: Alamtologi Constitutional Kernel
 // Date: 2026-05-28
 // ============================================================
 
@@ -26,21 +26,44 @@ import { PRINCIPLE_WEIGHTS } from './adam.types';
 import { getAuditHistory, runADAMAudit } from './adam-audit.service';
 import type { ADAMAuditReport } from './adam.types';
 import { FOUNDER_USER_ID } from './adam-student.types';
+import { buildMongoRegexFromLiteral } from '../qxk24brain/mongo-regex-safe';
 import type { AdamJournalSeal } from './adam-chat-response-parser';
+import {
+  countJournalWords,
+  JOURNAL_TARGET_WORD_MIN,
+  meetsJournalLengthMinimum,
+} from './adam-journal.constants';
 import {
   adamClaimsJournalSaved,
   adamDeclinesJournalSeal,
+  founderWantsJournalDraft,
   founderWantsJournalSeal,
+  founderWantsJournalWrite,
   hasSubstantiveManuscriptProse,
   isPlaceholderJournalTitle,
   parseJournalSealBlocks,
+  parseLooseAdamJson,
   shouldAttemptFounderJournalSeal,
   validateAdamJournalSeal,
 } from './adam-chat-response-parser';
+import { prepareJournalProseForDisplay } from './adam-journal-formula';
 import { loadMessageHistory } from './adam-chat-session.service';
 import { normalizeJournalContent, normalizePrinciplesFocus } from './adam-principle-normalize';
 import { validateDailyTopicSeal } from './adam-journal-daily-segment';
+import {
+  extractLockedTopicIdFromMessage,
+  extractTopicIdFromAdamTransparency,
+  getTopicById,
+} from './adam-journal-manual-prompt';
 import { findUniversityTopicById } from './adam-university-knowledge';
+import { assembleManuscriptFromSections } from './adam-journal-section-writer';
+import { allJournalSectionsComplete } from './adam-journal-section.types';
+import type { JournalSectionId } from './adam-journal-section.types';
+import {
+  draftSectionsToJournalContent,
+  sectionsFromJournalMongoDoc,
+} from './adam-journal-section-map';
+import { inferJournalSourceLanguage } from './journal-locale';
 
 // ─── Generate Journal Number ──────────────────────────────────
 
@@ -48,7 +71,7 @@ async function generateJournalNumber(): Promise<string> {
   const count = await ADAMJournalModel.countDocuments({ status: 'PUBLISHED' });
   const seq   = String(count + 1).padStart(3, '0');
   const year  = new Date().getFullYear();
-  return `QXK24-J${year}-${seq}`;
+  return `ALM-J${year}-${seq}`;
 }
 
 // ─── Calculate AHRI Score ─────────────────────────────────────
@@ -134,8 +157,12 @@ export async function submitJournal(input: {
   authorName:      string;
   authorEmail:     string;
   authorOrg?:      string;
-  source?:         'public_submit' | 'founder_adam';
+  source?:         'public_submit' | 'founder_adam' | 'founder_teaching';
   sourceSessionId?: string;
+  knowledgeTopicId?:   string;
+  knowledgeMajor?:     string;
+  knowledgeDiscipline?: string;
+  knowledgeSubfield?:  string;
 }): Promise<AlamtologiAcademicJournal> {
   let analysedContent: JournalContent;
   let hukumZ: HukumZResult;
@@ -152,13 +179,24 @@ export async function submitJournal(input: {
       8192,
     );
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const parsed  = JSON.parse(cleaned);
+    const parsed  = parseLooseAdamJson(cleaned) as {
+      content?: Partial<JournalContent>;
+      hukumZAnalysis?: HukumZResult;
+      tahapAkalAchieved?: TahapAkal;
+      cVLevel?: ContributionValue;
+      judgment?: ConstitutionalJudgment;
+      reviewNotes?: string;
+    } | null;
+
+    if (!parsed?.content) throw new Error('Journal analysis JSON parse failed');
 
     analysedContent = normalizeJournalContent(parsed.content);
-    hukumZ          = parsed.hukumZAnalysis;
-    tahapAkal       = parsed.tahapAkalAchieved;
-    cVLevel         = parsed.cVLevel;
-    judgment        = parsed.judgment;
+    hukumZ          = parsed.hukumZAnalysis ?? {
+      pola: 'BELUM', kadar: 'BELUM', pasangan: 'BELUM', keseimbangan: 'BELUM',
+    };
+    tahapAkal       = parsed.tahapAkalAchieved ?? 1;
+    cVLevel         = parsed.cVLevel ?? 1;
+    judgment        = parsed.judgment ?? 'ISLAH';
     reviewNotes     = parsed.reviewNotes ?? '';
   } catch {
     analysedContent = {
@@ -180,11 +218,19 @@ export async function submitJournal(input: {
 
   const ahriScore = calculateAHRI(analysedContent.alamtologiAnalysis ?? []);
 
+  const mapTopic = input.knowledgeTopicId
+    ? getTopicById(input.knowledgeTopicId)
+    : null;
+
   const doc = await ADAMJournalModel.create({
     title:              input.title,
     abstract:           input.abstract,
     category:           input.category,
     principlesFocus:    input.principlesFocus,
+    knowledgeTopicId:   mapTopic?.topicId ?? input.knowledgeTopicId,
+    knowledgeMajor:     mapTopic?.majorName ?? input.knowledgeMajor,
+    knowledgeDiscipline: mapTopic?.disciplineName ?? input.knowledgeDiscipline,
+    knowledgeSubfield:  mapTopic?.subfield ?? input.knowledgeSubfield,
     authorName:         input.authorName,
     authorEmail:        input.authorEmail,
     authorOrg:          input.authorOrg,
@@ -218,6 +264,20 @@ export async function submitJournal(input: {
 }
 
 function extractTitleFromAdamText(text: string, userMessage: string): string {
+  const fromMarkdownHeading = text.match(
+    /^#{1,3}\s+\*{0,2}([^*\n]+?)\*{0,2}\s*$/m,
+  );
+  if (fromMarkdownHeading?.[1] && !isPlaceholderJournalTitle(fromMarkdownHeading[1])) {
+    return fromMarkdownHeading[1].trim().slice(0, 300);
+  }
+
+  const quotedTitle = text.match(
+    /[“"']([^”"'\n]{20,200}?)[”"']\s*,?\s*\n/i,
+  );
+  if (quotedTitle?.[1] && !isPlaceholderJournalTitle(quotedTitle[1])) {
+    return quotedTitle[1].trim().slice(0, 300);
+  }
+
   const fromHeading = text.match(/^#\s+(.+)$/m);
   if (fromHeading?.[1] && !isPlaceholderJournalTitle(fromHeading[1])) {
     return fromHeading[1].trim().slice(0, 300);
@@ -263,15 +323,17 @@ export async function sealFounderJournalFromChatFallback(input: {
   adamText:        string;
   userMessage:     string;
   sourceSessionId?: string;
+  lockedTopicId?:  string;
 }): Promise<AlamtologiAcademicJournal> {
-  const raw = input.adamText.trim();
+  const manuscript = input.adamText.trim();
+  const raw = prepareJournalProseForDisplay(manuscript);
   if (raw.length < 500) {
     throw new Error('ADAM response too short to seal as journal');
   }
   if (adamDeclinesJournalSeal(raw)) {
     throw new Error('ADAM declined to seal — no manuscript in this reply');
   }
-  if (!hasSubstantiveManuscriptProse(raw)) {
+  if (!hasSubstantiveManuscriptProse(manuscript)) {
     throw new Error('Reply has no IMRaD manuscript — meta-discussion only');
   }
 
@@ -281,18 +343,67 @@ export async function sealFounderJournalFromChatFallback(input: {
   }
   const abstract = padAbstract(extractAbstractFromAdamText(raw));
 
-  return submitJournal({
+  const topicId =
+    input.lockedTopicId?.trim()
+    ?? extractLockedTopicIdFromMessage(input.userMessage)
+    ?? extractTopicIdFromAdamTransparency(manuscript);
+  const topic = topicId ? getTopicById(topicId) : null;
+  if (!topic) {
+    throw new Error(
+      'knowledgeTopicId required — say "Tulis jurnal" so ADAM selects a topic from session teaching before saving.',
+    );
+  }
+
+  const journal = await submitJournal({
     title:           title.length >= 10 ? title : `${title} — ADAM`,
     abstract,
     rawContent:      raw,
     category:        'RESEARCH',
-    principlesFocus: ['CAHAYA', 'MASA'],
+    principlesFocus: [topic.alamtologiLens],
     authorName:      'Masa Bayu',
     authorEmail:     FOUNDER_JOURNAL_EMAIL,
-    authorOrg:       'QXK24 · Alamtologi',
-    source:          'founder_adam',
+    authorOrg:       'Alamtologi · Alamtologi',
+    source:          'founder_teaching',
     sourceSessionId: input.sourceSessionId,
+    knowledgeTopicId:   topic.topicId,
+    knowledgeMajor:     topic.majorName,
+    knowledgeDiscipline: topic.disciplineName,
+    knowledgeSubfield:  topic.subfield,
   });
+
+  if (input.sourceSessionId) {
+    await ADAMJournalModel.deleteMany({
+      sourceSessionId:  input.sourceSessionId,
+      knowledgeTopicId: topic.topicId,
+      status:           'DRAFT',
+    });
+  }
+
+  return journal;
+}
+
+/** Select prose source for seal — section manuscript never merges session corpus. */
+export function selectFounderJournalProseSource(input: {
+  sectionManuscriptOnly?: string | null;
+  sectionJournalComplete?: boolean;
+  fullResponse:            string;
+  sessionCorpus?:          string;
+}): string | null {
+  const sectionOnly = input.sectionManuscriptOnly?.trim() || null;
+  if (sectionOnly) {
+    return hasSubstantiveManuscriptProse(sectionOnly) || input.sectionJournalComplete
+      ? sectionOnly
+      : null;
+  }
+  const corpus = input.sessionCorpus ?? '';
+  if (hasSubstantiveManuscriptProse(corpus)) return corpus;
+  if (hasSubstantiveManuscriptProse(input.fullResponse)) return input.fullResponse;
+  return null;
+}
+
+/** True when section mode must not load session message corpus. */
+export function sectionModeSkipsSessionCorpus(sectionManuscriptOnly?: string | null): boolean {
+  return Boolean(sectionManuscriptOnly?.trim());
 }
 
 /** Recent ADAM replies in this session plus the current turn (not yet persisted). */
@@ -319,20 +430,268 @@ export interface FounderJournalSealResult {
   sealErrors:       string[];
 }
 
+/** Resolve full assembled manuscript — stream output or MongoDB section draft. */
+async function resolveAssembledSectionManuscript(input: {
+  sessionId:               string;
+  topicId?:                string;
+  sectionManuscriptOnly?:  string | null;
+  sectionJournalComplete?: boolean;
+}): Promise<{
+  manuscript:      string | null;
+  complete:        boolean;
+  source:          string;
+  sections:        Partial<Record<JournalSectionId, string>> | null;
+  draftJournalId?: string;
+}> {
+  const explicit = input.sectionManuscriptOnly?.trim();
+  if (explicit) {
+    return {
+      manuscript: explicit,
+      complete:   Boolean(input.sectionJournalComplete),
+      source:     'stream',
+      sections:   null,
+    };
+  }
+
+  const topicId = input.topicId?.trim();
+  if (!topicId) {
+    console.log(
+      '[journal:assemble]',
+      JSON.stringify({ words: 0, meetsMin: false, source: 'none', reason: 'no-topicId' }),
+    );
+    return { manuscript: null, complete: false, source: 'none', sections: null };
+  }
+
+  let bySession = false;
+  let doc: {
+    _id: unknown;
+    draftSections?: unknown;
+    sections?: unknown;
+  } | null = null;
+
+  if (input.sessionId) {
+    doc = await ADAMJournalModel.findOne({
+      sourceSessionId:  input.sessionId,
+      knowledgeTopicId: topicId,
+      status:           'DRAFT',
+    })
+      .sort({ updatedAt: -1 })
+      .lean();
+  }
+
+  let sections = sectionsFromJournalMongoDoc(doc);
+  if (Object.keys(sections).length > 0 && doc) {
+    bySession = true;
+  } else {
+    doc = await ADAMJournalModel.findOne({
+      knowledgeTopicId: topicId,
+      status:           'DRAFT',
+    })
+      .sort({ updatedAt: -1 })
+      .lean();
+    sections = sectionsFromJournalMongoDoc(doc);
+    bySession = false;
+  }
+
+  if (!doc || Object.keys(sections).length === 0) {
+    console.log(
+      '[journal:assemble]',
+      JSON.stringify({
+        topicId,
+        words:    0,
+        meetsMin: false,
+        source:   'mongodb-draft',
+        reason:   'no-draft-in-adam_journals',
+      }),
+    );
+    return { manuscript: null, complete: false, source: 'none', sections: null };
+  }
+
+  const assembled = assembleManuscriptFromSections(sections);
+  const words = countJournalWords(assembled);
+  const complete = allJournalSectionsComplete(sections);
+  const draftJournalId = String(doc._id);
+
+  console.log(
+    '[journal:assemble]',
+    JSON.stringify({
+      topicId,
+      source:   bySession ? 'session-draft' : 'topic-draft',
+      words,
+      complete,
+      chars:      assembled.length,
+      meetsMin:   meetsJournalLengthMinimum(assembled),
+      draftId:    draftJournalId,
+    }),
+  );
+
+  return {
+    manuscript:     assembled,
+    complete,
+    source:         'mongodb-draft',
+    sections,
+    draftJournalId,
+  };
+}
+
+/** Upgrade section DRAFT in adam_journals → PENDING_REVIEW (no second LLM pass). */
+async function sealSectionDraftToPendingReview(input: {
+  sessionId:      string;
+  topicId:        string;
+  sections:       Partial<Record<JournalSectionId, string>>;
+  manuscript:     string;
+  draftJournalId?: string;
+}): Promise<AlamtologiAcademicJournal> {
+  const topicId = input.topicId.trim();
+  const topic = findUniversityTopicById(topicId);
+  if (!topic) throw new Error(`Unknown knowledgeTopicId: ${topicId}`);
+
+  const manuscript = input.manuscript.trim();
+  const totalWords = countJournalWords(manuscript);
+
+  const existingPending = await ADAMJournalModel.findOne({
+    knowledgeTopicId: topicId,
+    status:           'PENDING_REVIEW',
+    sourceSessionId:  input.sessionId,
+  }).lean();
+
+  if (existingPending) {
+    const journal = mapToJournal(existingPending);
+    return journal;
+  }
+
+  let doc = input.draftJournalId
+    ? await ADAMJournalModel.findById(input.draftJournalId)
+    : null;
+
+  if (!doc) {
+    doc = await ADAMJournalModel.findOne({
+      sourceSessionId:  input.sessionId,
+      knowledgeTopicId: topicId,
+      status:           'DRAFT',
+    }).sort({ updatedAt: -1 });
+  }
+
+  if (!doc) {
+    doc = await ADAMJournalModel.findOne({
+      knowledgeTopicId: topicId,
+      status:           'DRAFT',
+    }).sort({ updatedAt: -1 });
+  }
+
+  const content = draftSectionsToJournalContent(input.sections);
+  const title =
+    doc?.title?.trim()
+    || input.sections.title_and_abstract?.match(/^#\s+(.+)$/m)?.[1]?.trim()
+    || `Alamtologi — ${topic.label}`;
+
+  if (doc) {
+    doc.content = content;
+    doc.title = title.slice(0, 300);
+    doc.status = 'PENDING_REVIEW';
+    doc.source = 'founder_teaching';
+    doc.sourceSessionId = input.sessionId;
+    doc.sessionId = input.sessionId;
+    doc.topicId = topicId;
+    doc.knowledgeTopicId = topicId;
+    doc.totalWords = totalWords;
+    doc.sourceLanguage = inferJournalSourceLanguage(manuscript);
+    doc.submittedAt = new Date();
+    doc.reviewNotes =
+      doc.reviewNotes?.trim()
+      || 'Sealed from ADAM section draft — awaiting P.alt review (Lulus).';
+    doc.draftSections = undefined;
+    doc.lastCompletedSection = undefined;
+    await doc.save();
+  } else {
+    doc = await ADAMJournalModel.create({
+      title:              title.slice(0, 300),
+      abstract:           manuscript.slice(0, 500).trim(),
+      category:           'RESEARCH',
+      principlesFocus:    [topic.alamtologiLens],
+      authorName:         'Masa Bayu',
+      authorEmail:        FOUNDER_JOURNAL_EMAIL,
+      authorOrg:          'Alamtologi · Alamtologi',
+      content,
+      status:             'PENDING_REVIEW',
+      source:             'founder_teaching',
+      sourceSessionId:    input.sessionId,
+      sessionId:          input.sessionId,
+      topicId,
+      knowledgeTopicId:   topicId,
+      knowledgeMajor:     topic.majorName,
+      knowledgeDiscipline: topic.disciplineName,
+      knowledgeSubfield:  topic.subfield,
+      totalWords,
+      sourceLanguage:     inferJournalSourceLanguage(manuscript),
+      submittedAt:        new Date(),
+      reviewNotes:        'Sealed from ADAM section manuscript — awaiting P.alt review (Lulus).',
+      ahriScore:          0,
+      tahapAkalAchieved:  3,
+      cVLevel:            3,
+      judgment:           'ISLAH',
+    });
+  }
+
+  const journal = mapToJournal(doc);
+
+  console.log(
+    '[journal:seal] saved PENDING_REVIEW',
+    JSON.stringify({
+      collection: 'adam_journals',
+      id:         journal.id,
+      topicId,
+      sessionId:  input.sessionId,
+      totalWords,
+      status:     journal.status,
+    }),
+  );
+
+  try {
+    await runADAMAudit({
+      targetId:    journal.id,
+      targetType:  'JOURNAL',
+      stage:       'SUBMISSION',
+      context:     `Section draft sealed. Topic: ${topic.label}. Words: ${totalWords}. Session: ${input.sessionId}.`,
+    });
+  } catch (err: unknown) {
+    console.error('[Journal] Section seal audit failed:', err);
+  }
+
+  return journal;
+}
+
 /** Seal from JSON tag and/or session manuscript when ADAM omits the tag in the latest reply. */
 export async function processFounderJournalSeal(input: {
-  sessionId:       string;
-  userMessage:     string;
-  fullResponse:    string;
-  finalResponse:   string;
-  sealsFromReply:  AdamJournalSeal[];
+  sessionId:               string;
+  userMessage:             string;
+  fullResponse:            string;
+  finalResponse:           string;
+  sealsFromReply:          AdamJournalSeal[];
+  lockedTopicId?:          string;
+  /** Assembled section manuscript — do not merge prior session turns. */
+  sectionManuscriptOnly?:  string;
+  sectionJournalComplete?: boolean;
+  /** Raw section map from section writer (when stream just completed). */
+  sectionDraft?:           Partial<Record<JournalSectionId, string>>;
+  /** When true, always attempt seal (section complete or explicit seal phrase). */
+  forceSealAttempt?:      boolean;
 }): Promise<FounderJournalSealResult> {
   const sealedJournals: { id: string; title: string }[] = [];
   const sealErrors: string[] = [];
 
+  const resolvedTopicId =
+    input.lockedTopicId?.trim()
+    ?? extractLockedTopicIdFromMessage(input.userMessage)
+    ?? extractTopicIdFromAdamTransparency(input.fullResponse)
+    ?? extractTopicIdFromAdamTransparency(input.finalResponse);
+
   const trySealList = async (seals: AdamJournalSeal[]) => {
     for (const seal of seals) {
       try {
+        if (resolvedTopicId && !seal.knowledgeTopicId) {
+          seal.knowledgeTopicId = resolvedTopicId;
+        }
         const check = await validateDailyTopicSeal(seal.knowledgeTopicId);
         if (!check.ok) {
           sealErrors.push(check.reason ?? 'Invalid daily topic seal.');
@@ -353,32 +712,81 @@ export async function processFounderJournalSeal(input: {
     return { sealedJournals, sealErrors };
   }
 
+  const wantsJournalWork =
+    founderWantsJournalWrite(input.userMessage)
+    || founderWantsJournalDraft(input.userMessage)
+    || founderWantsJournalSeal(input.userMessage);
+
   const attempt =
-    shouldAttemptFounderJournalSeal(input.userMessage, input.finalResponse)
+    input.forceSealAttempt
+    || wantsJournalWork
+    || shouldAttemptFounderJournalSeal(input.userMessage, input.finalResponse)
     || shouldAttemptFounderJournalSeal(input.userMessage, input.fullResponse);
+
+  if (attempt) {
+    console.log(
+      '[journal:seal] triggered',
+      JSON.stringify({
+        sessionId:  input.sessionId,
+        topicId:    resolvedTopicId ?? null,
+        force:      Boolean(input.forceSealAttempt),
+        sealPhrase: founderWantsJournalSeal(input.userMessage),
+        sectionComplete: Boolean(input.sectionJournalComplete),
+      }),
+    );
+  }
 
   if (!attempt) {
     return { sealedJournals, sealErrors };
   }
 
-  const corpus = await gatherFounderJournalCorpus(input.sessionId, input.fullResponse);
-  const proseSource = hasSubstantiveManuscriptProse(corpus)
-    ? corpus
-    : hasSubstantiveManuscriptProse(input.fullResponse)
-      ? input.fullResponse
-      : null;
+  const resolvedTopicForDraft =
+    resolvedTopicId
+    ?? extractLockedTopicIdFromMessage(input.userMessage)
+    ?? extractTopicIdFromAdamTransparency(input.fullResponse);
+
+  const assembled = await resolveAssembledSectionManuscript({
+    sessionId:              input.sessionId,
+    topicId:                resolvedTopicForDraft,
+    sectionManuscriptOnly:  input.sectionManuscriptOnly,
+    sectionJournalComplete: input.sectionJournalComplete,
+  });
+
+  const sectionOnly = assembled.manuscript;
+  const sectionComplete = assembled.complete || Boolean(input.sectionJournalComplete);
+  const sectionMap = assembled.sections ?? input.sectionDraft ?? null;
+  const draftJournalId = assembled.draftJournalId;
+
+  let proseSource: string | null = null;
+  if (sectionOnly) {
+    proseSource = selectFounderJournalProseSource({
+      sectionManuscriptOnly:  sectionOnly,
+      sectionJournalComplete: sectionComplete,
+      fullResponse:           input.fullResponse,
+    });
+  } else {
+    const corpus = await gatherFounderJournalCorpus(input.sessionId, input.fullResponse);
+    proseSource = selectFounderJournalProseSource({
+      fullResponse:  input.fullResponse,
+      sessionCorpus: corpus,
+    });
+  }
+
+  const corpusForSeals = sectionOnly
+    ? sectionOnly
+    : await gatherFounderJournalCorpus(input.sessionId, input.fullResponse);
 
   if (
     adamDeclinesJournalSeal(input.finalResponse) &&
     !proseSource
   ) {
     sealErrors.push(
-      'Tiada draf IMRaD dalam sesi ini. Tap ✍️ Tulis draf penuh, atau minta ADAM tulis topik tertentu, kemudian 📚 Simpan untuk semak.',
+      'Tiada draf IMRaD dalam sesi ini. Taip "Tulis jurnal" — ADAM pilih topik, tulis minimum 4,000 perkataan, simpan automatik ke semakan.',
     );
     return { sealedJournals, sealErrors };
   }
 
-  const fromCorpus = parseJournalSealBlocks(corpus);
+  const fromCorpus = parseJournalSealBlocks(corpusForSeals);
   if (fromCorpus.seals.length > 0) {
     await trySealList([fromCorpus.seals[fromCorpus.seals.length - 1]!]);
     if (sealedJournals.length > 0) return { sealedJournals, sealErrors };
@@ -387,52 +795,96 @@ export async function processFounderJournalSeal(input: {
   const claimsSaved =
     adamClaimsJournalSaved(input.finalResponse)
     || adamClaimsJournalSaved(input.fullResponse)
-    || adamClaimsJournalSaved(corpus);
+    || (sectionOnly ? false : adamClaimsJournalSaved(corpusForSeals));
 
-  if (
+  const autoSaveEligible =
     proseSource
     && !adamDeclinesJournalSeal(proseSource)
-    && (claimsSaved || founderWantsJournalSeal(input.userMessage))
-  ) {
+    && (hasSubstantiveManuscriptProse(proseSource) || sectionComplete)
+    && (
+      claimsSaved
+      || wantsJournalWork
+      || sectionComplete
+    );
+
+  if (autoSaveEligible && proseSource) {
+    const manuscript = proseSource;
+    const words = countJournalWords(manuscript);
+    if (!meetsJournalLengthMinimum(manuscript)) {
+      sealErrors.push(
+        sectionComplete
+          ? `Jurnal lengkap (${words.toLocaleString()} perkataan) tetapi belum mencapai minimum ${JOURNAL_TARGET_WORD_MIN.toLocaleString()} perkataan. Taip "Tulis jurnal" sekali lagi untuk melengkapkan bahagian yang kurang.`
+          : `Jurnal belum cukup panjang (minimum ${JOURNAL_TARGET_WORD_MIN.toLocaleString()} perkataan). ADAM akan sambung menulis — tunggu sehingga siap.`,
+      );
+      return { sealedJournals, sealErrors };
+    }
+
     try {
+      const topicForSeal = resolvedTopicId ?? resolvedTopicForDraft;
+      if (
+        sectionComplete
+        && sectionMap
+        && allJournalSectionsComplete(sectionMap)
+        && topicForSeal
+      ) {
+        const j = await sealSectionDraftToPendingReview({
+          sessionId:      input.sessionId,
+          topicId:        topicForSeal,
+          sections:       sectionMap,
+          manuscript,
+          draftJournalId,
+        });
+        sealedJournals.push({ id: j.id, title: j.title });
+        return { sealedJournals, sealErrors };
+      }
+
       const j = await sealFounderJournalFromChatFallback({
-        adamText:        proseSource,
+        adamText:        manuscript,
         userMessage:     input.userMessage,
         sourceSessionId: input.sessionId,
+        lockedTopicId:   resolvedTopicId,
       });
       sealedJournals.push({ id: j.id, title: j.title });
       return { sealedJournals, sealErrors };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error('[Journal] Founder seal fallback failed:', err);
+      console.error('[Journal] Founder auto-save failed:', err);
       sealErrors.push(msg);
     }
   }
 
-  if (founderWantsJournalSeal(input.userMessage)) {
+  if (wantsJournalWork) {
     if (!proseSource) {
       sealErrors.push(
-        'Tiada draf IMRaD dalam sesi. Tap ✍️ Tulis draf penuh di JOURNAL GEN, tunggu siap, kemudian 📚 Simpan untuk semak.',
+        'Tiada draf IMRaD dalam sesi. Taip "Tulis jurnal" — ADAM tulis minimum 4,000 perkataan.',
+      );
+    } else if (sectionOnly && !sectionComplete) {
+      sealErrors.push(
+        'Jurnal dalam proses — bahagian belum lengkap. Taip "Tulis jurnal" sekali lagi untuk sambung dari draf tersimpan.',
       );
     } else if (claimsSaved) {
       sealErrors.push(
-        'ADAM claimed the journal was saved but no valid seal was written. Ask ADAM: "Emit <adam_journal_seal> JSON now with complete IMRaD from this session."',
+        'ADAM kata jurnal disimpan tetapi sistem belum dapat simpan. Tunggu sambungan menulis selesai, atau taip "Tulis jurnal" sekali lagi.',
+      );
+    } else if (proseSource) {
+      sealErrors.push(
+        'Draf IMRaD wujud tetapi belum cukup panjang atau belum lengkap. ADAM akan sambung menulis — tunggu sehingga minimum 4,000 perkataan.',
       );
     } else {
       sealErrors.push(
-        'No valid <adam_journal_seal> JSON in this reply. Ask ADAM to emit the seal block with full IMRaD content.',
+        'Tiada manuskrip IMRaD dalam balasan ini. Taip "Tulis jurnal" — ADAM menulis penuh, sistem simpan automatik.',
       );
     }
   } else if (claimsSaved) {
     sealErrors.push(
-      'ADAM claimed the journal was saved but no valid seal was written. Ask ADAM to seal again with <adam_journal_seal> JSON.',
+      'ADAM kata jurnal disimpan tetapi sistem belum dapat simpan. Semak /adam/journals/review atau taip "Tulis jurnal" sekali lagi.',
     );
   }
 
   return { sealedJournals, sealErrors };
 }
 
-const FOUNDER_JOURNAL_EMAIL = `${FOUNDER_USER_ID}@qxk24.com`;
+const FOUNDER_JOURNAL_EMAIL = `${FOUNDER_USER_ID}@alamtologi.com`;
 
 /**
  * Founder-only: ADAM seals a journal from chat (pre-analysed JSON — no second LLM call).
@@ -476,7 +928,7 @@ export async function sealFounderJournalFromAdam(
     knowledgeSubfield:  seal.knowledgeSubfield ?? topic.subfield,
     authorName:         seal.authorName ?? 'Masa Bayu',
     authorEmail:        FOUNDER_JOURNAL_EMAIL,
-    authorOrg:          'QXK24 · Alamtologi',
+    authorOrg:          'Alamtologi · Alamtologi',
     content,
     ahriScore,
     hukumZAnalysis:     hukumZ,
@@ -486,7 +938,7 @@ export async function sealFounderJournalFromAdam(
     status:             'PENDING_REVIEW',
     submittedAt:        new Date(),
     reviewNotes:        seal.reviewNotes ?? 'Sealed by ADAM from Founder teaching — awaiting P.alt review.',
-    source:             'founder_adam',
+    source:             'founder_teaching',
     sourceSessionId:    sourceSessionId ?? undefined,
   });
 
@@ -574,7 +1026,8 @@ function buildJournalListQuery(filter: JournalListFilter): Record<string, unknow
 
   const q = filter.q?.trim();
   if (q) {
-    const rx = new RegExp(escapeRegex(q), 'i');
+    const rx = buildMongoRegexFromLiteral(q);
+    if (!rx) return query;
     query.$or = [
       { title: rx },
       { abstract: rx },
@@ -737,7 +1190,7 @@ export async function listJournalsForStudent(
   userName: string,
   limit = 20,
 ): Promise<AlamtologiAcademicJournal[]> {
-  const canonicalEmail = `${userId}@student.qxk24.com`;
+  const canonicalEmail = `${userId}@student.alamtologi.com`;
   const docs = await ADAMJournalModel.find({
     $or: [
       { authorEmail: canonicalEmail },
@@ -792,7 +1245,9 @@ export async function publishJournal(id: string): Promise<AlamtologiAcademicJour
 
   doc.status        = 'PUBLISHED';
   doc.publishedAt   = new Date();
-  doc.journalNumber = await generateJournalNumber();
+  if (!doc.journalNumber) {
+    doc.journalNumber = await generateJournalNumber();
+  }
   await doc.save();
 
   const journal = mapToJournal(doc);
@@ -844,5 +1299,11 @@ function mapToJournal(
     knowledgeMajor:    doc.knowledgeMajor,
     knowledgeDiscipline: doc.knowledgeDiscipline,
     knowledgeSubfield: doc.knowledgeSubfield,
+    sourceLanguage:    doc.sourceLanguage ?? 'en',
+    translations:      doc.translations ?? {},
+    copyright:         doc.copyright,
+    totalWords:        doc.totalWords,
+    topicId:           doc.topicId ?? doc.knowledgeTopicId,
+    sessionId:         doc.sessionId ?? doc.sourceSessionId,
   };
 }

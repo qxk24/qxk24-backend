@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Subscription Tier Access Config
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -88,6 +88,22 @@ export const TIER_ACCESS: Record<SubscriptionTier, ITierAccess> = {
     whiteLabel:         true,
     supportLevel:       'dedicated',
     maxUsers:           -1,           // Unlimited
+  },
+
+  [SubscriptionTier.TESTER]: {
+    memoryLevel:        'basic',
+    episodicRecords:    true,
+    relationalArc:      false,
+    continuityBridge:   true,
+    presenceLayer:      true,
+    unresolvedHoldings: true,
+    apiAccess:          false,
+    apiCallsPerMonth:   0,
+    publishingRights:   false,
+    customWorkspace:    false,
+    whiteLabel:         false,
+    supportLevel:       'email',
+    maxUsers:           1,
   },
 };
 

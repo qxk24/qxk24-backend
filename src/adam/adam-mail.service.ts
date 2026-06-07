@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Mail Service
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -41,7 +41,7 @@ export async function sendMail(options: SendMailOptions): Promise<boolean> {
 
   const replyTo = options.replyTo?.trim()
     || ENV.MAIL_REPLY_TO?.trim()
-    || 'enterprise@qxk24.com';
+    || 'enterprise@alamtologi.com';
 
   try {
     const res = await fetch('https://api.resend.com/emails', {
@@ -106,7 +106,7 @@ export async function sendPasswordResetEmail(
 <p>P.alt requested a password reset for your ADAM Lab account.</p>
 <p><a href="${resetUrl}">Reset your password</a></p>
 <p>This link expires in ${ENV.ADAM_PASSWORD_RESET_TTL_MINUTES} minutes. If you did not request this, ignore this email.</p>
-<p>— QXK24 · ADAM Lab</p>
+<p>— Alamtologi · ADAM Lab</p>
   `.trim();
 
   try {
@@ -114,7 +114,7 @@ export async function sendPasswordResetEmail(
       to,
       subject: 'Reset your ADAM Lab password',
       html,
-      replyTo: ENV.MAIL_REPLY_TO?.trim() || 'support@qxk24.com',
+      replyTo: ENV.MAIL_REPLY_TO?.trim() || 'support@alamtologi.com',
     });
   } catch (err) {
     console.warn('[adam:mail] password reset send error', err);

@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Integrity Scan Schema (Layer 2)
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -38,7 +38,7 @@ const ADAMIntegrityScanSchema = new Schema<ADAMIntegrityScanDocument>({
   rebuilt:   { type: Number, default: 0 },
   skipped:   { type: Number, default: 0 },
   masa_scan: { type: Date, default: Date.now, index: true },
-  kernel:    { type: String, default: 'QXK24' },
+  kernel:    { type: String, default: 'ALAMTOLOGI' },
 }, {
   timestamps: true,
   collection: 'adam_integrity_scans',

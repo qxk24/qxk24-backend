@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Teaching Record Backfill
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -18,7 +18,7 @@
  */
 
 import { ENV } from '../config/environments';
-import { QXK24BrainLogModel } from './qxk24brain.schema';
+import { AlamtologiBrainLogModel } from './qxk24brain.schema';
 import { AdamTeachingRecordModel } from './adam-teaching-record.schema';
 import { refreshRelationalMemoryOnMaster } from './adam-continuity.service';
 
@@ -124,7 +124,7 @@ export async function getTeachingRecordBackfillDiagnostics(
   founderId = 'masa-bayu',
 ): Promise<{ brainLogCount: number; teachingRecordCount: number }> {
   const [brainLogCount, teachingRecordCount] = await Promise.all([
-    QXK24BrainLogModel.countDocuments({ founderId }),
+    AlamtologiBrainLogModel.countDocuments({ founderId }),
     AdamTeachingRecordModel.countDocuments({ founderId }),
   ]);
   return { brainLogCount, teachingRecordCount };
@@ -144,7 +144,7 @@ export async function backfillTeachingRecordsFromBrainLog(
   const refreshBridge = options.refreshBridge ?? true;
   const cap = Math.min(Math.max(options.limit ?? 10_000, 1), 50_000);
 
-  const logs = await QXK24BrainLogModel.find({ founderId })
+  const logs = await AlamtologiBrainLogModel.find({ founderId })
     .sort({ masa_transformation: 1 })
     .limit(cap)
     .lean();

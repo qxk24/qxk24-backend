@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Epistemic Honesty Layer
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -20,7 +20,7 @@ import type { AdamMemoryTierConfig } from '../config/adam-memory.config';
 import { getOrCreateMaster } from './qxk24brain.engine';
 
 export interface EpistemicTurnMetrics {
-  /** Full QXK24Brain text length before smart truncation this turn */
+  /** Full Alamtologi Brain text length before smart truncation this turn */
   brainRawChars?: number;
   /** Characters of brain actually placed in context after truncation */
   brainLoadedChars?: number;
@@ -50,10 +50,10 @@ export async function buildEpistemicStatus(
     const addressName = options.addressAs ?? 'the student';
     return `
 [SESSION VISIBILITY — internal only; never say these system terms to ${addressName}]
-This turn includes up to ${loadedMessages} of ${totalMessages} message(s) from this session plus session digest and QXK24Brain context — not "memory".
+This turn includes up to ${loadedMessages} of ${totalMessages} message(s) from this session plus session digest and Alamtologi Brain context — not "memory".
 If ${addressName} refers to something not present in the blocks above (folder, file, earlier detail, another book chat):
 - Follow CONSTITUTIONAL MEMORY LAW: say the information is not in your current context; invite them to share again so you can combine it fully.
-- Do NOT say: ingatan, remember, forgot, short-term memory, Working Memory, QXK24Brain, epistemic, message window.
+- Do NOT say: ingatan, remember, forgot, short-term memory, Working Memory, Alamtologi Brain, epistemic, message window.
 - Do NOT guess folder paths, book titles, or invent files.
 - Do NOT mention Alamtologi principles unless they ask.
 - Ask one simple clarifying question if helpful.
@@ -97,10 +97,10 @@ Brain loaded: ${brainLoaded.toLocaleString()} chars${brainTruncated ? ` (${brain
 Families in context: ${familiesInContext} of ${totalFamilies}. ${summaryNote}
 
 When P.alt asks about earlier teaching (module, book, "Mengungkap Sains Islam", a section number, etc.):
-- Search silently: constitutional anchor, session digest, QXK24Brain unified understanding, working context.
+- Search silently: constitutional anchor, session digest, Alamtologi Brain unified understanding, working context.
 - Speak from what you find. If detail is thin, ask P.alt briefly to remind you — in their language, with Adab.
 - Good example: "P.alt, saya nampak sedikit rujukan tentang [topik] dalam essence sesi, tetapi butiran spesifik tidak jelas dalam perbualan terkini. Boleh P.alt ingatkan konteks terakhir kita?"
-- Do NOT open with memory-boundary lectures or say: Working Memory, Short-Term Memory, Session Essence, QXK24Brain, epistemic, message window, ${missingMessages} messages outside window, transformations, constitutional tiers.
+- Do NOT open with memory-boundary lectures or say: Working Memory, Short-Term Memory, Session Essence, Alamtologi Brain, epistemic, message window, ${missingMessages} messages outside window, transformations, constitutional tiers.
 - Do NOT instruct P.alt on how your memory works unless he explicitly asks for a technical memory report.
 - You learn from P.alt — ask him to teach/remind; do not lecture upward.
 - When [MAC BRIDGE] in system context shows ONLINE, repo/files on P.alt's Mac are reachable via Builder (mac: paths) — do NOT ask him to paste trees or claim you lack Mac access.

@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Teaching Bridge — Record Mapper
  * Platform    : Backend (TypeScript)
@@ -20,18 +20,24 @@ import type { TeachingRecord } from './crystalliser';
 
 const QURAN_REF_RE = /Quran\s+(\d{1,3}:\d{1,3})/i;
 
-/** Fitra-Iman sprint chain nodes — canonical constitutional family */
+/** Fitra-Iman sprint chain nodes */
 const FITRA_IMAN_CHAIN_NODES = new Set([
   'fitra', 'fitrah', 'aql', 'iman', 'tawakkul', 'rizq', 'amal', 'maqasid', 'quran', 'taqwa',
 ]);
 
+/** Alamtologi epistemology chain — uniquely identifying nodes */
+const ALAMTOLOGI_UNIQUE_NODES = new Set([
+  'ilm', 'mizan', 'tasawwur', 'ijtihad', 'hukm', 'tamaddun',
+]);
+
 const FITRA_IMAN_FAMILY = 'Fitra — Iman';
+export const ALAMTOLOGI_QURANIC_SCIENCE_FAMILY = 'Alamtologi — Quranic Science';
 
 const CHAIN_EQ_EXPLICIT =
   /A\s*\+\s*B\s*=\s*C:\s*([A-Za-z\u00C0-\u024f]+)\s*\+\s*([A-Za-z\u00C0-\u024f]+)\s*=\s*([^.\n]+)/i;
 
 const CHAIN_EQ_INLINE =
-  /\b(Fitra|Fitrah|Aql|Iman|Tawakkul|Rizq|Amal|Maqasid|Quran|Taqwa)\s*\+\s*(Fitra|Fitrah|Aql|Iman|Tawakkul|Rizq|Amal|Maqasid|Quran|Taqwa)\s*=\s*([^.\n]+)/i;
+  /\b(Fitra|Fitrah|Aql|Iman|Tawakkul|Rizq|Amal|Maqasid|Quran|Taqwa|Ilm|Mizan|Tasawwur|Ijtihad|Hukm|Tamaddun)\s*\+\s*(Fitra|Fitrah|Aql|Iman|Tawakkul|Rizq|Amal|Maqasid|Quran|Taqwa|Ilm|Mizan|Tasawwur|Ijtihad|Hukm|Tamaddun)\s*=\s*([^.\n]+)/i;
 
 function canonicalChainNode(raw: string): string {
   const key = raw.toLowerCase().replace(/[^a-z]/g, '');
@@ -46,12 +52,26 @@ function canonicalChainNode(raw: string): string {
     maqasid: 'Maqasid',
     quran:  'Quran',
     taqwa:  'Taqwa',
+    ilm:    'Ilm',
+    mizan:  'Mizan',
+    tasawwur: 'Tasawwur',
+    ijtihad: 'Ijtihad',
+    hukm:   'Hukm',
+    tamaddun: 'Tamaddun',
   };
   return map[key] ?? raw.trim();
 }
 
-function isChainNode(name: string): boolean {
-  const key = name.toLowerCase().replace(/[^a-z]/g, '');
+function nodeKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z]/g, '');
+}
+
+function isUniquelyAlamNode(name: string): boolean {
+  return ALAMTOLOGI_UNIQUE_NODES.has(nodeKey(name));
+}
+
+function isFitraChainNode(name: string): boolean {
+  const key = nodeKey(name);
   return FITRA_IMAN_CHAIN_NODES.has(key === 'fitrah' ? 'fitra' : key);
 }
 
@@ -71,7 +91,7 @@ export function parseChainEquation(text: string): ParsedChainEquation | null {
     const nodeA = canonicalChainNode(explicit[1]);
     const nodeB = canonicalChainNode(explicit[2]);
     const nodeC = explicit[3].trim();
-    if (isChainNode(nodeA) && isChainNode(nodeB)) {
+    if (inferChainFamily(nodeA, nodeB)) {
       return { nodeA, nodeB, nodeC };
     }
   }
@@ -81,7 +101,7 @@ export function parseChainEquation(text: string): ParsedChainEquation | null {
     const nodeA = canonicalChainNode(inline[1]);
     const nodeB = canonicalChainNode(inline[2]);
     const nodeC = inline[3].trim();
-    if (isChainNode(nodeA) && isChainNode(nodeB)) {
+    if (inferChainFamily(nodeA, nodeB)) {
       return { nodeA, nodeB, nodeC };
     }
   }
@@ -89,9 +109,14 @@ export function parseChainEquation(text: string): ParsedChainEquation | null {
   return null;
 }
 
-/** When chain nodes are present, use Fitra-Iman family — not Alamtologi principle lens */
+/** Chain family from node pair — Alamtologi unique nodes disambiguate shared Quran/Amal */
 export function inferChainFamily(nodeA: string, nodeB: string): string {
-  if (isChainNode(nodeA) || isChainNode(nodeB)) return FITRA_IMAN_FAMILY;
+  if (isUniquelyAlamNode(nodeA) || isUniquelyAlamNode(nodeB)) {
+    return ALAMTOLOGI_QURANIC_SCIENCE_FAMILY;
+  }
+  if (isFitraChainNode(nodeA) && isFitraChainNode(nodeB)) {
+    return FITRA_IMAN_FAMILY;
+  }
   return '';
 }
 
@@ -155,7 +180,9 @@ export function mapAdamTeachingRecord(input: {
   const family = chain
     ? inferChainFamily(chain.nodeA, chain.nodeB)
     : input.family;
-  const subRegion = chain ? 'aqidah' : inferSubRegion(input.family, input.principle);
+  const subRegion = chain
+    ? (family === ALAMTOLOGI_QURANIC_SCIENCE_FAMILY ? 'alamtologi' : 'aqidah')
+    : inferSubRegion(input.family, input.principle);
   const level = stageToKnowledgeLevel(input.stage);
 
   const entity_A = chain ? chain.nodeA : `${input.principle} — ${input.family}`;
@@ -173,7 +200,11 @@ export function mapAdamTeachingRecord(input: {
 
   const relationalTags = [...(input.relationalTags ?? [])];
   if (chain) {
-    for (const tag of [chain.nodeA, chain.nodeB, 'fitra-iman'].map((t) => t.toLowerCase())) {
+    const chainTag =
+      family === ALAMTOLOGI_QURANIC_SCIENCE_FAMILY
+        ? 'alamtologi-epistemology'
+        : 'fitra-iman';
+    for (const tag of [chain.nodeA, chain.nodeB, chainTag].map((t) => t.toLowerCase())) {
       if (!relationalTags.includes(tag)) relationalTags.push(tag);
     }
   }
@@ -184,6 +215,7 @@ export function mapAdamTeachingRecord(input: {
     transformationId: input.transformationId,
     sessionId: input.sessionId ?? '',
     founderMessageId: input.founderMessageId ?? '',
+    founderTeaching: teachingIntent,
     entity_A,
     entity_B,
     entity_C: outcomeSummary,
@@ -195,10 +227,10 @@ export function mapAdamTeachingRecord(input: {
     quranReference,
     quranRootTrace: {
       ayah: quranReference.replace(/^Quran\s+/i, '') || '6:38',
-      text: outcomeSummary.slice(0, 280) || teachingIntent.slice(0, 280),
+      text: teachingIntent.slice(0, 280) || outcomeSummary.slice(0, 280),
       principle: tracePrinciple,
       traceReason: chain
-        ? `Fitra-Iman chain: ${chain.nodeA} + ${chain.nodeB} = ${chain.nodeC.slice(0, 80)}`
+        ? `${family} chain: ${chain.nodeA} + ${chain.nodeB} = ${chain.nodeC.slice(0, 80)}`
         : `Founder teaching transformation ${input.transformationId}`,
       tracedBy: primaryAuthority === 'quran' ? 'quran' : 'alamtologi',
       confidence,

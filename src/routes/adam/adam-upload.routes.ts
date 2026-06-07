@@ -1,20 +1,20 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Teaching Upload Routes
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
- * POST /api/adam/upload        — Founder or student upload (max 30MB)
+ * POST /api/adam/upload        — Founder or student upload (UPLOAD_MAX_FILE_MB)
  * GET  /api/adam/upload/:id    — Upload metadata (no raw file download)
  */
 
@@ -27,6 +27,7 @@ import {
   assertFileWithinLimit,
   UPLOAD_MAX_MB,
 } from '../../middleware/upload-limit.middleware';
+import { uploadRateLimit } from '../../middleware/upload-rate-limit.middleware';
 import { getMultipartUploadFile } from '../../adam/adam-file-extract.service';
 import {
   canAccessTeachingUpload,
@@ -40,7 +41,7 @@ import type { ADAMApiResponse, ADAMTeachingUpload } from '../../adam/adam.types'
 const router = new Hono();
 
 // POST /api/adam/upload
-router.post('/', requireAdamUser, async (c) => {
+router.post('/', requireAdamUser, uploadRateLimit, async (c) => {
   try {
     const user = getTokenUser(c)!;
     const isFounder = user.role === 'founder' || user.isFounder;
@@ -53,7 +54,7 @@ router.post('/', requireAdamUser, async (c) => {
       return c.json({
         success: false,
         error:   'No file provided. Use field name "file".',
-        kernel:  'QXK24',
+        kernel:  'ALAMTOLOGI',
       }, 400);
     }
 
@@ -62,7 +63,7 @@ router.post('/', requireAdamUser, async (c) => {
       return c.json({
         success: false,
         error:   sizeCheck.error,
-        kernel:  'QXK24',
+        kernel:  'ALAMTOLOGI',
         limit:   { maxMb: UPLOAD_MAX_MB },
       }, 413);
     }
@@ -76,12 +77,20 @@ router.post('/', requireAdamUser, async (c) => {
       ? resolveFounderUploaderId(user.userId)
       : user.userId;
 
+    console.log(
+      `[adam:upload] start name=${rawFile.name} bytes=${rawFile.size} role=${uploaderRole}`,
+    );
+
     const upload = await saveTeachingUpload(rawFile, {
       sessionId,
       uploadedBy,
       uploaderRole,
       uploaderName: user.name ?? user.userId,
     });
+
+    console.log(
+      `[adam:upload] ok id=${upload.id} name=${upload.fileName} bytes=${upload.sizeBytes}`,
+    );
 
     const response: ADAMApiResponse<{
       upload: Pick<
@@ -90,7 +99,7 @@ router.post('/', requireAdamUser, async (c) => {
       > & { preview: string; sessionId?: string };
     }> = {
       success:   true,
-      kernel:    'QXK24',
+      kernel:    'ALAMTOLOGI',
       version:   ENV.QXK24_KERNEL_VERSION,
       era:       ENV.QXK24_ERA,
       data: {
@@ -111,10 +120,13 @@ router.post('/', requireAdamUser, async (c) => {
     return c.json(response, 201);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Upload failed.';
+    console.warn(
+      `[adam:upload] fail ${message}`,
+    );
     return c.json({
       success: false,
       error:   message,
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
       timestamp: new Date().toISOString(),
     }, 400);
   }
@@ -130,7 +142,7 @@ router.get('/:id', requireAdamUser, async (c) => {
     return c.json({
       success: false,
       error:   'Upload not found.',
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
     }, 404);
   }
 
@@ -141,13 +153,13 @@ router.get('/:id', requireAdamUser, async (c) => {
     return c.json({
       success: false,
       error:   'Access denied.',
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
     }, 403);
   }
 
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data: {

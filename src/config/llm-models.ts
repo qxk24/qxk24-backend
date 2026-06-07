@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Model Router (Qwen / DashScope)
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -22,6 +22,7 @@
 import { ENV } from './environments';
 import type { ADAMChatMode } from '../adam/adam.types';
 import { shouldEnableWebSearchForMessage } from '../adam/adam-web-search';
+import { isAdamSubstantiveTurn } from '../adam/adam-response-generation';
 
 export type ModelTier = 'fast' | 'deep';
 
@@ -122,6 +123,14 @@ function resolveStudentModel(
 
   const text = message.trim();
 
+  if (isAdamSubstantiveTurn(text) && text.length >= 24) {
+    return {
+      model:  getDeepModel(),
+      tier:   'deep',
+      reason: 'student_substantive',
+    };
+  }
+
   if (DEEP_MODES.includes(mode)) {
     return {
       model:  getDeepModel(),
@@ -168,9 +177,12 @@ export function resolveAdamMaxTokens(
 export function resolveQwenEnableThinking(
   tier: ModelTier,
   mode: ADAMChatMode,
+  options?: { founderTeachingAbsorption?: boolean },
 ): boolean {
   if (!ENV.QWEN_ENABLE_THINKING) return false;
   if (tier === 'fast') return false;
+  // Teaching absorption — stream visible sooner; output tokens unchanged
+  if (options?.founderTeachingAbsorption) return false;
   return DEEP_MODES.includes(mode);
 }
 

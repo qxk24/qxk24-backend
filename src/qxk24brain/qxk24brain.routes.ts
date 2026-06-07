@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
- * Module      : QXK24Brain Routes
+ * Module      : Alamtologi Brain Routes
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -87,8 +87,8 @@ import {
   loadBrainContext,
 } from './qxk24brain.engine';
 import {
-  QXK24BrainEntityModel,
-  QXK24BrainLogModel,
+  AlamtologiBrainEntityModel,
+  AlamtologiBrainLogModel,
 } from './qxk24brain.schema';
 
 const qxk24BrainRoutes = new Hono();
@@ -108,7 +108,7 @@ qxk24BrainRoutes.get('/', requireFounder, async (c) => {
       principles:           master.principles,
       currentCycle:         master.currentCycle,
     },
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
@@ -129,7 +129,7 @@ qxk24BrainRoutes.get('/vault', requireFounder, async (c) => {
       constitutionallySealed: true,
     },
     layer:     'LAYER_4_VAULT',
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -148,7 +148,7 @@ qxk24BrainRoutes.get('/vault/:id', requireFounder, async (c) => {
     success: true,
     entry,
     readOnly: true,
-    kernel:   'QXK24',
+    kernel:   'Alamtologi',
   });
 });
 
@@ -161,7 +161,7 @@ qxk24BrainRoutes.get('/redundancy', requireFounder, async (c) => {
     redundancy: status,
     scheduler:  getRedundancySchedulerStatus(),
     recentBackups: logs,
-    kernel:     'QXK24',
+    kernel:     'Alamtologi',
     timestamp:  new Date().toISOString(),
   });
 });
@@ -172,7 +172,7 @@ qxk24BrainRoutes.post('/redundancy/backup', requireFounder, async (c) => {
   return c.json({
     success: result.status === 'SUCCESS',
     backup:  result,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   }, result.status === 'FAILED' ? 500 : 200);
 });
@@ -183,7 +183,7 @@ qxk24BrainRoutes.get('/tcp', requireFounder, async (c) => {
   const response: Record<string, unknown> = {
     success: true,
     tcp:     getTcpConfig(),
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   };
   if (previewText) {
@@ -197,7 +197,7 @@ qxk24BrainRoutes.get('/concurrency', requireFounder, async (c) => {
   return c.json({
     success: true,
     concurrency: getConcurrencyStatus(),
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -212,7 +212,7 @@ qxk24BrainRoutes.get('/continuity', requireFounder, async (c) => {
       updatedAt: updatedAt?.toISOString() ?? null,
     },
     layer:     'LAYER_7_CONTINUITY',
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -229,7 +229,7 @@ qxk24BrainRoutes.post('/continuity/refresh', requireFounder, async (c) => {
     success: true,
     bridge,
     layer:     'LAYER_7_CONTINUITY',
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -243,7 +243,7 @@ qxk24BrainRoutes.get('/snapshots', requireFounder, async (c) => {
     snapshots,
     retention: parseInt(process.env.ADAM_SNAPSHOT_RETENTION ?? '10', 10) || 10,
     layer:     'LAYER_6_SNAPSHOT',
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -261,7 +261,7 @@ qxk24BrainRoutes.post('/snapshots/:id/rollback', requireFounder, async (c) => {
       message: `Brain restored to snapshot ${snapshotId}`,
       snapshotId,
       layer:     'LAYER_6_SNAPSHOT',
-      kernel:    'QXK24',
+      kernel:    'ALAMTOLOGI',
       timestamp: new Date().toISOString(),
     });
   } catch (err: unknown) {
@@ -286,7 +286,7 @@ qxk24BrainRoutes.get('/health', requireFounder, async (c) => {
     health,
     badge,
     layer:     'LAYER_5_HEALTH',
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -308,7 +308,7 @@ qxk24BrainRoutes.get('/memory', requireFounder, async (c) => {
       longTermMaxChars: config.BRAIN_CHARS,
     },
     layer:     'LAYER_3_TIERED',
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -323,7 +323,7 @@ qxk24BrainRoutes.post('/memory/digest', requireFounder, async (c) => {
   return c.json({
     success: true,
     digest,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -334,7 +334,7 @@ qxk24BrainRoutes.get('/ledger', requireFounder, async (c) => {
   return c.json({
     success: true,
     ledger:  stats,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     layer:   'LAYER_1_ATOMIC',
     timestamp: new Date().toISOString(),
   });
@@ -348,7 +348,7 @@ qxk24BrainRoutes.post('/ledger/recover', requireFounder, async (c) => {
     success: true,
     recovered,
     ledger:  stats,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -361,7 +361,7 @@ qxk24BrainRoutes.get('/integrity', requireFounder, async (c) => {
     success: true,
     scans,
     scheduler: getIntegritySchedulerStatus(),
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     layer:     'LAYER_2_INTEGRITY',
     timestamp: new Date().toISOString(),
   });
@@ -373,7 +373,7 @@ qxk24BrainRoutes.post('/integrity/scan', requireFounder, async (c) => {
   return c.json({
     success: true,
     scan:    result,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     layer:   'LAYER_2_INTEGRITY',
     timestamp: new Date().toISOString(),
   });
@@ -386,7 +386,7 @@ qxk24BrainRoutes.get('/integrity/entity/:uid', requireFounder, async (c) => {
     return c.json({ success: false, error: 'Entity uid required.' }, 400);
   }
   const valid = await verifyEntity(uid);
-  const entity = await QXK24BrainEntityModel.findOne({ uid, founderId: 'masa-bayu' })
+  const entity = await AlamtologiBrainEntityModel.findOne({ uid, founderId: 'masa-bayu' })
     .select('uid family principle stage checksum integrity_status masa_rebuilt auditStatus')
     .lean();
   if (!entity) {
@@ -397,7 +397,7 @@ qxk24BrainRoutes.get('/integrity/entity/:uid', requireFounder, async (c) => {
     uid,
     valid,
     entity,
-    kernel: 'QXK24',
+    kernel: 'ALAMTOLOGI',
   });
 });
 
@@ -410,7 +410,7 @@ qxk24BrainRoutes.get('/reflections', requireFounder, async (c) => {
     reflections,
     scheduler: getReflectionSchedulerStatus(),
     total:     reflections.length,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -425,7 +425,7 @@ qxk24BrainRoutes.post('/reflections/run', requireFounder, async (c) => {
     success:       true,
     reflectionId:  result.reflectionId,
     message:       'ADAM nightly reflection completed.',
-    kernel:        'QXK24',
+    kernel:        'Alamtologi',
     timestamp:     new Date().toISOString(),
   });
 });
@@ -449,7 +449,7 @@ qxk24BrainRoutes.get('/transformations', requireFounder, async (c) => {
     transformations,
     judgments: AIDIL_JUDGMENT_LABELS,
     total:     transformations.length,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -457,14 +457,14 @@ qxk24BrainRoutes.get('/transformations', requireFounder, async (c) => {
 // GET /api/adam/brain/transformations/:id — Single transformation detail
 qxk24BrainRoutes.get('/transformations/:id', requireFounder, async (c) => {
   const id = c.req.param('id');
-  const doc = await QXK24BrainLogModel.findOne({
+  const doc = await AlamtologiBrainLogModel.findOne({
     transformationId: id,
     founderId:        'masa-bayu',
   }).lean();
   if (!doc) {
     return c.json({ success: false, error: 'Transformation not found.' }, 404);
   }
-  return c.json({ success: true, transformation: doc, kernel: 'QXK24' });
+  return c.json({ success: true, transformation: doc, kernel: 'ALAMTOLOGI' });
 });
 
 // POST /api/adam/brain/transformations/:id/judge — P.alt constitutional judgment
@@ -496,7 +496,7 @@ qxk24BrainRoutes.post('/transformations/:id/judge', requireFounder, async (c) =>
     success: true,
     message: result.message,
     replacementTransformationId: result.replacementTransformationId,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
   });
 });
 
@@ -518,7 +518,7 @@ qxk24BrainRoutes.get('/graph', requireFounder, async (c) => {
       focused,
       focusFamily: family ?? null,
     },
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -530,7 +530,7 @@ qxk24BrainRoutes.get('/checkpoints', requireFounder, async (c) => {
     success:      true,
     checkpoints,
     total:        checkpoints.length,
-    kernel:       'QXK24',
+    kernel:       'Alamtologi',
     version:      ENV.QXK24_KERNEL_VERSION,
     era:          ENV.QXK24_ERA,
     timestamp:    new Date().toISOString(),
@@ -545,7 +545,7 @@ qxk24BrainRoutes.get('/stages', requireFounder, async (c) => {
     success:   true,
     dashboard,
     checkpoints,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
@@ -558,7 +558,7 @@ qxk24BrainRoutes.get('/context', requireFounder, async (c) => {
   return c.json({
     success:   true,
     context,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
@@ -567,7 +567,7 @@ qxk24BrainRoutes.get('/context', requireFounder, async (c) => {
 
 // GET /api/adam/brain/entities — All entities
 qxk24BrainRoutes.get('/entities', requireFounder, async (c) => {
-  const entities = await QXK24BrainEntityModel
+  const entities = await AlamtologiBrainEntityModel
     .find({ founderId: 'masa-bayu' })
     .sort({ masa_born: -1 })
     .limit(50)
@@ -576,14 +576,14 @@ qxk24BrainRoutes.get('/entities', requireFounder, async (c) => {
     success:   true,
     entities,
     total:     entities.length,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
 
 // GET /api/adam/brain/log — Transformation log
 qxk24BrainRoutes.get('/log', requireFounder, async (c) => {
-  const log = await QXK24BrainLogModel
+  const log = await AlamtologiBrainLogModel
     .find({ founderId: 'masa-bayu' })
     .sort({ masa_transformation: -1 })
     .limit(20)
@@ -592,7 +592,7 @@ qxk24BrainRoutes.get('/log', requireFounder, async (c) => {
     success:   true,
     log,
     total:     log.length,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -605,7 +605,7 @@ qxk24BrainRoutes.get('/teaching-records', requireFounder, async (c) => {
     success: true,
     records,
     total:   records.length,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     era:     ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
   });
@@ -620,7 +620,7 @@ qxk24BrainRoutes.get('/relational-threads', requireFounder, async (c) => {
     arcs,
     relationalMemory: bridge?.relationalMemory ?? '',
     total: arcs.length,
-    kernel: 'QXK24',
+    kernel: 'ALAMTOLOGI',
     era:    ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
   });
@@ -644,7 +644,7 @@ qxk24BrainRoutes.post('/teaching-records/backfill', requireFounder, async (c) =>
   return c.json({
     success: true,
     result,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     era:       ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
   });
@@ -688,7 +688,7 @@ qxk24BrainRoutes.post('/register-correction', requireFounder, async (c) => {
     success:  true,
     recordId: doc.recordId,
     message:  'Register correction recorded. ADAM will carry this forward.',
-    kernel:   'QXK24',
+    kernel:   'Alamtologi',
     era:      ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
   });
@@ -708,7 +708,7 @@ qxk24BrainRoutes.get('/holdings', requireFounder, async (c) => {
     success: true,
     holdings,
     count:   holdings.length,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     era:     ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
   });
@@ -726,7 +726,7 @@ qxk24BrainRoutes.get('/holdings/principle/:principle', requireFounder, async (c)
     holdings,
     principle: principle.toUpperCase(),
     count: holdings.length,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     era:     ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
   });
@@ -779,7 +779,7 @@ qxk24BrainRoutes.post('/holdings', requireFounder, async (c) => {
   return c.json({
     success: true,
     holding,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     era:     ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
   });
@@ -812,7 +812,7 @@ qxk24BrainRoutes.post('/holdings/:holdingId/illuminate', requireFounder, async (
   return c.json({
     success: true,
     message: 'Hikmah telah tiba. Holding illuminated.',
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     era:     ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
   });
@@ -835,7 +835,7 @@ qxk24BrainRoutes.post('/holdings/:holdingId/deepen', requireFounder, async (c) =
   return c.json({
     success: true,
     message: 'Holding deepened.',
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     era:     ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
   });
@@ -858,7 +858,7 @@ qxk24BrainRoutes.post('/holdings/:holdingId/surrender', requireFounder, async (c
   return c.json({
     success: true,
     message: 'Diserahkan kepada Allah. Dia yang Maha Mengetahui.',
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     era:     ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
   });

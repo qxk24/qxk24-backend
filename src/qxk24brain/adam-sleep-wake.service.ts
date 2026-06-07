@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Sleep & Wake Protocol
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -19,20 +19,23 @@ import { resolveBrainDeepModel } from '../config/llm-models';
 import { llmCompleteUserPrompt } from '../llm/llm-client';
 import { updateContinuityBridge } from './adam-continuity.service';
 import { prependCoreToSystem } from './adam-core';
+import { syncSessionDigestToStudentTrack } from './student-digest-bridge';
+import { syncSessionArcToStudentTrack } from './student-arc-bridge';
 import { ADAMFounderSessionModel, ADAMMessageModel } from '../adam/adam.schema';
 
-function scheduleStudentDigestSync(
+function scheduleStudentPostSessionWork(
   session: { sessionType?: string; founderId?: string },
   sessionId: string,
 ): void {
   if (session.sessionType !== 'student' || !session.founderId) return;
-  void import('./student-digest-bridge')
-    .then(({ syncSessionDigestToStudentTrack }) =>
-      syncSessionDigestToStudentTrack(sessionId, session.founderId!),
-    )
-    .catch((err) => {
-      console.error('[ADAM Sleep] Student digest sync failed:', err);
-    });
+
+  void syncSessionDigestToStudentTrack(sessionId, session.founderId).catch((err) => {
+    console.error('[PostSession] Digest sync failed (non-fatal):', err);
+  });
+
+  void syncSessionArcToStudentTrack(sessionId, session.founderId).catch((err) => {
+    console.error('[PostSession] Arc synthesis failed (non-fatal):', err);
+  });
 }
 
 function sessionInactivityMs(): number {
@@ -65,7 +68,7 @@ export async function adamSleepProtocol(
       { sessionId },
       { active: false, masa_closed: session.masa_closed ?? new Date() },
     );
-    scheduleStudentDigestSync(session, sessionId);
+    scheduleStudentPostSessionWork(session, sessionId);
     return true;
   }
 
@@ -79,7 +82,7 @@ export async function adamSleepProtocol(
       { sessionId },
       { active: false, masa_closed: new Date() },
     );
-    scheduleStudentDigestSync(session, sessionId);
+    scheduleStudentPostSessionWork(session, sessionId);
     return true;
   }
 
@@ -132,7 +135,7 @@ ${transcript}`,
     console.error('[ADAM Continuity] Post-session bridge update failed:', err);
   });
 
-  scheduleStudentDigestSync(session, sessionId);
+  scheduleStudentPostSessionWork(session, sessionId);
 
   return true;
 }

@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Atomic Message Guarantee (Layer 1)
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -76,7 +76,7 @@ export async function atomicSaveMessage(
       needsConsult:   metadata.needsConsult ?? false,
       isFounderRelay: metadata.isFounderRelay ?? false,
       isStudentRelay: metadata.isStudentRelay ?? false,
-      kernel:         metadata.kernel ?? 'QXK24',
+      kernel:         metadata.kernel ?? 'Alamtologi',
       era:            metadata.era ?? 'ERA_1',
     });
 
@@ -128,7 +128,7 @@ export async function recoverFailedMessages(): Promise<number> {
           needsConsult:   meta.needsConsult ?? false,
           isFounderRelay: meta.isFounderRelay ?? false,
           isStudentRelay: meta.isStudentRelay ?? false,
-          kernel:         meta.kernel ?? 'QXK24',
+          kernel:         meta.kernel ?? 'Alamtologi',
           era:            meta.era ?? 'ERA_1',
           createdAt:      entry.masa_ledger,
         });

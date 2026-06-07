@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Main Server Entry
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -33,11 +33,13 @@ import { startAdamRedundancyScheduler } from './qxk24brain/adam-redundancy.sched
 import { startAdamJournalBatchScheduler } from './adam/adam-journal-batch.scheduler.js';
 import { connectConcurrencyRedis, disconnectConcurrencyRedis } from './qxk24brain/adam-concurrency.service.js';
 import { initStudentRegistry } from './adam/adam-student.service.js';
+import { initPlatformSettings } from './adam/adam-platform-settings.service.js';
+import { initLlmPipeline } from './llm-pipeline/llm-pipeline.service.js';
 
 const app = new Hono();
 
 // ── Security Headers ──────────────────────────────────────
-// cross-origin: allow qxk24.com → api.qxk24.com fetch (same-site but not same-origin)
+// cross-origin: allow alamtologi.com → api.alamtologi.com fetch (same-site but not same-origin)
 app.use('*', secureHeaders({
   crossOriginResourcePolicy: 'cross-origin',
 }));
@@ -65,7 +67,7 @@ app.use('*', cors({
 // ── Logger ────────────────────────────────────────────────
 app.use('*', logger());
 
-// ── Upload / body size limit (default 30MB) ───────────────
+// ── Upload / body size limit (default 100MB) ──────────────
 app.use('*', uploadBodyLimit);
 
 // ── Constitutional Response Headers ───────────────────────
@@ -82,13 +84,13 @@ registerRoutes(app);
 
 // ── Global Error Handler ──────────────────────────────────
 app.onError((err, c) => {
-  console.error('[QXK24] Unhandled error:', err.message);
+  console.error('[ALAMTOLOGI] Unhandled error:', err.message);
   return c.json({
     success: false,
     error:   ENV.IS_PRODUCTION
       ? 'Internal constitutional error.'
       : err.message,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     version: ENV.QXK24_KERNEL_VERSION
   }, 500);
 });
@@ -97,6 +99,8 @@ app.onError((err, c) => {
 async function bootstrap(): Promise<void> {
   try {
     await connectDatabase();
+    await initPlatformSettings();
+    await initLlmPipeline();
     await initStudentRegistry();
     await connectConcurrencyRedis();
     assertLlmConfigured();
@@ -109,21 +113,21 @@ async function bootstrap(): Promise<void> {
     serve({ fetch: app.fetch, port: ENV.PORT }, () => {
       console.log('');
       console.log('╔══════════════════════════════════════════════╗');
-      console.log('║       QXK24 Constitutional Backend          ║');
+      console.log('║       Alamtologi Constitutional Backend          ║');
       console.log(`║  Kernel  : ${ENV.QXK24_KERNEL_VERSION}                        ║`);
       console.log(`║  Era     : ${ENV.QXK24_ERA}                          ║`);
       console.log(`║  Stack   : ${ENV.QXK24_STACK} · ${ENV.LLM_PROVIDER}              ║`);
       console.log(`║  Port    : ${ENV.PORT}                              ║`);
       console.log(`║  Upload  : ${ENV.UPLOAD_MAX_FILE_MB}MB max body              ║`);
       console.log(`║  Env     : ${ENV.NODE_ENV}                   ║`);
-      console.log('║  Domain  : api.qxk24.com                    ║');
+      console.log('║  Domain  : api.alamtologi.com                    ║');
       console.log('╚══════════════════════════════════════════════╝');
       console.log('');
     });
 
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error('[QXK24] Bootstrap failed:', msg);
+    console.error('[ALAMTOLOGI] Bootstrap failed:', msg);
     process.exit(1);
   }
 }
@@ -142,7 +146,7 @@ process.on('SIGINT', async () => {
 });
 
 process.on('unhandledRejection', (reason) => {
-  console.error('[QXK24] Unhandled rejection:', reason);
+  console.error('[ALAMTOLOGI] Unhandled rejection:', reason);
 });
 
 bootstrap();

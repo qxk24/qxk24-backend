@@ -1,10 +1,10 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
- * Module      : QXK24Brain Student Contribution Engine
+ * Module      : Alamtologi Brain Student Contribution Engine
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
@@ -24,7 +24,7 @@ import { getStudentAccounts } from '../adam/adam-student.service';
 import { getUserWorkspaces } from '../adam/adam-workspace.service';
 import { getOrCreateMaster } from './qxk24brain.engine';
 import { prependCoreToSystem } from './adam-core';
-import { QXK24BrainMasterModel, type StudentTrack } from './qxk24brain.schema';
+import { AlamtologiBrainMasterModel, type StudentTrack } from './qxk24brain.schema';
 
 const BRAIN_MODEL = () => resolveBrainFastModel();
 
@@ -87,7 +87,7 @@ function parseJson<T>(raw: string, fallback: T): T {
 async function callJson<T>(prompt: string, fallback: T): Promise<T> {
   const text = await llmCompleteUserPrompt(
     prependCoreToSystem(
-      'You are ADAM QXK24Brain alignment checker. Founder teachings are supreme. Respond JSON only.',
+      'You are ADAM Alamtologi Brain alignment checker. Founder teachings are supreme. Respond JSON only.',
     ),
     prompt,
     BRAIN_MODEL(),
@@ -170,7 +170,7 @@ JSON:
     return result;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error('[QXK24Brain] Student contribution error:', msg);
+    console.error('[Alamtologi Brain] Student contribution error:', msg);
     return fallback;
   }
 }
@@ -203,10 +203,11 @@ async function mergeStudentTrack(
       openQuestions:       [],
       zpdReadiness:        false,
       lastSessionSummary:  '',
+      relationshipArc:     '',
     });
   }
 
-  await QXK24BrainMasterModel.updateOne(
+  await AlamtologiBrainMasterModel.updateOne(
     { founderId: FOUNDER_USER_ID },
     { studentTracks: tracks, masa_last_updated: new Date() },
   );
@@ -380,7 +381,7 @@ async function recordStudentContact(
     });
   }
 
-  await QXK24BrainMasterModel.updateOne(
+  await AlamtologiBrainMasterModel.updateOne(
     { founderId: FOUNDER_USER_ID },
     { studentTracks: tracks, masa_last_updated: new Date() },
   );
@@ -526,6 +527,7 @@ export interface StudentConstitutionalStateUpdate {
   openQuestions?:       string[];
   zpdReadiness?:        boolean;
   lastSessionSummary?:  string;
+  relationshipArc?:     string;
 }
 
 export interface StudentConstitutionalState extends StudentConstitutionalStateUpdate {
@@ -537,6 +539,7 @@ export interface StudentConstitutionalState extends StudentConstitutionalStateUp
   openQuestions:       string[];
   zpdReadiness:        boolean;
   lastSessionSummary:  string;
+  relationshipArc:     string;
 }
 
 export async function ensureStudentTrackRow(
@@ -552,7 +555,7 @@ export async function ensureStudentTrackRow(
 export async function getStudentConstitutionalState(
   studentId: string,
 ): Promise<StudentConstitutionalState | null> {
-  const master = await QXK24BrainMasterModel.findOne(
+  const master = await AlamtologiBrainMasterModel.findOne(
     { founderId: FOUNDER_USER_ID },
     { studentTracks: 1 },
   ).lean();
@@ -571,6 +574,7 @@ export async function getStudentConstitutionalState(
     openQuestions:       best.openQuestions ?? [],
     zpdReadiness:        best.zpdReadiness ?? false,
     lastSessionSummary:  best.lastSessionSummary ?? '',
+    relationshipArc:     best.relationshipArc ?? '',
   };
 }
 
@@ -579,7 +583,7 @@ export async function updateStudentConstitutionalState(
   studentId: string,
   update: StudentConstitutionalStateUpdate,
 ): Promise<void> {
-  const master = await QXK24BrainMasterModel.findOne(
+  const master = await AlamtologiBrainMasterModel.findOne(
     { founderId: FOUNDER_USER_ID },
     { studentTracks: 1 },
   ).lean();
@@ -589,7 +593,7 @@ export async function updateStudentConstitutionalState(
 
   if (idx < 0) {
     console.warn(
-      `[QXK24Brain] updateStudentConstitutionalState: no track for ${studentId}`,
+      `[Alamtologi Brain] updateStudentConstitutionalState: no track for ${studentId}`,
     );
     return;
   }
@@ -614,10 +618,13 @@ export async function updateStudentConstitutionalState(
   if (update.lastSessionSummary !== undefined) {
     setFields[`${prefix}.lastSessionSummary`] = update.lastSessionSummary;
   }
+  if (update.relationshipArc !== undefined) {
+    setFields[`${prefix}.relationshipArc`] = update.relationshipArc;
+  }
 
   if (Object.keys(setFields).length <= 1) return;
 
-  await QXK24BrainMasterModel.updateOne(
+  await AlamtologiBrainMasterModel.updateOne(
     { founderId: FOUNDER_USER_ID },
     { $set: setFields },
   );

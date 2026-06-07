@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Workspace Routes (AIDIL family per book)
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -52,7 +52,7 @@ router.get('/', requireAdamUser, async (c) => {
     success:    true,
     workspaces,
     total:      workspaces.length,
-    kernel:     'QXK24',
+    kernel:     'Alamtologi',
     timestamp:  new Date().toISOString(),
   });
 });
@@ -69,7 +69,7 @@ router.post(
       return c.json({
         success: false,
         error:   `${field}: ${msg}`,
-        kernel:  'QXK24',
+        kernel:  'ALAMTOLOGI',
       }, 400);
     }
   }),
@@ -92,7 +92,7 @@ router.post(
         success:   true,
         workspace,
         message:   `New workspace "${workspace.title}" created. ADAM treats this as a separate AIDIL family.`,
-        kernel:    'QXK24',
+        kernel:    'ALAMTOLOGI',
         timestamp: new Date().toISOString(),
       });
     } catch (err: unknown) {
@@ -103,7 +103,7 @@ router.post(
         error:   message.includes('duplicate key')
           ? 'This book could not be saved. Tap Create again.'
           : message,
-        kernel:  'QXK24',
+        kernel:  'ALAMTOLOGI',
       }, 500);
     }
   },
@@ -116,13 +116,13 @@ router.get('/:workspaceId', requireAdamUser, async (c) => {
   const workspace = await getWorkspace(workspaceId, user.userId);
 
   if (!workspace) {
-    return c.json({ success: false, error: 'Workspace not found.', kernel: 'QXK24' }, 404);
+    return c.json({ success: false, error: 'Workspace not found.', kernel: 'ALAMTOLOGI' }, 404);
   }
 
   return c.json({
     success: true,
     workspace,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -134,13 +134,13 @@ router.delete('/:workspaceId', requireAdamUser, async (c) => {
   const ok = await archiveWorkspace(workspaceId, user.userId);
 
   if (!ok) {
-    return c.json({ success: false, error: 'Workspace not found.', kernel: 'QXK24' }, 404);
+    return c.json({ success: false, error: 'Workspace not found.', kernel: 'ALAMTOLOGI' }, 404);
   }
 
   return c.json({
     success: true,
     message: 'Workspace archived.',
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });

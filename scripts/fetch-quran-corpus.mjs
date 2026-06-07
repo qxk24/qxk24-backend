@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Fetch verified Quran corpus: Rasm Uthmani + Basmeih (MS) + Saheeh International (EN).
+ * Fetch verified Quran corpus: Rasm Uthmani + Pickthall (EN).
  * Strips HTML footnotes and bracket tafsir from translations at ingest.
  *
  * Usage: node scripts/fetch-quran-corpus.mjs
@@ -15,8 +15,8 @@ const OUT_DIR = path.resolve(__dirname, '../data/quran');
 const OUT_FILE = path.join(OUT_DIR, 'corpus.json');
 
 const UTHMANI_URL = 'https://api.quran.com/api/v4/quran/verses/uthmani';
-const EN_URL = 'https://api.quran.com/api/v4/quran/translations/20';
-const MS_URL = 'https://api.quran.com/api/v4/quran/translations/39';
+/** M. Pickthall — quran.com resource id 19 */
+const EN_URL = 'https://api.quran.com/api/v4/quran/translations/19';
 
 function sanitizeTranslation(text) {
   return text
@@ -40,25 +40,23 @@ async function fetchJson(url) {
 }
 
 async function main() {
-  console.log('[Quran Corpus] Fetching Uthmani + EN (Saheeh) + MS (Basmeih)…');
+  console.log('[Quran Corpus] Fetching Uthmani + EN (Pickthall)…');
 
-  const [uthmani, english, malay] = await Promise.all([
+  const [uthmani, english] = await Promise.all([
     fetchJson(UTHMANI_URL),
     fetchJson(EN_URL),
-    fetchJson(MS_URL),
   ]);
 
   const uthmaniVerses = uthmani.verses;
   const enLines = english.translations;
-  const msLines = malay.translations;
 
-  if (!uthmaniVerses?.length || !enLines?.length || !msLines?.length) {
+  if (!uthmaniVerses?.length || !enLines?.length) {
     throw new Error('Unexpected API response shape');
   }
 
-  if (uthmaniVerses.length !== enLines.length || uthmaniVerses.length !== msLines.length) {
+  if (uthmaniVerses.length !== enLines.length) {
     throw new Error(
-      `Verse count mismatch: uthmani=${uthmaniVerses.length} en=${enLines.length} ms=${msLines.length}`,
+      `Verse count mismatch: uthmani=${uthmaniVerses.length} en=${enLines.length}`,
     );
   }
 
@@ -76,7 +74,6 @@ async function main() {
       ayah,
       key,
       uthmani: sanitizeArabic(u.text_uthmani),
-      malay:   sanitizeTranslation(msLines[i].text),
       english: sanitizeTranslation(enLines[i].text),
     };
   }
@@ -84,8 +81,7 @@ async function main() {
   const corpus = {
     meta: {
       arabicSource:      'Rasm Uthmani (Medina mushaf script via Quran.com API)',
-      malayTranslator:   'Abdullah Muhammad Basmeih',
-      englishTranslator: 'Saheeh International',
+      englishTranslator: 'M. Pickthall (Mohammed Marmaduke William Pickthall)',
       tafsirPolicy:      'Ayat only — HTML footnotes and [bracket] tafsir stripped at ingest',
       fetchedAt:         new Date().toISOString(),
     },

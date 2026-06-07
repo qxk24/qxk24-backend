@@ -39,6 +39,8 @@ export interface DualLanePersistInput {
   unifiedLegacy:     string;
   family?:           string;
   principle?:        string;
+  /** When true — update Kr only; Kotak 3 unchanged (founder QA gate) */
+  skipEpisodicAppend?: boolean;
 }
 
 export interface DualLanePersistResult {
@@ -74,12 +76,14 @@ export function buildDualLaneUpdate(
 } {
   const family = input.family ?? 'General Teaching';
   const structuralLane = input.structuralC.trim();
-  const episodicLane = appendEpisodicEvidence(
-    master.episodicLane,
-    input.episodicB,
-    input.transformationId,
-    family,
-  );
+  const episodicLane = input.skipEpisodicAppend
+    ? (master.episodicLane ?? '').trim()
+    : appendEpisodicEvidence(
+      master.episodicLane,
+      input.episodicB,
+      input.transformationId,
+      family,
+    );
 
   return {
     structuralLane,
@@ -94,12 +98,21 @@ export async function persistDualLaneToSegmentStore(
 ): Promise<boolean> {
   try {
     const store = new MongoSegmentStore();
-    await store.writeDualLane(
-      input.founderId,
-      input.structuralC,
-      input.episodicB,
-      input.transformationId,
-    );
+    const ts = new Date().toISOString();
+    await store.write('Kr', input.founderId, {
+      formula:   input.structuralC.slice(0, 4000),
+      timestamp: ts,
+      sourceId:  input.transformationId,
+    });
+    if (!input.skipEpisodicAppend) {
+      await store.write('Kn', input.founderId, {
+        episodeId:    `EP-${input.transformationId}`,
+        timestamp:    ts,
+        sourceId:     input.transformationId,
+        evidenceText: input.episodicB.slice(0, 8000),
+        rasaWeight:   5,
+      });
+    }
     return true;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

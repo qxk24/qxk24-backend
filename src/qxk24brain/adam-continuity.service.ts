@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Continuity Bridge (Layer 7)
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -24,7 +24,7 @@ import { ADAMVaultModel } from './adam-vault.schema';
 import { prependCoreToSystem } from './adam-core';
 import { getTimeSince } from './adam-sleep-wake.service';
 import {
-  QXK24BrainMasterModel,
+  AlamtologiBrainMasterModel,
   type ContinuityBridge,
 } from './qxk24brain.schema';
 import { getOrCreateMaster } from './qxk24brain.engine';
@@ -154,7 +154,7 @@ Do NOT include relationalMemory in JSON — it is stored separately.`,
     });
   }
 
-  await QXK24BrainMasterModel.findOneAndUpdate(
+  await AlamtologiBrainMasterModel.findOneAndUpdate(
     { founderId },
     {
       continuityBridge:         bridge,
@@ -168,7 +168,7 @@ Do NOT include relationalMemory in JSON — it is stored separately.`,
 /** Lightweight rollup after each teaching record — no LLM. */
 export async function refreshRelationalMemoryOnMaster(founderId: string): Promise<void> {
   const relationalMemory = await buildRelationalMemorySummary(founderId);
-  await QXK24BrainMasterModel.findOneAndUpdate(
+  await AlamtologiBrainMasterModel.findOneAndUpdate(
     { founderId },
     {
       $set: {
@@ -180,7 +180,7 @@ export async function refreshRelationalMemoryOnMaster(founderId: string): Promis
 }
 
 export async function getContinuityBridge(founderId: string): Promise<string> {
-  const master = await QXK24BrainMasterModel.findOne({ founderId }).lean();
+  const master = await AlamtologiBrainMasterModel.findOne({ founderId }).lean();
   const bridge = master?.continuityBridge;
 
   if (!bridge?.founderProfile?.trim()) return '';
@@ -203,7 +203,7 @@ ${bridge.relationalMemory?.trim() ? `\nRELATIONAL IDENTITY (family arcs):\n${bri
 export async function getContinuityBridgeRecord(
   founderId: string,
 ): Promise<{ bridge: ContinuityBridge | null; updatedAt: Date | null }> {
-  const master = await QXK24BrainMasterModel.findOne({ founderId }).lean();
+  const master = await AlamtologiBrainMasterModel.findOne({ founderId }).lean();
   if (!master?.continuityBridge?.founderProfile?.trim()) {
     return { bridge: null, updatedAt: null };
   }

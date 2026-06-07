@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Constitutional Checkpoint Schema
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -54,11 +54,11 @@ const ConstitutionalCheckpointSchema = new Schema<ConstitutionalCheckpointDocume
   isConstitutional: { type: Boolean, default: true },
   canBeErased:      { type: Boolean, default: false },
   founderId: { type: String, default: 'masa-bayu', index: true },
-  kernel:    { type: String, default: 'QXK24' },
+  kernel:    { type: String, default: 'ALAMTOLOGI' },
   era:       { type: String, default: 'ERA_1' },
 }, {
   timestamps: true,
-  collection: 'qxk24brain_constitutional_checkpoints',
+  collection: 'alamtologibrain_constitutional_checkpoints',
 });
 
 ConstitutionalCheckpointSchema.index({ founderId: 1, family: 1, cycle: 1 }, { unique: true });

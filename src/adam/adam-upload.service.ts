@@ -1,31 +1,40 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Teaching Upload Service
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
 
+import { createWriteStream } from 'fs';
 import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
+import { pipeline } from 'stream/promises';
+import { Readable } from 'stream';
 import { v4 as uuidv4 } from 'uuid';
 import { ENV } from '../config/environments';
 import { ADAMTeachingUploadModel } from './adam.schema';
 import type { ADAMTeachingUpload } from './adam.types';
 import { FOUNDER_USER_ID } from './adam-student.types';
 import {
-  extractTextFromBuffer,
+  FOUNDER_TEACHING_DATA_FOOTER,
+  FOUNDER_TEACHING_DATA_HEADER,
+  FOUNDER_TEACHING_UPLOAD_DEFAULT_PROMPT,
+} from './adam-founder-teaching-prompts';
+import { extractTeachingTextInChild } from './adam-upload-extract-child';
+import {
   extensionOf,
-  normalizeFounderFile,
+  normalizeFromDisk,
 } from './adam-file-extract.service';
 
 export interface SaveTeachingUploadOptions {
@@ -50,6 +59,18 @@ export async function ensureUploadDirectory(): Promise<void> {
   await fs.mkdir(uploadRoot(), { recursive: true });
 }
 
+/** Stream Web File to disk — avoids a second full-file Buffer in the main process. */
+async function writeUploadToTemp(file: File, destPath: string): Promise<void> {
+  if (typeof file.stream === 'function') {
+    const nodeStream = Readable.fromWeb(
+      file.stream() as Parameters<typeof Readable.fromWeb>[0],
+    );
+    await pipeline(nodeStream, createWriteStream(destPath));
+    return;
+  }
+  await fs.writeFile(destPath, Buffer.from(await file.arrayBuffer()));
+}
+
 function truncateText(text: string): { text: string; truncated: boolean } {
   const max = ENV.UPLOAD_MAX_EXTRACT_CHARS;
   if (text.length <= max) {
@@ -68,22 +89,32 @@ export async function saveTeachingUpload(
   await ensureUploadDirectory();
 
   const uploaderRole = options.uploaderRole ?? 'founder';
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const normalized = normalizeFounderFile(buffer, file.type || '', file.name || 'upload');
-  const fileName = normalized.fileName;
-  const mimeType = normalized.mimeType;
-
-  const rawText = await extractTextFromBuffer(buffer, mimeType, fileName, {
-    uploaderRole,
-  });
-  const { text: extractedText, truncated: textTruncated } = truncateText(rawText);
-
   const id = uuidv4();
-  const ext = extensionOf(fileName);
-  const storedName = `${id}${ext}`;
-  const storagePath = path.join(uploadRoot(), storedName);
+  const tempPath = path.join(os.tmpdir(), `alm-upload-${uuidv4()}`);
 
-  await fs.writeFile(storagePath, buffer);
+  let rawText = '';
+  let fileName = file.name || 'upload';
+  let mimeType = file.type || '';
+  let storagePath = '';
+
+  try {
+    await writeUploadToTemp(file, tempPath);
+    const normalized = await normalizeFromDisk(
+      tempPath,
+      file.type || '',
+      file.name || 'upload',
+    );
+    fileName = normalized.fileName;
+    mimeType = normalized.mimeType;
+    storagePath = path.join(uploadRoot(), `${id}${extensionOf(fileName)}`);
+
+    rawText = await extractTeachingTextInChild(tempPath, mimeType, fileName, uploaderRole);
+    await fs.copyFile(tempPath, storagePath);
+  } finally {
+    await fs.unlink(tempPath).catch(() => {});
+  }
+
+  const { text: extractedText, truncated: textTruncated } = truncateText(rawText);
 
   const doc = await ADAMTeachingUploadModel.create({
     uploadId:      id,
@@ -208,7 +239,7 @@ export async function buildTeachingContext(
 
   const blocks = docs.map((doc, index) => {
     const truncatedNote = doc.textTruncated
-      ? '\n(Note: file was truncated to fit constitutional processing limits.)'
+      ? '\n(Note: file was truncated to fit processing limits.)'
       : '';
     return [
       `[${blockTitle} ${index + 1} — ${doc.fileName}]`,
@@ -221,11 +252,11 @@ export async function buildTeachingContext(
 
   const header =
     scope === 'founder'
-      ? '═══ FOUNDER TEACHING DATA (study with full Akal — this is constitutional material) ═══'
+      ? FOUNDER_TEACHING_DATA_HEADER
       : `═══ STUDENT SHARED MATERIAL — ${studentLabel} (images read by ADAM vision; study with Adab) ═══`;
   const footer =
     scope === 'founder'
-      ? '═══ END FOUNDER TEACHING DATA ═══'
+      ? FOUNDER_TEACHING_DATA_FOOTER
       : '═══ END STUDENT SHARED MATERIAL ═══';
 
   const maxChars = options.maxContextChars ?? ENV.UPLOAD_MAX_EXTRACT_CHARS;
@@ -252,7 +283,7 @@ export async function buildTeachingContext(
 
 /**
  * AIDIL erasure — once ADAM has read teaching uploads, raw B is removed.
- * Deletes disk files and MongoDB records; energy lives only in QXK24Brain (C).
+ * Deletes disk files and MongoDB records; energy lives only in Alamtologi Brain (C).
  */
 export async function deleteTeachingUploads(uploadIds: string[]): Promise<number> {
   if (!uploadIds.length) return 0;
@@ -318,8 +349,7 @@ export function composeFounderMessage(
   const trimmed = userMessage.trim();
   if (!teachingContext) return trimmed;
 
-  const defaultPrompt =
-    'Founder has shared teaching data above. Study it carefully, absorb it constitutionally, and respond with your understanding. Ask clarifying questions if anything is unclear.';
+  const defaultPrompt = FOUNDER_TEACHING_UPLOAD_DEFAULT_PROMPT;
 
   const founderWords = trimmed || defaultPrompt;
 

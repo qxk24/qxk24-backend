@@ -2,7 +2,7 @@
 // QXK24 ADAM Teaching Engine — MongoDB Schemas
 // File: src/adam/adam.schema.ts
 // Version: 1.0.0
-// Author: QXK24 Constitutional Kernel
+// Author: Alamtologi Constitutional Kernel
 // Date: 2026-05-28
 // ============================================================
 
@@ -194,7 +194,7 @@ const ADAMJournalSchema = new Schema<ADAMJournalDocument>({
   journalNumber:      { type: String, unique: true, sparse: true },
   source: {
     type:    String,
-    enum:    ['public_submit', 'founder_adam'],
+    enum:    ['public_submit', 'founder_adam', 'founder_teaching'],
     default: 'public_submit',
   },
   sourceSessionId:    { type: String },
@@ -202,6 +202,25 @@ const ADAMJournalSchema = new Schema<ADAMJournalDocument>({
   knowledgeMajor:     { type: String },
   knowledgeDiscipline:{ type: String },
   knowledgeSubfield:  { type: String },
+  /** Section-by-section draft bodies while status === DRAFT */
+  draftSections:        { type: Schema.Types.Mixed },
+  lastCompletedSection: { type: String },
+  /** ISO-style locale code of the sealed manuscript (en, ms, ar, id, zh) */
+  sourceLanguage: {
+    type:    String,
+    enum:    ['en', 'ms', 'ar', 'id', 'zh'],
+    default: 'en',
+  },
+  /** Cached translations keyed by locale */
+  translations: { type: Schema.Types.Mixed, default: {} },
+  /** Legal copyright notice — assigned at constitutional seal */
+  copyright:    { type: String },
+  /** Word count at seal time */
+  totalWords:   { type: Number, min: 0 },
+  /** Denormalised topic id for legal Mongo queries (mirrors knowledgeTopicId) */
+  topicId:      { type: String, index: true },
+  /** Denormalised session id for legal Mongo queries (mirrors sourceSessionId) */
+  sessionId:    { type: String, index: true },
 }, {
   timestamps: true,
   collection: 'adam_journals',
@@ -209,6 +228,7 @@ const ADAMJournalSchema = new Schema<ADAMJournalDocument>({
 
 ADAMJournalSchema.index({ status: 1, submittedAt: -1 });
 ADAMJournalSchema.index({ judgment: 1 });
+ADAMJournalSchema.index({ sourceSessionId: 1, knowledgeTopicId: 1, status: 1 });
 
 export const ADAMJournalModel = mongoose.model<ADAMJournalDocument>(
   'ADAMJournal',
@@ -408,7 +428,7 @@ const ADAMMessageSchema = new Schema<ADAMMessageDocument>({
   mode:         { type: String, default: 'TEACHING' },
   judgment:     { type: String, default: null },
   k24Address:   { type: String, default: null },
-  kernel:       { type: String, default: 'QXK24' },
+  kernel:       { type: String, default: 'ALAMTOLOGI' },
   era:          { type: String, default: 'ERA_1' },
   isVerified:   { type: Boolean, default: false },
   needsConsult:   { type: Boolean, default: false },
@@ -442,6 +462,9 @@ export interface ADAMFounderSessionDocument extends Document {
   sessionDigest?:     string;
   digestUpdatedAt?:   Date;
   digestMessageCount?: number;
+  relationshipArc?:   string;
+  arcUpdatedAt?:      Date;
+  arcMessageCount?:   number;
   createdAt:          Date;
   updatedAt:          Date;
 }
@@ -450,7 +473,7 @@ const ADAMFounderSessionSchema = new Schema<ADAMFounderSessionDocument>({
   sessionId:    { type: String, required: true, unique: true },
   founderId:    { type: String, required: true, default: 'masa-bayu', index: true },
   sessionType:  { type: String, enum: ['founder', 'student', 'group'], default: 'founder', index: true },
-  kernel:       { type: String, default: 'QXK24' },
+  kernel:       { type: String, default: 'ALAMTOLOGI' },
   era:          { type: String, default: 'ERA_1' },
   active:       { type: Boolean, default: true },
   lastActiveAt: { type: Date, default: Date.now },
@@ -461,6 +484,9 @@ const ADAMFounderSessionSchema = new Schema<ADAMFounderSessionDocument>({
   sessionDigest:      { type: String },
   digestUpdatedAt:    { type: Date },
   digestMessageCount: { type: Number, default: 0 },
+  relationshipArc:    { type: String },
+  arcUpdatedAt:       { type: Date },
+  arcMessageCount:    { type: Number, default: 0 },
 }, {
   timestamps: true,
   collection: 'adam_founder_sessions',

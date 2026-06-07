@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Teaching Bridge — Verification Types (local)
  * Platform    : Backend (TypeScript)

@@ -2,7 +2,7 @@
 // QXK24 ADAM Teaching Engine — Succession Service
 // File: src/adam/adam-succession.service.ts
 // Version: 1.0.0
-// Author: QXK24 Constitutional Kernel
+// Author: Alamtologi Constitutional Kernel
 // Date: 2026-05-28
 // ============================================================
 

@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Student Continuity Bridge
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-02
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -32,6 +32,8 @@ import {
   updateStudentConstitutionalState,
 } from '../qxk24brain/qxk24brain-student.engine';
 import { lazySyncPriorSessionDigest } from '../qxk24brain/student-digest-bridge';
+import { lazySyncPriorSessionArc } from '../qxk24brain/student-arc-bridge';
+import { consumePendingZpdSignalsForBridge } from '../plas/plas-growth-processor.mongo';
 
 const CURRENT_SESSION_TURNS = 20;
 const TURN_CHAR_CAP = 6_000;
@@ -144,6 +146,7 @@ function formatConstitutionalStateBlock(
     openQuestions?: string[];
     zpdReadiness?: boolean;
     lastSessionSummary?: string;
+    relationshipArc?:    string;
     understanding?: string;
     transformationCount?: number;
   } | undefined,
@@ -154,6 +157,8 @@ function formatConstitutionalStateBlock(
   const zpd = state?.zpdReadiness ?? trackFallback?.zpdReadiness ?? false;
   const lastSummary =
     state?.lastSessionSummary ?? trackFallback?.lastSessionSummary ?? '';
+  const relationshipArc =
+    state?.relationshipArc ?? trackFallback?.relationshipArc ?? '';
   const understanding =
     state?.understanding ?? trackFallback?.understanding ?? 'Not yet assessed';
   const transforms =
@@ -167,15 +172,20 @@ function formatConstitutionalStateBlock(
     `- Transformation  : ${transforms} verified transformation(s)`,
     `- Understanding   : ${trimText(understanding, 500)}`,
     '',
-    'Open Questions (carry forward):',
-    openQ.length
-      ? openQ.slice(0, OPEN_QUESTIONS_CAP).map((q) => `  - ${trimText(q, 120)}`).join('\n')
-      : '  None recorded',
-    '',
     'Last Session Summary (fast read):',
     lastSummary.trim()
       ? `  ${trimText(lastSummary, PRIOR_SESSION_SUMMARY_CHARS)}`
       : '  No prior session summary yet',
+    '',
+    'Relationship Arc (growth narrative):',
+    relationshipArc.trim()
+      ? `  ${trimText(relationshipArc, 600)}`
+      : '  No relationship arc yet — will generate after first full session.',
+    '',
+    'Open Questions (carry forward):',
+    openQ.length
+      ? openQ.slice(0, OPEN_QUESTIONS_CAP).map((q) => `  - ${trimText(q, 120)}`).join('\n')
+      : '  None recorded',
     '',
   ];
 }
@@ -233,8 +243,10 @@ export async function buildStudentContinuityBridge(
 ): Promise<string> {
   try {
     void lazySyncPriorSessionDigest(studentId, sessionId).catch(() => {});
+    void lazySyncPriorSessionArc(studentId, sessionId).catch(() => {});
 
-    const [master, sessions, workspaces, constitutionalState] = await Promise.all([
+    const [master, sessions, workspaces, constitutionalState, zpdAdvancementLines] =
+      await Promise.all([
       getOrCreateMaster(FOUNDER_USER_ID),
       ADAMFounderSessionModel.find({
         founderId:   studentId,
@@ -243,6 +255,7 @@ export async function buildStudentContinuityBridge(
       }).lean(),
       getUserWorkspaces(studentId),
       getStudentConstitutionalState(studentId),
+      consumePendingZpdSignalsForBridge(studentId),
     ]);
 
     const track = master.studentTracks?.find((t) => t.studentId === studentId);
@@ -260,8 +273,15 @@ export async function buildStudentContinuityBridge(
       'Do NOT say ingatan / forgot / short-term memory. Use CONSTITUTIONAL MEMORY LAW only if absent below.',
       '',
       ...formatConstitutionalStateBlock(studentName, constitutionalState, track),
-      'Status Ilmu Semasa (current learning context):',
     ];
+
+    if (zpdAdvancementLines.length > 0) {
+      lines.push(...zpdAdvancementLines, '');
+    }
+
+    lines.push(
+      'Status Ilmu Semasa (current learning context):',
+    );
 
     if (sessionIds.length === 0) {
       lines.push('- No prior messages in system yet — first conversation.');

@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Teaching Record Service
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -26,6 +26,10 @@ import {
   type TeachingRecordStatus,
 } from './adam-teaching-record.schema';
 import type { MomentLaw } from './adam-moment-reader.service';
+import {
+  buildMongoRegexFromLiteral,
+  clipMongoTextSearchQuery,
+} from './mongo-regex-safe';
 
 export interface TeachingRecordRow {
   recordId:           string;
@@ -62,6 +66,8 @@ export interface TeachingTransformContext {
   founderMessageId?:  string;
   tcpChunkIndex?:     number;
   tcpChunkTotal?:     number;
+  /** AMA v2 — when true, transform runs but B is not appended to Kotak 3 */
+  skipEpisodicAppend?: boolean;
 }
 
 export interface RecordTeachingTransformationInput {
@@ -214,7 +220,23 @@ export async function recordTeachingTransformation(
     )
     .catch((err) => console.error('[ADAM Teaching Record] Relational refresh failed:', err));
 
-  if (shouldSkipTeachingBridgeCrystallisation(doc.toObject())) {
+  const skipBridge = shouldSkipTeachingBridgeCrystallisation(doc.toObject());
+  const isLastTcpChunk =
+    (doc.tcpChunkTotal ?? 1) > 1 &&
+    doc.tcpChunkIndex === doc.tcpChunkTotal;
+
+  if (skipBridge && (isLastTcpChunk || doc.family === 'Long Teaching')) {
+    void import('../llm-pipeline/syllabus-teaching-progress')
+      .then(({ markChapterProgressFromTeaching }) =>
+        markChapterProgressFromTeaching(teachingIntent, {
+          family:    doc.family,
+          principle: doc.principle,
+        }),
+      )
+      .catch((err) => console.error('[LLM Pipeline] Chapter progress mark failed:', err));
+  }
+
+  if (skipBridge) {
     console.log(
       `[TeachingBridge] Mode filter — skip meta-operational / non-law record ${doc.recordId}`,
     );
@@ -242,11 +264,13 @@ export async function searchTeachingRecords(
   const q = query.trim();
 
   if (q.length >= 2) {
+    const textQ = clipMongoTextSearchQuery(q);
+
     try {
       const textHits = await AdamTeachingRecordModel.find({
         founderId,
         status: 'active',
-        $text: { $search: q },
+        $text: { $search: textQ },
       })
         .sort({ score: { $meta: 'textScore' }, masa_recorded: -1 })
         .limit(cap)
@@ -259,7 +283,15 @@ export async function searchTeachingRecords(
       // text index may not exist yet on fresh deploy
     }
 
-    const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const regex = buildMongoRegexFromLiteral(q);
+    if (!regex) {
+      const recent = await AdamTeachingRecordModel.find({ founderId, status: 'active' })
+        .sort({ masa_recorded: -1 })
+        .limit(cap)
+        .lean();
+      return recent as TeachingRecordRow[];
+    }
+
     const regexHits = await AdamTeachingRecordModel.find({
       founderId,
       status: 'active',

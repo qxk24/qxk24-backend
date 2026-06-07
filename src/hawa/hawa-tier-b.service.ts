@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : HAWA Tier B — LLM Semantic Audit
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-01
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -29,7 +29,7 @@ const HAWA_TIER_B_PROMPT = `You are HAWA — the constitutional auditor of QXK24
 You are reviewing a proposed file change submitted by ADAM (the builder agent).
 Your task: audit the proposed content for semantic constitutional violations.
 
-QXK24 Constitutional Laws (binding):
+Alamtologi Constitutional Laws (binding):
 - LAW 1: No NestJS imports, decorators, or patterns (@nestjs/*, @Module, @Controller, @Injectable)
 - LAW 2: No class instantiation of plain-function modules (AlamtologiValidator, AdamMemoryService, etc.)
 - LAW 3: MCP default path must be /var/www/qxk24/qxk24-mcp/build/index.js

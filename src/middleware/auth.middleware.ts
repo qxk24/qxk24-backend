@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Auth Middleware
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -54,7 +54,7 @@ export async function requireAuth(
     return c.json({
       success: false,
       error: 'Authorization token required.',
-      kernel: 'QXK24'
+      kernel: 'ALAMTOLOGI'
     }, 401);
   }
 
@@ -68,7 +68,7 @@ export async function requireAuth(
     return c.json({
       success: false,
       error: 'Invalid or expired token.',
-      kernel: 'QXK24'
+      kernel: 'ALAMTOLOGI'
     }, 401);
   }
 }
@@ -103,7 +103,7 @@ export async function requireFounder(
     return c.json({
       success: false,
       error: 'Founder access required.',
-      kernel: 'QXK24'
+      kernel: 'ALAMTOLOGI'
     }, 403);
   }
 
@@ -121,7 +121,7 @@ export async function requireAdamUser(
     return c.json({
       success: false,
       error:   'Authorization token required.',
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
     }, 401);
   }
 
@@ -133,7 +133,7 @@ export async function requireAdamUser(
       return c.json({
         success: false,
         error:   'ADAM access required.',
-        kernel:  'QXK24',
+        kernel:  'ALAMTOLOGI',
       }, 403);
     }
     c.set('qxk24User', decoded);
@@ -142,7 +142,7 @@ export async function requireAdamUser(
     return c.json({
       success: false,
       error:   'Invalid or expired token.',
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
     }, 401);
   }
 }
@@ -155,18 +155,18 @@ export async function requireStudent(
   const authHeader = c.req.header('Authorization');
 
   if (!authHeader?.startsWith('Bearer ')) {
-    return c.json({ success: false, error: 'Authorization required.', kernel: 'QXK24' }, 401);
+    return c.json({ success: false, error: 'Authorization required.', kernel: 'ALAMTOLOGI' }, 401);
   }
 
   try {
     const decoded = verify(authHeader.split(' ')[1], ENV.JWT_SECRET) as QXK24TokenPayload;
     if (decoded.role !== 'student' || decoded.isFounder) {
-      return c.json({ success: false, error: 'Student access required.', kernel: 'QXK24' }, 403);
+      return c.json({ success: false, error: 'Student access required.', kernel: 'ALAMTOLOGI' }, 403);
     }
     c.set('qxk24User', decoded);
     await next();
   } catch {
-    return c.json({ success: false, error: 'Invalid or expired token.', kernel: 'QXK24' }, 401);
+    return c.json({ success: false, error: 'Invalid or expired token.', kernel: 'ALAMTOLOGI' }, 401);
   }
 }
 
@@ -182,7 +182,7 @@ export async function requireServiceToken(
     return c.json({
       success: false,
       error: 'Service token required.',
-      kernel: 'QXK24'
+      kernel: 'ALAMTOLOGI'
     }, 401);
   }
 
@@ -190,7 +190,7 @@ export async function requireServiceToken(
     return c.json({
       success: false,
       error: 'Invalid service token.',
-      kernel: 'QXK24'
+      kernel: 'ALAMTOLOGI'
     }, 403);
   }
 
@@ -198,7 +198,7 @@ export async function requireServiceToken(
     return c.json({
       success: false,
       error: 'X-App-Source header required.',
-      kernel: 'QXK24'
+      kernel: 'ALAMTOLOGI'
     }, 400);
   }
 

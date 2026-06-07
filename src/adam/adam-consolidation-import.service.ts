@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Consolidation Import (Lab → Production)
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-01
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -38,6 +38,7 @@ const FULL_MEMORY_COLLECTIONS = [
   'adam_message_ledger',
   'adam_teaching_records',
   'adam_unresolved_holdings',
+  'adamstudentaccounts',
 ] as const;
 
 function labMongoUri(): string {
@@ -45,7 +46,7 @@ function labMongoUri(): string {
   if (!uri) {
     throw new Error(
       'LAB_MONGODB_URI is not set. Add the lab database URI to production .env ' +
-      '(e.g. mongodb://localhost:27017/qxk24_lab or the same Atlas DB with /qxk24_lab).',
+      '(e.g. mongodb://localhost:27017/alamtologi_lab or the same Atlas DB with /qxk24_lab).',
     );
   }
   return uri;
@@ -55,7 +56,7 @@ function assertProductionStack(): void {
   if (ENV.QXK24_STACK === 'lab') {
     throw new Error(
       'Lab → production import runs on the production API only. ' +
-      'Call POST /api/adam/students/import-lab-memory on api.qxk24.com (not /lab).',
+      'Call POST /api/adam/students/import-lab-memory on api.alamtologi.com (not /lab).',
     );
   }
 }
@@ -127,9 +128,28 @@ export async function importFullMemoryFromLab(): Promise<FullMemoryImportResult>
 
   const totalDocuments = Object.values(collections).reduce((n, c) => n + c, 0);
   console.log(
-    `[QXK24:Consolidation] Lab → production — ${totalDocuments} document(s) ` +
+    `[Alamtologi:Consolidation] Lab → production — ${totalDocuments} document(s) ` +
     `across ${FULL_MEMORY_COLLECTIONS.length} collections.`,
   );
 
   return { collections, totalDocuments };
+}
+
+/** Restore student login accounts only (lab → production). Does not touch Alamtologi Brain. */
+export async function importStudentAccountsFromLab(): Promise<number> {
+  assertProductionStack();
+
+  const labConn = await openLabDb();
+  const labDb = labConn.db;
+  if (!labDb) throw new Error('Could not open lab database connection.');
+
+  try {
+    const count = await replaceCollectionFromLab(labDb, productionDb(), 'adamstudentaccounts');
+    const { refreshStudentCache } = await import('./adam-student-registry.service');
+    await refreshStudentCache();
+    console.log(`[Alamtologi:Consolidation] Student accounts lab → production — ${count} account(s).`);
+    return count;
+  } finally {
+    await labConn.close();
+  }
 }

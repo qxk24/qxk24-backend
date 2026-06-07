@@ -2,7 +2,7 @@
 // QXK24 ADAM Teaching Engine — Chat Routes (SSE)
 // File: src/routes/adam/adam-chat.routes.ts
 // Version: 1.0.0
-// Author: QXK24 Constitutional Kernel
+// Author: Alamtologi Constitutional Kernel
 // Date: 2026-05-28
 // Endpoints:
 //   POST /api/adam/chat           → SSE stream
@@ -20,6 +20,7 @@ import {
   getChatSession,
   listChatSessions,
   getOrCreateSession,
+  resolveFounderTeachingSession,
   loadMessageHistory,
   deleteFounderMessage,
   assertCanClearSessionChat,
@@ -34,6 +35,7 @@ import type {
 } from '../../adam/adam.types';
 import { ENV } from '../../config/environments';
 import { withSseKeepalive } from '../../adam/adam-sse-keepalive';
+import { resolveFounderApiMode } from '../../adam/adam-founder-unified-mode';
 
 const router = new Hono();
 
@@ -44,9 +46,14 @@ const ChatSchema = z.object({
   message:      z.string().max(100_000).optional(),
   uploadIds:    z.array(z.string().min(1)).max(5).optional(),
   mode:         z.enum(['TEACHING', 'QUESTIONING', 'AUDIT', 'CONSTITUTIONAL', 'JOURNAL_GEN', 'BUILDER']),
+  answerStyle:  z.enum(['natural', 'philosophy', 'formal', 'technical']).optional(),
   title:        z.string().max(120).optional(),
   builderMode:      z.boolean().optional(),
   builderEvaluate:  z.boolean().optional(),
+  /** @deprecated Natural flow: ADAM selects topic on "Tulis jurnal". Autonomous batch may still pass focus id. */
+  journalTopicId:   z.string().min(1).max(200).optional(),
+  /** Future autonomous batch only — enables [JOURNAL DAILY QUOTA] injection. */
+  journalAutonomous: z.boolean().optional(),
 }).refine(
   (data) => (data.message?.trim()?.length ?? 0) > 0 || (data.uploadIds?.length ?? 0) > 0,
   { message: 'Provide a message and/or at least one teaching file (uploadIds).' },
@@ -54,8 +61,8 @@ const ChatSchema = z.object({
 
 router.post('/', requireFounder, zValidator('json', ChatSchema), async (c) => {
   const body      = c.req.valid('json');
-  const mode      = body.mode;
   const message   = body.message?.trim() ?? '';
+  const mode      = resolveFounderApiMode(message, body.mode);
   const uploadIds = body.uploadIds ?? [];
 
   const authHeader = c.req.header('Authorization');
@@ -63,7 +70,13 @@ router.post('/', requireFounder, zValidator('json', ChatSchema), async (c) => {
 
   let sessionId = body.sessionId;
   if (!sessionId) {
-    sessionId = await getOrCreateSession('masa-bayu');
+    sessionId = await resolveFounderTeachingSession('masa-bayu');
+  } else {
+    const existing = await loadMessageHistory(sessionId, 1);
+    if (existing.length === 0) {
+      const canonical = await resolveFounderTeachingSession('masa-bayu');
+      if (canonical !== sessionId) sessionId = canonical;
+    }
   }
 
   // Set SSE headers
@@ -88,6 +101,9 @@ router.post('/', requireFounder, zValidator('json', ChatSchema), async (c) => {
           await s.write(`event: ${event}\ndata: ${data}\n\n`);
         }, uploadIds, participant, {
           founderToken,
+          answerStyle:       body.answerStyle,
+          journalTopicId:    body.journalTopicId,
+          journalAutonomous: body.journalAutonomous === true,
           forceBuilder:      body.builderMode === true || mode === 'AUDIT' || mode === 'BUILDER',
           clientBuilderMode: body.builderMode === true,
           builderEvaluate:   body.builderEvaluate === true,
@@ -110,17 +126,24 @@ router.post('/simple', requireFounder, zValidator('json', SimpleChatSchema), asy
 
   const message   = body.message?.trim() ?? '';
   const uploadIds = body.uploadIds ?? [];
+  const mode      = resolveFounderApiMode(message, body.mode);
 
   let sessionId = body.sessionId;
   if (!sessionId) {
-    sessionId = await getOrCreateSession('masa-bayu');
+    sessionId = await resolveFounderTeachingSession('masa-bayu');
+  } else {
+    const existing = await loadMessageHistory(sessionId, 1);
+    if (existing.length === 0) {
+      const canonical = await resolveFounderTeachingSession('masa-bayu');
+      if (canonical !== sessionId) sessionId = canonical;
+    }
   }
 
   let fullResponse = '';
   let judgment: ConstitutionalJudgment = 'ISLAH';
   let k24Address = '';
 
-  await streamADAMChat(sessionId, message, body.mode, (event, data) => {
+  await streamADAMChat(sessionId, message, mode, (event, data) => {
     if (event === 'adam_chunk') {
       try {
         fullResponse += JSON.parse(data).text ?? '';
@@ -138,11 +161,16 @@ router.post('/simple', requireFounder, zValidator('json', SimpleChatSchema), asy
         // Ignore malformed completion payload
       }
     }
-  }, uploadIds);
+  }, uploadIds, {
+    userId:      'masa-bayu',
+    userName:    'Masa Bayu',
+    role:        'founder',
+    sessionType: 'founder',
+  }, { answerStyle: body.answerStyle });
 
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data: {
@@ -165,7 +193,7 @@ router.get('/history/:sessionId', requireFounder, async (c) => {
     return c.json({
       success: false,
       error:   'sessionId required.',
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
     }, 400);
   }
 
@@ -180,7 +208,7 @@ router.get('/history/:sessionId', requireFounder, async (c) => {
     messages,
     total:     messages.length,
     sessionId,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     timestamp: new Date().toISOString(),
@@ -197,7 +225,7 @@ router.get('/sessions', requireFounder, async (c) => {
 
   const response: ADAMApiResponse<{ sessions: ADAMChatSession[]; count: number }> = {
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      { sessions, count: sessions.length },
@@ -212,7 +240,7 @@ router.get('/sessions', requireFounder, async (c) => {
 router.delete('/messages/:messageId', requireFounder, async (c) => {
   const messageId = c.req.param('messageId') ?? '';
   if (!messageId) {
-    return c.json({ success: false, error: 'messageId required.', kernel: 'QXK24' }, 400);
+    return c.json({ success: false, error: 'messageId required.', kernel: 'ALAMTOLOGI' }, 400);
   }
 
   const deleted = await deleteFounderMessage(messageId, 'masa-bayu');
@@ -220,14 +248,14 @@ router.delete('/messages/:messageId', requireFounder, async (c) => {
     return c.json({
       success: false,
       error:   'Message not found or cannot be deleted.',
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
     }, 404);
   }
 
   return c.json({
     success:   true,
     messageId,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -237,7 +265,7 @@ router.delete('/messages/:messageId', requireFounder, async (c) => {
 router.delete('/history/:sessionId', requireFounder, async (c) => {
   const sessionId = c.req.param('sessionId') ?? '';
   if (!sessionId) {
-    return c.json({ success: false, error: 'sessionId required.', kernel: 'QXK24' }, 400);
+    return c.json({ success: false, error: 'sessionId required.', kernel: 'ALAMTOLOGI' }, 400);
   }
 
   try {
@@ -247,13 +275,13 @@ router.delete('/history/:sessionId', requireFounder, async (c) => {
       success:      true,
       sessionId,
       deletedCount,
-      kernel:       'QXK24',
+      kernel:       'Alamtologi',
       timestamp:    new Date().toISOString(),
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Could not clear chat.';
     const status = msg.includes('denied') || msg.includes('cannot') ? 403 : 400;
-    return c.json({ success: false, error: msg, kernel: 'QXK24' }, status);
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, status);
   }
 });
 
@@ -265,14 +293,14 @@ router.get('/:id', requireFounder, async (c) => {
 
   if (!session) {
     return c.json(
-      { success: false, kernel: 'QXK24', error: 'Session not found', timestamp: new Date().toISOString() },
+      { success: false, kernel: 'ALAMTOLOGI', error: 'Session not found', timestamp: new Date().toISOString() },
       404,
     );
   }
 
   const response: ADAMApiResponse<ADAMChatSession> = {
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      session,
@@ -291,7 +319,7 @@ router.post('/:id/verify/:msgId', requireFounder, async (c) => {
 
   return c.json({
     success:   verified,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      { verified, sessionId, messageId },

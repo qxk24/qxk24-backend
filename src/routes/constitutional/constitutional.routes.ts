@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Constitutional Routes
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -61,7 +61,7 @@ constitutionalRoutes.get('/heartbeat', (c) => {
     success: true,
     data: {
       status:    db.connected ? 'healthy' : 'degraded',
-      kernel:    'QXK24',
+      kernel:    'ALAMTOLOGI',
       version:   ENV.QXK24_KERNEL_VERSION,
       era:       ENV.QXK24_ERA,
       eraName:   ENV.QXK24_ERA_NAME,
@@ -140,7 +140,7 @@ constitutionalRoutes.post('/audit/sync', requireServiceToken, async (c) => {
     }
 
     console.log(
-      `[QXK24:SYNC] ${events.length} events | ` +
+      `[Alamtologi:SYNC] ${events.length} events | ` +
       `src=${sourceApp ?? 'unknown'} | batch=${batchId ?? 'none'}`
     );
 
@@ -165,11 +165,11 @@ constitutionalRoutes.get('/declaration', requireAuth, (c) => {
     success: true,
     data: {
       declaration:
-        'QXK24 ensures digital systems serve truth, justice, and human ' +
+        'Alamtologi ensures digital systems serve truth, justice, and human ' +
         'dignity as defined by divine natural law — not corporate, ' +
         'political, or ego-driven interests.',
       founder:     'Masa Bayu',
-      institute:   'QXK24 Constitutional Knowledge Institute',
+      institute:   'Alamtologi - ICNS (International Center of Natural Science)',
       framework:   'Alamtologi',
       principles:  7,
       era:         ENV.QXK24_ERA,

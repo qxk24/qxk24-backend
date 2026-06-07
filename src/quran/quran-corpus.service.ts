@@ -1,20 +1,20 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Quran Corpus Service
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
- * Verified ayat only — Rasm Uthmani + Basmeih (MS) + Saheeh International (EN).
+ * Verified ayat only — Rasm Uthmani + Pickthall (EN).
  * Tafsir footnotes in brackets/HTML are stripped at ingest.
  */
 
@@ -29,8 +29,8 @@ let corpusLoadAttempted = false;
 
 function resolveCorpusPath(): string {
   const cwd = process.cwd();
-  const monorepoSibling = path.resolve(cwd, '..', 'qxk24-backend', 'data/quran/corpus.json');
-  const monorepoSiblingRoot = path.resolve(cwd, '..', 'qxk24-backend');
+  const monorepoSibling = path.resolve(cwd, '..', 'alm-backend', 'data/quran/corpus.json');
+  const monorepoSiblingRoot = path.resolve(cwd, '..', 'alm-backend');
 
   const candidates = [
     ENV.QURAN_CORPUS_PATH,
@@ -85,11 +85,11 @@ export function getQuranCorpusMeta(): QuranCorpusFile['meta'] | null {
 
 export function formatQuranVerseBlock(verse: QuranVerseRecord): string {
   const name = SURAH_NUMBER_TO_NAME[verse.surah] ?? `Surah ${verse.surah}`;
+  const enLabel = getQuranCorpusMeta()?.englishTranslator ?? 'M. Pickthall';
   return [
     `Surah ${verse.surah} (${name}) — Ayah ${verse.ayah} [${verse.key}]`,
     `Arabic (Rasm Uthmani): ${verse.uthmani}`,
-    `Malay (Basmeih): ${verse.malay}`,
-    `English (Saheeh International): ${verse.english}`,
+    `English (${enLabel}): ${verse.english}`,
   ].join('\n');
 }
 

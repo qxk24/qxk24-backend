@@ -1,10 +1,10 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Student Routes
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
@@ -28,6 +28,10 @@ import {
   shouldRunPencarianGate,
 } from '../../subscriptions/pencarian-chat-gate.service';
 import {
+  checkTesterLimit,
+  isTesterAccount,
+} from '../../tester/alm-tester.service';
+import {
   streamADAMChat,
   getOrCreateSession,
   loadMessageHistory,
@@ -45,6 +49,8 @@ import {
 } from '../../adam/adam-student.service';
 import {
   isStudentSelfRegisterEnabled,
+} from '../../adam/adam-platform-settings.service';
+import {
   registerStudentSelf,
   slugStudentUserId,
   studentRegisterRequiresCode,
@@ -104,10 +110,11 @@ const ChangePasswordSchema = z.object({
 });
 
 const ChatSchema = z.object({
-  sessionId:  z.string().optional(),
-  message:    z.string().max(100_000).optional(),
-  mode:       z.enum(['TEACHING', 'QUESTIONING', 'AUDIT', 'CONSTITUTIONAL', 'JOURNAL_GEN']).default('QUESTIONING'),
-  uploadIds:  z.array(z.string().min(1)).max(5).optional(),
+  sessionId:    z.string().optional(),
+  message:      z.string().max(100_000).optional(),
+  mode:         z.enum(['TEACHING', 'QUESTIONING', 'AUDIT', 'CONSTITUTIONAL', 'JOURNAL_GEN']).default('QUESTIONING'),
+  answerStyle:  z.enum(['natural', 'philosophy', 'formal', 'technical']).optional(),
+  uploadIds:    z.array(z.string().min(1)).max(5).optional(),
 }).refine(
   (d) => (d.message?.trim()?.length ?? 0) > 0 || (d.uploadIds?.length ?? 0) > 0,
   { message: 'Provide a message and/or at least one attached file (uploadIds).' },
@@ -123,7 +130,7 @@ router.get('/pulse', requireStudent, async (c) => {
   return c.json({
     success: true,
     pulse,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
   });
 });
 
@@ -135,7 +142,7 @@ router.get('/auth-config', (c) => {
     googleClientId:      publicGoogleClientId(),
     passwordResetEnabled: isPasswordResetEnabled(),
     stack:               ENV.QXK24_STACK,
-    kernel:              'QXK24',
+    kernel:              'Alamtologi',
   });
 });
 
@@ -145,7 +152,7 @@ router.get('/register-status', (c) => {
     success:      true,
     enabled:      isStudentSelfRegisterEnabled(),
     requiresCode: studentRegisterRequiresCode(),
-    kernel:       'QXK24',
+    kernel:       'Alamtologi',
   });
 });
 
@@ -155,7 +162,7 @@ router.post('/register', zValidator('json', RegisterSchema), async (c) => {
     return c.json({
       success: false,
       error:   'Registration is closed.',
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
     }, 403);
   }
 
@@ -179,7 +186,7 @@ router.post('/register', zValidator('json', RegisterSchema), async (c) => {
 
     return c.json({
       success: true,
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
       data: {
         token,
         userId:    created.userId,
@@ -193,7 +200,7 @@ router.post('/register', zValidator('json', RegisterSchema), async (c) => {
     const msg = err instanceof Error ? err.message : 'Registration failed.';
     const status = msg.includes('closed') || msg.includes('code') ? 403 : 400;
     await new Promise((r) => setTimeout(r, 600));
-    return c.json({ success: false, error: msg, kernel: 'QXK24' }, status);
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, status);
   }
 });
 
@@ -210,7 +217,7 @@ router.post('/google', zValidator('json', GoogleSchema), async (c) => {
     });
     return c.json({
       success: true,
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
       data: {
         token,
         userId:    account.userId,
@@ -222,7 +229,7 @@ router.post('/google', zValidator('json', GoogleSchema), async (c) => {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Google sign-in failed.';
-    return c.json({ success: false, error: msg, kernel: 'QXK24' }, 401);
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 401);
   }
 });
 
@@ -235,7 +242,7 @@ router.post('/forgot-password', zValidator('json', ForgotPasswordSchema), async 
     success: true,
     sent:    result.sent,
     message: result.message,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
   });
 });
 
@@ -244,10 +251,10 @@ router.post('/reset-password', zValidator('json', ResetPasswordSchema), async (c
   const body = c.req.valid('json');
   try {
     await completeStudentPasswordReset(body.token, body.newPassword);
-    return c.json({ success: true, message: 'Password updated. You can sign in now.', kernel: 'QXK24' });
+    return c.json({ success: true, message: 'Password updated. You can sign in now.', kernel: 'ALAMTOLOGI' });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Reset failed.';
-    return c.json({ success: false, error: msg, kernel: 'QXK24' }, 400);
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
   }
 });
 
@@ -257,10 +264,10 @@ router.post('/change-password', requireStudent, zValidator('json', ChangePasswor
   const body = c.req.valid('json');
   try {
     await changeStudentPassword(user.userId, body.currentPassword, body.newPassword);
-    return c.json({ success: true, message: 'Password updated.', kernel: 'QXK24' });
+    return c.json({ success: true, message: 'Password updated.', kernel: 'ALAMTOLOGI' });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Password change failed.';
-    return c.json({ success: false, error: msg, kernel: 'QXK24' }, 400);
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
   }
 });
 
@@ -272,7 +279,7 @@ router.post('/login', zValidator('json', LoginSchema), async (c) => {
   if (!userId) {
     console.warn('[adam:student-login] unknown login id', { username: username.trim().slice(0, 40) });
     await new Promise((r) => setTimeout(r, 800));
-    return c.json({ success: false, error: 'Access denied.', kernel: 'QXK24' }, 401);
+    return c.json({ success: false, error: 'Access denied.', kernel: 'ALAMTOLOGI' }, 401);
   }
 
   const account = getStudentAccount(userId);
@@ -287,7 +294,7 @@ router.post('/login', zValidator('json', LoginSchema), async (c) => {
       passwordOk,
     });
     await new Promise((r) => setTimeout(r, 800));
-    return c.json({ success: false, error: 'Access denied.', kernel: 'QXK24' }, 401);
+    return c.json({ success: false, error: 'Access denied.', kernel: 'ALAMTOLOGI' }, 401);
   }
 
   const token = issueAdamToken({
@@ -299,7 +306,7 @@ router.post('/login', zValidator('json', LoginSchema), async (c) => {
 
   return c.json({
     success: true,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     data: {
       token,
       userId:   account.userId,
@@ -316,7 +323,7 @@ router.get('/accounts', (c) => {
   return c.json({
     success: true,
     students: getStudentAccounts().map((s) => ({ userId: s.userId, name: s.name })),
-    kernel: 'QXK24',
+    kernel: 'ALAMTOLOGI',
   });
 });
 
@@ -329,7 +336,7 @@ router.get('/session', requireStudent, async (c) => {
     sessionId,
     userId:  user.userId,
     name:    user.name,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });
@@ -337,7 +344,7 @@ router.get('/session', requireStudent, async (c) => {
 // GET /api/adam/student/group/session
 router.get('/group/session', requireStudent, async (c) => {
   const sessionId = await getOrCreateGroupSession();
-  return c.json({ success: true, sessionId, kernel: 'QXK24' });
+  return c.json({ success: true, sessionId, kernel: 'ALAMTOLOGI' });
 });
 
 // POST /api/adam/student/chat — private 1:1
@@ -380,6 +387,34 @@ router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json
         }
       }
 
+      // ── Tester question limit gate (skip empty greeting turn) ─
+      const testerCheck = await isTesterAccount(user.userId) && message
+        ? await checkTesterLimit(user.userId, sessionId!)
+        : null;
+
+      if (testerCheck && !testerCheck.canContinue) {
+        await s.write(
+          `event: tester_limit_reached\ndata: ${JSON.stringify({
+            questionsUsed: testerCheck.questionsUsed,
+            totalLimit:    testerCheck.totalLimit,
+            message:       `You have used all ${testerCheck.totalLimit} test questions. Thank you for testing ADAM. Contact the Alamtologi team to extend your access.`,
+          })}\n\n`,
+        );
+        await s.write('event: adam_done\ndata: {}\n\n');
+        return;
+      }
+
+      if (testerCheck?.showWarning) {
+        await s.write(
+          `event: tester_warning\ndata: ${JSON.stringify({
+            questionsUsed:      testerCheck.questionsUsed,
+            questionsRemaining: testerCheck.questionsRemaining,
+            totalLimit:         testerCheck.totalLimit,
+            message:            `You have ${testerCheck.questionsRemaining} test questions remaining.`,
+          })}\n\n`,
+        );
+      }
+
       await withSseKeepalive(s, () =>
         streamADAMChat(
           sessionId!,
@@ -393,6 +428,7 @@ router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json
             role:        'student',
             sessionType: 'student',
           },
+          { answerStyle: body.answerStyle },
         ),
       );
     } catch (err: unknown) {
@@ -428,6 +464,7 @@ router.post('/group/chat', requireStudent, requireActiveSubscription, zValidator
             role:        'student',
             sessionType: 'group',
           },
+          { answerStyle: body.answerStyle },
         ),
       );
     } catch (err: unknown) {
@@ -444,14 +481,14 @@ router.get('/chat/history/:sessionId', requireStudent, async (c) => {
   const sessionId = c.req.param('sessionId') ?? '';
   const allowed = await assertStudentOwnsSession(user.userId, sessionId);
   if (!allowed) {
-    return c.json({ success: false, error: 'Session access denied.', kernel: 'QXK24' }, 403);
+    return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
   }
   const rawLimit = parseInt(c.req.query('limit') ?? '100', 10);
   const limit = Number.isFinite(rawLimit)
     ? Math.min(100, Math.max(1, rawLimit))
     : 100;
   const messages = await loadMessageHistory(sessionId, limit);
-  return c.json({ success: true, messages, sessionId, kernel: 'QXK24' });
+  return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
 });
 
 // DELETE /api/adam/student/chat/history/:sessionId — clear private chat
@@ -459,7 +496,7 @@ router.delete('/chat/history/:sessionId', requireStudent, async (c) => {
   const user = getTokenUser(c)!;
   const sessionId = c.req.param('sessionId') ?? '';
   if (!sessionId) {
-    return c.json({ success: false, error: 'sessionId required.', kernel: 'QXK24' }, 400);
+    return c.json({ success: false, error: 'sessionId required.', kernel: 'ALAMTOLOGI' }, 400);
   }
 
   try {
@@ -469,13 +506,13 @@ router.delete('/chat/history/:sessionId', requireStudent, async (c) => {
       success:      true,
       sessionId,
       deletedCount,
-      kernel:       'QXK24',
+      kernel:       'Alamtologi',
       timestamp:    new Date().toISOString(),
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Could not clear chat.';
     const status = msg.includes('denied') || msg.includes('cannot') ? 403 : 400;
-    return c.json({ success: false, error: msg, kernel: 'QXK24' }, status);
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, status);
   }
 });
 
@@ -483,7 +520,7 @@ router.delete('/chat/history/:sessionId', requireStudent, async (c) => {
 router.get('/group/history', requireStudent, async (c) => {
   const sessionId = await getOrCreateGroupSession();
   const messages = await loadMessageHistory(sessionId, 100);
-  return c.json({ success: true, messages, sessionId, kernel: 'QXK24' });
+  return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
 });
 
 // DELETE /api/adam/student/chat/messages/:messageId
@@ -492,9 +529,9 @@ router.delete('/chat/messages/:messageId', requireStudent, async (c) => {
   const messageId = c.req.param('messageId') ?? '';
   const deleted = await deleteFounderMessage(messageId, user.userId);
   if (!deleted) {
-    return c.json({ success: false, error: 'Message not found.', kernel: 'QXK24' }, 404);
+    return c.json({ success: false, error: 'Message not found.', kernel: 'ALAMTOLOGI' }, 404);
   }
-  return c.json({ success: true, messageId, kernel: 'QXK24' });
+  return c.json({ success: true, messageId, kernel: 'ALAMTOLOGI' });
 });
 
 export default router;

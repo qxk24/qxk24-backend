@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Chat Response Parser
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -62,17 +62,11 @@ export function parseConsultBlock(fullResponse: string): {
   let reason = '';
   const consultMatch = fullResponse.match(/<adam_consult>(.*?)<\/adam_consult>/s);
   if (consultMatch) {
-    try {
-      const parsed = JSON.parse(consultMatch[1]);
-      reason = parsed.reason ?? '';
-    } catch {
-      reason = 'Student question requires Founder guidance.';
-    }
+    const parsed = parseLooseAdamJson(consultMatch[1]) as { reason?: string } | null;
+    reason = parsed?.reason ?? 'Student question requires Founder guidance.';
   }
 
-  const cleanResponse = fullResponse
-    .replace(/<adam_consult>.*?<\/adam_consult>/s, '')
-    .trim();
+  const cleanResponse = stripAdamProtocolBlocks(fullResponse);
 
   const needsConsult =
     Boolean(reason) ||
@@ -91,22 +85,17 @@ export function parseBroadcastBlocks(fullResponse: string): {
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(fullResponse)) !== null) {
-    try {
-      const parsed = JSON.parse(match[1]) as { message?: string; target?: string };
-      const text = parsed.message?.trim();
-      if (!text) continue;
-      broadcasts.push({
-        message: text,
-        target:  (parsed.target?.trim().toLowerCase() || 'all'),
-      });
-    } catch {
-      // skip malformed block
-    }
+    const parsed = parseLooseAdamJson(match[1]) as { message?: string; target?: string } | null;
+    if (!parsed) continue;
+    const text = parsed.message?.trim();
+    if (!text) continue;
+    broadcasts.push({
+      message: text,
+      target:  (parsed.target?.trim().toLowerCase() || 'all'),
+    });
   }
 
-  const cleanResponse = fullResponse
-    .replace(/<adam_broadcast>[\s\S]*?<\/adam_broadcast>/g, '')
-    .trim();
+  const cleanResponse = stripAdamProtocolBlocks(fullResponse);
 
   return { broadcasts, cleanResponse };
 }
@@ -120,27 +109,25 @@ export function parseToFounderBlocks(fullResponse: string): {
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(fullResponse)) !== null) {
-    try {
-      const parsed = JSON.parse(match[1]) as { message?: string };
-      const text = parsed.message?.trim();
-      if (text) relays.push({ message: text });
-    } catch {
-      // skip malformed block
-    }
+    const parsed = parseLooseAdamJson(match[1]) as { message?: string } | null;
+    if (!parsed) continue;
+    const text = parsed.message?.trim();
+    if (text) relays.push({ message: text });
   }
 
-  const cleanResponse = fullResponse
-    .replace(/<adam_to_founder>[\s\S]*?<\/adam_to_founder>/g, '')
-    .trim();
+  const cleanResponse = stripAdamProtocolBlocks(fullResponse);
 
   return { relays, cleanResponse };
 }
 
 export function founderWantsJournalSeal(message: string): boolean {
+  if (/JOURNAL GEN — write then seal|adam_journal_seal|📚\s*Simpan jurnal untuk semak/i.test(message)) {
+    return true;
+  }
   const sealIntent = /\b(seal|simpan|save|submit|semak|review|hantar|kirim|laksanakan|disimpan|kunci draf|kelulusan|publish queue)\b/i.test(
     message,
   );
-  const journalRef = /\b(jurnal|journal|manuscript|manuskrip|draf|mak-xz|kesejahteraan)\b/i.test(
+  const journalRef = /\b(jurnal|journal|manuscript|manuskrip|draf|imrad|mak-xz|kesejahteraan)\b/i.test(
     message,
   );
   const reviewPath = /\/adam\/lab\/journals\/review|\/journals\/review/i.test(message);
@@ -171,8 +158,46 @@ export function adamDeclinesJournalSeal(adamText: string): boolean {
 
 const IMRAD_MARKERS = [
   'introduction', 'background', 'methodology', 'findings', 'discussion', 'conclusion',
+  'abstract', 'references', 'application',
+  'convention knowledge', 'alamtologi framework', 'unsolved issue',
+  'human opening', 'honest wall', 'invitation',
   'pengenalan', 'latar belakang', 'kaedah', 'dapatan', 'perbincangan', 'kesimpulan', 'rujukan',
+  'abstrak', 'aplikasi', 'pengetahuan konvensional', 'rangka kerja alamtologi',
+  'menulis sekarang',
 ];
+
+/** Best-effort JSON parse for LLM-emitted protocol blocks (trailing commas, fences). */
+export function parseLooseAdamJson(raw: string): unknown | null {
+  let cleaned = raw.trim().replace(/^\uFEFF/, '');
+  cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  if (!cleaned) return null;
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    try {
+      return JSON.parse(cleaned.replace(/,\s*([}\]])/g, '$1'));
+    } catch {
+      return null;
+    }
+  }
+}
+
+/** Remove ADAM protocol XML blocks — including unclosed tags mid-stream. */
+export function stripAdamProtocolBlocks(text: string): string {
+  let out = text
+    .replace(/<adam_journal_seal>[\s\S]*?<\/adam_journal_seal>/gi, '')
+    .replace(/<adam_judgment>[\s\S]*?<\/adam_judgment>/gi, '')
+    .replace(/<adam_consult>[\s\S]*?<\/adam_consult>/gi, '')
+    .replace(/<adam_broadcast>[\s\S]*?<\/adam_broadcast>/gi, '')
+    .replace(/<adam_to_founder>[\s\S]*?<\/adam_to_founder>/gi, '');
+  out = out
+    .replace(/<adam_journal_seal>[\s\S]*$/i, '')
+    .replace(/<adam_judgment>[\s\S]*$/i, '')
+    .replace(/<adam_consult>[\s\S]*$/i, '')
+    .replace(/<adam_broadcast>[\s\S]*$/i, '')
+    .replace(/<adam_to_founder>[\s\S]*$/i, '');
+  return out.trim();
+}
 
 /** Prose looks like a real manuscript, not a meta-refusal chat. */
 export function hasSubstantiveManuscriptProse(text: string): boolean {
@@ -208,10 +233,58 @@ export function validateAdamJournalSeal(seal: AdamJournalSeal): string | null {
   return null;
 }
 
+import { JOURNAL_MIN_MANUSCRIPT_CHARS, meetsJournalLengthMinimum } from './adam-journal.constants';
+
+export { JOURNAL_MIN_MANUSCRIPT_CHARS, JOURNAL_MIN_PAGES, JOURNAL_MIN_REFERENCES, JOURNAL_TARGET_WORD_MIN, JOURNAL_TARGET_WORD_MAX, countJournalWords, meetsJournalLengthMinimum } from './adam-journal.constants';
+
+/** P.alt ordered ADAM to stop writing — do not continue or restart journal passes. */
+export function founderWantsJournalStop(message: string): boolean {
+  const t = message.trim();
+  if (!t) return false;
+  return /\bberhenti\s+sekarang\b/i.test(t)
+    || /\bjangan\s+sambung\s+menulis\b/i.test(t)
+    || /\bjangan\s+tambah\s+perkataan\b/i.test(t)
+    || /\bstop\s+writing\b/i.test(t)
+    || /\bstop\s+now\b/i.test(t)
+    || /\bhentikan\b/i.test(t);
+}
+
+/** P.alt asked ADAM to write a journal (one-shot — system auto-saves when long enough). */
+export function founderWantsJournalWrite(message: string): boolean {
+  const t = message.trim();
+  if (/^\s*tulis\s+jurnal\s*[!?.…,]*\s*$/i.test(t)) return true;
+  if (/\btulis\s+jurnal\b/i.test(t)) return true;
+  if (/^\s*write\s+(?:the\s+)?journal\s*[!?.…,]*\s*$/i.test(t)) return true;
+  if (founderWantsJournalDraft(message)) return true;
+  if (/tulis\s+jurnal|write\s+(?:a\s+)?journal|buatkan\s+jurnal|cipta\s+jurnal/i.test(message)) {
+    return true;
+  }
+  return /\b(jurnal|journal)\b/i.test(message)
+    && /\b(tulis|write|cipta|buat|hasilkan)\b/i.test(message);
+}
+
 export function founderWantsJournalDraft(message: string): boolean {
+  if (
+    /jangan\s+seal\s+dulu|tulis\s+jurnal\s+akademik\s+penuh|minimum\s+7\s+muka\s+surat|7\+\s*muka\s+surat|sistem\s+simpan\s+automatik/i.test(
+      message,
+    )
+  ) {
+    return true;
+  }
+  const hasJournalRef = /\b(jurnal|journal|imrad|manuskrip|manuscript|artikel)\b/i.test(message);
+  const hasWriteIntent = /\b(tulis|write|draf|draft|penuh|full|lengkap|siapkan)\b/i.test(message);
+  if (hasJournalRef && hasWriteIntent) return true;
   return /\b(tulis draf|write draft|draf penuh|full draft|imrad draft|tulis jurnal penuh|write full journal|write the full)\b/i.test(
     message,
-  ) && /\b(jurnal|journal|imrad|manuskrip|manuscript)\b/i.test(message);
+  );
+}
+
+/** ADAM promised a draft but did not output IMRaD sections (common failure mode). */
+export function adamMetaOnlyJournalReply(text: string): boolean {
+  if (hasSubstantiveManuscriptProse(text)) return false;
+  return /akan\s+tulis|saya\s+akan|saya\s+mulakan|mulakan\s+sekarang|adakah\s+p\.?\s*alt\s+mahukan|versi\s+pdf|versi\s+word|versi\s+web|dalam\s+masa\s+kurang|kurang\s+dari\s+dua\s+minit|sedia\s+melaksanakan|i\s+will\s+(?:write|start)|starting\s+now|less\s+than\s+two\s+minutes/i.test(
+    text,
+  );
 }
 
 export function founderWantsStudentRelay(message: string): boolean {
@@ -245,6 +318,21 @@ export function journalTurnNeedsContinuation(
     ) || founderWantsJournalDraft(userMessage);
   if (!writingLongForm) return false;
 
+  const wantsJournal =
+    founderWantsJournalDraft(userMessage) || founderWantsJournalWrite(userMessage);
+
+  if (wantsJournal && !meetsJournalLengthMinimum(text) && text.length > 800) {
+    return true;
+  }
+
+  if (wantsJournal && adamMetaOnlyJournalReply(text)) {
+    return true;
+  }
+
+  if (wantsJournal && !hasSubstantiveManuscriptProse(text) && text.length > 400) {
+    return true;
+  }
+
   if (founderWantsJournalSeal(userMessage) && !openSeal && text.length > 1800) {
     return true;
   }
@@ -262,41 +350,39 @@ export function parseJournalSealBlocks(fullResponse: string): {
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(fullResponse)) !== null) {
-    try {
-      const parsed = JSON.parse(match[1]) as Partial<AdamJournalSeal>;
-      const title = parsed.title?.trim();
-      const abstract = parsed.abstract?.trim();
-      const content = parsed.content;
-      if (!title || !abstract || !content?.introduction) continue;
-      const candidate: AdamJournalSeal = {
-        title,
-        abstract,
-        category:          parsed.category ?? 'RESEARCH',
-        principlesFocus:   parsed.principlesFocus?.length
-          ? normalizePrinciplesFocus(parsed.principlesFocus)
-          : ['CAHAYA'],
-        knowledgeTopicId:  parsed.knowledgeTopicId?.trim(),
-        knowledgeMajor:    parsed.knowledgeMajor?.trim(),
-        knowledgeDiscipline: parsed.knowledgeDiscipline?.trim(),
-        knowledgeSubfield: parsed.knowledgeSubfield?.trim(),
-        authorName:        parsed.authorName?.trim() || 'Masa Bayu',
-        content:           normalizeJournalContent(content),
-        hukumZAnalysis:    parsed.hukumZAnalysis,
-        tahapAkalAchieved: parsed.tahapAkalAchieved,
-        cVLevel:           parsed.cVLevel,
-        judgment:          parsed.judgment,
-        reviewNotes:       parsed.reviewNotes,
-      };
-      if (validateAdamJournalSeal(candidate)) continue;
-      seals.push(candidate);
-    } catch {
-      // skip malformed seal
+    const parsed = parseLooseAdamJson(match[1]) as Partial<AdamJournalSeal> | null;
+    if (!parsed) {
+      console.warn('[Journal] seal JSON parse failed — skipping block');
+      continue;
     }
+    const title = parsed.title?.trim();
+    const abstract = parsed.abstract?.trim();
+    const content = parsed.content;
+    if (!title || !abstract || !content?.introduction) continue;
+    const candidate: AdamJournalSeal = {
+      title,
+      abstract,
+      category:          parsed.category ?? 'RESEARCH',
+      principlesFocus:   parsed.principlesFocus?.length
+        ? normalizePrinciplesFocus(parsed.principlesFocus)
+        : ['CAHAYA'],
+      knowledgeTopicId:  parsed.knowledgeTopicId?.trim(),
+      knowledgeMajor:    parsed.knowledgeMajor?.trim(),
+      knowledgeDiscipline: parsed.knowledgeDiscipline?.trim(),
+      knowledgeSubfield: parsed.knowledgeSubfield?.trim(),
+      authorName:        parsed.authorName?.trim() || 'Masa Bayu',
+      content:           normalizeJournalContent(content),
+      hukumZAnalysis:    parsed.hukumZAnalysis,
+      tahapAkalAchieved: parsed.tahapAkalAchieved,
+      cVLevel:           parsed.cVLevel,
+      judgment:          parsed.judgment,
+      reviewNotes:       parsed.reviewNotes,
+    };
+    if (validateAdamJournalSeal(candidate)) continue;
+    seals.push(candidate);
   }
 
-  const cleanResponse = fullResponse
-    .replace(/<adam_journal_seal>[\s\S]*?<\/adam_journal_seal>/g, '')
-    .trim();
+  const cleanResponse = stripAdamProtocolBlocks(fullResponse);
 
   return { seals, cleanResponse };
 }
@@ -318,20 +404,21 @@ export function parseJudgmentBlock(fullResponse: string): {
   );
 
   if (judgmentMatch) {
-    try {
-      const parsed = JSON.parse(judgmentMatch[1]);
+    const parsed = parseLooseAdamJson(judgmentMatch[1]) as {
+      judgment?: ConstitutionalJudgment;
+      tahapAkal?: TahapAkal;
+      healthScore?: number;
+      principle?: AlamtologiPrinciple;
+    } | null;
+    if (parsed) {
       judgment = parsed.judgment ?? 'ISLAH';
       tahapAkal = parsed.tahapAkal ?? 3;
       healthScore = parsed.healthScore ?? 75;
       principleApplied = parsed.principle ?? 'CAHAYA';
-    } catch {
-      judgment = 'ISLAH';
     }
   }
 
-  const cleanResponse = fullResponse
-    .replace(/<adam_judgment>.*?<\/adam_judgment>/s, '')
-    .trim();
+  const cleanResponse = stripAdamProtocolBlocks(fullResponse);
 
   return { judgment, tahapAkal, healthScore, principleApplied, cleanResponse };
 }

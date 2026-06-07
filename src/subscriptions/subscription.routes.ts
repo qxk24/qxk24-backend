@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Subscription Routes
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -79,19 +79,19 @@ router.get('/pricing', (c) => {
         extensionFee:  pelajar.extensionFee,
       },
       pelajar: {
-        label:         'Pelajar Dev',
+        label:         'Pelajar',
         monthlyAmount: pelajar.monthly,
         annualAmount:  pelajar.annual,
         currency:      pelajar.currency,
-        description:   'Thinking partner with full constitutional memory — no builder mode.',
+        description:   'Continuous constitutional memory — ADAM remembers you across every return.',
         savingsNote:   '2 months free with annual billing.',
       },
       profesional: {
-        label:         'Profesional Dev',
+        label:         'Profesional',
         monthlyAmount: profesional.monthly,
         annualAmount:  profesional.annual,
         currency:      profesional.currency,
-        description:   'Builder mode in chat — 50 build sessions per month, approve every write.',
+        description:   'Full relational memory, API, publishing — plus Builder mode when you ship code.',
         savingsNote:   '2 months free with annual billing.',
       },
       studio: {
@@ -99,11 +99,11 @@ router.get('/pricing', (c) => {
         monthlyAmount: studio.monthly,
         annualAmount:  studio.annual,
         currency:      studio.currency,
-        description:   'Unlimited build sessions and priority model routing.',
+        description:   'Unlimited builder sessions — inquiry while checkout is finalised.',
         savingsNote:   '2 months free with annual billing.',
       },
       enterprise: {
-        label: 'Enterprise Studio',
+        label: 'Enterprise',
         tiers: ENTERPRISE_PRICING.map((t) => ({
           size:     t.label === 'kecil' ? 'small' : t.label === 'sederhana' ? 'medium' : 'large',
           maxUsers: t.maxUsers === -1 ? 'Unlimited' : t.maxUsers,
@@ -111,7 +111,7 @@ router.get('/pricing', (c) => {
           annual:   t.annual[region]?.amount  ?? t.annual[SupportedRegion.OTHER]?.amount,
           currency: t.monthly[region]?.currency ?? 'USD',
         })),
-        description: 'Contact us for a tailored enterprise plan.',
+        description: 'Organisational memory, white-label, and private deployment.',
       },
     },
   });

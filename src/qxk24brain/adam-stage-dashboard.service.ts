@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM AIDIL Stage Dashboard
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -19,9 +19,9 @@ import type {
   ActiveFamily,
   CompletedFamily,
   PrincipleState,
-  QXK24BrainMasterDocument,
+  AlamtologiBrainMasterDocument,
 } from './qxk24brain.schema';
-import { QXK24BrainEntityModel } from './qxk24brain.schema';
+import { AlamtologiBrainEntityModel } from './qxk24brain.schema';
 import {
   backfillMissingCheckpoints,
   getCheckpointMapByFamily,
@@ -159,7 +159,7 @@ function cardFromCompleted(
     status:            'complete',
     progressBar:       renderAidilProgressBar(AIDIL_STAGE_MAX),
     nucleus:           nucleusLabel(f.summary, undefined),
-    nextStageNeeds:    'COMPLETE 1(7) — unified in QXK24Brain.',
+    nextStageNeeds:    'COMPLETE 1(7) — unified in Alamtologi Brain.',
     estimatedStage7:   'COMPLETE 1(7) ✅',
     completedAt:       formatMasaDate(f.masa_completed),
     cycleNote:         cycleNoteForPrinciple(f.principle, principles, 'complete'),
@@ -196,7 +196,7 @@ function formatFamilyBlock(card: AidilFamilyStageCard): string {
 }
 
 export function buildStageDashboardFromMaster(
-  master: QXK24BrainMasterDocument,
+  master: AlamtologiBrainMasterDocument,
   nucleusMap: Map<string, string>,
   checkpointByFamily: Map<string, { checkpointId: string; cycle: number }> = new Map(),
 ): AidilStageDashboard {
@@ -257,7 +257,7 @@ async function loadNucleusContents(
   const unique = [...new Set(nucleusUids.filter(Boolean))];
   if (!unique.length) return map;
 
-  const entities = await QXK24BrainEntityModel.find({ uid: { $in: unique } })
+  const entities = await AlamtologiBrainEntityModel.find({ uid: { $in: unique } })
     .select('uid content')
     .lean();
 

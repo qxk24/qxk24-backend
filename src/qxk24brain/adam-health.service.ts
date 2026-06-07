@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Memory Health Monitor (Layer 5)
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -20,7 +20,7 @@ import { ADAMMessageLedgerModel } from './adam-ledger.schema';
 import { ADAMVaultModel } from './adam-vault.schema';
 import { ADAMSnapshotModel } from './adam-snapshot.schema';
 import { ADAMBackupLogModel } from './adam-redundancy.schema';
-import { QXK24BrainEntityModel, QXK24BrainLogModel } from './qxk24brain.schema';
+import { AlamtologiBrainEntityModel, AlamtologiBrainLogModel } from './qxk24brain.schema';
 import { getOrCreateMaster } from './qxk24brain.engine';
 
 export type MemoryHealthStatus = 'HEALTHY' | 'WARNING' | 'CRITICAL';
@@ -98,8 +98,8 @@ export async function checkMemoryHealth(
       masa_ledger: { $lt: new Date(Date.now() - 60_000) },
     }),
     ADAMVaultModel.countDocuments({ founderId }),
-    QXK24BrainLogModel.countDocuments({ founderId, auditStatus: 'pending' }),
-    QXK24BrainEntityModel.countDocuments({
+    AlamtologiBrainLogModel.countDocuments({ founderId, auditStatus: 'pending' }),
+    AlamtologiBrainEntityModel.countDocuments({
       founderId,
       integrity_status: 'CORRUPTED',
       auditStatus:      { $nin: ['dissolved', 'waqf'] },
@@ -115,7 +115,7 @@ export async function checkMemoryHealth(
   ]);
 
   if (!master.unifiedUnderstanding?.trim()) {
-    issues.push('QXK24Brain master entity is empty');
+    issues.push('Alamtologi Brain master entity is empty');
     recommendations.push('Begin teaching ADAM to build his unified understanding');
     score -= 30;
   }

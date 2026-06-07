@@ -1,27 +1,27 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Knowledge Service
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
- * AIDIL LAW: No permanent raw storage. Upload → absorb into QXK24Brain → erase B.
+ * AIDIL LAW: No permanent raw storage. Upload → absorb into Alamtologi Brain → erase B.
  * R2 and adam_knowledge exist only for legacy erasure — never for new teachings.
  */
 
 import { ENV } from '../config/environments';
 import { r2StorageService } from '../services/r2-storage.service';
 import { processLongTeaching } from '../qxk24brain/adam-tcp.service';
-import { QXK24BrainLogModel } from '../qxk24brain/qxk24brain.schema';
+import { AlamtologiBrainLogModel } from '../qxk24brain/qxk24brain.schema';
 import type { NormalizedFounderFile } from './adam-file-extract.service';
 import {
   extractTextFromBuffer,
@@ -92,7 +92,7 @@ function parseCategoryFromLog(content: string): string {
 export const adamKnowledgeService = {
 
   /**
-   * Absorb teaching file into QXK24Brain — no R2, no permanent DB record.
+   * Absorb teaching file into Alamtologi Brain — no R2, no permanent DB record.
    */
   async absorbTeaching(
     file: File,
@@ -143,11 +143,11 @@ export const adamKnowledgeService = {
     };
   },
 
-  /** List constitutional absorptions — energy that lives in QXK24Brain, not on disk */
+  /** List constitutional absorptions — energy that lives in Alamtologi Brain, not on disk */
   async listAbsorptions(founderId = 'masa-bayu'): Promise<KnowledgeAbsorptionRecord[]> {
     await this.purgeLegacyStorage(founderId);
 
-    const logs = await QXK24BrainLogModel.find({
+    const logs = await AlamtologiBrainLogModel.find({
       founderId,
       entity_B_content: { $regex: KNOWLEDGE_B_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') },
     })
@@ -198,7 +198,7 @@ export const adamKnowledgeService = {
         absorbed++;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.error(`[QXK24] Legacy knowledge absorb failed (${doc.filename}):`, msg);
+        console.error(`[ALAMTOLOGI] Legacy knowledge absorb failed (${doc.filename}):`, msg);
       }
 
       try {

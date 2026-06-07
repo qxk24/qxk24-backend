@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Environment Config
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -59,13 +59,19 @@ function optionalInt(key: string, fallback: number): number {
   return isNaN(parsed) ? fallback : parsed;
 }
 
-const UPLOAD_MAX_FILE_MB = optionalInt('UPLOAD_MAX_FILE_MB', 30);
+const UPLOAD_MAX_FILE_MB = optionalInt('UPLOAD_MAX_FILE_MB', 50);
 const UPLOAD_MAX_EXTRACT_CHARS = optionalInt('UPLOAD_MAX_EXTRACT_CHARS', 120000);
+/** Cap PDF pages parsed in-process (prevents pdf.js heap blow-ups on scan-heavy PDFs). */
+const UPLOAD_PDF_MAX_PAGES = optionalInt('UPLOAD_PDF_MAX_PAGES', 8);
+/** DOCX/PPTX mammoth/JSZip parse above this size in RAM often OOMs — reject with a clear message. */
+const UPLOAD_OFFICE_PARSE_MAX_MB = optionalInt('UPLOAD_OFFICE_PARSE_MAX_MB', 50);
+/** PDF text extraction ceiling in child process (fail fast before pdf.js allocates). */
+const UPLOAD_PDF_PARSE_MAX_MB = optionalInt('UPLOAD_PDF_PARSE_MAX_MB', 40);
 /** Max characters accepted in chat JSON (truncated server-side if longer) */
 const ADAM_MAX_MESSAGE_CHARS = optionalInt('ADAM_MAX_MESSAGE_CHARS', 80_000);
 /** Teaching/upload text injected into a single chat turn */
 const ADAM_CHAT_TEACHING_CHARS = optionalInt('ADAM_CHAT_TEACHING_CHARS', 48_000);
-/** QXK24Brain summary in chat context */
+/** Alamtologi Brain summary in chat context */
 const ADAM_CHAT_BRAIN_CHARS = optionalInt('ADAM_CHAT_BRAIN_CHARS', 24_000);
 /** Each prior message in history */
 const ADAM_CHAT_HISTORY_MSG_CHARS = optionalInt('ADAM_CHAT_HISTORY_MSG_CHARS', 4_000);
@@ -79,7 +85,7 @@ export const ENV = {
   // Database
   MONGODB_URI: required(
     'MONGODB_URI',
-    'mongodb://localhost:27017/qxk24'
+    'mongodb://localhost:27017/alamtologi'
   ),
   REDIS_URL: optional('REDIS_URL', ''),
 
@@ -103,7 +109,7 @@ export const ENV = {
   // CORS
   CORS_ORIGINS: optional(
     'CORS_ORIGINS',
-    'https://qxk24.com,https://qiubbx.com,https://api.qiubbx.com'
+    'https://alamtologi.com,https://www.alamtologi.com,https://qxk24.com,https://www.qxk24.com,https://qiubbx.com,https://api.qiubbx.com',
   ),
 
   // Rate Limiting
@@ -114,6 +120,11 @@ export const ENV = {
   UPLOAD_MAX_FILE_MB,
   UPLOAD_MAX_FILE_BYTES: UPLOAD_MAX_FILE_MB * 1024 * 1024,
   UPLOAD_MAX_EXTRACT_CHARS,
+  UPLOAD_PDF_MAX_PAGES,
+  UPLOAD_PDF_PARSE_MAX_MB,
+  UPLOAD_PDF_PARSE_MAX_BYTES: UPLOAD_PDF_PARSE_MAX_MB * 1024 * 1024,
+  UPLOAD_OFFICE_PARSE_MAX_MB,
+  UPLOAD_OFFICE_PARSE_MAX_BYTES: UPLOAD_OFFICE_PARSE_MAX_MB * 1024 * 1024,
   ADAM_MAX_MESSAGE_CHARS,
   ADAM_CHAT_TEACHING_CHARS,
   ADAM_CHAT_BRAIN_CHARS,
@@ -126,6 +137,11 @@ export const ENV = {
   ADAM_STUDENT_REGISTER_CODE: optional('ADAM_STUDENT_REGISTER_CODE', ''),
   ADAM_STUDENT_REGISTER_MAX:  optionalInt('ADAM_STUDENT_REGISTER_MAX', 200),
 
+  /** VIP tester cohort cap (active TESTER subscriptions) */
+  ADAM_TESTER_COHORT_MAX:   optionalInt('ADAM_TESTER_COHORT_MAX', 100),
+  /** Public POST /api/adam/tester/apply */
+  ADAM_TESTER_APPLY_ENABLED: optional('ADAM_TESTER_APPLY_ENABLED', 'false') === 'true',
+
   /** Google Sign-In (students) — same client ID as web NEXT_PUBLIC_GOOGLE_CLIENT_ID */
   GOOGLE_OAUTH_CLIENT_ID:       optional('GOOGLE_OAUTH_CLIENT_ID', ''),
   ADAM_GOOGLE_SIGNIN_ENABLED:   optional('ADAM_GOOGLE_SIGNIN_ENABLED', 'false') === 'true',
@@ -133,11 +149,11 @@ export const ENV = {
 
   /** Password reset email (Resend) */
   RESEND_API_KEY:                 optional('RESEND_API_KEY', ''),
-  MAIL_FROM:                        optional('MAIL_FROM', 'ADAM Lab <noreply@qxk24.com>'),
-  MAIL_REPLY_TO:                    optional('MAIL_REPLY_TO', 'support@qxk24.com'),
-  ADAM_WEB_BASE_URL:                optional('ADAM_WEB_BASE_URL', 'https://qxk24.com'),
+  MAIL_FROM:                        optional('MAIL_FROM', 'ADAM Lab <noreply@alamtologi.com>'),
+  MAIL_REPLY_TO:                    optional('MAIL_REPLY_TO', 'support@alamtologi.com'),
+  ADAM_WEB_BASE_URL:                optional('ADAM_WEB_BASE_URL', 'https://alamtologi.com'),
   /** Public web URL for subscription checkout redirects */
-  APP_URL:                          optional('APP_URL', optional('ADAM_WEB_BASE_URL', 'https://qxk24.com')),
+  APP_URL:                          optional('APP_URL', optional('ADAM_WEB_BASE_URL', 'https://alamtologi.com')),
   ADAM_PASSWORD_RESET_ENABLED:      optional('ADAM_PASSWORD_RESET_ENABLED', 'true') === 'true',
   ADAM_PASSWORD_RESET_TTL_MINUTES:  optionalInt('ADAM_PASSWORD_RESET_TTL_MINUTES', 60),
 
@@ -149,18 +165,18 @@ export const ENV = {
   R2_SECRET_ACCESS_KEY:  optional('R2_SECRET_ACCESS_KEY'),
   R2_BUCKET_NAME:        optional('R2_BUCKET_NAME', 'qxk24-adam-knowledge'),
 
+  // Cloudinary — founder blog media (images + video)
+  CLOUDINARY_CLOUD_NAME:   optional('CLOUDINARY_CLOUD_NAME', ''),
+  CLOUDINARY_API_KEY:      optional('CLOUDINARY_API_KEY', ''),
+  CLOUDINARY_API_SECRET:   optional('CLOUDINARY_API_SECRET', ''),
+  CLOUDINARY_BLOG_FOLDER:  optional('CLOUDINARY_BLOG_FOLDER', 'alamtologi/blog'),
+  BLOG_IMAGE_MAX_MB:       optionalInt('BLOG_IMAGE_MAX_MB', 15),
+  BLOG_VIDEO_MAX_MB:       optionalInt('BLOG_VIDEO_MAX_MB', 100),
+
   // Stack identity (production + lab — both Qwen; separate DB/brain per stack)
   QXK24_STACK: optional('QXK24_STACK', 'production'),
-  /** Always qwen — DashScope. LLM_PROVIDER env is ignored if set to anthropic. */
-  LLM_PROVIDER: (() => {
-    const configured = optional('LLM_PROVIDER', 'qwen');
-    if (configured !== 'qwen') {
-      console.warn(
-        `[QXK24] LLM_PROVIDER=${configured} is deprecated — QXK24 uses Qwen only.`,
-      );
-    }
-    return 'qwen' as const;
-  })(),
+  /** Qwen / DashScope only — single LLM engine for all stacks */
+  LLM_PROVIDER: 'qwen' as const,
 
   // Monitoring
   SENTRY_DSN: optional('SENTRY_DSN'),
@@ -207,7 +223,7 @@ export const ENV = {
    */
   QWEN_DATA_INSPECTION: optional('QWEN_DATA_INSPECTION', ''),
 
-  /** Verified Quran ayat corpus (Rasm Uthmani + MS + EN, no tafsir) */
+  /** Verified Quran ayat corpus (Rasm Uthmani + Pickthall EN, no tafsir) */
   QURAN_CORPUS_ENABLED: optional('QURAN_CORPUS_ENABLED', 'true') === 'true',
   QURAN_CORPUS_PATH:      optional('QURAN_CORPUS_PATH', ''),
 

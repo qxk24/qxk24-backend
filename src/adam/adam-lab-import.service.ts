@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Lab Production Import
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -38,6 +38,7 @@ const FULL_MEMORY_COLLECTIONS = [
   'adam_message_ledger',
   'adam_teaching_records',
   'adam_unresolved_holdings',
+  'adamstudentaccounts',
 ] as const;
 
 const WORKSPACES = 'adam_workspaces';
@@ -48,7 +49,7 @@ function productionMongoUri(): string {
   const uri = process.env.PRODUCTION_MONGODB_URI?.trim();
   if (!uri) {
     throw new Error(
-      'PRODUCTION_MONGODB_URI is not set on the lab stack. Add it to .env.lab (e.g. mongodb://localhost:27017/qxk24).',
+      'PRODUCTION_MONGODB_URI is not set on the lab stack. Add it to .env.lab (e.g. mongodb://localhost:27017/alamtologi).',
     );
   }
   return uri;
@@ -126,7 +127,7 @@ export async function importFullMemoryFromProduction(): Promise<FullMemoryImport
   }
 
   const totalDocuments = Object.values(collections).reduce((n, c) => n + c, 0);
-  console.log(`[QXK24:LabImport] Full memory sync — ${totalDocuments} document(s) across ${FULL_MEMORY_COLLECTIONS.length} collections.`);
+  console.log(`[Alamtologi:LabImport] Full memory sync — ${totalDocuments} document(s) across ${FULL_MEMORY_COLLECTIONS.length} collections.`);
 
   return { collections, totalDocuments };
 }
@@ -214,7 +215,7 @@ export async function importStudentDataFromProduction(userId: string): Promise<L
     }
 
     console.log(
-      `[QXK24:LabImport] ${userId}: ${workspaceCount} workspace(s), ${sessionCount} session(s), ${messageCount} message(s)`,
+      `[Alamtologi:LabImport] ${userId}: ${workspaceCount} workspace(s), ${sessionCount} session(s), ${messageCount} message(s)`,
     );
 
     return {

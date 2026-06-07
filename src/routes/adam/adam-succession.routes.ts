@@ -2,7 +2,7 @@
 // QXK24 ADAM Teaching Engine — Succession Routes
 // File: src/routes/adam/adam-succession.routes.ts
 // Version: 1.0.0
-// Author: QXK24 Constitutional Kernel
+// Author: Alamtologi Constitutional Kernel
 // Date: 2026-05-28
 // Endpoints:
 //   GET  /api/adam/succession         → get record
@@ -43,7 +43,7 @@ router.get('/', requireFounder, async (c) => {
 
   const response: ADAMApiResponse<SuccessionRecord> = {
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      finalRecord ?? record,
@@ -77,7 +77,7 @@ router.post('/heir', requireFounder, zValidator('json', HeirSchema), async (c) =
   if (!record) {
     return c.json({
       success:   false,
-      kernel:    'QXK24',
+      kernel:    'ALAMTOLOGI',
       error:     'Succession record is sealed or not found',
       timestamp: new Date().toISOString(),
     }, 403);
@@ -85,7 +85,7 @@ router.post('/heir', requireFounder, zValidator('json', HeirSchema), async (c) =
 
   const response: ADAMApiResponse<SuccessionRecord> = {
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      record,
@@ -104,7 +104,7 @@ router.delete('/heir/:position', requireFounder, async (c) => {
   if (!record) {
     return c.json({
       success:   false,
-      kernel:    'QXK24',
+      kernel:    'ALAMTOLOGI',
       error:     'Heir not found or record is sealed',
       timestamp: new Date().toISOString(),
     }, 404);
@@ -112,7 +112,7 @@ router.delete('/heir/:position', requireFounder, async (c) => {
 
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      record,
@@ -128,7 +128,7 @@ router.post('/seal', requireFounder, async (c) => {
   if (body.confirm !== 'SEAL_PERMANENTLY') {
     return c.json({
       success:   false,
-      kernel:    'QXK24',
+      kernel:    'ALAMTOLOGI',
       error:     'Must confirm with { "confirm": "SEAL_PERMANENTLY" }',
       timestamp: new Date().toISOString(),
     }, 400);
@@ -139,7 +139,7 @@ router.post('/seal', requireFounder, async (c) => {
   if (!record) {
     return c.json({
       success:   false,
-      kernel:    'QXK24',
+      kernel:    'ALAMTOLOGI',
       error:     'Cannot seal — record not found or no heirs designated',
       timestamp: new Date().toISOString(),
     }, 400);
@@ -147,7 +147,7 @@ router.post('/seal', requireFounder, async (c) => {
 
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      record,

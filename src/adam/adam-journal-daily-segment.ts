@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Journal Daily Quota (University Knowledge Map)
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-02
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -94,7 +94,13 @@ async function sealedTopicIdsForDay(date: Date): Promise<Set<string>> {
   );
 }
 
-/** Next subfield that still needs today's journal. */
+/** Resolve one map row by topicId (manual mode — P.alt selection). */
+export function getTopicById(topicId: string): UniversityKnowledgeTopic | null {
+  const topic = findUniversityTopicById(topicId?.trim() ?? '');
+  return topic ?? null;
+}
+
+/** Next subfield that still needs today's journal (autonomous batch only). */
 export function getNextPendingDailyTopic(
   sealedIds: Set<string>,
 ): UniversityKnowledgeTopic | null {

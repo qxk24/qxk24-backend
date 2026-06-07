@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Journal Routes
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -45,6 +45,9 @@ import { ENV } from '../../config/environments';
 import { getDailyJournalSegmentStatus } from '../../adam/adam-journal-daily-segment';
 import { runJournalBatch } from '../../adam/adam-journal-batch.service';
 import { getJournalBatchSchedulerStatus } from '../../adam/adam-journal-batch.scheduler';
+import { resolveJournalLocale } from '../../adam/journal-locale';
+import { getJournalTranslation } from '../../adam/journal-translation.service';
+import { finaliseJournal } from '../../adam/adam-journal-finalise';
 
 function isFounderRequest(c: { req: { header: (n: string) => string | undefined } }): boolean {
   const bearer = c.req.header('Authorization')?.split(' ')[1];
@@ -80,7 +83,7 @@ router.get('/daily-segment', requireFounder, async (c) => {
   );
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      status,
@@ -94,7 +97,7 @@ router.get('/batch/status', requireFounder, async (c) => {
   const quota = await getDailyJournalSegmentStatus();
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      {
@@ -115,7 +118,7 @@ router.post('/batch/run', requireFounder, async (c) => {
     const result = await runJournalBatch(count);
     return c.json({
       success:   true,
-      kernel:    'QXK24',
+      kernel:    'ALAMTOLOGI',
       version:   ENV.QXK24_KERNEL_VERSION,
       era:       ENV.QXK24_ERA,
       data:      result,
@@ -125,7 +128,7 @@ router.post('/batch/run', requireFounder, async (c) => {
     const msg = err instanceof Error ? err.message : String(err);
     return c.json({
       success: false,
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
       error:   msg,
       timestamp: new Date().toISOString(),
     }, 409);
@@ -141,13 +144,14 @@ router.get('/public', async (c) => {
     summary:         true,
     q:               c.req.query('q') ?? undefined,
     knowledgeMajor:  c.req.query('major') ?? undefined,
+    knowledgeTopicId: c.req.query('topicId') ?? undefined,
     publishedMonth:  c.req.query('month') ?? undefined,
     date:            c.req.query('date') ?? undefined,
   });
 
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      { journals, total, limit, skip },
@@ -164,22 +168,87 @@ router.get('/public/:id', async (c) => {
   if (!journal || journal.status !== 'PUBLISHED') {
     return c.json({
       success: false,
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
       error:   'Journal not found or not published.',
       timestamp: new Date().toISOString(),
     }, 404);
   }
 
   const audits = await getJournalAudits(id);
+  const locale = resolveJournalLocale(c.req.query('lang'));
+
+  let payload = journal;
+  if (locale !== (journal.sourceLanguage ?? 'en')) {
+    const translated = await getJournalTranslation(id, locale);
+    if (translated) {
+      payload = {
+        ...journal,
+        title:    translated.title,
+        abstract: translated.abstract,
+        content:  translated.content,
+      };
+    }
+  }
 
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
-    data:      { journal, audits },
+    data:      {
+      journal:        payload,
+      audits,
+      locale,
+      sourceLanguage: journal.sourceLanguage ?? 'en',
+    },
     timestamp: new Date().toISOString(),
   });
+});
+
+// ─── GET /public/:id/translation/:locale — Fetch or generate translation ─
+
+router.get('/public/:id/translation/:locale', async (c) => {
+  const id = c.req.param('id')!;
+  const locale = resolveJournalLocale(c.req.param('locale'));
+  const journal = await getJournal(id);
+
+  if (!journal || journal.status !== 'PUBLISHED') {
+    return c.json({
+      success: false,
+      kernel:  'ALAMTOLOGI',
+      error:   'Journal not found or not published.',
+      timestamp: new Date().toISOString(),
+    }, 404);
+  }
+
+  try {
+    const translation = await getJournalTranslation(id, locale);
+    if (!translation) {
+      return c.json({
+        success: false,
+        kernel:  'ALAMTOLOGI',
+        error:   'Translation unavailable.',
+        timestamp: new Date().toISOString(),
+      }, 404);
+    }
+
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data:      translation,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({
+      success: false,
+      kernel:  'ALAMTOLOGI',
+      error:   msg,
+      timestamp: new Date().toISOString(),
+    }, 500);
+  }
 });
 
 // ─── POST /submit — Anyone may submit ────────────────────────
@@ -193,7 +262,7 @@ router.post(
 
     const response: ADAMApiResponse<AlamtologiAcademicJournal> = {
       success:   true,
-      kernel:    'QXK24',
+      kernel:    'ALAMTOLOGI',
       version:   ENV.QXK24_KERNEL_VERSION,
       era:       ENV.QXK24_ERA,
       data:      journal,
@@ -224,7 +293,7 @@ router.get('/', requireAuth, async (c) => {
 
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      { journals, total, limit, skip },
@@ -243,7 +312,7 @@ router.get('/coverage', requireFounder, async (c) => {
 
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      report,
@@ -265,7 +334,7 @@ router.get('/review-chain', requireFounder, async (c) => {
 
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      { ids, total, currentId: c.req.query('currentId') ?? undefined },
@@ -300,12 +369,42 @@ router.post('/bulk/approve', requireFounder, async (c) => {
 
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      result,
     timestamp: new Date().toISOString(),
   });
+});
+
+const FinaliseJournalSchema = z.object({
+  journalNumber: z.string().min(8).max(40),
+  topicId:       z.string().min(3).max(120),
+  source:        z.enum(['public_submit', 'founder_adam', 'founder_teaching']),
+  status:        z.literal('PENDING_REVIEW'),
+  copyright:     z.string().min(40).max(4000),
+  journalId:     z.string().optional(),
+  sessionId:     z.string().optional(),
+});
+
+// ─── POST /finalise — Constitutional legal seal (Founder) ─────
+
+router.post('/finalise', requireFounder, zValidator('json', FinaliseJournalSchema), async (c) => {
+  try {
+    const body = c.req.valid('json');
+    const result = await finaliseJournal(body);
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data:      result,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ success: false, kernel: 'ALAMTOLOGI', error: msg, timestamp: new Date().toISOString() }, 400);
+  }
 });
 
 // ─── GET /:id/audits ───────────────────────────────────────────
@@ -315,20 +414,55 @@ router.get('/:id/audits', async (c) => {
   const journal = await getJournal(id);
 
   if (!journal) {
-    return c.json({ success: false, kernel: 'QXK24', error: 'Journal not found' }, 404);
+    return c.json({ success: false, kernel: 'ALAMTOLOGI', error: 'Journal not found' }, 404);
   }
 
   if (journal.status !== 'PUBLISHED' && !isFounderRequest(c)) {
-    return c.json({ success: false, kernel: 'QXK24', error: 'Founder access required.' }, 403);
+    return c.json({ success: false, kernel: 'ALAMTOLOGI', error: 'Founder access required.' }, 403);
   }
 
   const audits = await getJournalAudits(id);
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     data:      { audits, count: audits.length },
     timestamp: new Date().toISOString(),
   });
+});
+
+// ─── GET /:id/translation/:locale — Founder/review translation ─
+
+router.get('/:id/translation/:locale', requireAuth, async (c) => {
+  const id = c.req.param('id')!;
+  const locale = resolveJournalLocale(c.req.param('locale'));
+  const journal = await getJournal(id);
+
+  if (!journal) {
+    return c.json({ success: false, kernel: 'ALAMTOLOGI', error: 'Journal not found', timestamp: new Date().toISOString() }, 404);
+  }
+
+  if (journal.status === 'DRAFT' && !isFounderRequest(c)) {
+    return c.json({ success: false, kernel: 'ALAMTOLOGI', error: 'Forbidden', timestamp: new Date().toISOString() }, 403);
+  }
+
+  try {
+    const translation = await getJournalTranslation(id, locale);
+    if (!translation) {
+      return c.json({ success: false, kernel: 'ALAMTOLOGI', error: 'Translation unavailable', timestamp: new Date().toISOString() }, 404);
+    }
+
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data:      translation,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ success: false, kernel: 'ALAMTOLOGI', error: msg, timestamp: new Date().toISOString() }, 500);
+  }
 });
 
 // ─── GET /:id ────────────────────────────────────────────────
@@ -338,14 +472,14 @@ router.get('/:id', requireAuth, async (c) => {
   const journal = await getJournal(id);
 
   if (!journal) {
-    return c.json({ success: false, kernel: 'QXK24', error: 'Journal not found', timestamp: new Date().toISOString() }, 404);
+    return c.json({ success: false, kernel: 'ALAMTOLOGI', error: 'Journal not found', timestamp: new Date().toISOString() }, 404);
   }
 
   const audits = await getJournalAudits(id);
 
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      { journal, audits },
@@ -365,14 +499,14 @@ router.post('/:id/approve', requireFounder, async (c) => {
     { publish: body.publish !== false },
   );
   if (!journal) {
-    return c.json({ success: false, kernel: 'QXK24', error: 'Journal not found or cannot be approved', timestamp: new Date().toISOString() }, 404);
+    return c.json({ success: false, kernel: 'ALAMTOLOGI', error: 'Journal not found or cannot be approved', timestamp: new Date().toISOString() }, 404);
   }
 
   const audits = await getJournalAudits(id);
 
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      { journal, audits },
@@ -387,14 +521,14 @@ router.post('/:id/publish', requireFounder, async (c) => {
   const journal = await publishJournal(id);
 
   if (!journal) {
-    return c.json({ success: false, kernel: 'QXK24', error: 'Journal not found or not approved', timestamp: new Date().toISOString() }, 404);
+    return c.json({ success: false, kernel: 'ALAMTOLOGI', error: 'Journal not found or not approved', timestamp: new Date().toISOString() }, 404);
   }
 
   const audits = await getJournalAudits(id);
 
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      { journal, audits },

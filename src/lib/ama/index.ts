@@ -22,5 +22,5 @@ export * from './ama-oass-gate';
 export * from './k24-level-orchestrator';
 export * from './tamat-generator';
 export * from './ama-brain-integration.service';
-export * from './ama-neuro.types';
-export * from './ama-neuro-validation.service';
+export * from './ama-episodic-gate';
+export * from './ama-episodic-purge';

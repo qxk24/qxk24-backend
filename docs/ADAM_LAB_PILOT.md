@@ -1,6 +1,6 @@
 # ADAM Lab Pilot — Evaluation Protocol
 
-**Stack:** Lab (Qwen / DashScope) vs Production (Claude / Anthropic)  
+**Stack:** Production + lab both use Qwen / DashScope (consolidated — no Claude path)  
 **Pilot cohort:** 1 Founder + 2 students  
 **Duration:** Minimum 2 weeks before AIDIL memory comparison is valid
 

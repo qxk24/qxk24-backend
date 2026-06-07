@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Teaching Bridge — Crystalliser (Leg 1)
  * Platform    : Backend (TypeScript)
@@ -25,6 +25,7 @@ import type {
   TeachingBridgeRecord,
   TeachingBridgeStatus,
 } from './types/teaching-bridge.types';
+import { pickCrystallisationSynthesis } from './synthesis-picker';
 
 const ALAMTOLOGI_MIN_CONF = 0.75;
 const DOMAIN_MIN_CONF = 0.7;
@@ -74,6 +75,8 @@ export interface TeachingRecord {
   confidenceScore?: number;
   primaryAuthority?: VerificationAuthority;
   entity_C_uid: string;
+  /** Raw founder teaching — used for Malay crystallisation display */
+  founderTeaching?: string;
   createdAt: Date;
 }
 
@@ -179,6 +182,11 @@ export async function crystalliseTeachingRecord(
     const unitId = generateUnitId(record.transformationId);
     const subRegion = record.subRegion ?? record.family ?? 'general';
     const level = record.level ?? 2;
+    const founderTeaching = (record.founderTeaching ?? '').trim();
+    const { synthesis, adamReflection } = pickCrystallisationSynthesis(
+      founderTeaching,
+      record.entity_C,
+    );
 
     const unit: CrystallisedUnit = {
       id:                     unitId,
@@ -190,7 +198,9 @@ export async function crystalliseTeachingRecord(
       nodeA:          record.entity_A,
       relationship:   record.relationship,
       nodeB:          record.entity_B,
-      synthesis:      record.entity_C,
+      synthesis,
+      founderTeaching: founderTeaching || undefined,
+      adamReflection,
       level,
       subRegion,
       family:         record.family,

@@ -2,7 +2,7 @@
 // QXK24 ADAM Teaching Engine — Constitutional Types
 // File: src/adam/adam.types.ts
 // Version: 1.0.0
-// Author: QXK24 Constitutional Kernel
+// Author: Alamtologi Constitutional Kernel
 // Date: 2026-05-28
 // ============================================================
 
@@ -132,6 +132,9 @@ export type ADAMChatMode =
   | 'JOURNAL_GEN'
   | 'BUILDER';
 
+/** Voice register for a single reply — not operational mode (TEACHING, BUILDER, …). */
+export type ADAMAnswerStyle = 'natural' | 'philosophy' | 'formal' | 'technical';
+
 export interface ADAMChatMessage {
   id:           string;
   sessionId:    string;
@@ -259,12 +262,33 @@ export interface AlamtologiAcademicJournal {
   publishedAt?:     Date;
   reviewNotes?:     string;
   journalNumber?:   string;
-  source?:          'public_submit' | 'founder_adam';
+  source?:          'public_submit' | 'founder_adam' | 'founder_teaching';
   sourceSessionId?: string;
   knowledgeTopicId?:   string;
   knowledgeMajor?:     string;
   knowledgeDiscipline?: string;
   knowledgeSubfield?:  string;
+  /** Section bodies while status === DRAFT */
+  draftSections?:      Record<string, string>;
+  lastCompletedSection?: string;
+  sourceLanguage?:     JournalLocale;
+  translations?:       Partial<Record<JournalLocale, JournalTranslationRecord>>;
+  copyright?:          string;
+  totalWords?:         number;
+  /** Denormalised alias for knowledgeTopicId (legal seal queries) */
+  topicId?:            string;
+  /** Denormalised alias for sourceSessionId (legal seal queries) */
+  sessionId?:          string;
+}
+
+export type JournalLocale = 'en' | 'ms' | 'ar' | 'id' | 'zh';
+
+export interface JournalTranslationRecord {
+  title:        string;
+  abstract:     string;
+  content:      JournalContent;
+  translatedAt: string;
+  locale:       JournalLocale;
 }
 
 export interface JournalContent {
@@ -386,7 +410,7 @@ export interface ADAMTeachingUpload {
 export const ADAM_TEACHING_ALLOWED_EXTENSIONS = [
   '.txt', '.md', '.markdown', '.csv', '.json',
   '.xml', '.log', '.yaml', '.yml', '.html', '.htm',
-  '.pdf', '.doc', '.docx',
+  '.pdf', '.doc', '.docx', '.ppt', '.pptx',
   '.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif',
 ] as const;
 
@@ -395,6 +419,9 @@ export type SSEEventType =
   | 'adam_builder_status'
   | 'adam_thinking'
   | 'adam_chunk'
+  | 'adam_stream_idle'
+  | 'adam_stream_done'
+  | 'adam_repairing'
   | 'adam_searching'
   | 'adam_search_done'
   | 'adam_judgment'

@@ -1,20 +1,20 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Knowledge Routes
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
- * POST /api/adam/knowledge/upload  — Absorb teaching into QXK24Brain (no R2)
+ * POST /api/adam/knowledge/upload  — Absorb teaching into Alamtologi Brain (no R2)
  * GET  /api/adam/knowledge           — List constitutional absorptions
  * POST /api/adam/knowledge/purge-legacy — Force legacy R2 erasure
  */
@@ -39,7 +39,7 @@ router.use('*', bodyLimit({
   onError: (c) => c.json({
     success: false,
     error:   `File too large. Maximum ${ENV.UPLOAD_MAX_FILE_MB} MB.`,
-    kernel:  'QXK24',
+    kernel:  'ALAMTOLOGI',
   }, 413),
 }));
 
@@ -55,7 +55,7 @@ router.post('/upload', requireFounder, async (c) => {
       return c.json({
         success: false,
         error:   'No file provided. Use field name "file".',
-        kernel:  'QXK24',
+        kernel:  'ALAMTOLOGI',
       }, 400);
     }
 
@@ -64,7 +64,7 @@ router.post('/upload', requireFounder, async (c) => {
       return c.json({
         success: false,
         error:   sizeCheck.error,
-        kernel:  'QXK24',
+        kernel:  'ALAMTOLOGI',
       }, 413);
     }
 
@@ -73,7 +73,7 @@ router.post('/upload', requireFounder, async (c) => {
       return c.json({
         success: false,
         error:   `File type not supported. Use ${supportedFormatsLabel()} (max ${ENV.UPLOAD_MAX_FILE_MB} MB).`,
-        kernel:  'QXK24',
+        kernel:  'ALAMTOLOGI',
       }, 400);
     }
 
@@ -89,19 +89,19 @@ router.post('/upload', requireFounder, async (c) => {
     return c.json({
       success:   true,
       absorption,
-      message:   'Teaching absorbed into QXK24Brain. Raw file erased per AIDIL — energy lives in C.',
-      kernel:    'QXK24',
+      message:   'Teaching absorbed into Alamtologi Brain. Raw file erased per AIDIL — energy lives in C.',
+      kernel:    'ALAMTOLOGI',
       version:   ENV.QXK24_KERNEL_VERSION,
       era:       ENV.QXK24_ERA,
       timestamp: new Date().toISOString(),
     }, 201);
   } catch (err: unknown) {
-    console.error('[QXK24] Knowledge absorption error:', err);
+    console.error('[ALAMTOLOGI] Knowledge absorption error:', err);
     const message = err instanceof Error ? err.message : 'Absorption failed.';
     return c.json({
       success: false,
       error:   message,
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
     }, 500);
   }
 });
@@ -115,17 +115,17 @@ router.get('/', requireFounder, async (c) => {
       absorptions,
       total:       absorptions.length,
       storageMode: 'AIDIL — no raw files retained',
-      kernel:      'QXK24',
+      kernel:      'Alamtologi',
       version:     ENV.QXK24_KERNEL_VERSION,
       era:         ENV.QXK24_ERA,
       timestamp:   new Date().toISOString(),
     });
   } catch (err: unknown) {
-    console.error('[QXK24] Knowledge list error:', err);
+    console.error('[ALAMTOLOGI] Knowledge list error:', err);
     return c.json({
       success: false,
       error:   'Failed to load absorptions.',
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
     }, 500);
   }
 });
@@ -137,8 +137,8 @@ router.post('/purge-legacy', requireFounder, async (c) => {
     return c.json({
       success:   true,
       ...result,
-      message:   'Legacy raw storage purged. Energy absorbed into QXK24Brain where possible.',
-      kernel:    'QXK24',
+      message:   'Legacy raw storage purged. Energy absorbed into Alamtologi Brain where possible.',
+      kernel:    'ALAMTOLOGI',
       timestamp: new Date().toISOString(),
     });
   } catch (err: unknown) {
@@ -146,7 +146,7 @@ router.post('/purge-legacy', requireFounder, async (c) => {
     return c.json({
       success: false,
       error:   message,
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
     }, 500);
   }
 });

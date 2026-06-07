@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Teaching Records Backfill CLI
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -20,7 +20,7 @@
  *   QXK24_STACK=lab npm run backfill:teaching-records
  *   MONGODB_URI='mongodb+srv://…/qxk24' npm run backfill:teaching-records
  *
- * Local .env defaults to mongodb://localhost:27017/qxk24 — often EMPTY.
+ * Local .env defaults to mongodb://localhost:27017/alamtologi — often EMPTY.
  * Production brain logs live on Atlas; lab logs on qxk24_lab (VPS or .env.lab).
  */
 
@@ -109,7 +109,7 @@ async function main() {
   if (before.brainLogCount === 0) {
     console.warn('');
     console.warn('[backfill:teaching-records] ⚠️  qxk24brain_log is EMPTY on this database.');
-    console.warn('  Local .env often points to mongodb://localhost:27017/qxk24 with no data.');
+    console.warn('  Local .env often points to mongodb://localhost:27017/alamtologi with no data.');
     console.warn('  Options:');
     console.warn('    • QXK24_STACK=lab npm run backfill:teaching-records  (.env.lab → qxk24_lab)');
     console.warn('    • MONGODB_URI=<Atlas production URI> npm run backfill:teaching-records');

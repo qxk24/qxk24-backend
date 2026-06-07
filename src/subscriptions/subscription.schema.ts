@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Subscription Schema
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -22,6 +22,7 @@ export enum SubscriptionTier {
   PELAJAR     = 'PELAJAR',
   PROFESIONAL = 'PROFESIONAL',
   ENTERPRISE  = 'ENTERPRISE',
+  TESTER      = 'TESTER',
 }
 
 export enum BillingCycle {
@@ -139,6 +140,7 @@ export interface ISubscription extends Document {
   pencarianUsage:     IPencarianUsage | null;
   isFounderFunded:    boolean;
   enterpriseNotes:    string | null;
+  preferredLanguage:  string | null;
   cancelledAt:        Date | null;
   cancelReason:       string | null;
   neverDelete:        boolean;
@@ -208,11 +210,12 @@ const SubscriptionSchema = new Schema<ISubscription>(
     pencarianUsage:     { type: PencarianUsageSchema, default: null },
     isFounderFunded:    { type: Boolean, default: false },
     enterpriseNotes:    { type: String, default: null },
+    preferredLanguage:  { type: String, default: null },
     cancelledAt:        { type: Date, default: null },
     cancelReason:       { type: String, default: null },
     neverDelete:        { type: Boolean, default: true },
   },
-  { timestamps: true, collection: 'qxk24_subscriptions' },
+  { timestamps: true, collection: 'alamtologi_subscriptions' },
 );
 
 SubscriptionSchema.index({ userId: 1, tier: 1 });

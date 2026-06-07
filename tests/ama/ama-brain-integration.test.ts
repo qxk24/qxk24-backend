@@ -61,6 +61,22 @@ describe('ama-brain-integration', () => {
     expect(out.unifiedUnderstanding).toBe('Unified for migration');
   });
 
+  it('buildDualLaneUpdate skipEpisodicAppend preserves Kotak 3', () => {
+    const master = mockMaster();
+    master.episodicLane = 'Prior real episode';
+    const out = buildDualLaneUpdate(master, {
+      founderId:        'masa-bayu',
+      transformationId: 'tx-qa',
+      episodicB:        'Founder QA question?',
+      structuralC:      'Updated C',
+      unifiedLegacy:    'Unified',
+      skipEpisodicAppend: true,
+    });
+    expect(out.structuralLane).toBe('Updated C');
+    expect(out.episodicLane).toBe('Prior real episode');
+    expect(out.episodicLane).not.toContain('QA question');
+  });
+
   describe('buildAmaLongTermMemoryBlock', () => {
     beforeEach(() => {
       process.env.ADAM_AMA_BRAIN_V2 = 'true';

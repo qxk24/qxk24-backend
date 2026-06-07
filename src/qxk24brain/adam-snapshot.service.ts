@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Quantum State Snapshot (Layer 6)
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -21,8 +21,8 @@
 import { ENV } from '../config/environments';
 import { ADAMSnapshotModel, type SnapshotStatus } from './adam-snapshot.schema';
 import {
-  QXK24BrainEntityModel,
-  QXK24BrainMasterModel,
+  AlamtologiBrainEntityModel,
+  AlamtologiBrainMasterModel,
 } from './qxk24brain.schema';
 import { getOrCreateMaster, transformAIDIL } from './qxk24brain.engine';
 import type { TeachingTransformContext } from './adam-teaching-record.service';
@@ -42,7 +42,7 @@ export async function createSnapshot(
 ): Promise<string> {
   const snapshotId = `K24SNAP-${Date.now()}`;
   const master = await getOrCreateMaster(founderId);
-  const activeFamilies = await QXK24BrainEntityModel
+  const activeFamilies = await AlamtologiBrainEntityModel
     .find({ founderId, isComplete: false })
     .lean();
 
@@ -81,7 +81,7 @@ export async function rollbackToSnapshot(
   const masterState = JSON.parse(snapshot.masterState) as Record<string, unknown>;
   const entityStates = JSON.parse(snapshot.entityStates) as Record<string, unknown>[];
 
-  await QXK24BrainMasterModel.findOneAndUpdate(
+  await AlamtologiBrainMasterModel.findOneAndUpdate(
     { founderId },
     { $set: stripMongoInternals(masterState) },
     { upsert: true },
@@ -94,7 +94,7 @@ export async function rollbackToSnapshot(
     const uid = clean.uid as string;
     if (!uid) continue;
     restoredUids.add(uid);
-    await QXK24BrainEntityModel.findOneAndUpdate(
+    await AlamtologiBrainEntityModel.findOneAndUpdate(
       { uid },
       { $set: clean },
       { upsert: true },
@@ -102,7 +102,7 @@ export async function rollbackToSnapshot(
   }
 
   // Remove incomplete entities born during the failed transformation
-  await QXK24BrainEntityModel.deleteMany({
+  await AlamtologiBrainEntityModel.deleteMany({
     founderId,
     isComplete: false,
     uid:        { $nin: [...restoredUids] },
@@ -181,11 +181,11 @@ export async function transformWithSnapshot(
     await pruneSnapshots(founderId);
     return result;
   } catch (err) {
-    console.error('[QXK24Brain] Transformation failed — rolling back to snapshot:', snapshotId);
+    console.error('[Alamtologi Brain] Transformation failed — rolling back to snapshot:', snapshotId);
     try {
       await rollbackToSnapshot(snapshotId, founderId);
     } catch (rollbackErr) {
-      console.error('[QXK24Brain] Snapshot rollback failed:', rollbackErr);
+      console.error('[Alamtologi Brain] Snapshot rollback failed:', rollbackErr);
     }
     throw err;
   }

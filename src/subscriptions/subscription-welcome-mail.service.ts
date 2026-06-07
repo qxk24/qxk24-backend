@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Subscription Welcome Mail
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -75,7 +75,7 @@ Now ADAM can read your codebase and build with you.
 
 The difference is significant. Here is what it means in practice:
 
-You open qxk24.com/adam/lab — the same chat you have always used.
+You open alamtologi.com/adam/lab — the same chat you have always used.
 You type something like:
 
   "Fix the duplicate index warning in my journal schema"
@@ -159,7 +159,7 @@ YOUR ALLOCATION THIS MONTH
 Plan          : Profesional Dev
 Build sessions: 50 / 50 remaining
 Resets on     : ${profile.nextRenewalDate}
-Upgrade       : qxk24.com/pricing (Studio Pro — unlimited)
+Upgrade       : alamtologi.com/pricing (Studio Pro — unlimited)
 
 ───────────────────────────────────────────
 
@@ -179,12 +179,12 @@ and where nothing happens without your permission.
 Build well.
 
 — The QXK24 Team
-  api.qxk24.com | qxk24.com/adam/lab
+  api.alamtologi.com | alamtologi.com/adam/lab
 
 ───────────────────────────────────────────
-To manage your subscription: qxk24.com/account
-To cancel: qxk24.com/account/cancel
-QXK24 Sdn Bhd · Kuala Lumpur, Malaysia
+To manage your subscription: alamtologi.com/account
+To cancel: alamtologi.com/account/cancel
+Alamtologi · Kuala Lumpur, Malaysia
 `.trim();
 }
 
@@ -207,7 +207,7 @@ async function sendMail(
   const from = ENV.MAIL_FROM.trim();
   if (!apiKey || !from) return false;
 
-  const replyTo = ENV.MAIL_REPLY_TO?.trim() || 'support@qxk24.com';
+  const replyTo = ENV.MAIL_REPLY_TO?.trim() || 'support@alamtologi.com';
 
   try {
     const res = await fetch('https://api.resend.com/emails', {
@@ -339,7 +339,7 @@ function buildEnterpriseWelcomeData(
     setupFee:       'US$7,000',
     renewalDate:    profile.nextRenewalDate,
     architectName:  'Adam (QXK24)',
-    architectEmail: 'enterprise@qxk24.com',
+    architectEmail: 'enterprise@alamtologi.com',
     pilotEndDate:   pilotEnd
       ? pilotEnd.toLocaleDateString('en-MY', {
           day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur',

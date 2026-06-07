@@ -2,7 +2,7 @@
 // QXK24 ADAM Teaching Engine — Determination Routes
 // File: src/routes/adam/adam-determination.routes.ts
 // Version: 1.0.0
-// Author: QXK24 Constitutional Kernel
+// Author: Alamtologi Constitutional Kernel
 // Date: 2026-05-28
 // Endpoints:
 //   POST /api/adam/determination        → run determination
@@ -39,7 +39,7 @@ router.post(
 
     const response: ADAMApiResponse<ADAMDeterminationResult> = {
       success:   result.judgment !== 'WAQF',
-      kernel:    'QXK24',
+      kernel:    'ALAMTOLOGI',
       version:   ENV.QXK24_KERNEL_VERSION,
       era:       ENV.QXK24_ERA,
       data:      result,
@@ -64,7 +64,7 @@ router.post(
 
     return c.json({
       success:   result.canProceed,
-      kernel:    'QXK24',
+      kernel:    'ALAMTOLOGI',
       version:   ENV.QXK24_KERNEL_VERSION,
       era:       ENV.QXK24_ERA,
       data:      result,
@@ -83,7 +83,7 @@ router.get('/audit/:targetId', requireFounder, async (c) => {
 
   return c.json({
     success:   true,
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     version:   ENV.QXK24_KERNEL_VERSION,
     era:       ENV.QXK24_ERA,
     data:      { history, count: history.length },

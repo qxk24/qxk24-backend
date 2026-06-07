@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Database Config
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -28,6 +28,7 @@ const MONGO_OPTIONS = {
   serverSelectionTimeoutMS: 10_000,
   socketTimeoutMS: 45_000,
   family: 4 as const,
+  /** BSON/UTF-8 — Arabic Quranic rasm and Malay prose stored natively (no manual Buffer). */
 };
 
 function registerConnectionListeners(): void {
@@ -36,21 +37,21 @@ function registerConnectionListeners(): void {
 
   mongoose.connection.on('disconnected', () => {
     isConnected = false;
-    console.warn('[QXK24:DB] Disconnected.');
+    console.warn('[Alamtologi:DB] Disconnected.');
   });
 
   mongoose.connection.on('reconnected', () => {
     isConnected = true;
-    console.log('[QXK24:DB] Reconnected.');
+    console.log('[Alamtologi:DB] Reconnected.');
   });
 
   mongoose.connection.on('error', (err) => {
     isConnected = false;
-    console.error('[QXK24:DB] Error:', err.message);
+    console.error('[Alamtologi:DB] Error:', err.message);
     if (isStaleTopologyError(err)) {
       void reconnectDatabase().catch((e) => {
         const msg = e instanceof Error ? e.message : String(e);
-        console.error('[QXK24:DB] Auto-reconnect after stale topology failed:', msg);
+        console.error('[Alamtologi:DB] Auto-reconnect after stale topology failed:', msg);
       });
     }
   });
@@ -61,7 +62,7 @@ async function openMongoConnection(): Promise<void> {
   await mongoose.connect(ENV.MONGODB_URI, MONGO_OPTIONS);
   isConnected = true;
   console.log(
-    `[QXK24:DB] Connected — ${ENV.QXK24_KERNEL_VERSION} | ${ENV.QXK24_ERA}`,
+    `[Alamtologi:DB] Connected — ${ENV.QXK24_KERNEL_VERSION} | ${ENV.QXK24_ERA}`,
   );
 }
 
@@ -70,11 +71,11 @@ export async function reconnectDatabase(): Promise<void> {
   if (reconnectPromise) return reconnectPromise;
 
   reconnectPromise = (async () => {
-    console.warn('[QXK24:DB] Stale topology detected — disconnecting and reconnecting...');
+    console.warn('[Alamtologi:DB] Stale topology detected — disconnecting and reconnecting...');
     await mongoose.disconnect().catch(() => undefined);
     isConnected = false;
     await openMongoConnection();
-    console.log('[QXK24:DB] Reconnected after stale topology := 1');
+    console.log('[Alamtologi:DB] Reconnected after stale topology := 1');
   })().finally(() => {
     reconnectPromise = null;
   });
@@ -100,11 +101,11 @@ export async function connectDatabase(options?: { force?: boolean }): Promise<vo
     isConnected = false;
     const msg = error instanceof Error ? error.message : String(error);
     if (isStaleTopologyError(error)) {
-      console.warn('[QXK24:DB] Connect failed with stale topology — retrying once...');
+      console.warn('[Alamtologi:DB] Connect failed with stale topology — retrying once...');
       await reconnectDatabase();
       return;
     }
-    console.error('[QXK24:DB] Connection failed:', msg);
+    console.error('[Alamtologi:DB] Connection failed:', msg);
     throw error;
   }
 }
@@ -145,7 +146,7 @@ export async function disconnectDatabase(): Promise<void> {
   }
   await mongoose.disconnect();
   isConnected = false;
-  console.log('[QXK24:DB] Disconnected cleanly.');
+  console.log('[Alamtologi:DB] Disconnected cleanly.');
 }
 
 export { isStaleTopologyError } from './mongo-topology';

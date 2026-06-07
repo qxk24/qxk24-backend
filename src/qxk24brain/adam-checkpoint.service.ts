@@ -1,23 +1,23 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Constitutional Checkpoints
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
 
 import { ENV } from '../config/environments';
 import type { CompletedFamily } from './qxk24brain.schema';
-import { QXK24BrainEntityModel } from './qxk24brain.schema';
+import { AlamtologiBrainEntityModel } from './qxk24brain.schema';
 import { ConstitutionalCheckpointModel } from './constitutional-checkpoint.schema';
 
 export interface SealCheckpointParams {
@@ -69,7 +69,7 @@ export async function sealConstitutionalCheckpoint(
     isConstitutional: true,
     canBeErased:      false,
     founderId:        params.founderId,
-    kernel:           'QXK24',
+    kernel:           'Alamtologi',
     era:              ENV.QXK24_ERA,
   });
 
@@ -87,7 +87,7 @@ async function sealFromCompletedFamily(
   founderId: string,
   completed: CompletedFamily,
 ): Promise<string | null> {
-  const entity = await QXK24BrainEntityModel.findOne({ uid: completed.completedUid }).lean();
+  const entity = await AlamtologiBrainEntityModel.findOne({ uid: completed.completedUid }).lean();
   const content = entity?.content?.trim() || completed.summary?.trim();
   if (!content) return null;
 

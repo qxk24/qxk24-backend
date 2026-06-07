@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..', '..');
-const source = path.join(repoRoot, 'qxk24-adam', 'teaching-bridge', 'src');
+const source = path.join(repoRoot, 'alm-adam', 'teaching-bridge', 'src');
 const target = path.join(__dirname, '..', 'src', 'teaching-bridge', 'vendor');
 
 if (!fs.existsSync(source)) {

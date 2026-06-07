@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Students Management Routes
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -21,9 +21,13 @@ import { z } from 'zod';
 import { ENV } from '../../config/environments';
 import { getTokenUser, requireFounder } from '../../middleware/auth.middleware';
 import { importFullMemoryFromProduction } from '../../adam/adam-lab-import.service';
-import { importFullMemoryFromLab } from '../../adam/adam-consolidation-import.service';
+import {
+  importFullMemoryFromLab,
+  importStudentAccountsFromLab,
+} from '../../adam/adam-consolidation-import.service';
 import {
   createStudentAccount,
+  deleteStudentAccount,
   listStudentsForFounder,
   slugStudentUserId,
   syncMissingSeedStudents,
@@ -74,7 +78,7 @@ router.post('/sync-seed', requireFounder, async (c) => {
       passwordSource:    s.passwordSource,
       passwordUpdatedAt: s.passwordUpdatedAt?.toISOString(),
     })),
-    kernel: 'QXK24',
+    kernel: 'ALAMTOLOGI',
   });
 });
 
@@ -92,7 +96,7 @@ router.get('/', requireFounder, async (c) => {
       passwordSource:    s.passwordSource,
       passwordUpdatedAt: s.passwordUpdatedAt?.toISOString(),
     })),
-    kernel: 'QXK24',
+    kernel: 'ALAMTOLOGI',
   });
 });
 
@@ -118,8 +122,37 @@ router.post('/', requireFounder, zValidator('json', CreateSchema), async (c) => 
       active:    created.active,
       createdAt: created.createdAt.toISOString(),
     },
-    kernel: 'QXK24',
+    kernel: 'ALAMTOLOGI',
   }, 201);
+});
+
+// POST /api/adam/students/import-lab-accounts — production: restore student logins from lab DB only
+router.post('/import-lab-accounts', requireFounder, async (c) => {
+  if (ENV.QXK24_STACK === 'lab') {
+    return c.json({
+      success: false,
+      error:   'Import student accounts from lab runs on the production API only.',
+      kernel:  'ALAMTOLOGI',
+    }, 400);
+  }
+
+  try {
+    const count = await importStudentAccountsFromLab();
+    const students = await listStudentsForFounder();
+    return c.json({
+      success: true,
+      imported: count,
+      students: students.map((s) => ({
+        userId: s.userId,
+        name:   s.name,
+        active: s.active,
+      })),
+      kernel: 'ALAMTOLOGI',
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Import failed.';
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 500);
+  }
 });
 
 // POST /api/adam/students/import-lab-memory — production: merge lab brain into production (one-time)
@@ -128,16 +161,16 @@ router.post('/import-lab-memory', requireFounder, async (c) => {
     return c.json({
       success: false,
       error:   'Import lab → production runs on the production API only (not /lab).',
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
     }, 400);
   }
 
   try {
     const result = await importFullMemoryFromLab();
-    return c.json({ success: true, result, kernel: 'QXK24' });
+    return c.json({ success: true, result, kernel: 'ALAMTOLOGI' });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Import failed.';
-    return c.json({ success: false, error: msg, kernel: 'QXK24' }, 500);
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 500);
   }
 });
 
@@ -147,16 +180,16 @@ router.post('/import-production-all', requireFounder, async (c) => {
     return c.json({
       success: false,
       error:   'Import from production is only available on the lab stack.',
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
     }, 400);
   }
 
   try {
     const result = await importFullMemoryFromProduction();
-    return c.json({ success: true, result, kernel: 'QXK24' });
+    return c.json({ success: true, result, kernel: 'ALAMTOLOGI' });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Import failed.';
-    return c.json({ success: false, error: msg, kernel: 'QXK24' }, 500);
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 500);
   }
 });
 
@@ -166,16 +199,16 @@ router.post('/import-full-memory', requireFounder, async (c) => {
     return c.json({
       success: false,
       error:   'Import from production is only available on the lab stack.',
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
     }, 400);
   }
 
   try {
     const result = await importFullMemoryFromProduction();
-    return c.json({ success: true, result, kernel: 'QXK24' });
+    return c.json({ success: true, result, kernel: 'ALAMTOLOGI' });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Import failed.';
-    return c.json({ success: false, error: msg, kernel: 'QXK24' }, 500);
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 500);
   }
 });
 
@@ -185,17 +218,35 @@ router.post('/:userId/import-production', requireFounder, async (c) => {
     return c.json({
       success: false,
       error:   'Import from production is only available on the lab stack.',
-      kernel:  'QXK24',
+      kernel:  'ALAMTOLOGI',
     }, 400);
   }
 
   try {
     const result = await importFullMemoryFromProduction();
-    return c.json({ success: true, result, kernel: 'QXK24' });
+    return c.json({ success: true, result, kernel: 'ALAMTOLOGI' });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Import failed.';
-    return c.json({ success: false, error: msg, kernel: 'QXK24' }, 500);
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 500);
   }
+});
+
+// DELETE /api/adam/students/:userId — permanently remove student account + chat data
+router.delete('/:userId', requireFounder, async (c) => {
+  const userId = (c.req.param('userId') ?? '').trim().toLowerCase();
+  if (!userId) {
+    return c.json({ success: false, error: 'Student id required.', kernel: 'ALAMTOLOGI' }, 400);
+  }
+
+  const result = await deleteStudentAccount(userId);
+  if (result === 'forbidden') {
+    return c.json({ success: false, error: 'This account cannot be deleted.', kernel: 'ALAMTOLOGI' }, 403);
+  }
+  if (result === 'not_found') {
+    return c.json({ success: false, error: 'Student not found.', kernel: 'ALAMTOLOGI' }, 404);
+  }
+
+  return c.json({ success: true, deletedUserId: userId, kernel: 'ALAMTOLOGI' });
 });
 
 // PATCH /api/adam/students/:userId
@@ -208,7 +259,7 @@ router.patch('/:userId', requireFounder, zValidator('json', PatchSchema), async 
     email: body.email === '' ? '' : body.email,
   });
   if (!updated) {
-    return c.json({ success: false, error: 'Student not found.', kernel: 'QXK24' }, 404);
+    return c.json({ success: false, error: 'Student not found.', kernel: 'ALAMTOLOGI' }, 404);
   }
 
   return c.json({
@@ -220,7 +271,7 @@ router.patch('/:userId', requireFounder, zValidator('json', PatchSchema), async 
       active:    updated.active,
       createdAt: updated.createdAt.toISOString(),
     },
-    kernel: 'QXK24',
+    kernel: 'ALAMTOLOGI',
   });
 });
 

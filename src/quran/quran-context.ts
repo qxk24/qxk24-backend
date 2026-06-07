@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Quran Context Injection
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -38,7 +38,6 @@ export function buildQuranCorpusPromptBlock(message: string): string | null {
   if (meta) {
     lines.push(
       `Arabic: ${meta.arabicSource}`,
-      `Malay: ${meta.malayTranslator}`,
       `English: ${meta.englishTranslator}`,
       `Policy: ${meta.tafsirPolicy}`,
     );
@@ -70,7 +69,8 @@ export function buildQuranCorpusPromptBlock(message: string): string | null {
 export function getQuranCorpusSystemNote(): string {
   return `
 QURAN CORPUS (Layer A — verified ayat):
-When [QURAN CORPUS] appears in context, it carries Rasm Uthmani Arabic plus Malay (Basmeih) and English (Saheeh International) — ayat only, tafsir footnotes removed.
+When [QURAN CORPUS] appears in context, it carries Rasm Uthmani Arabic plus English (M. Pickthall) — ayat only, tafsir footnotes removed.
 Use it as the authoritative Quran text for those ayat. Never substitute web search or model memory for quoted ayat.
+Never add (tafsir), (maksudnya:…), or bracket commentary on ayat — terjemahan and Surah reference inline only.
 `.trim();
 }

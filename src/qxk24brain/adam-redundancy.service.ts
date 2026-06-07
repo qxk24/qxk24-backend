@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Memory Redundancy System (Layer 10)
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -26,8 +26,8 @@ import { r2StorageService } from '../services/r2-storage.service';
 import { ADAMVaultModel } from './adam-vault.schema';
 import { ADAMBackupLogModel } from './adam-redundancy.schema';
 import {
-  QXK24BrainEntityModel,
-  QXK24BrainMasterModel,
+  AlamtologiBrainEntityModel,
+  AlamtologiBrainMasterModel,
 } from './qxk24brain.schema';
 
 function stripMongoInternals<T extends Record<string, unknown>>(doc: T): Omit<T, '_id' | '__v'> {
@@ -57,7 +57,7 @@ export function encryptBackupPayload(plaintext: string): string {
   return JSON.stringify({
     v:         1,
     algorithm: 'aes-256-gcm',
-    kernel:    'QXK24',
+    kernel:    'ALAMTOLOGI',
     iv:        iv.toString('base64'),
     tag:       tag.toString('base64'),
     payload:   ciphertext.toString('base64'),
@@ -135,8 +135,8 @@ export async function backupBrainToR2(
   }
 
   try {
-    const master = await QXK24BrainMasterModel.findOne({ founderId }).lean();
-    const entities = await QXK24BrainEntityModel.find({ founderId }).lean();
+    const master = await AlamtologiBrainMasterModel.findOne({ founderId }).lean();
+    const entities = await AlamtologiBrainEntityModel.find({ founderId }).lean();
     const vault = await ADAMVaultModel.find({ founderId }).lean();
 
     const backup = {
@@ -167,7 +167,7 @@ export async function backupBrainToR2(
       {
         founderId,
         encrypted: 'true',
-        kernel:    'QXK24',
+        kernel:    'ALAMTOLOGI',
         layer:     'LAYER_10',
       },
     );

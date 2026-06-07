@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Student Registry Service
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -18,7 +18,16 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { ENV } from '../config/environments';
+import {
+  ADAMConsultModel,
+  ADAMFounderSessionModel,
+  ADAMMessageModel,
+} from './adam.schema';
+import { ADAMPasswordResetModel } from './adam-password-reset.schema';
 import { ADAMStudentAccountModel } from './adam-student.schema';
+import { ADAMWorkspaceModel } from './adam-workspace.schema';
+import { ADAMMessageLedgerModel } from '../qxk24brain/adam-ledger.schema';
+import { isStudentSelfRegisterEnabled } from './adam-platform-settings.service';
 import {
   FOUNDER_USER_ID,
   SEED_STUDENT_ACCOUNTS,
@@ -106,7 +115,7 @@ export async function syncMissingSeedStudents(): Promise<number> {
 
     const plain = passwords[seed.userId];
     if (!isUsableSeedPassword(plain)) {
-      console.warn(`[QXK24] Seed sync skipped (no password in env): ${seed.userId}`);
+      console.warn(`[ALAMTOLOGI] Seed sync skipped (no password in env): ${seed.userId}`);
       continue;
     }
 
@@ -184,7 +193,7 @@ async function ensureSeeded(): Promise<void> {
   for (const seed of SEED_STUDENT_ACCOUNTS) {
     const plain = passwords[seed.userId];
     if (!isUsableSeedPassword(plain)) {
-      console.warn(`[QXK24] Student seed skipped (no password in env): ${seed.userId}`);
+      console.warn(`[ALAMTOLOGI] Student seed skipped (no password in env): ${seed.userId}`);
       continue;
     }
 
@@ -361,6 +370,39 @@ export async function updateStudentAccount(
   };
 }
 
+export type DeleteStudentResult = 'deleted' | 'not_found' | 'forbidden';
+
+/** Permanently removes a student account and their ADAM chat data (founder-only). */
+export async function deleteStudentAccount(userId: string): Promise<DeleteStudentResult> {
+  const id = userId.trim().toLowerCase();
+  if (!id || id === FOUNDER_USER_ID) return 'forbidden';
+
+  const exists = await ADAMStudentAccountModel.exists({ userId: id });
+  if (!exists) return 'not_found';
+
+  const sessions = await ADAMFounderSessionModel.find({
+    founderId:   id,
+    sessionType: 'student',
+  })
+    .select({ sessionId: 1 })
+    .lean();
+
+  const sessionIds = sessions.map((s) => s.sessionId).filter(Boolean);
+  if (sessionIds.length > 0) {
+    await ADAMMessageModel.deleteMany({ sessionId: { $in: sessionIds } });
+    await ADAMMessageLedgerModel.deleteMany({ sessionId: { $in: sessionIds } }).catch(() => {});
+    await ADAMFounderSessionModel.deleteMany({ sessionId: { $in: sessionIds } });
+  }
+
+  await ADAMWorkspaceModel.deleteMany({ userId: id });
+  await ADAMConsultModel.deleteMany({ studentId: id });
+  await ADAMPasswordResetModel.deleteMany({ userId: id });
+  await ADAMStudentAccountModel.deleteOne({ userId: id });
+  await refreshStudentCache();
+
+  return 'deleted';
+}
+
 export async function loginStudentWithGoogle(profile: {
   googleSub: string;
   email:     string;
@@ -390,6 +432,10 @@ export async function loginStudentWithGoogle(profile: {
       passwordSource:    doc.passwordSource,
       passwordUpdatedAt: doc.passwordUpdatedAt,
     };
+  }
+
+  if (!isStudentSelfRegisterEnabled()) {
+    throw new Error('Registration is closed. Contact the Founder for an account.');
   }
 
   const activeCount = await ADAMStudentAccountModel.countDocuments({ active: true });
@@ -457,9 +503,7 @@ export async function resetStudentPasswordWithToken(
   await refreshStudentCache();
 }
 
-export function isStudentSelfRegisterEnabled(): boolean {
-  return ENV.ADAM_STUDENT_SELF_REGISTER;
-}
+export { isStudentSelfRegisterEnabled } from './adam-platform-settings.service';
 
 export function buildFounderStudentsAwarenessBlock(): string {
   const accounts = getStudentAccounts();

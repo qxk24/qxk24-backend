@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Chat Session Service
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -41,6 +41,57 @@ import type {
   ConstitutionalJudgment,
 } from './adam.types';
 
+/** Mongoose rejects null/undefined/blank — never persist an empty chat row. */
+function requirePersistedContent(
+  content: string | undefined | null,
+  role: 'founder' | 'student' | 'adam',
+): string {
+  const trimmed = (content ?? '').trim();
+  if (trimmed.length > 0) return trimmed;
+
+  if (role === 'adam') {
+    return [
+      'Bismillahirahmanirrahim.',
+      'P.alt, maaf — pada giliran ini jawapan saya tidak tersimpan.',
+      'Sila hantar semula bab itu.',
+    ].join(' ');
+  }
+  if (role === 'founder') {
+    return 'P.alt shared teaching material.';
+  }
+  return '(message)';
+}
+
+/** Session id with the most persisted founder messages (source of truth vs messageCount). */
+export async function founderSessionIdWithMostMessages(
+  founderId = FOUNDER_USER_ID,
+): Promise<string | null> {
+  const agg = await ADAMMessageModel.aggregate<{ _id: string; count: number }>([
+    { $match: { founderId, sessionType: 'founder' } },
+    { $group: { _id: '$sessionId', count: { $sum: 1 } } },
+    { $sort: { count: -1 } },
+    { $limit: 1 },
+  ]);
+  const top = agg[0];
+  return top && top.count > 0 ? top._id : null;
+}
+
+/** Reuse teaching thread with history — avoid spawning empty sessions after sleep/refresh. */
+export async function resolveFounderTeachingSession(
+  founderId = FOUNDER_USER_ID,
+): Promise<string> {
+  const historicalId = await founderSessionIdWithMostMessages(founderId);
+  if (historicalId) {
+    await ADAMFounderSessionModel.updateOne(
+      { sessionId: historicalId },
+      { active: true, lastActiveAt: new Date(), wakeAcknowledged: false },
+    );
+    return historicalId;
+  }
+
+  return getOrCreateSession(founderId, 'founder');
+}
+
 export async function getOrCreateSession(
   userId = FOUNDER_USER_ID,
   sessionType: SessionType = 'founder',
@@ -50,6 +101,14 @@ export async function getOrCreateSession(
   }
 
   if (sessionType === 'founder') {
+    const historicalId = await founderSessionIdWithMostMessages(userId);
+    if (historicalId) {
+      await ADAMFounderSessionModel.updateOne(
+        { sessionId: historicalId },
+        { active: true, lastActiveAt: new Date() },
+      );
+      return historicalId;
+    }
     await closeInactiveFounderSessions(userId);
   }
 
@@ -215,11 +274,21 @@ export async function saveMessage(
     isStudentRelay?: boolean;
   },
 ): Promise<string> {
+  const safeContent = requirePersistedContent(content, role);
+  if (safeContent !== (content ?? '').trim()) {
+    console.warn('[adam:save-message] empty content coerced', {
+      sessionId,
+      role,
+      mode,
+      chars: (content ?? '').length,
+    });
+  }
+
   const k24MessageId = await atomicSaveMessage(
     sessionId,
     ownerId,
     role,
-    content,
+    safeContent,
     mode,
     {
       speakerId:      meta?.speakerId ?? ownerId,
@@ -230,7 +299,7 @@ export async function saveMessage(
       needsConsult:   meta?.needsConsult ?? false,
       isFounderRelay: meta?.isFounderRelay ?? false,
       isStudentRelay: meta?.isStudentRelay ?? false,
-      kernel:         'QXK24',
+      kernel:         'Alamtologi',
       era:            ENV.QXK24_ERA,
     },
   );

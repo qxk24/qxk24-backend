@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * QIUBBX MANAGEMENT SYSTEM
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : Subscription Guard Middleware
  * Platform    : Backend (TypeScript)
- * QXK24       : Kernel v1.7.0
+ * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
+ * Framework. All actions are governed by Alamtologi. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -56,7 +56,7 @@ export async function requireActiveSubscription(
       status:     access.status,
       upgradeUrl: access.upgradeUrl,
       pencarian:  access.pencarian,
-      kernel:     'QXK24',
+      kernel:     'Alamtologi',
     }, 402);
   }
 
@@ -79,6 +79,6 @@ export async function attachSubscriptionAccess(
 }
 
 export function subscriptionUpgradeUrl(): string {
-  const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://qxk24.com').replace(/\/$/, '');
+  const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
   return `${base}/plans`;
 }
