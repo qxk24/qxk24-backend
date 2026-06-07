@@ -30,6 +30,7 @@ import {
 } from '../adam-journal-manual-prompt';
 import { countJournalWords } from '../adam-journal.constants';
 import { findUniversityTopicById } from '../adam-university-knowledge';
+import { buildQwenLanguageLock } from '../adam-language-guard';
 import { FOUNDER_USER_ID } from '../adam-student.types';
 import {
   JournalV2Model,
@@ -61,6 +62,7 @@ async function buildJournalGenerateSystemPrompt(): Promise<string> {
   });
 
   return [
+    buildQwenLanguageLock({ journalPhase: 'draft' }),
     base,
     buildAdamJournalWritingVoiceBlock(),
   ].join('\n\n');

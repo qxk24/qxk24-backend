@@ -19,6 +19,7 @@ import { ADAMJournalModel } from './adam.schema';
 import type { UniversityKnowledgeTopic } from './adam-university-knowledge';
 import { demoteProseLatexFormulas, prepareContentForStorage } from './adam-journal-formula';
 import { countJournalWords } from './adam-journal.constants';
+import { JOURNAL_DRAFT_LOCALE } from './adam-journal-language.config';
 import { assembleManuscriptFromSections } from './adam-journal-section-writer';
 import { sectionsFromJournalMongoDoc } from './adam-journal-section-map';
 import type { JournalSectionDraft, JournalSectionId } from './adam-journal-section.types';
@@ -137,6 +138,7 @@ export async function saveJournalSectionProgress(input: {
     draftSections:      storedSections,
     lastCompletedSection: input.lastSection,
     totalWords:         countJournalWords(assembleManuscriptFromSections(input.sections)),
+    sourceLanguage:     JOURNAL_DRAFT_LOCALE,
     reviewNotes:        `Section draft — last: ${input.lastSection}`,
   };
 

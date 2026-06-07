@@ -166,11 +166,11 @@ export function extractSectionBodyForSave(
 ): string {
   let text = stripAdamProtocolBlocks(adamText).trim();
   text = text
-    .replace(
-      /^Berdasarkan pengajaran sesi ini[^\n]*\n+/im,
-      '',
-    )
+    .replace(/^Berdasarkan pengajaran sesi ini[^\n]*\n+/im, '')
+    .replace(/^From this session's teaching[^\n]*\n+/im, '')
     .replace(/^Menulis sekarang\.{0,3}\s*\n+/im, '')
+    .replace(/^Writing now\.{0,3}\s*\n+/im, '')
+    .replace(/^Bismillahirahmanirrahim\.?\s*\n+/im, '')
     .trim();
 
   if (sectionId !== 'title_and_abstract') {

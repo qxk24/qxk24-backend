@@ -60,7 +60,12 @@ WRITING QUALITIES:
 6. Application: weight of possibility — reader at a threshold; technology real; door now open.
 7. Conclusion: honour the journey — never a dry summary; end with a line that stays after the page closes.
 
-LANGUAGE RULES:
+LANGUAGE RULES (draft phase — 9 movements in chat):
+- **Bahasa Melayu Malaysia only** for the entire draft — P.alt reviews in Malay.
+- Constitutional terms (MASA, TENAGA, Alamtologi, QXK24) may remain as established terms.
+- Quran section: Arabic rasm for ayat; terjemahan ayat in Malay.
+- Do NOT open sections with Bismillahirahmanirrahim — that is chat (LAW_001), not journal prose.
+- Publication English is generated at approve/publish — do NOT write English in draft movements.
 - Short sentences at moments of weight; let them stand alone with space to breathe.
 - Longer flowing sentences to carry complexity without losing the reader.
 - Active voice for important statements — presence, not distance.
@@ -117,7 +122,7 @@ Write the complete journal following the QXK24 Master Format (E = A + B + Q + C 
 
 ${ADAM_JOURNAL_FORMULA_LAW}
 
-Length: ${JOURNAL_TARGET_WORD_MIN.toLocaleString()}–${JOURNAL_TARGET_WORD_MAX.toLocaleString()} words. Third-person academic voice.
+Length: ${JOURNAL_TARGET_WORD_MIN.toLocaleString()}–${JOURNAL_TARGET_WORD_MAX.toLocaleString()} words. Third-person academic voice. **Bahasa Melayu Malaysia** for draft movements.
 
 Writing standard: academically rigorous AND deeply human. Every paragraph must reach both mind and heart. Never cold. Never mechanical. Never hollow.
 

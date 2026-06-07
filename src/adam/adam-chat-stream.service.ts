@@ -87,6 +87,12 @@ import {
   finishAdamChatTurn,
   persistInteractiveJournalDraft,
 } from './adam-chat-stream-post-turn';
+import {
+  founderWantsJournalDraft,
+  founderWantsJournalStop,
+  founderWantsJournalWrite,
+  founderWantsJournalContinue,
+} from './adam-chat-response-parser';
 import type {
   StreamADAMChatOptions,
   AdamChatTurnShell,
@@ -132,6 +138,19 @@ export async function streamADAMChat(
   }
 
   const normalizedMessage = normalizeUserMessage(userMessage);
+
+  if (
+    isFounder
+    && mode === 'TEACHING'
+    && !founderWantsJournalStop(normalizedMessage)
+    && (
+      founderWantsJournalWrite(normalizedMessage)
+      || founderWantsJournalDraft(normalizedMessage)
+      || founderWantsJournalContinue(normalizedMessage)
+    )
+  ) {
+    mode = 'JOURNAL_GEN';
+  }
 
   const teaching = uploadIds.length
     ? await buildTeachingContext(uploadIds, {
@@ -401,7 +420,9 @@ export async function streamADAMChat(
         systemPrompt = journal.systemPrompt;
       }
 
-      systemPrompt = `${buildQwenLanguageLock()}\n\n${systemPrompt}`;
+      systemPrompt = `${buildQwenLanguageLock({
+        journalPhase: mode === 'JOURNAL_GEN' && isFounder ? 'draft' : undefined,
+      })}\n\n${systemPrompt}`;
 
       const modelChoice = resolveAdamChatModel({
         participant,

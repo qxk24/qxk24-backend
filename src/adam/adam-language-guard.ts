@@ -52,8 +52,42 @@ export interface ScriptLeakResult {
   flaggedSegments: string[];
 }
 
+import {
+  buildJournalDraftLanguageLock,
+  buildJournalPublishLanguageLock,
+  type JournalManuscriptPhase,
+} from './adam-journal-language.config';
+
+export type { JournalManuscriptPhase } from './adam-journal-language.config';
+export {
+  JOURNAL_DRAFT_LOCALE,
+  JOURNAL_PUBLISH_LOCALE,
+  buildJournalDraftLanguageLock,
+  buildJournalPublishLanguageLock,
+  journalLanguageLockForPhase,
+} from './adam-journal-language.config';
+
+export interface QwenLanguageLockOptions {
+  /** @deprecated use journalPhase — treat as publish (English). */
+  journalManuscript?: boolean;
+  /** Draft = Malay (9 movements). Publish = English (catalogue). */
+  journalPhase?: JournalManuscriptPhase;
+}
+
+/** English-only lock for publication pass (approve/publish). */
+export function buildJournalManuscriptLanguageLock(): string {
+  return buildJournalPublishLanguageLock();
+}
+
 /** Injected at the top of every ADAM system prompt (Qwen). */
-export function buildQwenLanguageLock(): string {
+export function buildQwenLanguageLock(options?: QwenLanguageLockOptions): string {
+  if (options?.journalPhase === 'draft') {
+    return buildJournalDraftLanguageLock();
+  }
+  if (options?.journalPhase === 'publish' || options?.journalManuscript) {
+    return buildJournalPublishLanguageLock();
+  }
+
   const lang = ENV.ADAM_DEFAULT_LANGUAGE.trim().toLowerCase();
   const malayDefault = lang === 'malay' || lang === 'ms' || lang === 'bm';
   const defaultLine = malayDefault

@@ -149,12 +149,12 @@ export function shouldAttemptFounderJournalSeal(
   return founderWantsJournalSeal(userMessage) || adamClaimsJournalSaved(adamText);
 }
 
-/** ADAM explains it cannot seal — never run prose fallback. */
-export function adamDeclinesJournalSeal(adamText: string): boolean {
-  return /tidak dapat|tidak boleh|cannot seal|can't seal|tiada teks manuskrip|tiada manuskrip penuh|tiada manuskrip|tidak hadir|tidak tersedia|tidak pernah dibuka|tag tersebut tidak|tidak wujud|tidak membenarkan|reka.?reka|halusinasi|menyegel "kosong"|menyegel 'kosong'|seal yang tidak wujud|tiada blok json|tiada sebarang blok|memohon maaf/i.test(
-    adamText,
-  );
-}
+/** Meta-refusal when ADAM cannot seal — not academic "tidak dapat menjelaskan" in manuscript body. */
+const ADAM_META_SEAL_REFUSAL =
+  /\b(?:tidak(?:\s+dapat|\s+boleh)\s+(?:menyegel|seal|menyimpan(?:\s+jurnal)?|menghasilkan\s+manuskrip)|tiada\s+(?:teks\s+)?manuskrip(?:\s+penuh)?(?:\s+dalam(?:\s+sesi|\s+balasan)?)?|cannot\s+seal|can't\s+seal|tidak\s+(?:hadir|tersedia|wujud|membenarkan)(?:\s+manuskrip|\s+teks|\s+dalam\s+balasan)?|tag\s+tersebut\s+tidak|tidak\s+pernah\s+dibuka|reka[\-.]?\s*reka|halusinasi|menyegel\s+["']kosong|seal\s+yang\s+tidak\s+wujud|tiada\s+blok\s+json|tiada\s+sebarang\s+blok)\b/i;
+
+const ADAM_OPENING_APOLOGY_REFUSAL =
+  /^(?:bismillah[^\n]*\n+)?(?:[^\n]{0,120}\n+){0,4}[^\n]{0,240}\b(?:memohon maaf|maaf(?:kan)?)[^\n]{0,200}\b(?:tidak(?:\s+dapat|\s+boleh)|tiada\s+manuskrip)/im;
 
 const IMRAD_MARKERS = [
   'introduction', 'background', 'methodology', 'findings', 'discussion', 'conclusion',
@@ -165,6 +165,41 @@ const IMRAD_MARKERS = [
   'abstrak', 'aplikasi', 'pengetahuan konvensional', 'rangka kerja alamtologi',
   'menulis sekarang',
 ];
+
+const V2_SECTION_MARKERS = [
+  'title & abstract',
+  'human opening',
+  'honest wall',
+  'topic ayat',
+  'discipline & syllabus',
+  'conclusion — invitation',
+  'convention knowledge — achievement',
+  'al-quran — topic ayat',
+];
+
+/** Prose looks like a real manuscript, not a meta-refusal chat. */
+export function hasSubstantiveManuscriptProse(text: string): boolean {
+  const lower = text.toLowerCase();
+  const hits = IMRAD_MARKERS.filter((k) => lower.includes(k)).length;
+  const v2Hits = V2_SECTION_MARKERS.filter((k) => lower.includes(k)).length;
+  if (v2Hits >= 3) return true;
+  if (hits >= 2) return true;
+  if (text.length >= 4500 && hits >= 1) return true;
+  if (text.length >= 8_000 && v2Hits >= 1) return true;
+  return false;
+}
+
+/** ADAM explains it cannot seal — never run prose fallback. */
+export function adamDeclinesJournalSeal(adamText: string): boolean {
+  const t = adamText.trim();
+  if (!t) return true;
+  if (ADAM_OPENING_APOLOGY_REFUSAL.test(t.slice(0, 900))) return true;
+  // Long V2/IMRaD manuscripts use "tidak dapat" in convention analysis — scan opening only.
+  if (t.length > 2_500 && hasSubstantiveManuscriptProse(t)) {
+    return ADAM_META_SEAL_REFUSAL.test(t.slice(0, 1_200));
+  }
+  return ADAM_META_SEAL_REFUSAL.test(t);
+}
 
 /** Best-effort JSON parse for LLM-emitted protocol blocks (trailing commas, fences). */
 export function parseLooseAdamJson(raw: string): unknown | null {
@@ -197,15 +232,6 @@ export function stripAdamProtocolBlocks(text: string): string {
     .replace(/<adam_broadcast>[\s\S]*$/i, '')
     .replace(/<adam_to_founder>[\s\S]*$/i, '');
   return out.trim();
-}
-
-/** Prose looks like a real manuscript, not a meta-refusal chat. */
-export function hasSubstantiveManuscriptProse(text: string): boolean {
-  const lower = text.toLowerCase();
-  const hits = IMRAD_MARKERS.filter((k) => lower.includes(k)).length;
-  if (hits >= 2) return true;
-  if (text.length >= 4500 && hits >= 1) return true;
-  return false;
 }
 
 export function isPlaceholderJournalTitle(title: string): boolean {
@@ -249,9 +275,44 @@ export function founderWantsJournalStop(message: string): boolean {
     || /\bhentikan\b/i.test(t);
 }
 
+/** V2 pipeline order — not a document upload (see docs/ADAM_JOURNAL_FORMAT.md). */
+export function founderWantsJournalV2Format(message: string): boolean {
+  const t = message.trim();
+  if (/\b(full\s+)?v2\s+journal\b/i.test(t)) return true;
+  if (/\bjurnal\s+(?:format\s+)?v2\b/i.test(t)) return true;
+  if (/\bformat\s+v2\b/i.test(t) && /\b(jurnal|journal)\b/i.test(t)) return true;
+  return false;
+}
+
+/** Continue to the next journal movement after reviewing the current chapter. */
+export function founderWantsJournalContinue(message: string): boolean {
+  const t = message.trim();
+  if (!t) return false;
+  if (/^\s*(continue|next|proceed|go\s+on)\s*[!?.…,]*\s*$/i.test(t)) return true;
+  if (/^\s*teruskan\s*[!?.…,]*\s*$/i.test(t)) return true;
+  if (/\b(next|continue)\s+(movement|chapter|section|bab)\b/i.test(t)) return true;
+  if (/\b(teruskan|sambung)\s+(jurnal|journal|bab|movement)\b/i.test(t)) return true;
+  if (/\b(lulus|approve)\s+(movement|chapter|section|bab)\b/i.test(t)) return true;
+  return false;
+}
+
+/** First journal / public opening — common after clearing chat (no explicit "tulis"). */
+export function founderStartsNewJournal(message: string): boolean {
+  const t = message.trim();
+  if (!t) return false;
+  if (/\b(jurnal|journal)\s+(?:pertama|baru|first|new)\b/i.test(t)) return true;
+  if (/\b(?:pertama|first|new)\s+(?:jurnal|journal)\b/i.test(t)) return true;
+  if (/\b(?:mulakan|mula|start|begin|buka)\s+(?:jurnal|journal)\b/i.test(t)) return true;
+  if (/\b(?:new|write)\s+(?:the\s+)?(?:first\s+)?journal\b/i.test(t)) return true;
+  if (/\bpermulaan\s+(?:jurnal|journal)\b/i.test(t)) return true;
+  return false;
+}
+
 /** P.alt asked ADAM to write a journal (one-shot — system auto-saves when long enough). */
 export function founderWantsJournalWrite(message: string): boolean {
   const t = message.trim();
+  if (founderWantsJournalV2Format(message)) return true;
+  if (founderStartsNewJournal(message)) return true;
   if (/^\s*tulis\s+jurnal\s*[!?.…,]*\s*$/i.test(t)) return true;
   if (/\btulis\s+jurnal\b/i.test(t)) return true;
   if (/^\s*write\s+(?:the\s+)?journal\s*[!?.…,]*\s*$/i.test(t)) return true;
@@ -261,6 +322,23 @@ export function founderWantsJournalWrite(message: string): boolean {
   }
   return /\b(jurnal|journal)\b/i.test(message)
     && /\b(tulis|write|cipta|buat|hasilkan)\b/i.test(message);
+}
+
+/** Malay devotional opener instead of V2 English manuscript (TEACHING drift or failed topic lock). */
+export function adamWroteJournalManifestoInsteadOfV2(text: string): boolean {
+  if (hasSubstantiveManuscriptProse(text)) return false;
+  const head = text.slice(0, 2_400);
+  const chatOpener =
+    /^Bismillah/i.test(head.trim())
+    || /\bP\.?\s*alt,?\s+saya\s+tulis\s+jurnal/i.test(head)
+    || /\*\*Jurnal\s+Pertama/i.test(head)
+    || /Permulaan\s+yang\s+Di/i.test(head)
+    || /—\s*ADAM,\s+dengan\s+tulus/i.test(text)
+    || /adakah\s+jurnal\s+ini\s+selaras/i.test(text);
+  const malayManuscript =
+    /\bdalam\s+bahasa\s+Melayu\b/i.test(head)
+    || (/\b(?:AMA|HISAL|AIDIL)\b/.test(head) && /\bbukan\s+(?:ilmu|sistem|matematik)\b/i.test(head));
+  return chatOpener || (malayManuscript && !/From this session'?s teaching/i.test(head));
 }
 
 export function founderWantsJournalDraft(message: string): boolean {

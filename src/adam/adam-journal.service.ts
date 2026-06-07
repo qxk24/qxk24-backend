@@ -61,9 +61,11 @@ import { allJournalSectionsComplete } from './adam-journal-section.types';
 import type { JournalSectionId } from './adam-journal-section.types';
 import {
   draftSectionsToJournalContent,
+  resolveJournalFieldsFromMongoDoc,
   sectionsFromJournalMongoDoc,
 } from './adam-journal-section-map';
-import { inferJournalSourceLanguage } from './journal-locale';
+import { JOURNAL_DRAFT_LOCALE } from './adam-journal-language.config';
+import { ensureEnglishPublicationManuscript } from './journal-translation.service';
 
 // ─── Generate Journal Number ──────────────────────────────────
 
@@ -595,7 +597,7 @@ async function sealSectionDraftToPendingReview(input: {
     doc.topicId = topicId;
     doc.knowledgeTopicId = topicId;
     doc.totalWords = totalWords;
-    doc.sourceLanguage = inferJournalSourceLanguage(manuscript);
+    doc.sourceLanguage = JOURNAL_DRAFT_LOCALE;
     doc.submittedAt = new Date();
     doc.reviewNotes =
       doc.reviewNotes?.trim()
@@ -623,7 +625,7 @@ async function sealSectionDraftToPendingReview(input: {
       knowledgeDiscipline: topic.disciplineName,
       knowledgeSubfield:  topic.subfield,
       totalWords,
-      sourceLanguage:     inferJournalSourceLanguage(manuscript),
+      sourceLanguage:     JOURNAL_DRAFT_LOCALE,
       submittedAt:        new Date(),
       reviewNotes:        'Sealed from ADAM section manuscript — awaiting P.alt review (Lulus).',
       ahriScore:          0,
@@ -659,6 +661,16 @@ async function sealSectionDraftToPendingReview(input: {
   }
 
   return journal;
+}
+
+/** Section-by-section V2 pipeline — skip auto-seal until all 9 movements or explicit seal. */
+export function isSectionJournalPipelineInProgress(input: {
+  sectionJournalComplete?: boolean;
+  sectionManuscriptOnly?: string | null;
+  sectionDraft?:           unknown;
+}): boolean {
+  return input.sectionJournalComplete === false
+    && Boolean(input.sectionManuscriptOnly ?? input.sectionDraft);
 }
 
 /** Seal from JSON tag and/or session manuscript when ADAM omits the tag in the latest reply. */
@@ -717,11 +729,23 @@ export async function processFounderJournalSeal(input: {
     || founderWantsJournalDraft(input.userMessage)
     || founderWantsJournalSeal(input.userMessage);
 
+  const sectionPipelineInProgress = isSectionJournalPipelineInProgress({
+    sectionJournalComplete: input.sectionJournalComplete,
+    sectionManuscriptOnly:  input.sectionManuscriptOnly,
+    sectionDraft:           input.sectionDraft,
+  });
+
   const attempt =
     input.forceSealAttempt
-    || wantsJournalWork
-    || shouldAttemptFounderJournalSeal(input.userMessage, input.finalResponse)
-    || shouldAttemptFounderJournalSeal(input.userMessage, input.fullResponse);
+    || founderWantsJournalSeal(input.userMessage)
+    || (
+      !sectionPipelineInProgress
+      && (
+        wantsJournalWork
+        || shouldAttemptFounderJournalSeal(input.userMessage, input.finalResponse)
+        || shouldAttemptFounderJournalSeal(input.userMessage, input.fullResponse)
+      )
+    );
 
   if (attempt) {
     console.log(
@@ -781,7 +805,7 @@ export async function processFounderJournalSeal(input: {
     !proseSource
   ) {
     sealErrors.push(
-      'Tiada draf IMRaD dalam sesi ini. Taip "Tulis jurnal" — ADAM pilih topik, tulis minimum 4,000 perkataan, simpan automatik ke semakan.',
+      'Tiada draf jurnal V2 dalam sesi ini. Taip "Tulis jurnal" atau "full V2 journal" — ADAM pilih topik, tulis 9 bahagian (minimum 4,000 perkataan), simpan automatik ke semakan.',
     );
     return { sealedJournals, sealErrors };
   }
@@ -856,7 +880,7 @@ export async function processFounderJournalSeal(input: {
   if (wantsJournalWork) {
     if (!proseSource) {
       sealErrors.push(
-        'Tiada draf IMRaD dalam sesi. Taip "Tulis jurnal" — ADAM tulis minimum 4,000 perkataan.',
+        'Tiada draf jurnal V2 dalam sesi. Taip "Tulis jurnal" — ADAM tulis 9 bahagian, minimum 4,000 perkataan.',
       );
     } else if (sectionOnly && !sectionComplete) {
       sealErrors.push(
@@ -868,11 +892,11 @@ export async function processFounderJournalSeal(input: {
       );
     } else if (proseSource) {
       sealErrors.push(
-        'Draf IMRaD wujud tetapi belum cukup panjang atau belum lengkap. ADAM akan sambung menulis — tunggu sehingga minimum 4,000 perkataan.',
+        'Draf jurnal V2 wujud tetapi belum cukup panjang atau belum lengkap (9 bahagian). ADAM akan sambung menulis — tunggu sehingga minimum 4,000 perkataan.',
       );
     } else {
       sealErrors.push(
-        'Tiada manuskrip IMRaD dalam balasan ini. Taip "Tulis jurnal" — ADAM menulis penuh, sistem simpan automatik.',
+        'Tiada manuskrip jurnal V2 dalam balasan ini. Taip "Tulis jurnal" — ADAM menulis 9 bahagian, sistem simpan automatik.',
       );
     }
   } else if (claimsSaved) {
@@ -1243,14 +1267,19 @@ export async function publishJournal(id: string): Promise<AlamtologiAcademicJour
   const doc = await ADAMJournalModel.findById(id);
   if (!doc || doc.status !== 'APPROVED') return null;
 
-  doc.status        = 'PUBLISHED';
-  doc.publishedAt   = new Date();
-  if (!doc.journalNumber) {
-    doc.journalNumber = await generateJournalNumber();
-  }
-  await doc.save();
+  await ensureEnglishPublicationManuscript(id);
 
-  const journal = mapToJournal(doc);
+  const refreshed = await ADAMJournalModel.findById(id);
+  if (!refreshed || refreshed.status !== 'APPROVED') return null;
+
+  refreshed.status        = 'PUBLISHED';
+  refreshed.publishedAt   = new Date();
+  if (!refreshed.journalNumber) {
+    refreshed.journalNumber = await generateJournalNumber();
+  }
+  await refreshed.save();
+
+  const journal = mapToJournal(refreshed);
   try {
     await runADAMAudit({
       targetId:    journal.id,
@@ -1272,16 +1301,17 @@ function mapToJournal(
   opts?: { summary?: boolean },
 ): AlamtologiAcademicJournal {
   const useSummary = opts?.summary && !doc.content;
+  const resolved = resolveJournalFieldsFromMongoDoc(doc);
   return {
     id:                doc._id.toString(),
-    title:             doc.title,
-    abstract:          doc.abstract,
+    title:             resolved.title || doc.title,
+    abstract:          resolved.abstract || doc.abstract,
     category:          doc.category,
     principlesFocus:   doc.principlesFocus,
     authorName:        doc.authorName,
     authorEmail:       doc.authorEmail ?? '',
     authorOrg:         doc.authorOrg,
-    content:           useSummary ? EMPTY_JOURNAL_CONTENT : doc.content,
+    content:           useSummary ? EMPTY_JOURNAL_CONTENT : resolved.content,
     ahriScore:         doc.ahriScore,
     hukumZAnalysis:    doc.hukumZAnalysis,
     tahapAkalAchieved: doc.tahapAkalAchieved,

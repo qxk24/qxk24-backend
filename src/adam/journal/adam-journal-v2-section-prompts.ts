@@ -87,7 +87,7 @@ Write ONLY this journal section: **${heading}**
 Minimum ${minWords} words for this section.
 Topic (locked): ${topic.label} — topicId "${topic.topicId}"
 ${titleLine}
-Third-person academic voice — scholar + poet + messenger.
+Third-person academic voice — scholar + poet + messenger. **Bahasa Melayu Malaysia only** — draf semakan P.alt.
 ${ADAM_JOURNAL_THREE_LAYER_SOURCES}
 ${ADAM_JOURNAL_FORMULA_LAW}
 Output substantive prose only — no JSON, no markdown section headers, no meta promises.
@@ -97,7 +97,7 @@ ${priorBlock}`.trim();
     case 'abstract':
       return `${shared}
 
-Write the **Abstract** only (250–300 words). Four movements: human stake, convention gap, Alamtologi gift, application threshold. No title line.`;
+Write the **Abstrak** only (250–300 words, Malay prose). Four movements: human stake, convention gap, Alamtologi gift, application threshold. No title line.`;
 
     case 'movement_1_human_opening':
       return `${shared}

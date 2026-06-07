@@ -91,3 +91,61 @@ export function sectionsFromJournalMongoDoc(
   }
   return out;
 }
+
+function journalContentHasProse(content: JournalContent | undefined | null): boolean {
+  if (!content) return false;
+  return Boolean(
+    content.introduction?.trim()
+    || content.background?.trim()
+    || content.findings?.trim()
+    || content.discussion?.trim()
+    || content.conclusion?.trim(),
+  );
+}
+
+/** Extract abstract prose from V2 title_and_abstract section body. */
+export function extractAbstractFromTitleSection(text: string): string {
+  let body = text.trim();
+  body = body.replace(/^#\s+.+\n+/m, '').trim();
+  const tagged = body.match(/##\s+Abstract\s*\n+([\s\S]+)/i);
+  if (tagged?.[1]) return tagged[1].trim();
+  if (/^Abstract\s*\n+/im.test(body)) {
+    return body.replace(/^Abstract\s*\n+/im, '').trim();
+  }
+  return body;
+}
+
+/** Hydrate title, abstract, IMRaD content from V2 draftSections when legacy fields are empty. */
+export function resolveJournalFieldsFromMongoDoc(doc: {
+  title?: string;
+  abstract?: string;
+  content?: JournalContent;
+  draftSections?: unknown;
+  sections?: unknown;
+}): { title: string; abstract: string; content: JournalContent } {
+  const sections = sectionsFromJournalMongoDoc(doc);
+  const titleSection = sections.title_and_abstract?.trim() ?? '';
+  const title =
+    doc.title?.trim()
+    || titleSection.match(/^#\s+(.+)$/m)?.[1]?.trim()
+    || '';
+  const abstract =
+    doc.abstract?.trim()
+    || (titleSection ? extractAbstractFromTitleSection(titleSection) : '')
+    || '';
+  const content = journalContentHasProse(doc.content)
+    ? normalizeJournalContent(doc.content!)
+    : Object.keys(sections).length > 0
+      ? draftSectionsToJournalContent(sections)
+      : normalizeJournalContent(doc.content ?? {
+          introduction: '',
+          background: '',
+          methodology: '',
+          alamtologiAnalysis: [],
+          findings: '',
+          discussion: '',
+          conclusion: '',
+          references: [],
+        });
+  return { title, abstract, content };
+}

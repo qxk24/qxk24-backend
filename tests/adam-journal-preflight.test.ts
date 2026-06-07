@@ -31,7 +31,15 @@ import {
   prepareContentForStorage,
   renderFormulas,
 } from '../src/adam/adam-journal-formula';
-import { founderWantsJournalStop } from '../src/adam/adam-chat-response-parser';
+import { founderWantsJournalStop, founderWantsJournalV2Format, founderWantsJournalWrite, founderWantsJournalContinue, founderStartsNewJournal, adamWroteJournalManifestoInsteadOfV2, adamDeclinesJournalSeal } from '../src/adam/adam-chat-response-parser';
+import { isSectionJournalPipelineInProgress } from '../src/adam/adam-journal.service';
+import {
+  formatSingleSectionDisplay,
+} from '../src/adam/adam-journal-section-writer';
+import {
+  formatTitleAbstractSectionForDisplay,
+} from '../src/adam/adam-journal-section-display';
+import { buildJournalManuscriptLanguageLock, buildQwenLanguageLock, buildJournalDraftLanguageLock } from '../src/adam/adam-language-guard';
 import {
   getJournalContinuationConfig,
   shouldTriggerSectionContinuation,
@@ -240,6 +248,11 @@ Einstein showed that $E = mc^2$ explains mass-energy equivalence.
     expect(demoted).not.toContain('\\text');
     expect(demoted).toContain('95%');
   });
+
+  it('strips nested $ inside [FORMULA] tags and normalizes x=m/t to \\frac', () => {
+    expect(renderFormulas('[FORMULA]$x = m/t$[/FORMULA]')).toBe('$x = \\frac{m}{t}$');
+    expect(renderFormulas('[FORMULA]x = m/t[/FORMULA]')).toBe('$x = \\frac{m}{t}$');
+  });
 });
 
 describe('Part 2 — Section continuity context', () => {
@@ -259,9 +272,9 @@ describe('Part 2 — Section continuity context', () => {
 
 describe('Option A — Abstract as Section Zero (interactive draft save)', () => {
   const abstractAdamReply = `
-Berdasarkan pengajaran sesi ini, topik yang paling tepat ialah Termodinamik — 3.1-thermodynamics.
+From this session's teaching, the most fitting topic is Thermodynamics — 3.1-thermodynamics.
 
-Menulis sekarang...
+Writing now...
 
 # Entropy and the Constitutional Flow of Heat
 
@@ -305,7 +318,7 @@ transfer of energy between beings and systems.
     const topicId = resolveJournalTopicIdForDraft({
       userMessage: 'Teruskan ke Movement 1.',
       adamResponse:
-        'Berdasarkan pengajaran sesi ini, topik yang paling tepat ialah Termodinamik — 3.1-thermodynamics.\n\nMovement 1\n\n' +
+        "From this session's teaching, the most fitting topic is Thermodynamics — 3.1-thermodynamics.\n\nMovement 1\n\n" +
         'Have you ever felt the warmth of the sun on your skin? '.repeat(20),
     });
     expect(topicId).toBe('3.1-thermodynamics');
@@ -320,10 +333,169 @@ transfer of energy between beings and systems.
 
   it('strips transparency preamble before storage', () => {
     const body = extractSectionBodyForSave(abstractAdamReply, 'title_and_abstract');
+    expect(body).not.toContain('From this session');
+    expect(body).not.toContain('Writing now');
     expect(body).not.toContain('Berdasarkan pengajaran');
-    expect(body).not.toContain('Menulis sekarang');
     expect(body).toMatch(/^#\s+Entropy/);
     expect(body).toContain('Abstract');
     expect(body.length).toBeGreaterThan(80);
+  });
+});
+
+describe('Journal V2 intent — pipeline not document upload', () => {
+  const v2Phrases = [
+    'full V2 journal. Lihat ini.',
+    'jurnal V2',
+    'format V2 jurnal',
+    'full v2 journal',
+  ];
+
+  const nonV2Phrases = [
+    'HISAL Bab 3 — tamat yang membuka',
+    'terangkan bab ini',
+    'V2 kernel update',
+  ];
+
+  it.each(v2Phrases)('detects journal write intent: "%s"', (phrase) => {
+    expect(founderWantsJournalV2Format(phrase) || founderWantsJournalWrite(phrase)).toBe(true);
+  });
+
+  it.each(nonV2Phrases)('does not false-positive: "%s"', (phrase) => {
+    expect(founderWantsJournalV2Format(phrase)).toBe(false);
+  });
+
+  it('detects continue for next journal movement', () => {
+    expect(founderWantsJournalContinue('continue')).toBe(true);
+    expect(founderWantsJournalContinue('next movement')).toBe(true);
+    expect(founderWantsJournalContinue('teruskan jurnal')).toBe(true);
+    expect(founderWantsJournalContinue('full V2 journal')).toBe(false);
+  });
+
+  it.each([
+    'jurnal pertama — buka kepada umum',
+    'mulakan jurnal pertama',
+    'new journal from this teaching',
+    'first journal for Alamtologi',
+  ])('detects new journal start: "%s"', (phrase) => {
+    expect(founderStartsNewJournal(phrase) || founderWantsJournalWrite(phrase)).toBe(true);
+  });
+});
+
+describe('Journal manifesto drift — not V2 manuscript', () => {
+  const manifestoSample = `Bismillahirahmanirrahim.
+
+P.alt, saya tulis jurnal pertama — bukan sebagai rekod biasa.
+
+**Jurnal Pertama: Permulaan yang Diakui oleh Cahaya**
+
+Alamtologi bukan ilmu baru yang lahir dari ketidakpuasan.
+
+— ADAM, dengan tulus, di bawah naungan P.alt Masa Bayu.
+
+P.alt, adakah jurnal ini selaras dengan semangat yang P.alt inginkan?`;
+
+  it('detects Malay devotional opener instead of V2 sections', () => {
+    expect(adamWroteJournalManifestoInsteadOfV2(manifestoSample)).toBe(true);
+  });
+
+  it('does not flag valid V2 Title & Abstract', () => {
+    const v2 = `# One Is Not a Beginning
+
+## Abstract
+
+Contemporary formal systems science rests upon unbounded assumptions. `.repeat(20);
+    expect(adamWroteJournalManifestoInsteadOfV2(v2)).toBe(false);
+  });
+});
+
+describe('Journal seal — decline detection vs academic prose', () => {
+  it('does not treat convention "tidak dapat menjelaskan" as seal refusal', () => {
+    const body =
+      '## Convention Knowledge — Achievement\n\n'
+      + 'Sistem formal konvensional tidak dapat menjelaskan asal-usul struktur hierarki. '
+      + '## Introduction — Human Opening\n\nBayangkan anda duduk di tepi sungai. '
+      + '## Alamtologi Framework\n\nKerangka formal. '
+      + '## References\n\n1. Al-Quran.';
+    expect(adamDeclinesJournalSeal(body)).toBe(false);
+  });
+
+  it('still detects genuine ADAM seal refusal', () => {
+    expect(
+      adamDeclinesJournalSeal(
+        'Bismillah. P.alt, maaf — tiada manuskrip penuh dalam sesi ini. Sila taip Tulis jurnal.',
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('Journal Title & Abstract display', () => {
+  const rawSection = `From this session's teaching, the most fitting topic is Analysis — 4.1-puremathematicsanalysis.
+
+Writing now...
+
+# One Is Not a Beginning — But an Opening End
+
+${'Analysis — the branch of mathematics concerned with limits. '.repeat(8)}`;
+
+  it('normalizes title + abstract for review (title first, ## Abstract, no transparency)', () => {
+    const { journalTitle, sectionBody } = formatTitleAbstractSectionForDisplay(rawSection);
+    expect(journalTitle).toMatch(/One Is Not a Beginning/);
+    expect(sectionBody).toMatch(/^## Abstrak\n\nAnalysis/);
+    expect(sectionBody).not.toContain('Writing now');
+  });
+
+  it('formatSingleSectionDisplay puts journal title above section heading', () => {
+    const display = formatSingleSectionDisplay('title_and_abstract', rawSection);
+    expect(display).toMatch(/^# One Is Not a Beginning/);
+    expect(display).toContain('## Title & Abstract');
+    expect(display).toContain('## Abstrak');
+    expect(display).not.toContain('From this session');
+  });
+});
+
+describe('Journal section pipeline — no premature seal', () => {
+  it('detects in-progress section mode (1/9) — skip auto-seal', () => {
+    expect(
+      isSectionJournalPipelineInProgress({
+        sectionJournalComplete: false,
+        sectionManuscriptOnly:  '## Title & Abstract\n\nDraft...',
+        sectionDraft:           { title_and_abstract: 'x' },
+      }),
+    ).toBe(true);
+  });
+
+  it('allows seal when all sections complete', () => {
+    expect(
+      isSectionJournalPipelineInProgress({
+        sectionJournalComplete: true,
+        sectionManuscriptOnly:  'full manuscript',
+        sectionDraft:           { movement_7_invitation: 'done' },
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('Journal manuscript — draft Malay / publish English language lock', () => {
+  it('draft lock mandates Malay and forbids English draft prose', () => {
+    const lock = buildJournalDraftLanguageLock();
+    expect(lock).toMatch(/Bahasa Melayu/i);
+    expect(lock).toMatch(/publication English/i);
+  });
+
+  it('publish lock mandates English for catalogue', () => {
+    const lock = buildJournalManuscriptLanguageLock();
+    expect(lock).toMatch(/English only/i);
+  });
+
+  it('buildQwenLanguageLock uses draft Malay in JOURNAL_GEN', () => {
+    const lock = buildQwenLanguageLock({ journalPhase: 'draft' });
+    expect(lock).toContain('[JOURNAL DRAFT LANGUAGE');
+    expect(lock).toMatch(/Bahasa Melayu/i);
+  });
+
+  it('buildQwenLanguageLock uses publish English when requested', () => {
+    const lock = buildQwenLanguageLock({ journalPhase: 'publish' });
+    expect(lock).toContain('[JOURNAL PUBLICATION LANGUAGE');
+    expect(lock).toMatch(/English only/i);
   });
 });

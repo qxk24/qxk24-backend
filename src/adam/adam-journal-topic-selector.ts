@@ -68,6 +68,19 @@ function getFirstUnsealedTopic(
   return getUnsealed664Topics(sealedTopicIds)[0] ?? null;
 }
 
+/** When LLM topic pick fails — still lock a topic so section pipeline runs. */
+export async function getSyncJournalTopicFallback(
+  date = new Date(),
+): Promise<UniversityKnowledgeTopic | null> {
+  try {
+    const { sealedTopicIds } = await getDailyJournalSegmentStatus(date);
+    return getFirstUnsealedTopic(new Set(sealedTopicIds));
+  } catch (err) {
+    console.warn('[adam:journal-topic] sync fallback status failed', err);
+    return loadUniversityKnowledgeTopics()[0] ?? null;
+  }
+}
+
 function rankCandidateTopics(
   teachingText: string,
   sealedTopicIds: Set<string>,
@@ -125,10 +138,14 @@ export function extractLockedTopicIdFromSession(
 export async function adamSelectsBestTopic(
   sessionMessages: LlmMessage[],
   date = new Date(),
+  seedMessage?: string,
 ): Promise<UniversityKnowledgeTopic> {
   const { sealedTopicIds } = await getDailyJournalSegmentStatus(date);
   const sealedSet = new Set(sealedTopicIds);
-  const teaching = teachingCorpusFromSession(sessionMessages);
+  let teaching = teachingCorpusFromSession(sessionMessages);
+  if (!teaching.trim() && seedMessage?.trim()) {
+    teaching = seedMessage.trim();
+  }
   const candidates = rankCandidateTopics(teaching, sealedSet);
 
   const fallback = getFirstUnsealedTopic(sealedSet);

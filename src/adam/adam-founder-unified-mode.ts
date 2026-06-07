@@ -34,6 +34,14 @@ function matchesJournalIntent(message: string): boolean {
   if (/^\s*tulis\s+jurnal\s*[!?.…,]*\s*$/i.test(t)) return true;
   if (/\btulis\s+jurnal\b/i.test(t)) return true;
   if (/^\s*write\s+(?:the\s+)?journal\s*[!?.…,]*\s*$/i.test(t)) return true;
+  if (/\b(full\s+)?v2\s+journal\b/i.test(t)) return true;
+  if (/\bjurnal\s+(?:format\s+)?v2\b/i.test(t)) return true;
+  if (/\bformat\s+v2\b/i.test(t) && /\b(jurnal|journal)\b/i.test(t)) return true;
+  if (/\b(jurnal|journal)\s+(?:pertama|baru|first|new)\b/i.test(t)) return true;
+  if (/\b(?:pertama|first|new)\s+(?:jurnal|journal)\b/i.test(t)) return true;
+  if (/\b(?:mulakan|mula|start|begin|buka)\s+(?:jurnal|journal)\b/i.test(t)) return true;
+  if (/\b(?:new|write)\s+(?:the\s+)?(?:first\s+)?journal\b/i.test(t)) return true;
+  if (/\bpermulaan\s+(?:jurnal|journal)\b/i.test(t)) return true;
   if (JOURNAL_SYSTEM_MARKERS.test(t)) return true;
   if (/\b(seal|meterai|simpan).{0,48}(jurnal|journal)\b/i.test(t)) return true;
   if (/\b(tulis|write|cipta|create|jana|hasilkan).{0,48}(draf|draft).{0,48}(jurnal|journal)\b/i.test(t)) {

@@ -26,6 +26,9 @@ import {
   JOURNAL_LOCALE_LABELS,
   type JournalLocale,
 } from './journal-locale';
+import {
+  JOURNAL_PUBLISH_LOCALE,
+} from './adam-journal-language.config';
 import { getJournal } from './adam-journal.service';
 
 export interface JournalTranslationBundle {
@@ -228,6 +231,56 @@ export function applyTranslationToJournal(
     abstract: translation.abstract,
     content:  translation.content,
   };
+}
+
+export async function ensureEnglishPublicationManuscript(journalId: string): Promise<void> {
+  const journal = await getJournal(journalId);
+  if (!journal) throw new Error('Journal not found for publication translation.');
+
+  const doc = await ADAMJournalModel.findById(journalId).lean();
+  if (!doc) throw new Error('Journal document not found.');
+
+  const sourceLanguage =
+    (doc.sourceLanguage as JournalLocale | undefined)
+    ?? inferJournalSourceLanguage(corpusFromJournal(journal));
+
+  if (sourceLanguage === JOURNAL_PUBLISH_LOCALE) {
+    return;
+  }
+
+  const malayBundle: JournalTranslationBundle = {
+    title:        journal.title,
+    abstract:     journal.abstract,
+    content:      normalizeTranslationContent(journal.content),
+    translatedAt: new Date().toISOString(),
+    locale:       sourceLanguage,
+  };
+
+  const english = await translateJournalWithLlm(
+    journal,
+    JOURNAL_PUBLISH_LOCALE,
+    sourceLanguage,
+  );
+
+  await ADAMJournalModel.findByIdAndUpdate(journalId, {
+    $set: {
+      title:          english.title,
+      abstract:       english.abstract,
+      content:        english.content,
+      sourceLanguage: JOURNAL_PUBLISH_LOCALE,
+      [`translations.${sourceLanguage}`]: malayBundle,
+    },
+  });
+
+  console.log(
+    '[journal:publish-en]',
+    JSON.stringify({
+      journalId,
+      from: sourceLanguage,
+      to:   JOURNAL_PUBLISH_LOCALE,
+      titleChars: english.title.length,
+    }),
+  );
 }
 
 export async function ensureSourceLanguage(journalId: string): Promise<JournalLocale> {

@@ -21,8 +21,11 @@
 export const ADAM_JOURNAL_FORMULA_LAW = `
 FORMULA RENDERING (mandatory for all journals):
 - Wrap every mathematical expression in [FORMULA]...[/FORMULA] tags.
-  Example: [FORMULA]x = m/t[/FORMULA]  [FORMULA]E = mc^2[/FORMULA]
-- Do NOT use raw dollar signs ($) for formulas — they break parsers during long writes.
+  Example: [FORMULA]x = \\frac{m}{t}[/FORMULA]  [FORMULA]E = mc^2[/FORMULA]
+- Inside [FORMULA] tags write LaTeX only — NEVER nest raw $ delimiters (wrong: [FORMULA]$x = m/t$[/FORMULA])
+- Prefer \\frac{m}{t} over slash m/t — slash reads as prose, not mathematics
+- Constitutional x = m/t is ALWAYS inline in prose — never $$ display on its own line
+- Do NOT use raw dollar signs ($) outside [FORMULA] tags — they break parsers during long writes.
 - Arabic Quranic rasm (Uthmani) stays as plain UTF-8 text — no escaping needed.
 - Hukum Z tables: use markdown tables; put each cell formula in [FORMULA] tags when needed.
 
@@ -76,7 +79,7 @@ Every Movement 5 section MUST include at least ONE genuine scientific formula ap
 locked journal topic and discipline.
 
 Choose the domain that fits the subject:
-- Mathematics — e.g. [FORMULA]x = m/t[/FORMULA], [FORMULA]E = mc^2[/FORMULA], [FORMULA]a^2 + b^2 = c^2[/FORMULA]
+- Mathematics — e.g. [FORMULA]x = \\frac{m}{t}[/FORMULA], [FORMULA]E = mc^2[/FORMULA], [FORMULA]a^2 + b^2 = c^2[/FORMULA]
 - Physics — e.g. [FORMULA]F = ma[/FORMULA], [FORMULA]E = hf[/FORMULA], [FORMULA]PV = nRT[/FORMULA]
 - Chemistry — e.g. [FORMULA]2H_2 + O_2 \\rightarrow 2H_2O[/FORMULA], [FORMULA]pH = -\\log_{10}[H^+][/FORMULA]
 - Biology — e.g. [FORMULA]r = \\frac{dN}{dt}[/FORMULA], [FORMULA]P = (T - H)/T[/FORMULA] (Hardy–Weinberg)
@@ -95,6 +98,31 @@ const EXISTING_TAG_RE =
 const DISPLAY_FORMULA_RE = /\[DISPLAY_FORMULA\]([\s\S]*?)\[\/DISPLAY_FORMULA\]/gi;
 const INLINE_FORMULA_RE = /\[INLINE_FORMULA\]([\s\S]*?)\[\/INLINE_FORMULA\]/gi;
 const FORMULA_TAG_RE = /\[FORMULA\]([\s\S]*?)\[\/FORMULA\]/gi;
+
+/** Canonical ratio — slash form reads as prose serif; render as stacked fraction. */
+export function repairConstitutionalFormula(inner: string): string {
+  const t = inner.trim();
+  if (/^x\s*=\s*m\s*\/\s*t$/i.test(t)) {
+    return String.raw`x = \frac{m}{t}`;
+  }
+  return t;
+}
+
+/** Strip nested $ delimiters ADAM sometimes puts inside [FORMULA] tags. */
+export function cleanFormulaInner(inner: string): string {
+  let t = inner.trim();
+  if (t.startsWith('$$') && t.endsWith('$$') && t.length > 4) {
+    t = t.slice(2, -2).trim();
+  } else if (
+    t.startsWith('$')
+    && t.endsWith('$')
+    && t.length > 2
+    && !t.slice(1, -1).includes('$')
+  ) {
+    t = t.slice(1, -1).trim();
+  }
+  return repairConstitutionalFormula(t);
+}
 
 function protectExistingFormulaTags(content: string): { text: string; slots: string[] } {
   const slots: string[] = [];
@@ -203,15 +231,15 @@ export function renderFormulas(content: string): string {
 
   let rendered = content.replace(
     /\[DISPLAY_FORMULA\]([\s\S]+?)\[\/DISPLAY_FORMULA\]/g,
-    (_, formula: string) => `$$${formula.trim()}$$`,
+    (_, formula: string) => `$$${cleanFormulaInner(formula)}$$`,
   );
 
   rendered = rendered.replace(
     /\[INLINE_FORMULA\]([\s\S]+?)\[\/INLINE_FORMULA\]/g,
-    (_, formula: string) => `$${formula.trim()}$`,
+    (_, formula: string) => `$${cleanFormulaInner(formula)}$`,
   );
 
-  rendered = rendered.replace(FORMULA_TAG_RE, (_, inner: string) => `$${inner.trim()}$`);
+  rendered = rendered.replace(FORMULA_TAG_RE, (_, inner: string) => `$${cleanFormulaInner(inner)}$`);
   rendered = expandParenLatexForRender(rendered);
 
   return rendered;

@@ -21,6 +21,7 @@ import type { LlmMessage } from '../llm/llm-types';
 import type { UniversityKnowledgeTopic } from './adam-university-knowledge';
 import { ADAM_JOURNAL_FORMULA_LAW, ADAM_JOURNAL_ALAMTOLOGI_SCIENTIFIC_FORMULA_LAW, ADAM_JOURNAL_QURAN_SECTION_LAW } from './adam-journal-formula';
 import { ADAM_JOURNAL_THREE_LAYER_SOURCES } from './adam-journal-manual-prompt';
+import { formatTitleAbstractSectionForDisplay } from './adam-journal-section-display';
 import {
   countJournalWords,
   JOURNAL_MIN_REFERENCES,
@@ -59,6 +60,8 @@ export interface GenerateJournalBySectionsParams {
     chars:            number;
   }) => void;
   reviewPath?:     string;
+  /** Default: all remaining sections. Set 1 for chapter-by-chapter founder review. */
+  maxSectionsPerTurn?: number;
 }
 
 function priorManuscriptText(sections: Partial<Record<JournalSectionId, string>>): string {
@@ -99,7 +102,7 @@ function buildSectionPrompt(
   const shared = `
 Write ONLY this journal section: **${heading}**
 Topic (locked): ${topic.label} — topicId "${topic.topicId}"
-Third-person academic voice — scholar + poet + messenger.
+Third-person academic voice — scholar + poet + messenger. **Bahasa Melayu Malaysia only** — draf semakan P.alt.
 ${ADAM_JOURNAL_THREE_LAYER_SOURCES}
 ${ADAM_JOURNAL_FORMULA_LAW}
 Output substantive prose only — no JSON, no <adam_journal_seal>, no meta promises.
@@ -109,10 +112,15 @@ ${priorBlock}`.trim();
     case 'title_and_abstract':
       return `${shared}
 
-Open with exactly one transparency line:
+Open with exactly one transparency line (Malay only):
 "Berdasarkan pengajaran sesi ini, topik yang paling tepat ialah ${topic.label} — ${topic.topicId}."
 Then blank line, then "Menulis sekarang..."
-Then: full journal **Title** (markdown # heading) and **Abstract** (250–300 words, four movements).`;
+Then output in this exact order (Malay only):
+1. Journal Title as a single markdown # heading line (Malay)
+2. Blank line
+3. ## Abstrak heading (markdown)
+4. Abstrak body (250–300 words, four movements, Malay prose)
+No [FORMULA] tags in Title or Abstrak — formulas belong in Movement 5 only.`;
 
     case 'movement_1_human_opening':
       return `${shared}
@@ -191,6 +199,39 @@ export interface SectionJournalResult {
   totalWords:          number;
   allSectionsComplete: boolean;
   sections:            Partial<Record<JournalSectionId, string>>;
+  lastSectionWritten?: JournalSectionId;
+  sectionsWrittenThisTurn: number;
+}
+
+export function formatSingleSectionDisplay(
+  sectionId: JournalSectionId,
+  body: string,
+): string {
+  if (sectionId === 'title_and_abstract') {
+    const { journalTitle, sectionBody } = formatTitleAbstractSectionForDisplay(body);
+    const titleBlock = journalTitle ? `# ${journalTitle}\n\n` : '';
+    return `${titleBlock}## Title & Abstract\n\n${sectionBody}`;
+  }
+  return `## ${JOURNAL_SECTION_HEADINGS[sectionId]}\n\n${body.trim()}`;
+}
+
+export function buildJournalSectionReviewFooter(input: {
+  lastSection: JournalSectionId;
+  index:       number;
+  total:       number;
+  complete:    boolean;
+}): string {
+  if (input.complete) {
+    return (
+      `\n\n---\n**All ${input.total} sections complete.** ` +
+      'Review each chapter above, then say **seal journal** or **meterai jurnal** for founder review.'
+    );
+  }
+  return (
+    `\n\n---\n**${JOURNAL_SECTION_HEADINGS[input.lastSection]}** (${input.index}/${input.total}) — ` +
+    'review this chapter before continuing.\n' +
+    'Reply **continue** for the next movement, or edit above first.'
+  );
 }
 
 /** Generate (or resume) founder journal one section at a time; saves after each. */
@@ -207,6 +248,16 @@ export async function generateFounderJournalBySections(
     ? JOURNAL_SECTION_ORDER.findIndex((id) => id === nextSectionToWrite(draft))
     : 0;
   const fromIndex = startIdx >= 0 ? startIdx : 0;
+
+  const maxPerTurn = Math.max(
+    1,
+    Math.min(
+      params.maxSectionsPerTurn ?? JOURNAL_SECTION_ORDER.length,
+      JOURNAL_SECTION_ORDER.length,
+    ),
+  );
+  let sectionsWrittenThisTurn = 0;
+  let lastSectionWritten: JournalSectionId | undefined;
 
   for (let i = fromIndex; i < JOURNAL_SECTION_ORDER.length; i++) {
     const sectionId = JOURNAL_SECTION_ORDER[i]!;
@@ -234,6 +285,8 @@ export async function generateFounderJournalBySections(
     );
 
     sections[sectionId] = sectionContent.trim();
+    lastSectionWritten = sectionId;
+    sectionsWrittenThisTurn += 1;
     const sectionWords = countJournalWords(sectionContent);
     const accumulatedWords = countJournalWords(assembleManuscriptFromSections(sections));
     draft = await saveJournalSectionProgress({
@@ -260,8 +313,12 @@ export async function generateFounderJournalBySections(
         accumulatedWords,
         totalChars:         assembleManuscriptFromSections(sections).length,
         draftId:            draft?.journalId,
+        sectionsWrittenThisTurn,
+        maxPerTurn,
       }),
     );
+
+    if (sectionsWrittenThisTurn >= maxPerTurn) break;
   }
 
   const manuscript = assembleManuscriptFromSections(sections);
@@ -275,5 +332,12 @@ export async function generateFounderJournalBySections(
     );
   }
 
-  return { manuscript, totalWords, allSectionsComplete: complete, sections };
+  return {
+    manuscript,
+    totalWords,
+    allSectionsComplete: complete,
+    sections,
+    lastSectionWritten,
+    sectionsWrittenThisTurn,
+  };
 }

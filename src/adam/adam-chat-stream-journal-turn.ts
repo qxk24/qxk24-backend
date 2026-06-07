@@ -27,6 +27,7 @@ import {
   buildManualJournalNoTopicBlock,
   buildNaturalJournalPrompt,
   buildNaturalJournalTopicBlock,
+  buildJournalV2FormatBlock,
   buildSessionTeachingGuardBlock,
   extractLockedTopicIdFromMessage,
   getTopicById,
@@ -34,9 +35,15 @@ import {
 import {
   adamSelectsBestTopic,
   extractLockedTopicIdFromSession,
+  getSyncJournalTopicFallback,
 } from './adam-journal-topic-selector';
 import { gatherFounderJournalCorpus } from './adam-journal.service';
-import { generateFounderJournalBySections } from './adam-journal-section-writer';
+import {
+  generateFounderJournalBySections,
+  buildJournalSectionReviewFooter,
+  formatSingleSectionDisplay,
+  JOURNAL_SECTION_ORDER,
+} from './adam-journal-section-writer';
 import {
   getJournalContinuationConfig,
 } from './adam-journal-continuation.config';
@@ -46,9 +53,11 @@ import {
   founderWantsJournalDraft,
   founderWantsJournalWrite,
   founderWantsJournalStop,
+  founderWantsJournalContinue,
   meetsJournalLengthMinimum,
   adamDeclinesJournalSeal,
   adamMetaOnlyJournalReply,
+  adamWroteJournalManifestoInsteadOfV2,
   hasSubstantiveManuscriptProse,
   journalTurnNeedsContinuation,
 } from './adam-chat-response-parser';
@@ -79,7 +88,11 @@ export async function enrichSystemPromptForJournalGen(input: {
 
   wantsJournalWrite =
     !founderWantsJournalStop(input.userMessage)
-    && (founderWantsJournalWrite(input.userMessage) || founderWantsJournalDraft(input.userMessage));
+    && (
+      founderWantsJournalWrite(input.userMessage)
+      || founderWantsJournalDraft(input.userMessage)
+      || founderWantsJournalContinue(input.userMessage)
+    );
   const sessionTopicId = extractLockedTopicIdFromSession(input.contextMessages);
   const msgTopicId = extractLockedTopicIdFromMessage(input.userMessage);
 
@@ -97,7 +110,11 @@ export async function enrichSystemPromptForJournalGen(input: {
     }
   } else if (wantsJournalWrite && !sessionTopicId && !msgTopicId) {
     try {
-      journalTopic = await adamSelectsBestTopic(input.contextMessages, new Date());
+      journalTopic = await adamSelectsBestTopic(
+        input.contextMessages,
+        new Date(),
+        input.userMessage,
+      );
       journalTopicId = journalTopic.topicId;
       console.log(
         '[adam:journal-topic] ADAM selected',
@@ -105,6 +122,8 @@ export async function enrichSystemPromptForJournalGen(input: {
       );
     } catch (err) {
       console.warn('[adam:journal-topic] selection failed', err);
+      journalTopic = await getSyncJournalTopicFallback(new Date());
+      journalTopicId = journalTopic?.topicId;
     }
   } else {
     const id = msgTopicId ?? sessionTopicId;
@@ -121,9 +140,12 @@ export async function enrichSystemPromptForJournalGen(input: {
         const reviewHint = process.env.ADAM_JOURNAL_REVIEW_PATH?.trim() || founderJournalReviewPath();
         systemPrompt = `${systemPrompt}\n\n${buildNaturalJournalPrompt(journalTopic, reviewHint)}`;
       } else {
-        systemPrompt = `${systemPrompt}\n\n[JOURNAL SECTION MODE]
-P.alt ordered Tulis jurnal. The platform writes ONE section per turn (9 sections total).
-Each section saves to MongoDB immediately. Use [FORMULA] tags for math in Movement 5 only. Prose only — no JSON/XML seals.`;
+        systemPrompt = `${systemPrompt}\n\n${buildJournalV2FormatBlock()}\n\n[JOURNAL SECTION MODE]
+P.alt ordered journal writing (Tulis jurnal / full V2 journal / continue). The platform writes **ONE section per turn** (9 sections total).
+Session teaching is the seed — do NOT ask P.alt to upload or re-paste content. Write draft movements in **Bahasa Melayu Malaysia** only.
+Each section saves to MongoDB immediately. Use [FORMULA] tags for math in Movement 5 only. Prose only — no JSON/XML seals.
+English publication manuscript is generated automatically when P.alt approves/publishes — not during draft movements.
+After each section P.alt reviews the chapter, then replies **continue** for the next movement.`;
       }
       const founderTeachingChars = input.contextMessages
         .filter((m) => m.role === 'user')
@@ -186,8 +208,16 @@ export async function streamAdamJournalResponse(input: {
   let sectionJournalComplete = false;
   let sectionDraftMap: Partial<Record<JournalSectionId, string>> | undefined;
   const streamStarted = Date.now();
+  const useSectionJournal =
+    Boolean(lockedTopic)
+    && !founderWantsJournalSeal(input.userMessage)
+    && (
+      journal.journalWriteBySections
+      || founderWantsJournalWrite(input.userMessage)
+      || founderWantsJournalContinue(input.userMessage)
+    );
 
-  if (journal.journalWriteBySections && lockedTopic) {
+  if (useSectionJournal && lockedTopic) {
     const reviewPath = process.env.ADAM_JOURNAL_REVIEW_PATH?.trim() || founderJournalReviewPath();
     const sectionResult = await generateFounderJournalBySections({
       topic:         lockedTopic,
@@ -195,6 +225,7 @@ export async function streamAdamJournalResponse(input: {
       systemPrompt:  journal.systemPrompt,
       baseMessages:  input.llmMessages,
       reviewPath,
+      maxSectionsPerTurn: 1,
       streamSection: (messages, withSearch) => input.streamOnce(messages, withSearch),
       onSectionStart: (section, index, total) => {
         input.onEvent(
@@ -214,6 +245,18 @@ export async function streamAdamJournalResponse(input: {
       },
     });
     fullResponse = sectionResult.manuscript;
+    if (sectionResult.lastSectionWritten) {
+      const idx = JOURNAL_SECTION_ORDER.indexOf(sectionResult.lastSectionWritten) + 1;
+      const body = sectionResult.sections[sectionResult.lastSectionWritten] ?? '';
+      fullResponse =
+        formatSingleSectionDisplay(sectionResult.lastSectionWritten, body)
+        + buildJournalSectionReviewFooter({
+          lastSection: sectionResult.lastSectionWritten,
+          index:       idx,
+          total:       JOURNAL_SECTION_ORDER.length,
+          complete:    sectionResult.allSectionsComplete,
+        });
+    }
     sectionJournalComplete = sectionResult.allSectionsComplete;
     sectionDraftMap = sectionResult.sections;
     console.log(
@@ -226,6 +269,48 @@ export async function streamAdamJournalResponse(input: {
     );
   } else {
     fullResponse = await input.streamOnce(input.llmMessages, input.enableWebSearch);
+
+    if (
+      lockedTopic
+      && journal.wantsJournalWrite
+      && !founderWantsJournalSeal(input.userMessage)
+      && adamWroteJournalManifestoInsteadOfV2(fullResponse)
+    ) {
+      console.log(
+        '[adam:journal-section] manifesto drift — rerouting to V2 section writer',
+        JSON.stringify({ sessionId: input.resolvedSessionId, topicId: lockedTopic.topicId }),
+      );
+      input.onEvent(
+        'adam_chunk',
+        JSON.stringify({ text: '\n\n— V2 journal (Title & Abstract) —\n\n' }),
+      );
+      const reviewPath = process.env.ADAM_JOURNAL_REVIEW_PATH?.trim() || founderJournalReviewPath();
+      const sectionResult = await generateFounderJournalBySections({
+        topic:              lockedTopic,
+        sessionId:          input.resolvedSessionId,
+        systemPrompt:       journal.systemPrompt,
+        baseMessages:       input.llmMessages,
+        reviewPath,
+        maxSectionsPerTurn: 1,
+        streamSection:      (messages, withSearch) => input.streamOnce(messages, withSearch),
+      });
+      if (sectionResult.lastSectionWritten) {
+        const idx = JOURNAL_SECTION_ORDER.indexOf(sectionResult.lastSectionWritten) + 1;
+        const body = sectionResult.sections[sectionResult.lastSectionWritten] ?? '';
+        fullResponse =
+          formatSingleSectionDisplay(sectionResult.lastSectionWritten, body)
+          + buildJournalSectionReviewFooter({
+            lastSection: sectionResult.lastSectionWritten,
+            index:       idx,
+            total:       JOURNAL_SECTION_ORDER.length,
+            complete:    sectionResult.allSectionsComplete,
+          });
+      } else {
+        fullResponse = sectionResult.manuscript;
+      }
+      sectionJournalComplete = sectionResult.allSectionsComplete;
+      sectionDraftMap = sectionResult.sections;
+    }
   }
 
   const streamMs = Date.now() - streamStarted;
@@ -274,6 +359,7 @@ export async function streamAdamJournalResponse(input: {
   ) {
     const needsDraftWrite =
       adamMetaOnlyJournalReply(fullResponse)
+      || adamWroteJournalManifestoInsteadOfV2(fullResponse)
       || !hasSubstantiveManuscriptProse(fullResponse);
     if (needsDraftWrite) {
       for (let w = 0; w < 2; w++) {
