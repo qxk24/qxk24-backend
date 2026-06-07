@@ -16,7 +16,7 @@
     "backfill:teaching-records:lab": "QXK24_STACK=lab ts-node --transpile-only src/scripts/backfill-teaching-records.ts",
     "finalise:journal": "ts-node --transpile-only src/scripts/finalise-journal.ts",
     "migrate:journal-v2": "node scripts/migrate-journal-schema-v2.mjs",
-    "migrate:journal-quran-split": "ts-node --transpile-only src/scripts/migrate-journal-sections-quran-split.ts",
+    "migrate:journal-quran-split": "node dist/scripts/migrate-journal-sections-quran-split.js",
     "atlas:audit": "node scripts/atlas-storage-rescue.mjs",
     "atlas:rescue": "node scripts/atlas-storage-rescue.mjs --execute logs,ledger,snapshots",
     "ama:neuro-validate": "ts-node --transpile-only src/scripts/ama-neuro-validate.ts",
