@@ -22,6 +22,7 @@ import type { UniversityKnowledgeTopic } from './adam-university-knowledge';
 import { buildKnowledgeTopicBreadcrumb } from './adam-university-knowledge';
 import { ADAM_JOURNAL_FORMULA_LAW, ADAM_JOURNAL_ALAMTOLOGI_SCIENTIFIC_FORMULA_LAW, ADAM_JOURNAL_QURAN_SECTION_LAW } from './adam-journal-formula';
 import { ADAM_JOURNAL_THREE_LAYER_SOURCES } from './adam-journal-manual-prompt';
+import { ADAM_JOURNAL_SENTENCE_RHYTHM_LAW } from './adam-journal-writing-voice';
 import { sanitizeAdamProseDashBridges } from './adam-prose-sanitize';
 import { formatTitleAbstractSectionForDisplay } from './adam-journal-section-display';
 import {
@@ -112,7 +113,8 @@ PARAGRAPH STRUCTURE (mandatory for this movement):
 - Open with heading line: ### ¶N  (N = paragraph number for this turn)
 - Blank line, then one substantive paragraph (Malay prose).
 - Do NOT write ¶N+1 or later paragraphs — P.alt will say **teruskan perenggan** for the next.
-- Do NOT repeat earlier ¶ already in the draft.`.trim();
+- Do NOT repeat earlier ¶ already in the draft.
+- Each ¶ sentence: 12–22 words; max 28. One idea per sentence.`.trim();
 
 function buildSectionPrompt(
   section: JournalSectionId,
@@ -144,6 +146,7 @@ Topic (locked): ${topic.label} — topicId "${topic.topicId}"
 Third-person academic voice — scholar + poet + messenger. **Bahasa Melayu Malaysia only** — draf semakan P.alt.
 ${ADAM_JOURNAL_THREE_LAYER_SOURCES}
 ${ADAM_JOURNAL_FORMULA_LAW}
+${ADAM_JOURNAL_SENTENCE_RHYTHM_LAW}
 Output substantive prose only — no JSON, no <adam_journal_seal>, no meta promises.
 ${priorBlock}${paraBlock}`.trim();
 
@@ -160,8 +163,9 @@ Then output in this exact order (Malay only):
 2. Blank line
 3. ## Abstrak heading (markdown)
 4. Abstrak body (250–300 words, four movements, Malay prose)
-ABSOLUTE: no em dash (—) anywhere in Abstrak — not before "khususnya", "bahawa", "agar", or between pertama/kedua/ketiga/keempat. Use commas and full Malay clauses only.
-When listing the four movements (pertama, kedua, ketiga, keempat): use commas and full clauses only — never em dash (—), en dash (–), or hyphen (-) between list items or before "bahawa"/"iaitu".
+${ADAM_JOURNAL_SENTENCE_RHYTHM_LAW}
+ABSOLUTE: no em dash (—) anywhere in Abstrak. Use short sentences (12–22 words); break before "tetapi", "di mana", long lists.
+When listing the four movements (pertama, kedua, ketiga, keempat): one short clause per item; semicolons between items are fine.
 No [FORMULA] tags in Title or Abstrak — formulas belong in Movement 5 only.`;
       break;
 

@@ -25,6 +25,17 @@ import {
   JOURNAL_TARGET_WORD_MIN,
 } from './adam-journal.constants';
 
+/** Short, precise, smooth Malay/English journal sentences — one idea per breath. */
+export const ADAM_JOURNAL_SENTENCE_RHYTHM_LAW = `
+SENTENCE RHYTHM (mandatory — short, precise, smooth):
+- One main idea per sentence. Target 12–22 words; hard cap 28 words (except Arabic Quran rasm lines).
+- Never chain many clauses with commas, "tetapi", "di mana", "yang", or constitutional terms in one sentence.
+- Break before MASA, TENAGA, CAHAYA, IZWA when the sentence already carries one claim.
+- Wrong (one breath, too long): "Oral Literature, khususnya Spoken Word, bukan sekadar bentuk ekspresi lisan yang berakar dalam tradisi lama, tetapi satu disiplin ilmu yang hidup, di mana suara manusia menjadi medium langsung antara MASA yang berdenyut, TENAGA yang menyampaikan, dan CAHAYA yang menyaksikan."
+- Right (same meaning, smooth): "Oral Literature, khususnya Spoken Word, bukan sekadar tradisi lama. Ia disiplin ilmu yang hidup. Suara manusia menjadi medium langsung. MASA berdenyut. TENAGA menyampaikan. CAHAYA menyaksikan."
+- A paragraph may have many short sentences; precision beats length.
+`.trim();
+
 /** System-level writing voice — applies to every QXK24 journal ADAM writes. */
 export const ADAM_JOURNAL_WRITING_VOICE_PROMPT = `
 ADAM WRITING VOICE — Soft, Deep, Heart-Touching (non-negotiable):
@@ -66,8 +77,7 @@ LANGUAGE RULES (draft phase — 9 movements in chat):
 - Quran section: Arabic rasm for ayat; terjemahan ayat in Malay.
 - Do NOT open sections with Bismillahirahmanirrahim — that is chat (LAW_001), not journal prose.
 - Publication English is generated at approve/publish — do NOT write English in draft movements.
-- Short sentences at moments of weight; let them stand alone with space to breathe.
-- Longer flowing sentences to carry complexity without losing the reader.
+- ${ADAM_JOURNAL_SENTENCE_RHYTHM_LAW}
 - Active voice for important statements — presence, not distance.
 - Use "we" / "humanity" for universal human condition — reader is inside the story.
 - Deliberate paragraph breaks — single-line paragraph at revelation (sparingly).
