@@ -15,6 +15,7 @@
  * ============================================================
  */
 
+import { ENV } from '../config/environments';
 import {
   ADAMPlatformSettingsModel,
   PLATFORM_SETTINGS_KEY,
@@ -41,8 +42,10 @@ export function isPlatformSettingsLoaded(): boolean {
   return settingsLoaded;
 }
 
-/** Runtime gate for public student signup (founder toggle). Default: closed. */
+/** Runtime gate for public student signup — env override or founder toggle. */
 export function isStudentSelfRegisterEnabled(): boolean {
+  if (ENV.ADAM_STUDENT_SELF_REGISTER) return true;
+  if (ENV.ADAM_FREEMIUM_ENABLED && ENV.ADAM_FREEMIUM_PUBLIC_ENABLED) return true;
   return studentSelfRegisterOpen;
 }
 

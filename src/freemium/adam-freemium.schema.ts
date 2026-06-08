@@ -54,6 +54,32 @@ export const AdamGuestFreemiumModel = mongoose.model<AdamGuestFreemiumDoc>(
   GuestFreemiumSchema,
 );
 
+export enum RollingQuotaBucket {
+  FREE         = 'FREE',
+  PROFESIONAL  = 'PROFESIONAL',
+}
+
+export interface AdamRollingQuotaDoc extends Document {
+  userId:      string;
+  bucket:      RollingQuotaBucket;
+  windowStart: Date;
+  count:       number;
+}
+
+const RollingQuotaSchema = new Schema<AdamRollingQuotaDoc>({
+  userId:      { type: String, required: true, index: true },
+  bucket:      { type: String, required: true, enum: Object.values(RollingQuotaBucket) },
+  windowStart: { type: Date, required: true },
+  count:       { type: Number, required: true, default: 0, min: 0 },
+}, { timestamps: true });
+
+RollingQuotaSchema.index({ userId: 1, bucket: 1 }, { unique: true });
+
+export const AdamRollingQuotaModel = mongoose.model<AdamRollingQuotaDoc>(
+  'AdamRollingQuota',
+  RollingQuotaSchema,
+);
+
 export interface CreditPurchaseRecord {
   purchasedAt:   Date;
   creditsAdded:  number;

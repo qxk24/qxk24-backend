@@ -56,9 +56,17 @@ import { getProviderForRegion } from './tier-access.config';
 import { ENV } from '../config/environments';
 import {
   freeDailyLimit,
-  getDailyQuotaSnapshot,
-  pelajarDailyLimit,
+  pelajarMonthlyLimit,
 } from '../freemium/adam-freemium-daily.service';
+import {
+  freeRollingLimit,
+  getRollingQuotaSnapshot,
+  profesionalRollingLimit,
+  rollingWindowHours,
+} from '../freemium/adam-freemium-rolling.service';
+import { RollingQuotaBucket } from '../freemium/adam-freemium.schema';
+import { pelajarDailySoftLimit } from '../freemium/adam-freemium-premium.service';
+import { getPremiumCreditPacks } from '../freemium/adam-freemium-credit.service';
 import { guestLifetimeLimit } from '../freemium/adam-freemium-guest.service';
 
 const router = new Hono();
@@ -80,31 +88,40 @@ router.get('/pricing', (c) => {
       comingSoon:       !paymentWired,
     },
     freemium: ENV.ADAM_FREEMIUM_ENABLED ? {
-      guestLifetimeLimit: guestLifetimeLimit(),
-      freeDailyLimit:     freeDailyLimit(),
-      pelajarDailyLimit:  pelajarDailyLimit(),
+      guestLifetimeLimit:    guestLifetimeLimit(),
+      freeRollingLimit:      freeRollingLimit(),
+      rollingWindowHours:    rollingWindowHours(),
+      pelajarMonthlyLimit:   pelajarMonthlyLimit(),
+      pelajarDailySoftLimit: pelajarDailySoftLimit(),
+      profesionalRollingLimit: profesionalRollingLimit(),
+      premiumTopUps:         getPremiumCreditPacks(region),
+      /** @deprecated Use freeRollingLimit */
+      freeDailyLimit:        freeDailyLimit(),
     } : null,
     tiers: {
       pencarian: {
-        label:         'Pencarian',
+        label:         'Basic',
         monthlyAmount: 0,
         annualAmount:  0,
         currency:      pelajar.currency,
-        description:   'Daftar percuma — tanya ADAM setiap hari tanpa bayaran.',
-        messageLimit:  ENV.ADAM_FREEMIUM_ENABLED ? freeDailyLimit() : 100,
-        dailyLimit:    ENV.ADAM_FREEMIUM_ENABLED ? freeDailyLimit() : undefined,
+        description:   'Register free — deep questions in a rolling window, no payment required.',
+        messageLimit:  ENV.ADAM_FREEMIUM_ENABLED ? freeRollingLimit() : 100,
+        rollingLimit:  ENV.ADAM_FREEMIUM_ENABLED ? freeRollingLimit() : undefined,
+        rollingWindowHours: ENV.ADAM_FREEMIUM_ENABLED ? rollingWindowHours() : undefined,
         guestLimit:    ENV.ADAM_FREEMIUM_ENABLED ? guestLifetimeLimit() : undefined,
         extensionFee:  pelajar.extensionFee,
       },
       pelajar: {
-        label:         'Pelajar',
+        label:         'Premium',
         monthlyAmount: pelajar.monthly,
         annualAmount:  pelajar.annual,
         currency:      pelajar.currency,
         description:   'Continuous constitutional memory — ADAM remembers you across every return.',
         savingsNote:   '2 months free with annual billing.',
         comingSoon:    !paymentWired,
-        dailyLimit:    ENV.ADAM_FREEMIUM_ENABLED ? pelajarDailyLimit() : undefined,
+        monthlyLimit:  ENV.ADAM_FREEMIUM_ENABLED ? pelajarMonthlyLimit() : undefined,
+        dailySoftLimit: ENV.ADAM_FREEMIUM_ENABLED ? pelajarDailySoftLimit() : undefined,
+        topUpPacks:    ENV.ADAM_FREEMIUM_ENABLED ? getPremiumCreditPacks(region) : undefined,
       },
       profesional: {
         label:         'Profesional',
@@ -114,6 +131,8 @@ router.get('/pricing', (c) => {
         description:   'Full relational memory, API, publishing — plus Builder mode when you ship code.',
         savingsNote:   '2 months free with annual billing.',
         comingSoon:    !paymentWired,
+        rollingLimit:  ENV.ADAM_FREEMIUM_ENABLED ? profesionalRollingLimit() : undefined,
+        rollingWindowHours: ENV.ADAM_FREEMIUM_ENABLED ? rollingWindowHours() : undefined,
       },
       studio: {
         label:         'Studio Pro',
@@ -203,14 +222,16 @@ router.get('/pencarian/usage', requireAdamUser, async (c) => {
   const userId = getTokenUser(c)!.userId;
 
   if (ENV.ADAM_FREEMIUM_ENABLED) {
-    const limit = freeDailyLimit();
-    const snap = await getDailyQuotaSnapshot(userId, limit);
+    const limit = freeRollingLimit();
+    const snap = await getRollingQuotaSnapshot(getTokenUser(c)!.userId, RollingQuotaBucket.FREE, limit);
     return c.json({
       totalMessagesUsed:  snap.questionsUsed,
-      totalMessagesLimit: snap.dailyLimit,
+      totalMessagesLimit: snap.limit,
       currentStage:       'KNOW',
-      dateKey:            snap.dateKey,
-      dailyLimit:         true,
+      dateKey:            snap.windowStart.toISOString(),
+      rollingLimit:       true,
+      windowHours:        snap.windowHours,
+      windowResetsAt:     snap.windowResetsAt.toISOString(),
     });
   }
 

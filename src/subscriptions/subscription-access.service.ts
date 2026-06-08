@@ -22,12 +22,18 @@ import {
   PencarianStage,
 } from '../subscriptions/subscription.schema';
 import { ENV } from '../config/environments';
+import { pelajarMonthlyLimit } from '../freemium/adam-freemium-daily.service';
 import {
-  freeDailyLimit,
-  pelajarDailyLimit,
-  getDailyQuotaSnapshot,
-} from '../freemium/adam-freemium-daily.service';
-import { malaysiaDateKey } from '../freemium/adam-freemium-date';
+  freeRollingLimit,
+  getRollingQuotaSnapshot,
+  profesionalRollingLimit,
+  rollingWindowHours,
+} from '../freemium/adam-freemium-rolling.service';
+import { RollingQuotaBucket } from '../freemium/adam-freemium.schema';
+import {
+  getPremiumQuotaSnapshot,
+  premiumBlockedMessage,
+} from '../freemium/adam-freemium-premium.service';
 
 export type SubscriptionAccessCode =
   | 'SUBSCRIPTION_EXPIRED'
@@ -92,11 +98,10 @@ export async function resolveSubscriptionAccess(userId: string): Promise<Subscri
     }
 
     if (ENV.ADAM_FREEMIUM_ENABLED && paidSub.tier === SubscriptionTier.PELAJAR) {
-      const limit = pelajarDailyLimit();
-      const snap  = await getDailyQuotaSnapshot(userId, limit);
-      const pencarianSnap = pencarianSnapshot(snap.questionsUsed, limit, PencarianStage.KNOW);
-      pencarianSnap.dateKey = snap.dateKey;
-      pencarianSnap.dailyLimit = true;
+      const snap = await getPremiumQuotaSnapshot(userId);
+      const pencarianSnap = pencarianSnapshot(snap.monthlyUsed, snap.monthlyLimit, PencarianStage.KNOW);
+      pencarianSnap.dateKey = snap.monthKey;
+      pencarianSnap.dailyLimit = false;
 
       if (snap.limitReached) {
         return {
@@ -104,8 +109,34 @@ export async function resolveSubscriptionAccess(userId: string): Promise<Subscri
           tier:        paidSub.tier,
           status:      paidSub.status,
           code:        'DAILY_LIMIT',
-          message:     `Had harian Pelajar (${limit} soalan) tercapai. Beli kredit untuk teruskan.`,
+          message:     premiumBlockedMessage(snap),
           upgradeUrl:  upgradeUrl('/adam/credits'),
+          pencarian:   pencarianSnap,
+        };
+      }
+
+      return {
+        canChat:   true,
+        tier:      paidSub.tier,
+        status:    paidSub.status,
+        pencarian: pencarianSnap,
+      };
+    }
+
+    if (ENV.ADAM_FREEMIUM_ENABLED && paidSub.tier === SubscriptionTier.PROFESIONAL) {
+      const limit = profesionalRollingLimit();
+      const rolling = await getRollingQuotaSnapshot(userId, RollingQuotaBucket.PROFESIONAL, limit);
+      const pencarianSnap = pencarianSnapshot(rolling.questionsUsed, limit, PencarianStage.KNOW);
+      pencarianSnap.dateKey = rolling.windowStart.toISOString();
+
+      if (rolling.limitReached) {
+        return {
+          canChat:     false,
+          tier:        paidSub.tier,
+          status:      paidSub.status,
+          code:        'DAILY_LIMIT',
+          message:     `Profesional pace limit (${limit} per ${rollingWindowHours()} hours) reached. Wait for the window to reset.`,
+          upgradeUrl:  upgradeUrl('/plans'),
           pencarian:   pencarianSnap,
         };
       }
@@ -178,20 +209,20 @@ export async function resolveSubscriptionAccess(userId: string): Promise<Subscri
   });
 
   if (ENV.ADAM_FREEMIUM_ENABLED) {
-    const limit = freeDailyLimit();
-    const daily = await getDailyQuotaSnapshot(userId, limit);
+    const limit = freeRollingLimit();
+    const rolling = await getRollingQuotaSnapshot(userId, RollingQuotaBucket.FREE, limit);
     const stage = pencarianSub?.pencarianUsage?.currentStage ?? PencarianStage.KNOW;
-    const snap  = pencarianSnapshot(daily.questionsUsed, limit, stage);
-    snap.dateKey = daily.dateKey;
-    snap.dailyLimit = true;
+    const snap  = pencarianSnapshot(rolling.questionsUsed, limit, stage);
+    snap.dateKey = rolling.windowStart.toISOString();
+    snap.dailyLimit = false;
 
-    if (daily.limitReached) {
+    if (rolling.limitReached) {
       return {
         canChat:     false,
         tier:        SubscriptionTier.PENCARIAN,
         status:      SubscriptionStatus.WAQF,
         code:        'DAILY_LIMIT',
-        message:     `Had harian percuma (${limit} soalan) tercapai. Beli kredit untuk teruskan.`,
+        message:     `Basic rolling limit (${limit} per ${rollingWindowHours()} hours) reached. Buy credits or wait for reset.`,
         upgradeUrl:  upgradeUrl('/adam/credits'),
         pencarian:   snap,
       };
@@ -235,9 +266,8 @@ export async function resolveSubscriptionAccess(userId: string): Promise<Subscri
     tier:     SubscriptionTier.PENCARIAN,
     status:   SubscriptionStatus.WAQF,
     pencarian: {
-      ...pencarianSnapshot(0, freeDailyLimit(), PencarianStage.KNOW),
-      dateKey:     malaysiaDateKey(),
-      dailyLimit:  true,
+      ...pencarianSnapshot(0, freeRollingLimit(), PencarianStage.KNOW),
+      dailyLimit:  false,
     },
   };
 }

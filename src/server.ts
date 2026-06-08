@@ -54,6 +54,7 @@ app.use('*', cors({
   allowHeaders:  [
     'Content-Type',
     'Authorization',
+    'Accept',
     'Cache-Control',
     'Pragma',
     'X-App-Source',
@@ -61,6 +62,7 @@ app.use('*', cors({
     'X-Request-ID',
     'X-Founder-Key',
     'X-QMS-Token',
+    'X-Adam-Guest-Id',
   ],
 }));
 

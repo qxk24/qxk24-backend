@@ -27,6 +27,7 @@ import { ADAMPasswordResetModel } from './adam-password-reset.schema';
 import { ADAMStudentAccountModel } from './adam-student.schema';
 import { ADAMWorkspaceModel } from './adam-workspace.schema';
 import { ADAMMessageLedgerModel } from '../qxk24brain/adam-ledger.schema';
+import { isGoogleSignInEnabled } from './adam-google-auth.service';
 import { isStudentSelfRegisterEnabled } from './adam-platform-settings.service';
 import {
   FOUNDER_USER_ID,
@@ -434,8 +435,8 @@ export async function loginStudentWithGoogle(profile: {
     };
   }
 
-  if (!isStudentSelfRegisterEnabled()) {
-    throw new Error('Registration is closed. Contact the Founder for an account.');
+  if (!isGoogleSignInEnabled()) {
+    throw new Error('Google sign-in is not enabled on this stack.');
   }
 
   const activeCount = await ADAMStudentAccountModel.countDocuments({ active: true });

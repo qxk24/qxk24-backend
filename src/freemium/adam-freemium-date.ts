@@ -33,6 +33,11 @@ export function malaysiaDateKey(date = new Date()): string {
   }).format(date);
 }
 
+/** YYYY-MM in Malaysia calendar — Premium monthly quota resets on the 1st (MY time). */
+export function malaysiaMonthKey(date = new Date()): string {
+  return malaysiaDateKey(date).slice(0, 7);
+}
+
 export function startOfMalaysiaDay(date = new Date()): Date {
   const ymd = malaysiaDateKey(date);
   return new Date(`${ymd}T00:00:00+08:00`);

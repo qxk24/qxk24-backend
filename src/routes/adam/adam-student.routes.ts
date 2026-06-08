@@ -42,10 +42,13 @@ import { attachSubscriptionAccess } from '../../middleware/subscription-guard.mi
 import { detectRegionFromHeaders } from '../../subscriptions/region-detector.service';
 import {
   CREDIT_PACK_ID,
-  getCreditPackOffer,
+  getBasicCreditPackOffer,
+  getPremiumCreditPacks,
+  resolveCreditPack,
   getCreditWalletSnapshot,
   isCreditPurchaseWired,
 } from '../../freemium/adam-freemium-credit.service';
+import { SubscriptionTier } from '../../subscriptions/subscription.schema';
 import {
   checkTesterLimit,
   isTesterAccount,
@@ -165,20 +168,31 @@ router.get('/auth-config', (c) => {
   });
 });
 
-// GET /api/adam/student/freemium-status — daily quota for registered students
+function creditPacksForAccess(
+  region: ReturnType<typeof detectRegionFromHeaders>,
+  access: ReturnType<typeof getSubscriptionAccess>,
+) {
+  if (access?.tier === SubscriptionTier.PELAJAR) {
+    return getPremiumCreditPacks(region);
+  }
+  return [getBasicCreditPackOffer(region)];
+}
+
+// GET /api/adam/student/freemium-status — quota for registered users
 router.get('/freemium-status', requireStudent, attachSubscriptionAccess, async (c) => {
   const user = getTokenUser(c)!;
   const access = getSubscriptionAccess(c);
   const status = await getStudentFreemiumStatus(user.userId, access);
   const region = detectRegionFromHeaders(c.req.raw.headers);
-  const pack   = getCreditPackOffer(region);
+  const packs  = creditPacksForAccess(region, access);
 
   return c.json({
     success: true,
     freemium: freemiumStatusPayload(status),
     credits: {
       balance:      status.creditBalance,
-      pack,
+      packs,
+      pack:         packs[0],
       paymentWired: isCreditPurchaseWired(),
     },
     tier:     access?.tier ?? 'PENCARIAN',
@@ -192,38 +206,47 @@ const BuyCreditSchema = z.object({
 });
 
 // GET /api/adam/student/credits — wallet + pack pricing
-router.get('/credits', requireStudent, async (c) => {
+router.get('/credits', requireStudent, attachSubscriptionAccess, async (c) => {
   const user = getTokenUser(c)!;
+  const access = getSubscriptionAccess(c);
   const region = detectRegionFromHeaders(c.req.raw.headers);
   const wallet = await getCreditWalletSnapshot(user.userId);
-  const pack   = getCreditPackOffer(region);
+  const packs  = creditPacksForAccess(region, access);
 
   return c.json({
     success: true,
     wallet,
-    pack,
+    packs,
+    pack:         packs[0],
     paymentWired: isCreditPurchaseWired(),
     kernel:       'Alamtologi',
   });
 });
 
 // POST /api/adam/student/credits/buy — purchase credit pack (payment gateway when wired)
-router.post('/credits/buy', requireStudent, zValidator('json', BuyCreditSchema), async (c) => {
+router.post('/credits/buy', requireStudent, attachSubscriptionAccess, zValidator('json', BuyCreditSchema), async (c) => {
   const user = getTokenUser(c)!;
   const body = c.req.valid('json');
+  const access = getSubscriptionAccess(c);
   const region = detectRegionFromHeaders(c.req.raw.headers);
-  const pack = getCreditPackOffer(region);
+  const pack = resolveCreditPack(body.packId, region);
 
-  if (body.packId !== pack.id) {
+  if (!pack) {
     return c.json({ success: false, error: 'Unknown credit pack.' }, 400);
+  }
+
+  const allowed = creditPacksForAccess(region, access);
+  if (!allowed.some((p) => p.id === pack.id)) {
+    return c.json({ success: false, error: 'Credit pack not available for your plan.' }, 400);
   }
 
   if (!isCreditPurchaseWired()) {
     return c.json({
       success:      false,
       comingSoon:   true,
-      error:        'Pembayaran kredit akan dibuka tidak lama lagi.',
+      error:        'Credit checkout is opening soon.',
       pack,
+      packs:        allowed,
       creditsUrl:   '/adam/credits',
       kernel:       'ALAMTOLOGI',
     }, 503);
@@ -239,11 +262,13 @@ router.post('/credits/buy', requireStudent, zValidator('json', BuyCreditSchema),
 
 // GET /api/adam/student/register-status — public registration gate
 router.get('/register-status', (c) => {
+  const googleSignupEnabled = isGoogleSignInEnabled();
   return c.json({
-    success:      true,
-    enabled:      isStudentSelfRegisterEnabled(),
-    requiresCode: studentRegisterRequiresCode(),
-    kernel:       'Alamtologi',
+    success:             true,
+    enabled:             isStudentSelfRegisterEnabled(),
+    googleSignupEnabled,
+    requiresCode:        studentRegisterRequiresCode(),
+    kernel:              'Alamtologi',
   });
 });
 

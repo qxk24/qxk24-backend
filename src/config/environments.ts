@@ -132,7 +132,7 @@ export const ENV = {
   /** malay | english — default voice language when the speaker's language is unclear */
   ADAM_DEFAULT_LANGUAGE: optional('ADAM_DEFAULT_LANGUAGE', 'malay'),
   /** Allow public POST /api/adam/student/register */
-  ADAM_STUDENT_SELF_REGISTER: optional('ADAM_STUDENT_SELF_REGISTER', 'false') === 'true',
+  ADAM_STUDENT_SELF_REGISTER: optional('ADAM_STUDENT_SELF_REGISTER', 'true') === 'true',
   /** When set, self-register requires this code */
   ADAM_STUDENT_REGISTER_CODE: optional('ADAM_STUDENT_REGISTER_CODE', ''),
   ADAM_STUDENT_REGISTER_MAX:  optionalInt('ADAM_STUDENT_REGISTER_MAX', 200),
@@ -252,12 +252,24 @@ export const ENV = {
 
   PADDLE_API_KEY: optional('PADDLE_API_KEY', ''),
 
-  /** Freemium — guest lifetime + registered daily caps (MY timezone reset) */
+  /** Freemium — guest lifetime + rolling/daily caps (MY timezone where applicable) */
   ADAM_FREEMIUM_ENABLED:        optional('ADAM_FREEMIUM_ENABLED', 'true') === 'true',
   ADAM_FREEMIUM_PUBLIC_ENABLED: optional('ADAM_FREEMIUM_PUBLIC_ENABLED', 'true') === 'true',
   ADAM_FREEMIUM_GUEST_LIMIT:    optionalInt('ADAM_FREEMIUM_GUEST_LIMIT', 3),
+  /** @deprecated Use ADAM_FREEMIUM_FREE_ROLLING — Basic tier is rolling 5-hour window */
   ADAM_FREEMIUM_FREE_DAILY:     optionalInt('ADAM_FREEMIUM_FREE_DAILY', 15),
+  /** Basic (free registered) — questions per rolling window */
+  ADAM_FREEMIUM_FREE_ROLLING:   optionalInt('ADAM_FREEMIUM_FREE_ROLLING', 6),
+  /** Rolling window length (hours) — Claude-style pacing for Basic & Profesional */
+  ADAM_FREEMIUM_ROLLING_WINDOW_HOURS: optionalInt('ADAM_FREEMIUM_ROLLING_WINDOW_HOURS', 5),
+  /** @deprecated Premium uses monthly quota — see ADAM_FREEMIUM_PELAJAR_MONTHLY */
   ADAM_FREEMIUM_PELAJAR_DAILY:  optionalInt('ADAM_FREEMIUM_PELAJAR_DAILY', 100),
+  /** Premium — included questions per calendar month (MY timezone) */
+  ADAM_FREEMIUM_PELAJAR_MONTHLY: optionalInt('ADAM_FREEMIUM_PELAJAR_MONTHLY', 50),
+  /** Premium — max included questions per calendar day (pace cap; wallet credits bypass) */
+  ADAM_FREEMIUM_PELAJAR_DAILY_SOFT: optionalInt('ADAM_FREEMIUM_PELAJAR_DAILY_SOFT', 5),
+  /** Profesional — questions per rolling window */
+  ADAM_FREEMIUM_PROFESIONAL_ROLLING: optionalInt('ADAM_FREEMIUM_PROFESIONAL_ROLLING', 18),
   ADAM_FREEMIUM_CREDIT_PACK_SIZE: optionalInt('ADAM_FREEMIUM_CREDIT_PACK_SIZE', 25),
   ADAM_FREEMIUM_TIMEZONE:       optional('ADAM_FREEMIUM_TIMEZONE', 'Asia/Kuala_Lumpur'),
 

@@ -22,6 +22,8 @@ import { getStripeGatewayStatus } from '../subscriptions/stripe-gateway.service'
 import { AdamCreditWalletModel } from './adam-freemium.schema';
 
 export const CREDIT_PACK_ID = 'standard';
+export const PREMIUM_PACK_50_ID = 'premium-50';
+export const PREMIUM_PACK_100_ID = 'premium-100';
 
 export interface CreditPackOffer {
   id:           string;
@@ -47,17 +49,74 @@ export function isCreditPurchaseWired(): boolean {
   return ENV.STRIPE_ENABLED && stripe.enabled && stripe.configured;
 }
 
-export function getCreditPackOffer(region = SupportedRegion.MY): CreditPackOffer {
+/** Basic (free) tier — small extension pack after daily limit. */
+export function getBasicCreditPackOffer(region = SupportedRegion.MY): CreditPackOffer {
   const pricing = getPelajarPricing(region);
   const credits = creditPackSize();
   return {
     id:          CREDIT_PACK_ID,
-    label:       `${credits} soalan`,
+    label:       `+${credits} questions`,
     credits,
     amount:      pricing.extensionFee,
     currency:    pricing.currency,
-    description: `Tambahan ${credits} soalan — digunakan selepas had harian.`,
+    description: `Add ${credits} questions after your daily free allowance.`,
   };
+}
+
+/** Premium top-up packs (MYR) — after monthly 50 included questions. */
+export function getPremiumCreditPacks(region = SupportedRegion.MY): CreditPackOffer[] {
+  const currency = getPelajarPricing(region).currency;
+  if (region !== SupportedRegion.MY) {
+    return [
+      {
+        id:          PREMIUM_PACK_50_ID,
+        label:       '+50 questions',
+        credits:     50,
+        amount:      35,
+        currency,
+        description: 'Fifty extra questions — used after your monthly Premium allowance.',
+      },
+      {
+        id:          PREMIUM_PACK_100_ID,
+        label:       '+100 questions',
+        credits:     100,
+        amount:      85,
+        currency,
+        description: 'One hundred extra questions — best value after monthly Premium allowance.',
+      },
+    ];
+  }
+  return [
+    {
+      id:          PREMIUM_PACK_50_ID,
+      label:       '+50 questions',
+      credits:     50,
+      amount:      35,
+      currency:    'MYR',
+      description: 'Fifty extra questions — used after your monthly Premium allowance.',
+    },
+    {
+      id:          PREMIUM_PACK_100_ID,
+      label:       '+100 questions',
+      credits:     100,
+      amount:      85,
+      currency:    'MYR',
+      description: 'One hundred extra questions — best value after monthly Premium allowance.',
+    },
+  ];
+}
+
+/** @deprecated Use getBasicCreditPackOffer or getPremiumCreditPacks */
+export function getCreditPackOffer(region = SupportedRegion.MY): CreditPackOffer {
+  return getBasicCreditPackOffer(region);
+}
+
+export function resolveCreditPack(
+  packId: string,
+  region = SupportedRegion.MY,
+): CreditPackOffer | null {
+  if (packId === CREDIT_PACK_ID) return getBasicCreditPackOffer(region);
+  return getPremiumCreditPacks(region).find((p) => p.id === packId) ?? null;
 }
 
 export async function getCreditBalance(userId: string): Promise<number> {
@@ -76,7 +135,7 @@ export async function getCreditWalletSnapshot(userId: string): Promise<CreditWal
   };
 }
 
-/** Atomically consume one credit when daily quota is exhausted. */
+/** Atomically consume one credit when allowance is exhausted. */
 export async function consumeOneCredit(userId: string): Promise<{ ok: boolean; balance: number }> {
   const doc = await AdamCreditWalletModel.findOneAndUpdate(
     { userId, balance: { $gte: 1 } },

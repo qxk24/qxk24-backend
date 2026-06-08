@@ -32,9 +32,14 @@ export interface DailyQuotaSnapshot {
 }
 
 export function freeDailyLimit(): number {
-  return ENV.ADAM_FREEMIUM_FREE_DAILY;
+  return ENV.ADAM_FREEMIUM_FREE_ROLLING;
 }
 
+export function pelajarMonthlyLimit(): number {
+  return ENV.ADAM_FREEMIUM_PELAJAR_MONTHLY;
+}
+
+/** @deprecated Premium uses monthly + daily soft cap */
 export function pelajarDailyLimit(): number {
   return ENV.ADAM_FREEMIUM_PELAJAR_DAILY;
 }
@@ -61,49 +66,63 @@ function buildSnapshot(
   };
 }
 
+export async function getQuotaSnapshot(
+  userId: string,
+  limit: number,
+  periodKey: string,
+): Promise<DailyQuotaSnapshot> {
+  const [doc, creditBalance] = await Promise.all([
+    AdamDailyQuotaModel.findOne({ userId, dateKey: periodKey }).lean(),
+    getCreditBalance(userId),
+  ]);
+  const used = doc?.count ?? 0;
+  return buildSnapshot(userId, periodKey, used, limit, creditBalance);
+}
+
 export async function getDailyQuotaSnapshot(
   userId: string,
   dailyLimit: number,
   date = new Date(),
 ): Promise<DailyQuotaSnapshot> {
-  const dateKey = malaysiaDateKey(date);
-  const [doc, creditBalance] = await Promise.all([
-    AdamDailyQuotaModel.findOne({ userId, dateKey }).lean(),
-    getCreditBalance(userId),
-  ]);
-  const used = doc?.count ?? 0;
-  return buildSnapshot(userId, dateKey, used, dailyLimit, creditBalance);
+  return getQuotaSnapshot(userId, dailyLimit, malaysiaDateKey(date));
 }
 
 /**
- * Reserve one question — daily allowance first, then purchased credits.
+ * Reserve one question — allowance first, then purchased credits.
  */
-export async function reserveDailyQuestion(
+export async function reserveQuotaQuestion(
   userId: string,
-  dailyLimit: number,
-  date = new Date(),
+  limit: number,
+  periodKey: string,
 ): Promise<DailyQuotaSnapshot> {
-  const dateKey = malaysiaDateKey(date);
-  const existing = await AdamDailyQuotaModel.findOne({ userId, dateKey }).lean();
+  const existing = await AdamDailyQuotaModel.findOne({ userId, dateKey: periodKey }).lean();
   const used = existing?.count ?? 0;
 
-  if (used < dailyLimit) {
+  if (used < limit) {
     const doc = await AdamDailyQuotaModel.findOneAndUpdate(
-      { userId, dateKey },
+      { userId, dateKey: periodKey },
       { $inc: { count: 1 } },
       { upsert: true, new: true },
     ).lean();
     const nextUsed = doc?.count ?? used + 1;
     const creditBalance = await getCreditBalance(userId);
-    return buildSnapshot(userId, dateKey, nextUsed, dailyLimit, creditBalance);
+    return buildSnapshot(userId, periodKey, nextUsed, limit, creditBalance);
   }
 
   const consumed = await consumeOneCredit(userId);
   if (!consumed.ok) {
-    return buildSnapshot(userId, dateKey, used, dailyLimit, consumed.balance);
+    return buildSnapshot(userId, periodKey, used, limit, consumed.balance);
   }
 
-  return buildSnapshot(userId, dateKey, used, dailyLimit, consumed.balance, true);
+  return buildSnapshot(userId, periodKey, used, limit, consumed.balance, true);
+}
+
+export async function reserveDailyQuestion(
+  userId: string,
+  dailyLimit: number,
+  date = new Date(),
+): Promise<DailyQuotaSnapshot> {
+  return reserveQuotaQuestion(userId, dailyLimit, malaysiaDateKey(date));
 }
 
 /** Read-only check — does not increment. */

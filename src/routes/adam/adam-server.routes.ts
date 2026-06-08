@@ -26,7 +26,7 @@ import {
 import { AdamServerId } from '../../adam-servers/adam-server.types';
 import { ENV } from '../../config/environments';
 import { guestLifetimeLimit } from '../../freemium/adam-freemium-guest.service';
-import { freeDailyLimit } from '../../freemium/adam-freemium-daily.service';
+import { freeRollingLimit, rollingWindowHours } from '../../freemium/adam-freemium-rolling.service';
 
 const router = new Hono();
 
@@ -42,7 +42,8 @@ router.get('/pricing', (c) => {
       layer:          1,
       open:           true,
       guestLimit:     ENV.ADAM_FREEMIUM_ENABLED ? guestLifetimeLimit() : 3,
-      pencarianDaily: ENV.ADAM_FREEMIUM_ENABLED ? freeDailyLimit() : 15,
+      pencarianRolling: ENV.ADAM_FREEMIUM_ENABLED ? freeRollingLimit() : 6,
+      rollingWindowHours: ENV.ADAM_FREEMIUM_ENABLED ? rollingWindowHours() : 5,
       rule:           LAYER1_PLATFORM.rule,
     },
     layer2: {

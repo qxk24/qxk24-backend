@@ -38,7 +38,14 @@ import {
   normalizeGuestId,
 } from '../../freemium/adam-freemium-guest.service';
 import { isStudentSelfRegisterEnabled } from '../../adam/adam-platform-settings.service';
-import { freeDailyLimit, pelajarDailyLimit } from '../../freemium/adam-freemium-daily.service';
+import { pelajarMonthlyLimit } from '../../freemium/adam-freemium-daily.service';
+import {
+  freeRollingLimit,
+  profesionalRollingLimit,
+  rollingWindowHours,
+} from '../../freemium/adam-freemium-rolling.service';
+import { pelajarDailySoftLimit } from '../../freemium/adam-freemium-premium.service';
+import { getPremiumCreditPacks } from '../../freemium/adam-freemium-credit.service';
 import {
   runLayerGatePreCheck,
   streamLayerGateBlockedTurn,
@@ -96,12 +103,13 @@ router.get('/freemium-status', async (c) => {
       registerGate:       snap.registerGate,
     },
     registeredFree: {
-      dailyLimit: freeDailyLimit(),
-      note:       'Daftar percuma — had harian, reset tengah malam (MY).',
+      rollingLimit:       freeRollingLimit(),
+      rollingWindowHours: rollingWindowHours(),
+      note:               'Register free — deep questions in a rolling window.',
     },
     paid: {
-      comingSoon: true,
-      note:       'Pelajar, Profesional & Enterprise — Coming soon.',
+      comingSoon: false,
+      note:       'Premium, Profesional & Enterprise — see /pricing/packages.',
     },
     kernel: 'Alamtologi',
   });
@@ -202,15 +210,23 @@ router.get('/limits', (c) => {
       label:         'Tetamu (tanpa daftar)',
     },
     free: {
-      dailyLimit: freeDailyLimit(),
-      label:      'Percuma (berdaftar)',
+      rollingLimit:     freeRollingLimit(),
+      rollingWindowHours: rollingWindowHours(),
+      label:            'Basic (registered)',
     },
     pelajar: {
-      dailyLimit: pelajarDailyLimit(),
-      label:      'Pelajar',
-      comingSoon: true,
+      monthlyLimit:      pelajarMonthlyLimit(),
+      dailySoftLimit:    pelajarDailySoftLimit(),
+      topUpPacks:        getPremiumCreditPacks(),
+      label:             'Premium',
+      comingSoon:        false,
     },
-    profesional: { comingSoon: true, label: 'Profesional' },
+    profesional: {
+      rollingLimit:      profesionalRollingLimit(),
+      rollingWindowHours: rollingWindowHours(),
+      label:             'Profesional',
+      comingSoon:        false,
+    },
     enterprise:  { comingSoon: true, label: 'Enterprise' },
     paymentGateway: { wired: false, label: 'Coming soon' },
     kernel: 'Alamtologi',
