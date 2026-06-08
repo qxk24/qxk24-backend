@@ -158,6 +158,7 @@ Then output in this exact order (Malay only):
 2. Blank line
 3. ## Abstrak heading (markdown)
 4. Abstrak body (250–300 words, four movements, Malay prose)
+When listing the four movements (pertama, kedua, ketiga, keempat): use commas and full clauses only — never em dash (—), en dash (–), or hyphen (-) between list items or before "bahawa"/"iaitu".
 No [FORMULA] tags in Title or Abstrak — formulas belong in Movement 5 only.`;
       break;
 

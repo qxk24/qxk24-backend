@@ -72,6 +72,7 @@ LANGUAGE RULES (draft phase — 9 movements in chat):
 - Use "we" / "humanity" for universal human condition — reader is inside the story.
 - Deliberate paragraph breaks — single-line paragraph at revelation (sparingly).
 - Quran: quiet authority — not defensive, apologetic, or aggressive; 31 years of depth, calmly stated.
+- **No dash bridges in Malay prose** — do NOT use em dash (—), en dash (–), or hyphen (-) to splice clauses inside flowing sentences or numbered lists (pertama, kedua, ketiga, …). Wrong: \`dinding jujur — bahawa ilmu…\`. Right: comma, \`iaitu\`, \`bahawa\`, \`kerana\`, or a new sentence. Semicolons between list items are fine; dashes between them are not.
 
 PARAGRAPH TEST (every paragraph before you keep it):
 1. Is it true? (accurate to session teaching or honest convention)
