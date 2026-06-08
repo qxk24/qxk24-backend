@@ -24,7 +24,8 @@ import {
   type WorkspaceRecord,
 } from '../adam/adam-workspace.service';
 import { FOUNDER_USER_ID } from '../adam/adam-student.types';
-import { getAdamMemoryConfig } from '../config/adam-memory.config';
+import { getAdamMemoryConfig, getGuestTrialMemoryConfig } from '../config/adam-memory.config';
+import { isGuestUserId } from '../freemium/adam-freemium-guest.service';
 import { buildMemoryHealthContextBlock } from './adam-health.service';
 import { buildConstitutionalAnchor } from './adam-anchor.service';
 import { getCorePrompt, CORE_ABSORPTION_ACK, HOLDINGS_ABSORPTION_ACK, PRESENCE_ABSORPTION_ACK, REGISTER_MOMENT_ABSORPTION_ACK } from './adam-core';
@@ -114,7 +115,10 @@ export async function buildSmartContext(
   chatMode?: string,
   options?: BuildSmartContextOptions,
 ): Promise<LlmMessage[]> {
-  const config = getAdamMemoryConfig(participant.role, Boolean(workspace), chatMode);
+  const isGuestTrial = isGuestUserId(participant.userId);
+  const config = isGuestTrial
+    ? getGuestTrialMemoryConfig()
+    : getAdamMemoryConfig(participant.role, Boolean(workspace), chatMode);
   const messages: LlmMessage[] = [];
   const teachingAbsorption = options?.founderTeachingAbsorption === true;
 
@@ -127,7 +131,7 @@ export async function buildSmartContext(
     && !teachingAbsorption;
 
   const studentTrackPromise =
-    participant.role === 'student' && !workspace
+    participant.role === 'student' && !workspace && !isGuestTrial
       ? getStudentTrackSummary(participant.userId)
       : Promise.resolve('');
 
@@ -274,7 +278,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with ${partici
   let longTermBlock = tiers.longTerm;
   const brainLoadedChars = longTermBlock.length;
 
-  const epistemic = teachingAbsorption
+  const epistemic = teachingAbsorption || isGuestTrial
     ? null
     : await buildEpistemicStatus(
       sessionId,

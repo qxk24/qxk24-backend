@@ -23,6 +23,7 @@ import { ENV } from './environments';
 import type { ADAMChatMode } from '../adam/adam.types';
 import { shouldEnableWebSearchForMessage } from '../adam/adam-web-search';
 import { isAdamSubstantiveTurn } from '../adam/adam-response-generation';
+import { isGuestUserId } from '../freemium/adam-freemium-guest.service';
 
 export type ModelTier = 'fast' | 'deep';
 
@@ -205,6 +206,10 @@ export function resolveAdamChatModel(params: {
       tier:   'deep',
       reason: 'group_session',
     };
+  }
+
+  if (isGuestUserId(participant.userId)) {
+    return { model: getFastModel(), tier: 'fast', reason: 'guest_trial' };
   }
 
   return resolveStudentModel(mode, message, hasUploads);

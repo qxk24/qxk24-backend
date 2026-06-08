@@ -88,6 +88,7 @@ import {
   finishAdamChatTurn,
   persistInteractiveJournalDraft,
 } from './adam-chat-stream-post-turn';
+import { isGuestUserId } from '../freemium/adam-freemium-guest.service';
 import {
   founderWantsJournalDraft,
   founderWantsJournalStop,
@@ -120,6 +121,7 @@ export async function streamADAMChat(
 ): Promise<void> {
   const isFounder = participant.role === 'founder';
   const isGroup = participant.sessionType === 'group';
+  const isGuestTrial = isGuestUserId(participant.userId);
 
   const resolvedSessionId = await ensureSession(
     sessionId,
@@ -243,7 +245,9 @@ export async function streamADAMChat(
       userMessageId,
     };
 
-    if (!isFounder) {
+    onEvent('adam_thinking', JSON.stringify({ sessionId: resolvedSessionId, mode }));
+
+    if (!isFounder && !isGuestTrial) {
       const plasPrescan = await fetchPlasPrescan({
         input: messageForAdam,
         studentId: participant.userId,
@@ -283,13 +287,11 @@ export async function streamADAMChat(
       }
     }
 
-    onEvent('adam_thinking', JSON.stringify({ sessionId: resolvedSessionId, mode }));
-
     if (await handleAdamBuilderTurn(shell)) {
       return;
     }
 
-    if (!isFounder && !workspace) {
+    if (!isFounder && !workspace && !isGuestTrial) {
       void processStudentContribution(
         participant.userId,
         participant.userName,
@@ -333,7 +335,7 @@ export async function streamADAMChat(
       const macBridgeBlock = isFounder ? buildMacBridgeContextBlock() : '';
 
       let studentContinuityBridge: string | undefined;
-      if (!isFounder) {
+      if (!isFounder && !isGuestTrial) {
         studentContinuityBridge = await buildStudentContinuityBridge(
           participant.userId,
           resolvedSessionId,
@@ -347,6 +349,7 @@ export async function streamADAMChat(
         isAmaBrainV2Enabled()
         && !founderTeachingLearnerTurn
         && mode !== 'JOURNAL_GEN'
+        && !isGuestTrial
       ) {
         const tamat = await resolveTamatLayer5Block(
           messageForAdam,
@@ -367,9 +370,9 @@ export async function streamADAMChat(
           founderTeachingAbsorption,
           founderTeachingSynthesis,
           amaTamatBlock,
-          webSearchPrompt:          adamWebSearchEnabled() && founderTeachingSynthesis
+          webSearchPrompt:          adamWebSearchEnabled() && !isGuestTrial && founderTeachingSynthesis
             ? getAdamWebSearchPrompt(isFounder, { founderTeachingSynthesis: true })
-            : adamWebSearchEnabled() && !founderTeachingAbsorption
+            : adamWebSearchEnabled() && !isGuestTrial && !founderTeachingAbsorption
               ? getAdamWebSearchPrompt(isFounder)
               : undefined,
         }),
@@ -455,7 +458,7 @@ export async function streamADAMChat(
         : founderTeachingAbsorption
           ? null
           : getWebSearchGateReason(userMessage, { isFounder });
-      const enableWebSearch = Boolean(webSearchGateReason);
+      const enableWebSearch = !isGuestTrial && Boolean(webSearchGateReason);
 
       if (enableWebSearch) {
         console.log(

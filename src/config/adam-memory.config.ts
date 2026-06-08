@@ -67,7 +67,22 @@ export const ADAM_MEMORY_CONFIG = {
     ACTIVE_FAMILIES:    envInt('ADAM_WORKSPACE_ACTIVE_FAMILIES', 10),
     CURRENT_MESSAGE_MIN_CHARS: 64_000,
   },
+  /** Guest trial — separate tier; does not alter STUDENT/FOUNDER sacred defaults. */
+  GUEST_TRIAL: {
+    MESSAGE_WINDOW:     envInt('ADAM_GUEST_MESSAGE_WINDOW', 6),
+    BRAIN_CHARS:        envInt('ADAM_GUEST_BRAIN_CHARS', 8_000),
+    MESSAGE_CHARS:      envInt('ADAM_GUEST_MESSAGE_CHARS', 4_000),
+    ANCHOR_MAX_CHARS:   envInt('ADAM_GUEST_ANCHOR_CHARS', 1_200),
+    COMPLETED_FAMILIES: envInt('ADAM_GUEST_COMPLETED_FAMILIES', 2),
+    ACTIVE_FAMILIES:    envInt('ADAM_GUEST_ACTIVE_FAMILIES', 3),
+    CURRENT_MESSAGE_MIN_CHARS: 8_000,
+  },
 } as const satisfies Record<string, AdamMemoryTierConfig>;
+
+/** Lite memory for unregistered guest trial — 3 lifetime questions max. */
+export function getGuestTrialMemoryConfig(): AdamMemoryTierConfig {
+  return ADAM_MEMORY_CONFIG.GUEST_TRIAL;
+}
 
 export function getAdamMemoryConfig(
   role: 'founder' | 'student',

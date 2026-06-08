@@ -128,11 +128,8 @@ router.post('/chat', zValidator('json', PublicChatSchema), async (c) => {
   const body = c.req.valid('json');
   let guestId = normalizeGuestId(body.guestId) ?? readGuestId(c) ?? newGuestId();
   const sessionUserId = guestSessionUserId(guestId);
-
-  let sessionId = body.sessionId;
-  if (!sessionId) sessionId = await getOrCreateSession(sessionUserId, 'student');
-
   const message = body.message.trim();
+  let sessionId = body.sessionId;
 
   c.header('Content-Type', 'text/event-stream');
   c.header('Cache-Control', 'no-cache');
@@ -142,11 +139,19 @@ router.post('/chat', zValidator('json', PublicChatSchema), async (c) => {
 
   return stream(c, async (s) => {
     try {
-      const freemium = await runGuestFreemiumPreCheck(guestId, sessionId);
-
       await s.write(
         `event: freemium_guest_id\ndata: ${JSON.stringify({ guestId })}\n\n`,
       );
+
+      const sessionPromise = sessionId
+        ? Promise.resolve(sessionId)
+        : getOrCreateSession(sessionUserId, 'student');
+
+      const [freemium, resolvedSessionId] = await Promise.all([
+        runGuestFreemiumPreCheck(guestId, sessionId),
+        sessionPromise,
+      ]);
+      sessionId = resolvedSessionId;
 
       if (!freemium.canContinue) {
         await streamFreemiumBlockedTurn(s, sessionId, freemium);
