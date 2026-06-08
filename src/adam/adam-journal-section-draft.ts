@@ -200,10 +200,11 @@ export async function saveJournalSectionProgress(input: {
 
   let doc;
   const existingId = input.journalDraftId ?? prev?._id?.toString();
+  const updatePayload = { $set: { ...metaPayload, ...sectionDotSet } };
   if (existingId) {
     doc = await ADAMJournalModel.findByIdAndUpdate(
       existingId,
-      { $set: { ...metaPayload, ...sectionDotSet } },
+      updatePayload,
       { new: true },
     );
   } else {
@@ -213,15 +214,7 @@ export async function saveJournalSectionProgress(input: {
         knowledgeTopicId: input.topic.topicId,
         status:           'DRAFT',
       },
-      {
-        $set: {
-          ...metaPayload,
-          ...sectionDotSet,
-        },
-        $setOnInsert: {
-          draftSections: storedSections,
-        },
-      },
+      updatePayload,
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
   }
