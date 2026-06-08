@@ -22,7 +22,11 @@ import type { UniversityKnowledgeTopic } from './adam-university-knowledge';
 import { buildKnowledgeTopicBreadcrumb } from './adam-university-knowledge';
 import { ADAM_JOURNAL_FORMULA_LAW, ADAM_JOURNAL_ALAMTOLOGI_SCIENTIFIC_FORMULA_LAW, ADAM_JOURNAL_QURAN_SECTION_LAW } from './adam-journal-formula';
 import { ADAM_JOURNAL_THREE_LAYER_SOURCES } from './adam-journal-manual-prompt';
-import { ADAM_JOURNAL_ABSTRAK_STRUCTURE_LAW, ADAM_JOURNAL_SENTENCE_RHYTHM_LAW } from './adam-journal-writing-voice';
+import {
+  ADAM_JOURNAL_ABSTRAK_STRUCTURE_LAW,
+  ADAM_JOURNAL_SENTENCE_RHYTHM_LAW,
+  ADAM_JOURNAL_TEACHING_FLOW_LAW,
+} from './adam-journal-writing-voice';
 import { sanitizeAdamProseDashBridges } from './adam-prose-sanitize';
 import { formatTitleAbstractSectionForDisplay } from './adam-journal-section-display';
 import {
@@ -164,9 +168,9 @@ Then output in this exact order (Malay only):
 3. ## Abstrak heading (markdown)
 4. Abstrak body (250–300 words, Malay prose)
 ${ADAM_JOURNAL_ABSTRAK_STRUCTURE_LAW}
-${ADAM_JOURNAL_SENTENCE_RHYTHM_LAW}
-Write connected paragraphs with blank lines — not one wall of text, not telegraphic one-liners.
-ABSOLUTE: no em dash (—) in Abstrak prose.
+${ADAM_JOURNAL_TEACHING_FLOW_LAW}
+Write connected paragraphs with blank lines — voice of the **subfield from teaching**, not a constitutional checklist.
+ABSOLUTE: no em dash (—) in Abstrak prose. No MASA/TENAGA/CAHAYA unless session teaching used them for this topic.
 No [FORMULA] tags in Title or Abstrak — formulas belong in Movement 5 only.`;
       break;
 
@@ -198,7 +202,7 @@ ${ADAM_JOURNAL_QURAN_SECTION_LAW}`;
     case 'movement_5_alamtologi':
       prompt = `${shared}
 
-Alamtologi Framework (C) — full discipline syllabus and constitutional lens for this topic. No Quran ayat here.
+Alamtologi Framework (C) — **this is the section** for discipline syllabus, seven principles, MASA/TENAGA/CAHAYA and related constitutional depth when relevant to the locked topic. No Quran ayat here.
 ${ADAM_JOURNAL_ALAMTOLOGI_SCIENTIFIC_FORMULA_LAW}`;
       break;
 

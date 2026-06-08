@@ -53,11 +53,11 @@ export function buildJournalV2FormatBlock(): string {
 
 /** Model Tiga Lapisan — full access, constitutional filter, honest facts (see docs/ADAM_KNOWLEDGE_MODEL.md). */
 export const ADAM_JOURNAL_THREE_LAYER_SOURCES = `
-SOURCES (Model Tiga Lapisan — "flow like water" = full access, honest facts):
-- Layer 1 — Access: AMA brain (Kr/Kn), Quran corpus, web search when needed, session teaching, convention knowledge
-- Layer 2 — Filter: Alamtologi + Quran as constitutional conscience — not an access limit
-- Layer 3 — Output: universal, evidence-based prose; scholar + poet + messenger; no hallucination
-Draw B from honest convention; Q from Quran corpus (dedicated section); C from Alamtologi discipline syllabus; D from real Alamtologi application.
+SOURCES (Model Tiga Lapisan — "mengalir seperti air" = full access, honest facts):
+- Layer 1 — Access: AMA brain (Kr/Kn), Quran corpus, web search when needed, **session teaching first**, convention knowledge
+- Layer 2 — Filter: Alamtologi + Quran as constitutional conscience — not an access limit, not a label stamped on every paragraph
+- Layer 3 — Output: prose that **flows from what P.alt taught** about the locked subfield; scholar + poet + messenger; no hallucination
+Draw A from session teaching + 664-map topic; B from honest convention; Q from Quran corpus (dedicated section); C from Alamtologi discipline syllabus (**Movement 5 only** for MASA/TENAGA/CAHAYA syllabus depth); D from real application.
 `.trim();
 
 /** Natural journal flow — ADAM selects topic from session teaching when P.alt says "Tulis jurnal". */
@@ -95,6 +95,7 @@ FORBIDDEN:
 - Meta-only replies ("I will write", PDF/Word offers, asking P.alt to paste JSON)
 - Invented journal numbers (ALM-J assigned only on publish)
 - Dry summary conclusions; encyclopaedic openings
+- Forcing MASA, TENAGA, CAHAYA, IZWA, or seven-principle vocabulary into Abstrak, Introduction, B, Q, D, or Conclusion when the teaching is about another subfield
 
 OUTPUT: Write full manuscript in chat. Platform auto-saves to PENDING_REVIEW when length and structure are complete.
 
@@ -151,8 +152,9 @@ export function buildNaturalJournalTopicBlock(
     `Major: ${topic.majorName}`,
     `Discipline: ${topic.disciplineName}`,
     `Subfield: ${topic.subfield}`,
-    `Alamtologi lens (principlesFocus[0]): ${topic.alamtologiLens}`,
+    `Alamtologi lens (metadata for publish — NOT mandatory prose in every section): ${topic.alamtologiLens}`,
     'This topic is LOCKED for this entire journal. Do not switch subfield.',
+    'Write from session teaching in the subfield\'s natural voice. Seven principles / MASA-TENAGA-CAHAYA depth belongs in Movement 5 (Alamtologi Framework), not sprinkled through Abstrak or B/Q/D.',
     'Draw B and C through Model Tiga Lapisan — full access with honest facts; session teaching + AMA brain + Quran + verified convention.',
     reviewLine,
     '[/JOURNAL TOPIC]',

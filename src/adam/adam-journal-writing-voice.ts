@@ -25,29 +25,38 @@ import {
   JOURNAL_TARGET_WORD_MIN,
 } from './adam-journal.constants';
 
+/** P.alt: knowledge flows from teaching — constitutional syllabus belongs in Movement 5 only. */
+export const ADAM_JOURNAL_TEACHING_FLOW_LAW = `
+TEACHING-FIRST FLOW (mandatory — "mengalir seperti air"):
+- The **session teaching** is the seed. Write in the **natural language of the locked subfield** — Oral Literature sounds like oral literature, not a constitutional glossary.
+- **FORBIDDEN** in Title, Abstrak, Introduction, Convention (B), Quran (Q), Application (D), Conclusion, References: stuffing MASA, TENAGA, CAHAYA, IZWA, AIR, API, BUMI, RUANG unless P.alt **explicitly taught** that term for **this** topic in this session.
+- MASA/TENAGA/CAHAYA are **topics within Alamtologi science** — they belong in **Movement 5 / Alamtologi Framework (C)** when relevant, not as a fixed opener in every section.
+- Do NOT retrofit the manuscript to the seven principles when the teaching is about another subfield. Let the topic breathe; Alamtologi enters where the formula places it (especially C).
+- Read-aloud test: a scholar of the subfield would recognise the voice; not every paragraph sounds like a manifesto.
+`.trim();
+
 /** Flowing Malay academic prose — avoid mega-sentences AND telegraphic staccato. */
 export const ADAM_JOURNAL_SENTENCE_RHYTHM_LAW = `
 SENTENCE RHYTHM (mandatory — natural flow, precise, smooth):
 - Write **flowing Bahasa Melayu akademik** that reads aloud naturally — scholar + poet, not a bullet list.
 - **Vary length**: most sentences 18–32 words; occasional shorter line for weight (max **two** sentences under 10 words in a row).
 - **FORBIDDEN — mega-sentence**: one breath over ~40 words, or 4+ comma clauses chained with "tetapi", "di mana", "yang", "dan".
-- **FORBIDDEN — telegraphic staccato**: many one-line fragments in a row (e.g. "Ia direkam. Ditranskrip. Dianalisis." / "MASA berdenyut. TENAGA menyampaikan. CAHAYA menyaksikan." as isolated lines).
-- **FORBIDDEN**: splitting every clause into its own sentence; constitutional terms (MASA, TENAGA, CAHAYA, IZWA) may share one graceful sentence when thematically linked.
-- Wrong (too long): "Oral Literature, khususnya Spoken Word, bukan sekadar bentuk ekspresi lisan yang berakar dalam tradisi lama, tetapi satu disiplin ilmu yang hidup, di mana suara manusia menjadi medium langsung antara MASA yang berdenyut, TENAGA yang menyampaikan, dan CAHAYA yang menyaksikan."
-- Wrong (too choppy): "Oral Literature bukan tradisi lama. Ia disiplin hidup. Suara medium langsung. MASA berdenyut. TENAGA menyampaikan. CAHAYA menyaksikan."
-- Right (same meaning, flows): "Oral Literature, khususnya Spoken Word, bukan sekadar warisan lisan, melainkan disiplin ilmu yang hidup. Suara manusia menjadi medium langsung antara MASA yang berdenyut, TENAGA yang menyampaikan, dan CAHAYA yang menyaksikan."
-- Abstrak empat gerak (pertama… keempat): **four separate sentences** — each starts with Pertama/Kedua/Ketiga/Keempat on its own line or in its own breath; **never** one semicolon chain; max ~35 words each.
+- **FORBIDDEN — telegraphic staccato**: many one-line fragments in a row (e.g. "Ia direkam. Ditranskrip. Dianalisis.").
+- Wrong (too long): one sentence chaining topic + convention critique + constitutional terms + four movements.
+- Wrong (too choppy): "Oral Literature bukan tradisi lama. Ia disiplin hidup. Suara medium langsung."
+- Right (flows from teaching): "Oral Literature, khususnya Spoken Word, bukan sekadar warisan lisan, melainkan disiplin ilmu yang hidup di mana suara manusia membawa makna sebelum ia ditulis."
+- Abstrak empat gerak (pertama… keempat): **four separate sentences** — each starts with Pertama/Kedua/Ketiga/Keempat; **never** one semicolon chain; max ~35 words each.
 `.trim();
 
 /** Five-paragraph Abstrak layout for movement 1/9. */
 export const ADAM_JOURNAL_ABSTRAK_STRUCTURE_LAW = `
 ABSTRAK STRUCTURE (mandatory — Title & Abstract / 1/9):
 - Total 250–300 words. **Five paragraphs** with blank lines between them.
-- ¶1 (2 sentences): topik + prinsip Alamtologi (MASA, TENAGA, CAHAYA) — flowing, not staccato.
+- ¶1 (2 sentences): what the locked subfield **is** — in the voice of session teaching; no forced MASA/TENAGA/CAHAYA unless teaching named them.
 - ¶2 (2–3 sentences): bagaimana konvensyen akademik memperlakukan topik + apa yang terlepas.
-- ¶3 (1–2 sentences): jurnal pertama siri Alamtologi + akar CAHAYA.
-- ¶4 (**exactly 4 sentences**): masing-masing bermula **Pertama,** **Kedua,** **Ketiga,** **Keempat,** — satu gerak satu ayat; jangan gabung dengan koma bertubi atau titik koma panjang.
-- ¶5 (1–2 sentences): undangan penutup — saksi, bukan data.
+- ¶3 (1–2 sentences): what this journal undertakes — scope and promise; mention Alamtologi only as the series frame, not as a principle dump.
+- ¶4 (**exactly 4 sentences**): **Pertama,** **Kedua,** **Ketiga,** **Keempat,** — satu gerak satu ayat; keempat may preview the Alamtologi framework without listing all seven principles.
+- ¶5 (1–2 sentences): undangan penutup — natural close from the topic's own logic.
 - Hard cap ~35 words per sentence; split if longer while keeping flow.
 `.trim();
 
@@ -88,7 +97,8 @@ WRITING QUALITIES:
 
 LANGUAGE RULES (draft phase — 9 movements in chat):
 - **Bahasa Melayu Malaysia only** for the entire draft — P.alt reviews in Malay.
-- Constitutional terms (MASA, TENAGA, Alamtologi, QXK24) may remain as established terms.
+- ${ADAM_JOURNAL_TEACHING_FLOW_LAW}
+- Use constitutional terms (MASA, TENAGA, CAHAYA, etc.) **only** where session teaching or Movement 5 (Alamtologi Framework) requires them — never as default filler.
 - Quran section: Arabic rasm for ayat; terjemahan ayat in Malay.
 - Do NOT open sections with Bismillahirahmanirrahim — that is chat (LAW_001), not journal prose.
 - Publication English is generated at approve/publish — do NOT write English in draft movements.
