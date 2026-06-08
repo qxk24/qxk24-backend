@@ -35,6 +35,7 @@ import {
   sectionUsesParagraphStructure,
   stripParagraphMarkerFromProse,
 } from './adam-journal-section-paragraphs';
+import { sanitizeMalayJournalDashBridges } from './adam-journal-prose-sanitize';
 import {
   loadJournalSectionDraft,
   loadLatestJournalSectionDraftForSession,
@@ -434,7 +435,7 @@ export function extractSectionBodyForSave(
     if (nextMovement > 0) {
       text = text.slice(0, nextMovement).trim();
     }
-    return text.trim();
+    return sanitizeMalayJournalDashBridges(text.trim());
   }
 
   const heading = JOURNAL_SECTION_HEADINGS[sectionId];
@@ -460,7 +461,7 @@ export function extractSectionBodyForSave(
   }
 
   text = stripJournalSectionEditChatWrappers(text);
-  return text.trim();
+  return sanitizeMalayJournalDashBridges(text.trim());
 }
 
 /**

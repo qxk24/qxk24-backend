@@ -21,6 +21,7 @@ import type { LlmMessage } from '../llm/llm-types';
 import type { UniversityKnowledgeTopic } from './adam-university-knowledge';
 import { ADAM_JOURNAL_FORMULA_LAW, ADAM_JOURNAL_ALAMTOLOGI_SCIENTIFIC_FORMULA_LAW, ADAM_JOURNAL_QURAN_SECTION_LAW } from './adam-journal-formula';
 import { ADAM_JOURNAL_THREE_LAYER_SOURCES } from './adam-journal-manual-prompt';
+import { sanitizeMalayJournalDashBridges } from './adam-journal-prose-sanitize';
 import { formatTitleAbstractSectionForDisplay } from './adam-journal-section-display';
 import {
   countJournalWords,
@@ -158,6 +159,7 @@ Then output in this exact order (Malay only):
 2. Blank line
 3. ## Abstrak heading (markdown)
 4. Abstrak body (250–300 words, four movements, Malay prose)
+ABSOLUTE: no em dash (—) anywhere in Abstrak — not before "khususnya", "bahawa", "agar", or between pertama/kedua/ketiga/keempat. Use commas and full Malay clauses only.
 When listing the four movements (pertama, kedua, ketiga, keempat): use commas and full clauses only — never em dash (—), en dash (–), or hyphen (-) between list items or before "bahawa"/"iaitu".
 No [FORMULA] tags in Title or Abstrak — formulas belong in Movement 5 only.`;
       break;
@@ -279,12 +281,13 @@ export function formatSingleSectionDisplay(
   sectionId: JournalSectionId,
   body: string,
 ): string {
+  const cleanedBody = sanitizeMalayJournalDashBridges(body);
   if (sectionId === 'title_and_abstract') {
-    const { journalTitle, sectionBody } = formatTitleAbstractSectionForDisplay(body);
+    const { journalTitle, sectionBody } = formatTitleAbstractSectionForDisplay(cleanedBody);
     const titleBlock = journalTitle ? `# ${journalTitle}\n\n` : '';
     return `${titleBlock}## Title & Abstract\n\n${sectionBody}`;
   }
-  return `## ${JOURNAL_SECTION_HEADINGS[sectionId]}\n\n${body.trim()}`;
+  return `## ${JOURNAL_SECTION_HEADINGS[sectionId]}\n\n${cleanedBody.trim()}`;
 }
 
 export function buildJournalSectionReviewFooter(input: {
@@ -299,11 +302,17 @@ export function buildJournalSectionReviewFooter(input: {
       'Review each chapter above, then say **seal journal** or **meterai jurnal** for founder review.'
     );
   }
+  const paraHint = sectionUsesParagraphStructure(input.lastSection)
+    ? '**teruskan perenggan** — ¶ seterusnya dalam bahagian ini · '
+    : '';
   return (
     `\n\n---\n**${JOURNAL_SECTION_HEADINGS[input.lastSection]}** (${input.index}/${input.total}) — ` +
     'semak bahagian ini dalam accordion.\n' +
-    '**teruskan perenggan** — ¶ seterusnya dalam bahagian ini · **continue** — bahagian seterusnya (X/9)\n' +
-    'Edit satu ¶: **Simpan perenggan 2 ke … (X/9)** · Akhir: **seal journal** bila 9/9 lengkap.'
+    `${paraHint}**continue** — bahagian seterusnya (X/9)\n` +
+    (sectionUsesParagraphStructure(input.lastSection)
+      ? 'Edit satu ¶: **Simpan perenggan 2 ke … (X/9)** · '
+      : 'Edit: **Simpan ke … (X/9)** · ') +
+    'Akhir: **seal journal** bila 9/9 lengkap.'
   );
 }
 
@@ -411,6 +420,7 @@ export async function generateFounderJournalBySections(
       mergedContent = normalizeSectionParagraphBody(sectionId, mergedContent);
     }
 
+    mergedContent = sanitizeMalayJournalDashBridges(mergedContent);
     sections[sectionId] = mergedContent;
     lastSectionWritten = sectionId;
     sectionsWrittenThisTurn += 1;

@@ -17,6 +17,8 @@
  * [FORMULA] / [INLINE_FORMULA] / [DISPLAY_FORMULA] avoid $ conflicts during writes.
  */
 
+import { sanitizeMalayJournalDashBridges } from './adam-journal-prose-sanitize';
+
 /** Prompt block — ADAM wraps math in [FORMULA]…[/FORMULA], not raw $. */
 export const ADAM_JOURNAL_FORMULA_LAW = `
 FORMULA RENDERING (mandatory for all journals):
@@ -209,7 +211,8 @@ export function demoteProseLatexFormulas(content: string): string {
 export function prepareContentForStorage(content: string): string {
   if (!content) return '';
 
-  const { text: protectedText, slots } = protectExistingFormulaTags(content.normalize('NFC'));
+  const normalized = sanitizeMalayJournalDashBridges(content.normalize('NFC'));
+  const { text: protectedText, slots } = protectExistingFormulaTags(normalized);
 
   let escaped = protectedText.replace(
     /\$\$([\s\S]+?)\$\$/g,
