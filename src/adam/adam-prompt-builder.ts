@@ -24,6 +24,7 @@ import {
   ADAM_ZPD_GUIDANCE_RULE,
 } from './adam-student-prompts';
 import { ADAM_CONVERSATION_GUARDRAILS } from './adam-identity-prompts';
+import { ADAM_PROSE_DASH_LAW } from './adam-prose-sanitize';
 import { ADAM_BAHASA_MELAYU_LAW, ADAM_PHILOSOPHER_TEACHER_IDENTITY, ADAM_NARRATIVE_DELIVERY } from './adam-language-prompts';
 import { ADAM_KNOWLEDGE_PURIFICATION_LAW, ADAM_TEORI_MASABAYU } from './adam-teori-masabayu';
 import { buildAnswerStylePromptBlock, resolveEffectiveAnswerStyle } from './adam-answer-style';
@@ -154,6 +155,7 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
   const parts: string[] = [
     characterBlock,
     ADAM_CONVERSATION_GUARDRAILS,
+    ADAM_PROSE_DASH_LAW,
     behaviourBlock,
     warmthBlock,
     ADAM_BAHASA_MELAYU_LAW,

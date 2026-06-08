@@ -28,6 +28,7 @@ import {
   repairEastAsianScriptLeak,
 } from './adam-language-guard';
 import { repairStudentOutputLeak } from './adam-student-output-guard';
+import { sanitizeAdamProseDashBridges } from './adam-prose-sanitize';
 import { founderRequestsConstitutionalMirror, founderRequestsTeachingSynthesis, sanitizeFounderTeachingQuranFormat, founderTeachingStoredUserContent } from './adam-founder-teaching-prompts';
 import { repairFounderTeachingOutputLeak, detectFounderTeachingOutputLeak, syncSanitizeFounderTeachingOutput } from './adam-founder-teaching-output-guard';
 import { normalizeUserMessage } from './adam-context-budget';
@@ -609,6 +610,10 @@ export async function streamADAMChat(
           inputTurns: llmMessages.length,
         }),
       );
+
+      if (fullResponse?.trim()) {
+        fullResponse = sanitizeAdamProseDashBridges(fullResponse);
+      }
 
       const persistResult = await persistInteractiveJournalDraft({
         shell,

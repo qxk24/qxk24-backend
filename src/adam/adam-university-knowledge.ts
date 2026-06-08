@@ -99,3 +99,38 @@ export function getDailyUniversityKnowledgeTopic(date = new Date()): UniversityK
 export function findUniversityTopicById(topicId: string): UniversityKnowledgeTopic | undefined {
   return loadUniversityKnowledgeTopics().find((t) => t.topicId === topicId);
 }
+
+export function buildKnowledgeTopicBreadcrumb(topic: UniversityKnowledgeTopic): string {
+  return `${topic.majorName} › ${topic.disciplineName} › ${topic.subfield}`;
+}
+
+export function listKnowledgeMajorNames(): string[] {
+  return [...new Set(loadUniversityKnowledgeTopics().map((t) => t.majorName))].sort();
+}
+
+export function searchUniversityKnowledgeTopics(input: {
+  q?:     string;
+  major?: string;
+  limit?: number;
+  skip?:  number;
+}): { topics: UniversityKnowledgeTopic[]; total: number } {
+  let rows = loadUniversityKnowledgeTopics();
+  const major = input.major?.trim();
+  if (major) {
+    rows = rows.filter((t) => t.majorName === major);
+  }
+  const q = input.q?.trim().toLowerCase();
+  if (q) {
+    rows = rows.filter(
+      (t) =>
+        t.topicId.toLowerCase().includes(q)
+        || t.label.toLowerCase().includes(q)
+        || t.subfield.toLowerCase().includes(q)
+        || t.disciplineName.toLowerCase().includes(q),
+    );
+  }
+  const total = rows.length;
+  const skip = Math.max(0, input.skip ?? 0);
+  const limit = Math.min(Math.max(1, input.limit ?? 24), 100);
+  return { topics: rows.slice(skip, skip + limit), total };
+}

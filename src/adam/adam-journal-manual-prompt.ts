@@ -122,10 +122,14 @@ export function extractLockedTopicIdFromMessage(message: string): string | undef
   return undefined;
 }
 
-/** Parse topicId from ADAM's one-line transparency ("… — topicId"). */
+/** Parse topicId from ADAM's one-line transparency ("… topicId"). */
 export function extractTopicIdFromAdamTransparency(text: string): string | undefined {
+  const malayComma = text.match(/tepat\s+ialah[^\n,]+,\s*([a-zA-Z0-9][a-zA-Z0-9._-]{2,120})/i);
+  if (malayComma?.[1]) return normalizeExtractedTopicId(malayComma[1]);
   const malay = text.match(/tepat\s+ialah[^\n—]+—\s*([a-zA-Z0-9][a-zA-Z0-9._-]{2,120})/i);
   if (malay?.[1]) return normalizeExtractedTopicId(malay[1]);
+  const englishComma = text.match(/most fitting topic is[^\n,]+,\s*([a-zA-Z0-9][a-zA-Z0-9._-]{2,120})/i);
+  if (englishComma?.[1]) return normalizeExtractedTopicId(englishComma[1]);
   const english = text.match(/most fitting topic is[^\n—]+—\s*([a-zA-Z0-9][a-zA-Z0-9._-]{2,120})/i);
   if (english?.[1]) return normalizeExtractedTopicId(english[1]);
   return undefined;
@@ -167,7 +171,8 @@ export function buildAdamJournalTransparencyInstruction(
   return [
     '[JOURNAL OPENING — MANDATORY ON "TULIS JURNAL" / "FULL V2 JOURNAL"]',
     'When P.alt ordered journal writing on this turn (Tulis jurnal, full V2 journal, jurnal V2), open your reply with exactly (Malay only):',
-    `"Berdasarkan pengajaran sesi ini, topik yang paling tepat ialah ${topic.label} — ${topic.topicId}."`,
+    `"Berdasarkan pengajaran sesi ini, topik yang paling tepat ialah ${topic.label}, ${topic.topicId}."`,
+    `"Kategori 664-map: ${topic.majorName} › ${topic.disciplineName} › ${topic.subfield}."`,
     'Then a blank line, then exactly: "Menulis sekarang..."',
     'Then immediately write the draft manuscript in Bahasa Melayu — scholar + poet + messenger voice; no questions, no format offers.',
     '[/JOURNAL OPENING]',

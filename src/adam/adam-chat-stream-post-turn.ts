@@ -71,6 +71,7 @@ import { writeStudentStateAfterTurn } from './student-continuity-bridge';
 import { deleteTeachingUploads } from './adam-upload.service';
 import type { JournalGenContext } from './adam-chat-stream.types';
 import type { AdamChatTurnShell } from './adam-chat-stream.types';
+import { getTopicById } from './adam-journal-manual-prompt';
 
 export async function persistInteractiveJournalDraft(input: {
   shell:              AdamChatTurnShell;
@@ -182,11 +183,16 @@ export async function persistInteractiveJournalDraft(input: {
   }
 
   const highlight = lastSection ?? writtenIds[writtenIds.length - 1]!;
+  const lockedTopic =
+    input.journal.journalTopic
+    ?? (topicId ? getTopicById(topicId) : null)
+    ?? undefined;
   let mergedDisplay = assembleManuscriptForChatReview(sections, {
     lastSection: highlight,
     index:       JOURNAL_SECTION_ORDER.indexOf(highlight) + 1,
     total:       JOURNAL_SECTION_ORDER.length,
     complete:    allJournalSectionsComplete(sections),
+    topic:       lockedTopic ?? undefined,
   });
 
   const displayTurn = founderJournalDisplayTurn({
@@ -273,6 +279,7 @@ export async function finishAdamChatTurn(input: {
           index:       JOURNAL_SECTION_ORDER.indexOf(highlight) + 1,
           total:       JOURNAL_SECTION_ORDER.length,
           complete:    allJournalSectionsComplete(sectionDraftMap),
+          topic:       journal.journalTopic ?? undefined,
         }),
         speakerLocale,
       );

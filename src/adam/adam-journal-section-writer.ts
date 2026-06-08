@@ -19,9 +19,10 @@
 
 import type { LlmMessage } from '../llm/llm-types';
 import type { UniversityKnowledgeTopic } from './adam-university-knowledge';
+import { buildKnowledgeTopicBreadcrumb } from './adam-university-knowledge';
 import { ADAM_JOURNAL_FORMULA_LAW, ADAM_JOURNAL_ALAMTOLOGI_SCIENTIFIC_FORMULA_LAW, ADAM_JOURNAL_QURAN_SECTION_LAW } from './adam-journal-formula';
 import { ADAM_JOURNAL_THREE_LAYER_SOURCES } from './adam-journal-manual-prompt';
-import { sanitizeMalayJournalDashBridges } from './adam-journal-prose-sanitize';
+import { sanitizeAdamProseDashBridges } from './adam-prose-sanitize';
 import { formatTitleAbstractSectionForDisplay } from './adam-journal-section-display';
 import {
   countJournalWords,
@@ -281,7 +282,7 @@ export function formatSingleSectionDisplay(
   sectionId: JournalSectionId,
   body: string,
 ): string {
-  const cleanedBody = sanitizeMalayJournalDashBridges(body);
+  const cleanedBody = sanitizeAdamProseDashBridges(body);
   if (sectionId === 'title_and_abstract') {
     const { journalTitle, sectionBody } = formatTitleAbstractSectionForDisplay(cleanedBody);
     const titleBlock = journalTitle ? `# ${journalTitle}\n\n` : '';
@@ -295,6 +296,7 @@ export function buildJournalSectionReviewFooter(input: {
   index:       number;
   total:       number;
   complete:    boolean;
+  topic?:      UniversityKnowledgeTopic;
 }): string {
   if (input.complete) {
     return (
@@ -302,11 +304,19 @@ export function buildJournalSectionReviewFooter(input: {
       'Review each chapter above, then say **seal journal** or **meterai jurnal** for founder review.'
     );
   }
+  const topicBlock = input.topic
+    ? (
+      `\n**Topik dikunci (664-map):** ${buildKnowledgeTopicBreadcrumb(input.topic)}\n` +
+      `**Label:** ${input.topic.label} · **topicId:** \`${input.topic.topicId}\` · **Lens:** ${input.topic.alamtologiLens}\n` +
+      `**Carian pembaca:** [journals](https://alamtologi.com/journals) · major **${input.topic.majorName}** · q=\`${input.topic.topicId}\`\n`
+    )
+    : '';
   const paraHint = sectionUsesParagraphStructure(input.lastSection)
     ? '**teruskan perenggan** — ¶ seterusnya dalam bahagian ini · '
     : '';
   return (
-    `\n\n---\n**${JOURNAL_SECTION_HEADINGS[input.lastSection]}** (${input.index}/${input.total}) — ` +
+    `\n\n---${topicBlock}` +
+    `**${JOURNAL_SECTION_HEADINGS[input.lastSection]}** (${input.index}/${input.total}) — ` +
     'semak bahagian ini dalam accordion.\n' +
     `${paraHint}**continue** — bahagian seterusnya (X/9)\n` +
     (sectionUsesParagraphStructure(input.lastSection)
@@ -324,6 +334,7 @@ export function assembleManuscriptForChatReview(
     index:       number;
     total:       number;
     complete:    boolean;
+    topic?:      UniversityKnowledgeTopic;
   },
 ): string {
   const parts = JOURNAL_SECTION_ORDER
@@ -420,7 +431,7 @@ export async function generateFounderJournalBySections(
       mergedContent = normalizeSectionParagraphBody(sectionId, mergedContent);
     }
 
-    mergedContent = sanitizeMalayJournalDashBridges(mergedContent);
+    mergedContent = sanitizeAdamProseDashBridges(mergedContent);
     sections[sectionId] = mergedContent;
     lastSectionWritten = sectionId;
     sectionsWrittenThisTurn += 1;

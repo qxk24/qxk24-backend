@@ -288,6 +288,7 @@ async function runJournalAddendumPersistTurn(input: {
     index:       idx,
     total:       JOURNAL_SECTION_ORDER.length,
     complete:    allJournalSectionsComplete(sections),
+    topic:       (input.journal.journalTopic ?? (topicId ? getTopicById(topicId) : undefined)) ?? undefined,
   });
 
   console.log(
@@ -437,6 +438,7 @@ export async function streamAdamJournalResponse(input: {
         index:       idx,
         total:       JOURNAL_SECTION_ORDER.length,
         complete:    sectionResult.allSectionsComplete,
+        topic:       lockedTopic ?? undefined,
       });
     } else if (sectionResult.lastSectionWritten) {
       const idx = JOURNAL_SECTION_ORDER.indexOf(sectionResult.lastSectionWritten) + 1;
@@ -494,6 +496,7 @@ export async function streamAdamJournalResponse(input: {
           index:       idx,
           total:       JOURNAL_SECTION_ORDER.length,
           complete:    sectionResult.allSectionsComplete,
+          topic:       lockedTopic ?? undefined,
         });
       } else {
         fullResponse = sectionResult.manuscript;

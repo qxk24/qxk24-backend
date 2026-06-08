@@ -1,3 +1,6 @@
+/// <reference types="jest" />
+
+import { describe, expect, it } from '@jest/globals';
 import {
   extractAbstractFromTitleSection,
   resolveJournalFieldsFromMongoDoc,

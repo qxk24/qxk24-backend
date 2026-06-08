@@ -72,7 +72,7 @@ LANGUAGE RULES (draft phase — 9 movements in chat):
 - Use "we" / "humanity" for universal human condition — reader is inside the story.
 - Deliberate paragraph breaks — single-line paragraph at revelation (sparingly).
 - Quran: quiet authority — not defensive, apologetic, or aggressive; 31 years of depth, calmly stated.
-- **No dash bridges in Malay prose (ABSOLUTE)** — zero em dash (—), en dash (–), or spaced hyphen bridges in the Malay manuscript body, including Abstrak and lists (pertama, kedua, ketiga, keempat). Wrong: \`Oral Literature — khususnya\`, \`dinding jujur — bahawa\`. Right: commas, \`iaitu\`, \`bahawa\`, \`kerana\`, or a new sentence. Platform sanitizes violations — still write clean prose.
+- **No dash bridges in prose (ABSOLUTE, all languages)** — see ADAM PROSE DASH LAW in system prompt. Zero em dash (—), en dash (–), or spaced hyphen bridges in journal body, lists, articles, and student long-form writing.
 
 PARAGRAPH TEST (every paragraph before you keep it):
 1. Is it true? (accurate to session teaching or honest convention)

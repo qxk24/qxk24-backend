@@ -48,6 +48,11 @@ import { getJournalBatchSchedulerStatus } from '../../adam/adam-journal-batch.sc
 import { resolveJournalLocale } from '../../adam/journal-locale';
 import { getJournalTranslation } from '../../adam/journal-translation.service';
 import { finaliseJournal } from '../../adam/adam-journal-finalise';
+import {
+  getUniversityKnowledgeTopicCount,
+  listKnowledgeMajorNames,
+  searchUniversityKnowledgeTopics,
+} from '../../adam/adam-university-knowledge';
 
 function isFounderRequest(c: { req: { header: (n: string) => string | undefined } }): boolean {
   const bearer = c.req.header('Authorization')?.split(' ')[1];
@@ -133,6 +138,44 @@ router.post('/batch/run', requireFounder, async (c) => {
       timestamp: new Date().toISOString(),
     }, 409);
   }
+});
+
+// ─── GET /public/knowledge-map — Browse 664-map topics (no auth) ─
+
+router.get('/public/knowledge-map', async (c) => {
+  const limit = Math.min(parseInt(c.req.query('limit') ?? '24', 10), 100);
+  const skip  = Math.max(parseInt(c.req.query('skip') ?? '0', 10), 0);
+  const { topics, total } = searchUniversityKnowledgeTopics({
+    q:     c.req.query('q') ?? undefined,
+    major: c.req.query('major') ?? undefined,
+    limit,
+    skip,
+  });
+
+  return c.json({
+    success:   true,
+    kernel:    'ALAMTOLOGI',
+    version:   ENV.QXK24_KERNEL_VERSION,
+    era:       ENV.QXK24_ERA,
+    data:      {
+      mapVersion:  '664',
+      topicCount:  getUniversityKnowledgeTopicCount(),
+      majors:      listKnowledgeMajorNames(),
+      topics:      topics.map((t) => ({
+        topicId:    t.topicId,
+        label:      t.label,
+        major:      t.majorName,
+        discipline: t.disciplineName,
+        subfield:   t.subfield,
+        lens:       t.alamtologiLens,
+        breadcrumb: `${t.majorName} › ${t.disciplineName} › ${t.subfield}`,
+      })),
+      total,
+      limit,
+      skip,
+    },
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // ─── GET /public — Published journals (no auth) ──────────────
