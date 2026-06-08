@@ -18,7 +18,7 @@
 import { ENV } from '../config/environments';
 import { AdamDailyQuotaModel } from './adam-freemium.schema';
 import { malaysiaDateKey, malaysiaMonthKey } from './adam-freemium-date';
-import { consumeOneCredit, getCreditBalance } from './adam-freemium-credit.service';
+import { consumeOneCredit, getCreditBalance, getPremiumCreditPacks } from './adam-freemium-credit.service';
 import { pelajarMonthlyLimit } from './adam-freemium-daily.service';
 
 export type PremiumBlockReason = 'monthly' | 'daily_pace' | null;
@@ -178,8 +178,15 @@ export async function reservePremiumQuestion(
 }
 
 export function premiumBlockedMessage(snap: PremiumQuotaSnapshot): string {
+  const packs = getPremiumCreditPacks();
+  const p50 = packs.find((p) => p.credits === 50);
+  const p100 = packs.find((p) => p.credits === 100);
+  const topUp = p50 && p100
+    ? `+50 (${p50.currency} ${p50.amount}) / +100 (${p100.currency} ${p100.amount})`
+    : '+50 or +100 top-up packs';
+
   if (snap.blockReason === 'daily_pace') {
-    return `Daily Premium pace (${snap.dailyPaceLimit} deep questions) reached. Continue tomorrow, or add +50 (RM 35) / +100 (RM 85) to keep going today.`;
+    return `Daily Premium pace (${snap.dailyPaceLimit} deep questions) reached. Continue tomorrow, or add ${topUp} to keep going today.`;
   }
-  return `Your Premium monthly allowance (${snap.monthlyLimit} questions) is used up. Add +50 (RM 35) or +100 (RM 85) to continue this month.`;
+  return `Your Premium monthly allowance (${snap.monthlyLimit} questions) is used up. Add ${topUp} to continue this month.`;
 }

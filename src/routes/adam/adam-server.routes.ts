@@ -42,7 +42,7 @@ router.get('/pricing', (c) => {
       layer:          1,
       open:           true,
       guestLimit:     ENV.ADAM_FREEMIUM_ENABLED ? guestLifetimeLimit() : 3,
-      pencarianRolling: ENV.ADAM_FREEMIUM_ENABLED ? freeRollingLimit() : 6,
+      pencarianRolling: ENV.ADAM_FREEMIUM_ENABLED ? freeRollingLimit() : 4,
       rollingWindowHours: ENV.ADAM_FREEMIUM_ENABLED ? rollingWindowHours() : 5,
       rule:           LAYER1_PLATFORM.rule,
     },

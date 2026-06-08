@@ -108,7 +108,7 @@ export const TIER_ACCESS: Record<SubscriptionTier, ITierAccess> = {
 };
 
 // ─── Pelajar PPP Pricing ─────────────────────────────────────────────────────
-// RM 49.90/month is the MY base. All other regions are PPP-adjusted.
+// RM 69.90/month is the MY base. All other regions are PPP-adjusted.
 
 export interface IRegionalPrice {
   region:       SupportedRegion;
@@ -120,7 +120,7 @@ export interface IRegionalPrice {
 }
 
 export const PELAJAR_PRICING: IRegionalPrice[] = [
-  { region: SupportedRegion.MY,    currency: 'MYR', monthly: 49.9,    annual: 499,     provider: PaymentProvider.RAZORPAY, extensionFee: 19 },
+  { region: SupportedRegion.MY,    currency: 'MYR', monthly: 69.9,    annual: 699,     provider: PaymentProvider.RAZORPAY, extensionFee: 19 },
   { region: SupportedRegion.SG,    currency: 'SGD', monthly: 30,      annual: 300,     provider: PaymentProvider.STRIPE,   extensionFee: 6 },
   { region: SupportedRegion.ID,    currency: 'IDR', monthly: 320000,  annual: 3200000, provider: PaymentProvider.XENDIT,   extensionFee: 65000 },
   { region: SupportedRegion.PH,    currency: 'PHP', monthly: 650,     annual: 6500,    provider: PaymentProvider.XENDIT,   extensionFee: 130 },

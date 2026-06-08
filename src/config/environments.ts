@@ -259,7 +259,7 @@ export const ENV = {
   /** @deprecated Use ADAM_FREEMIUM_FREE_ROLLING — Basic tier is rolling 5-hour window */
   ADAM_FREEMIUM_FREE_DAILY:     optionalInt('ADAM_FREEMIUM_FREE_DAILY', 15),
   /** Basic (free registered) — questions per rolling window */
-  ADAM_FREEMIUM_FREE_ROLLING:   optionalInt('ADAM_FREEMIUM_FREE_ROLLING', 6),
+  ADAM_FREEMIUM_FREE_ROLLING:   optionalInt('ADAM_FREEMIUM_FREE_ROLLING', 4),
   /** Rolling window length (hours) — Claude-style pacing for Basic & Profesional */
   ADAM_FREEMIUM_ROLLING_WINDOW_HOURS: optionalInt('ADAM_FREEMIUM_ROLLING_WINDOW_HOURS', 5),
   /** @deprecated Premium uses monthly quota — see ADAM_FREEMIUM_PELAJAR_MONTHLY */
