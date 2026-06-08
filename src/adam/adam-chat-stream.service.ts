@@ -93,6 +93,8 @@ import {
   founderWantsJournalWrite,
   founderWantsJournalContinue,
 } from './adam-chat-response-parser';
+import { founderWantsJournalSectionEdit, founderWantsJournalSectionAppend, founderWantsJournalSaveAddendum } from './adam-journal-section-detect';
+import { founderWantsJournalParagraphContinue } from './adam-journal-section-paragraphs';
 import type {
   StreamADAMChatOptions,
   AdamChatTurnShell,
@@ -147,6 +149,10 @@ export async function streamADAMChat(
       founderWantsJournalWrite(normalizedMessage)
       || founderWantsJournalDraft(normalizedMessage)
       || founderWantsJournalContinue(normalizedMessage)
+      || founderWantsJournalSectionEdit(normalizedMessage)
+      || founderWantsJournalSectionAppend(normalizedMessage)
+      || founderWantsJournalSaveAddendum(normalizedMessage)
+      || founderWantsJournalParagraphContinue(normalizedMessage)
     )
   ) {
     mode = 'JOURNAL_GEN';
@@ -416,6 +422,7 @@ export async function streamADAMChat(
           userMessage,
           contextMessages,
           options,
+          sessionId:      resolvedSessionId,
         });
         systemPrompt = journal.systemPrompt;
       }
@@ -531,11 +538,6 @@ export async function streamADAMChat(
         streamMs = journalResult.streamMs;
         repairMs = journalResult.repairMs;
         onEvent('adam_stream_idle', JSON.stringify({ sessionId: resolvedSessionId }));
-        onEvent('adam_stream_done', JSON.stringify({
-          sessionId: resolvedSessionId,
-          replace:   true,
-          response:  fullResponse,
-        }));
       } else {
         const streamStarted = Date.now();
         fullResponse = await streamOnce(llmMessages, enableWebSearch);
@@ -569,12 +571,13 @@ export async function streamADAMChat(
         }
         repairMs = Date.now() - repairStarted;
 
-        onEvent('adam_stream_done', JSON.stringify({
-          sessionId: resolvedSessionId,
-          // Send final sanitized body when repair may have adjusted streamed text.
-          replace:   !isFounder && Boolean(fullResponse?.trim()),
-          response:  !isFounder ? fullResponse : undefined,
-        }));
+        if (!isFounder) {
+          onEvent('adam_stream_done', JSON.stringify({
+            sessionId: resolvedSessionId,
+            replace:   Boolean(fullResponse?.trim()),
+            response:  fullResponse,
+          }));
+        }
 
         if (!fullResponse?.trim()) {
           console.warn('[adam:teaching] empty model response after stream/repair', {
@@ -607,12 +610,25 @@ export async function streamADAMChat(
         }),
       );
 
-      sectionDraftMap = await persistInteractiveJournalDraft({
+      const persistResult = await persistInteractiveJournalDraft({
         shell,
         fullResponse,
         journal,
         sectionDraftMap,
       });
+      if (persistResult?.sections) {
+        sectionDraftMap = persistResult.sections;
+      }
+      if (persistResult?.mergedDisplay) {
+        fullResponse = persistResult.mergedDisplay;
+      }
+      if (isFounder && fullResponse?.trim()) {
+        onEvent('adam_stream_done', JSON.stringify({
+          sessionId: resolvedSessionId,
+          replace:   true,
+          response:  fullResponse,
+        }));
+      }
 
       await finishAdamChatTurn({
         shell,

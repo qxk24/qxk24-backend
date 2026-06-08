@@ -24,10 +24,10 @@ import {
   buildAdamJournalWritingVoiceBlock,
   buildJournalGenAwaitTeachingBlock,
   buildJournalContinuePrompt,
-  buildManualJournalNoTopicBlock,
   buildNaturalJournalPrompt,
   buildNaturalJournalTopicBlock,
   buildJournalV2FormatBlock,
+  buildJournalFounderStepGuideBlock,
   buildSessionTeachingGuardBlock,
   extractLockedTopicIdFromMessage,
   getTopicById,
@@ -36,14 +36,39 @@ import {
   adamSelectsBestTopic,
   extractLockedTopicIdFromSession,
   getSyncJournalTopicFallback,
+  shouldSelectNewJournalTopic,
 } from './adam-journal-topic-selector';
 import { gatherFounderJournalCorpus } from './adam-journal.service';
 import {
   generateFounderJournalBySections,
   buildJournalSectionReviewFooter,
+  assembleManuscriptForChatReview,
   formatSingleSectionDisplay,
+  nextSectionToWrite,
   JOURNAL_SECTION_ORDER,
 } from './adam-journal-section-writer';
+import {
+  founderWantsJournalParagraphContinue,
+  nextParagraphIndex,
+  sectionParagraphBlockComplete,
+  sectionUsesParagraphStructure,
+} from './adam-journal-section-paragraphs';
+import {
+  founderWantsJournalSectionEdit,
+  founderWantsJournalSectionAppend,
+  founderWantsJournalSaveAddendum,
+  resolveJournalSectionEditTarget,
+  resolveAdamTextForJournalPersist,
+  resolveJournalTopicIdForDraftAsync,
+  tryPersistInteractiveJournalSection,
+  inferJournalSectionFromDisplayIndex,
+} from './adam-journal-section-detect';
+import {
+  loadJournalSectionDraft,
+  loadLatestJournalSectionDraftForSession,
+} from './adam-journal-section-draft';
+import { loadMessageHistory } from './adam-chat-session.service';
+import { allJournalSectionsComplete } from './adam-journal-section.types';
 import {
   getJournalContinuationConfig,
 } from './adam-journal-continuation.config';
@@ -79,6 +104,7 @@ export async function enrichSystemPromptForJournalGen(input: {
   userMessage:      string;
   contextMessages:  LlmMessage[];
   options:          StreamADAMChatOptions;
+  sessionId?:       string;
 }): Promise<JournalGenContext> {
   let systemPrompt = `${input.baseSystemPrompt}\n\n${buildAdamJournalWritingVoiceBlock()}`;
   let journalTopic = null;
@@ -92,12 +118,24 @@ export async function enrichSystemPromptForJournalGen(input: {
       founderWantsJournalWrite(input.userMessage)
       || founderWantsJournalDraft(input.userMessage)
       || founderWantsJournalContinue(input.userMessage)
+      || founderWantsJournalSectionEdit(input.userMessage)
+      ||       founderWantsJournalSectionAppend(input.userMessage)
+      || founderWantsJournalSaveAddendum(input.userMessage)
+      || founderWantsJournalParagraphContinue(input.userMessage)
     );
   const sessionTopicId = extractLockedTopicIdFromSession(input.contextMessages);
   const msgTopicId = extractLockedTopicIdFromMessage(input.userMessage);
 
+  let draftTopicId: string | undefined;
+  if (input.sessionId) {
+    const sessionDraft = await loadLatestJournalSectionDraftForSession(input.sessionId);
+    draftTopicId = sessionDraft?.topicId;
+  }
+
+  const lockedTopicId = msgTopicId ?? sessionTopicId ?? draftTopicId;
+
   if (input.options.journalAutonomous === true) {
-    journalTopicId = msgTopicId ?? sessionTopicId;
+    journalTopicId = lockedTopicId;
     journalTopic = journalTopicId ? getTopicById(journalTopicId) : null;
     try {
       const segmentStatus = await getDailyJournalSegmentStatus(
@@ -108,7 +146,7 @@ export async function enrichSystemPromptForJournalGen(input: {
     } catch (err) {
       console.warn('[adam:journal-segment] autonomous quota unavailable', err);
     }
-  } else if (wantsJournalWrite && !sessionTopicId && !msgTopicId) {
+  } else if (shouldSelectNewJournalTopic(input.userMessage, lockedTopicId)) {
     try {
       journalTopic = await adamSelectsBestTopic(
         input.contextMessages,
@@ -126,9 +164,14 @@ export async function enrichSystemPromptForJournalGen(input: {
       journalTopicId = journalTopic?.topicId;
     }
   } else {
-    const id = msgTopicId ?? sessionTopicId;
-    journalTopic = id ? getTopicById(id) : null;
-    journalTopicId = journalTopic?.topicId ?? id;
+    journalTopic = lockedTopicId ? getTopicById(lockedTopicId) : null;
+    journalTopicId = journalTopic?.topicId ?? lockedTopicId;
+    if (lockedTopicId && !journalTopic) {
+      console.warn(
+        '[adam:journal-topic] locked topicId not in map',
+        JSON.stringify({ topicId: lockedTopicId, sessionId: input.sessionId }),
+      );
+    }
   }
 
   if (journalTopic) {
@@ -140,12 +183,13 @@ export async function enrichSystemPromptForJournalGen(input: {
         const reviewHint = process.env.ADAM_JOURNAL_REVIEW_PATH?.trim() || founderJournalReviewPath();
         systemPrompt = `${systemPrompt}\n\n${buildNaturalJournalPrompt(journalTopic, reviewHint)}`;
       } else {
-        systemPrompt = `${systemPrompt}\n\n${buildJournalV2FormatBlock()}\n\n[JOURNAL SECTION MODE]
-P.alt ordered journal writing (Tulis jurnal / full V2 journal / continue). The platform writes **ONE section per turn** (9 sections total).
+        systemPrompt = `${systemPrompt}\n\n${buildJournalV2FormatBlock()}\n\n${buildJournalFounderStepGuideBlock()}\n\n[JOURNAL SECTION MODE]
+P.alt ordered journal writing. The platform writes **ONE section per turn** (9 sections total) — never the full manuscript in one reply.
 Session teaching is the seed — do NOT ask P.alt to upload or re-paste content. Write draft movements in **Bahasa Melayu Malaysia** only.
 Each section saves to MongoDB immediately. Use [FORMULA] tags for math in Movement 5 only. Prose only — no JSON/XML seals.
 English publication manuscript is generated automatically when P.alt approves/publishes — not during draft movements.
-After each section P.alt reviews the chapter, then replies **continue** for the next movement.`;
+After each section P.alt reviews the accordion, then replies **continue** for the next movement (2/9, 3/9, …), or names a movement (e.g. **Convention Knowledge — Achievement (3/9)**) to expand/edit it.
+Do NOT switch topicId — it is locked for all 9 movements.`;
       }
       const founderTeachingChars = input.contextMessages
         .filter((m) => m.role === 'user')
@@ -154,7 +198,7 @@ After each section P.alt reviews the chapter, then replies **continue** for the 
       if (guard) systemPrompt = `${systemPrompt}\n\n${guard}`;
     }
   } else if (wantsJournalWrite) {
-    systemPrompt = `${systemPrompt}\n\n${buildManualJournalNoTopicBlock()}`;
+    systemPrompt = `${systemPrompt}\n\n${buildJournalFounderStepGuideBlock()}`;
   } else {
     systemPrompt = `${systemPrompt}\n\n${buildJournalGenAwaitTeachingBlock()}`;
   }
@@ -165,6 +209,105 @@ After each section P.alt reviews the chapter, then replies **continue** for the 
     wantsJournalWrite,
     journalWriteBySections,
     systemPrompt,
+  };
+}
+
+/** Persist pasted / prior ADAM addendum into MongoDB and return full accordion — no LLM meta reply. */
+async function runJournalAddendumPersistTurn(input: {
+  resolvedSessionId: string;
+  userMessage:       string;
+  journal:           JournalGenContext;
+}): Promise<JournalStreamResult | null> {
+  const isSave   = founderWantsJournalSaveAddendum(input.userMessage);
+  const isAppend = founderWantsJournalSectionAppend(input.userMessage);
+  if (!isSave && !isAppend) return null;
+
+  const recent = await loadMessageHistory(input.resolvedSessionId, 12);
+  const adamTextForPersist = resolveAdamTextForJournalPersist({
+    userMessage:  input.userMessage,
+    adamResponse: '',
+    recentAdam:   recent.map((m) => ({ role: m.role, content: m.content })),
+  });
+
+  let sections: Partial<Record<JournalSectionId, string>> | undefined;
+  let lastSection: JournalSectionId | undefined;
+
+  if (adamTextForPersist.trim().length >= 80) {
+    const topicId = await resolveJournalTopicIdForDraftAsync({
+      topicId:      input.journal.journalTopicId ?? input.journal.journalTopic?.topicId,
+      userMessage:  input.userMessage,
+      adamResponse: adamTextForPersist,
+      sessionId:    input.resolvedSessionId,
+    });
+    const persisted = await tryPersistInteractiveJournalSection({
+      sessionId:    input.resolvedSessionId,
+      userMessage:  input.userMessage,
+      adamResponse: adamTextForPersist,
+      topicId,
+    });
+    if (persisted?.sections) {
+      sections = persisted.sections;
+      lastSection = persisted.lastSection;
+    }
+  }
+
+  const topicId = await resolveJournalTopicIdForDraftAsync({
+    topicId:      input.journal.journalTopicId ?? input.journal.journalTopic?.topicId,
+    userMessage:  input.userMessage,
+    adamResponse: adamTextForPersist,
+    sessionId:    input.resolvedSessionId,
+  });
+  if (!sections && topicId) {
+    const draft = await loadJournalSectionDraft(input.resolvedSessionId, topicId);
+    if (draft?.sections && Object.keys(draft.sections).length > 0) {
+      sections = draft.sections;
+      lastSection = lastSection ?? draft.lastSection;
+    }
+  }
+  if (!sections) {
+    const sessionDraft = await loadLatestJournalSectionDraftForSession(input.resolvedSessionId);
+    if (sessionDraft?.sections && Object.keys(sessionDraft.sections).length > 0) {
+      sections = sessionDraft.sections;
+      lastSection = lastSection ?? sessionDraft.lastSection;
+    }
+  }
+
+  const writtenIds = JOURNAL_SECTION_ORDER.filter(
+    (id) => (sections?.[id]?.trim().length ?? 0) >= 80,
+  );
+  if (!sections || writtenIds.length === 0) return null;
+
+  const highlight =
+    resolveJournalSectionEditTarget(input.userMessage)
+    ?? inferJournalSectionFromDisplayIndex(input.userMessage)
+    ?? lastSection
+    ?? writtenIds[writtenIds.length - 1]!;
+  const idx = JOURNAL_SECTION_ORDER.indexOf(highlight) + 1;
+  const fullResponse = assembleManuscriptForChatReview(sections, {
+    lastSection: highlight,
+    index:       idx,
+    total:       JOURNAL_SECTION_ORDER.length,
+    complete:    allJournalSectionsComplete(sections),
+  });
+
+  console.log(
+    '[adam:journal-addendum-persist]',
+    JSON.stringify({
+      sessionId:   input.resolvedSessionId,
+      save:        isSave,
+      append:      isAppend,
+      highlight,
+      sectionCount: writtenIds.length,
+      persisted:   Boolean(adamTextForPersist.trim().length >= 80),
+    }),
+  );
+
+  return {
+    fullResponse,
+    sectionJournalComplete: allJournalSectionsComplete(sections),
+    sectionDraftMap:        sections,
+    streamMs:               0,
+    repairMs:               0,
   };
 }
 
@@ -208,13 +351,51 @@ export async function streamAdamJournalResponse(input: {
   let sectionJournalComplete = false;
   let sectionDraftMap: Partial<Record<JournalSectionId, string>> | undefined;
   const streamStarted = Date.now();
+  const addendumPersistResult = await runJournalAddendumPersistTurn({
+    resolvedSessionId: input.resolvedSessionId,
+    userMessage:       input.userMessage,
+    journal:           input.journal,
+  });
+  if (addendumPersistResult) {
+    return addendumPersistResult;
+  }
+
+  const sectionAppendTarget = founderWantsJournalSectionAppend(input.userMessage)
+    ? resolveJournalSectionEditTarget(input.userMessage)
+    : null;
+  let sectionEditTarget =
+    !sectionAppendTarget && founderWantsJournalSectionEdit(input.userMessage)
+      ? resolveJournalSectionEditTarget(input.userMessage)
+      : null;
+  let forceParagraphIndex: number | undefined;
+
+  if (lockedTopic && (founderWantsJournalParagraphContinue(input.userMessage) || founderWantsJournalContinue(input.userMessage))) {
+    const draft = await loadJournalSectionDraft(input.resolvedSessionId, lockedTopic.topicId);
+    const activeSection =
+      sectionEditTarget
+      ?? draft?.lastSection
+      ?? nextSectionToWrite(draft);
+    if (activeSection && sectionUsesParagraphStructure(activeSection)) {
+      const body = draft?.sections[activeSection]?.trim() ?? '';
+      if (
+        founderWantsJournalParagraphContinue(input.userMessage)
+        || !sectionParagraphBlockComplete(body)
+      ) {
+        sectionEditTarget = activeSection;
+        forceParagraphIndex = nextParagraphIndex(body);
+      }
+    }
+  }
+
   const useSectionJournal =
     Boolean(lockedTopic)
     && !founderWantsJournalSeal(input.userMessage)
+    && !sectionAppendTarget
     && (
       journal.journalWriteBySections
       || founderWantsJournalWrite(input.userMessage)
       || founderWantsJournalContinue(input.userMessage)
+      || Boolean(sectionEditTarget)
     );
 
   if (useSectionJournal && lockedTopic) {
@@ -226,6 +407,9 @@ export async function streamAdamJournalResponse(input: {
       baseMessages:  input.llmMessages,
       reviewPath,
       maxSectionsPerTurn: 1,
+      forceSectionId:       sectionEditTarget ?? undefined,
+      forceParagraphIndex,
+      expandInstruction:  sectionEditTarget && !forceParagraphIndex ? input.userMessage.trim() : undefined,
       streamSection: (messages, withSearch) => input.streamOnce(messages, withSearch),
       onSectionStart: (section, index, total) => {
         input.onEvent(
@@ -245,7 +429,16 @@ export async function streamAdamJournalResponse(input: {
       },
     });
     fullResponse = sectionResult.manuscript;
-    if (sectionResult.lastSectionWritten) {
+    const highlightSection = sectionEditTarget ?? sectionResult.lastSectionWritten;
+    if (highlightSection && Object.keys(sectionResult.sections).length > 0) {
+      const idx = JOURNAL_SECTION_ORDER.indexOf(highlightSection) + 1;
+      fullResponse = assembleManuscriptForChatReview(sectionResult.sections, {
+        lastSection: highlightSection,
+        index:       idx,
+        total:       JOURNAL_SECTION_ORDER.length,
+        complete:    sectionResult.allSectionsComplete,
+      });
+    } else if (sectionResult.lastSectionWritten) {
       const idx = JOURNAL_SECTION_ORDER.indexOf(sectionResult.lastSectionWritten) + 1;
       const body = sectionResult.sections[sectionResult.lastSectionWritten] ?? '';
       fullResponse =
@@ -296,15 +489,12 @@ export async function streamAdamJournalResponse(input: {
       });
       if (sectionResult.lastSectionWritten) {
         const idx = JOURNAL_SECTION_ORDER.indexOf(sectionResult.lastSectionWritten) + 1;
-        const body = sectionResult.sections[sectionResult.lastSectionWritten] ?? '';
-        fullResponse =
-          formatSingleSectionDisplay(sectionResult.lastSectionWritten, body)
-          + buildJournalSectionReviewFooter({
-            lastSection: sectionResult.lastSectionWritten,
-            index:       idx,
-            total:       JOURNAL_SECTION_ORDER.length,
-            complete:    sectionResult.allSectionsComplete,
-          });
+        fullResponse = assembleManuscriptForChatReview(sectionResult.sections, {
+          lastSection: sectionResult.lastSectionWritten,
+          index:       idx,
+          total:       JOURNAL_SECTION_ORDER.length,
+          complete:    sectionResult.allSectionsComplete,
+        });
       } else {
         fullResponse = sectionResult.manuscript;
       }

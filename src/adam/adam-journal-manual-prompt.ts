@@ -25,7 +25,6 @@ import {
 import {
   ADAM_JOURNAL_WRITING_VOICE_PROMPT,
   buildAdamJournalWritingVoiceBlock,
-  buildNaturalJournalPrompt,
 } from './adam-journal-writing-voice';
 
 export { buildNaturalJournalPrompt } from './adam-journal-writing-voice';
@@ -184,16 +183,6 @@ export function buildJournalGenAwaitTeachingBlock(): string {
   ].join('\n');
 }
 
-/** @deprecated Natural flow selects topic on Tulis jurnal */
-export function buildManualJournalNoTopicBlock(): string {
-  return [
-    '[JOURNAL — TOPIC NOT YET SELECTED]',
-    'Wait for P.alt to say "Tulis jurnal". You will then select the best topic from session teaching.',
-    'Do not ask P.alt to pick a topicId.',
-    '[/JOURNAL]',
-  ].join('\n');
-}
-
 export function buildSessionTeachingGuardBlock(teachingCharCount: number, minChars = 1_500): string {
   if (teachingCharCount >= minChars) return '';
   return [
@@ -202,6 +191,25 @@ export function buildSessionTeachingGuardBlock(teachingCharCount: number, minCha
     'Before writing the journal, tell P.alt that the session needs more teaching (minimum substantive session).',
     'Do not fabricate Section C from generic knowledge.',
     '[/SESSION TEACHING]',
+  ].join('\n');
+}
+
+/** One-section-at-a-time guide — shown in section mode so P.alt is not lost. */
+export function buildJournalFounderStepGuideBlock(): string {
+  return [
+    '[JURNAL V2 — SATU BAHAGIAN SETIAP GILIRAN]',
+    'Topik dikunci selepas "Tulis jurnal" pertama — jangan tukar topik sepanjang 9 bahagian.',
+    '',
+    'Langkah P.alt:',
+    '1. "Tulis jurnal" — sekali sahaja (ADAM pilih topik + tulis 1/9 ¶1)',
+    '2. **teruskan perenggan** — ¶2, ¶3, … dalam bahagian yang sama',
+    '3. **continue** — bahagian seterusnya (2/9, 3/9, …)',
+    '4. Edit satu ¶: **Simpan perenggan 2 ke … (X/9)** — ¶ lain kekal',
+    '5. Bila 9/9 lengkap: **seal journal**',
+    '',
+    'Setiap bahagian movement (2/9–8/9) guna ### ¶1, ### ¶2, ### ¶3 dalam draf.',
+    'JANGAN guna "full V2 journal". JANGAN ulang "Tulis jurnal".',
+    '[/JURNAL V2]',
   ].join('\n');
 }
 

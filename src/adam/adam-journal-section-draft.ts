@@ -73,7 +73,6 @@ export async function loadJournalSectionDraft(
   };
 }
 
-/** Latest DRAFT for a topic — used when sealing without re-running section stream. */
 export async function loadLatestJournalSectionDraftForTopic(
   topicId: string,
 ): Promise<JournalSectionDraft | null> {
@@ -93,6 +92,30 @@ export async function loadLatestJournalSectionDraftForTopic(
   };
 }
 
+/** Latest in-session DRAFT — for append/edit when topicId is not in the current message. */
+export async function loadLatestJournalSectionDraftForSession(
+  sessionId: string,
+): Promise<(JournalSectionDraft & { topicId: string }) | null> {
+  const doc = await ADAMJournalModel.findOne({
+    sourceSessionId: sessionId,
+    status:            'DRAFT',
+  })
+    .sort({ updatedAt: -1 })
+    .lean();
+
+  if (!doc) return null;
+
+  const topicId = String(doc.knowledgeTopicId ?? doc.topicId ?? '').trim();
+  if (!topicId) return null;
+
+  return {
+    journalId:   String(doc._id),
+    sections:    draftSectionsFromDoc(doc.draftSections),
+    lastSection: doc.lastCompletedSection as JournalSectionId | undefined,
+    topicId,
+  };
+}
+
 export async function saveJournalSectionProgress(input: {
   sessionId:      string;
   topic:          UniversityKnowledgeTopic;
@@ -100,8 +123,34 @@ export async function saveJournalSectionProgress(input: {
   lastSection:    JournalSectionId;
   journalDraftId?: string;
 }): Promise<JournalSectionDraft> {
+  /** Never drop sibling movements — merge with whatever is already in MongoDB. */
+  let mergedSections: Partial<Record<JournalSectionId, string>> = { ...input.sections };
+  let prev: { _id?: { toString(): string }; draftSections?: unknown; sections?: unknown } | null = null;
+  if (input.journalDraftId) {
+    prev = await ADAMJournalModel.findById(input.journalDraftId).lean();
+  }
+  if (!prev) {
+    prev = await ADAMJournalModel.findOne({
+      sourceSessionId:  input.sessionId,
+      knowledgeTopicId: input.topic.topicId,
+      status:           'DRAFT',
+    }).lean();
+  }
+  if (!prev) {
+    const sessionDraft = await loadLatestJournalSectionDraftForSession(input.sessionId);
+    if (sessionDraft?.topicId === input.topic.topicId) {
+      prev = await ADAMJournalModel.findById(sessionDraft.journalId).lean();
+    }
+  }
+  if (prev) {
+    mergedSections = {
+      ...sectionsFromJournalMongoDoc(prev),
+      ...input.sections,
+    };
+  }
+
   const storedSections: Record<string, string> = {};
-  for (const [key, val] of Object.entries(input.sections)) {
+  for (const [key, val] of Object.entries(mergedSections)) {
     if (typeof val === 'string' && val.trim()) {
       storedSections[key] = prepareContentForStorage(demoteProseLatexFormulas(val.trim()));
     }
@@ -117,7 +166,7 @@ export async function saveJournalSectionProgress(input: {
     )?.[1]?.trim()
     ?? 'Section draft in progress — Alamtologi constitutional manuscript.';
 
-  const payload = {
+  const metaPayload = {
     title:              titleFromSection.slice(0, 300),
     abstract:           abstractFromSection.slice(0, 3000),
     category:           'RESEARCH' as const,
@@ -135,18 +184,26 @@ export async function saveJournalSectionProgress(input: {
     knowledgeMajor:     input.topic.majorName,
     knowledgeDiscipline: input.topic.disciplineName,
     knowledgeSubfield:  input.topic.subfield,
-    draftSections:      storedSections,
     lastCompletedSection: input.lastSection,
-    totalWords:         countJournalWords(assembleManuscriptFromSections(input.sections)),
+    totalWords:         countJournalWords(assembleManuscriptFromSections(mergedSections)),
     sourceLanguage:     JOURNAL_DRAFT_LOCALE,
     reviewNotes:        `Section draft — last: ${input.lastSection}`,
   };
 
+  /** Dot-notation $set — never replace the whole draftSections object (preserves sibling movements). */
+  const sectionDotSet: Record<string, string> = {};
+  for (const [key, val] of Object.entries(input.sections)) {
+    if (typeof val === 'string' && val.trim()) {
+      sectionDotSet[`draftSections.${key}`] = storedSections[key]!;
+    }
+  }
+
   let doc;
-  if (input.journalDraftId) {
+  const existingId = input.journalDraftId ?? prev?._id?.toString();
+  if (existingId) {
     doc = await ADAMJournalModel.findByIdAndUpdate(
-      input.journalDraftId,
-      { $set: payload },
+      existingId,
+      { $set: { ...metaPayload, ...sectionDotSet } },
       { new: true },
     );
   } else {
@@ -156,7 +213,15 @@ export async function saveJournalSectionProgress(input: {
         knowledgeTopicId: input.topic.topicId,
         status:           'DRAFT',
       },
-      { $set: payload },
+      {
+        $set: {
+          ...metaPayload,
+          ...sectionDotSet,
+        },
+        $setOnInsert: {
+          draftSections: storedSections,
+        },
+      },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
   }
@@ -171,7 +236,7 @@ export async function saveJournalSectionProgress(input: {
       sessionId:  input.sessionId,
       topicId:    input.topic.topicId,
       lastSection: input.lastSection,
-      totalWords: payload.totalWords,
+      totalWords: metaPayload.totalWords,
       status:     'DRAFT',
     }),
   );

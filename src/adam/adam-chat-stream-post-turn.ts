@@ -32,14 +32,26 @@ import {
 import { processFounderJournalSeal } from './adam-journal.service';
 import {
   loadJournalSectionDraft,
+  loadLatestJournalSectionDraftForSession,
   loadLatestJournalSectionDraftForTopic,
 } from './adam-journal-section-draft';
-import { assembleManuscriptFromSections } from './adam-journal-section-writer';
-import { allJournalSectionsComplete } from './adam-journal-section.types';
-import type { JournalSectionId } from './adam-journal-section.types';
 import {
-  resolveJournalTopicIdForDraft,
+  assembleManuscriptFromSections,
+  assembleManuscriptForChatReview,
+} from './adam-journal-section-writer';
+import { allJournalSectionsComplete, JOURNAL_SECTION_ORDER, type JournalSectionId } from './adam-journal-section.types';
+import {
+  resolveJournalTopicIdForDraftAsync,
   tryPersistInteractiveJournalSection,
+  founderWantsJournalSectionEdit,
+  founderWantsJournalSectionAppend,
+  adamReplyIsJournalSectionAddendum,
+  founderWantsJournalSaveAddendum,
+  adamReplyIsJournalSaveConfirmation,
+  founderJournalDisplayTurn,
+  isJournalManuscriptDisplay,
+  resolveAdamTextForJournalPersist,
+  inferJournalSectionFromAdamResponse,
 } from './adam-journal-section-detect';
 import {
   relayFounderMessageToStudents,
@@ -49,7 +61,7 @@ import {
   createConsultFlag,
   markConsultDeliveredToFounder,
 } from './adam-consult.service';
-import { generateK24Address, saveMessage } from './adam-chat-session.service';
+import { generateK24Address, loadMessageHistory, saveMessage } from './adam-chat-session.service';
 import { checkMemoryHealthCached } from '../qxk24brain/adam-health.service';
 import { triggerBrainTransformation } from '../qxk24brain/qxk24brain.engine';
 import { shouldAppendEpisodicB } from '../lib/ama/ama-episodic-gate';
@@ -65,26 +77,135 @@ export async function persistInteractiveJournalDraft(input: {
   fullResponse:       string;
   journal:            JournalGenContext;
   sectionDraftMap?:   Partial<Record<JournalSectionId, string>>;
-}): Promise<Partial<Record<JournalSectionId, string>> | undefined> {
-  if (!input.shell.isFounder) return input.sectionDraftMap;
-
-  try {
-    const topicId = resolveJournalTopicIdForDraft({
-      topicId:      input.journal.journalTopic?.topicId ?? input.journal.journalTopicId,
-      userMessage:  input.shell.userMessage,
-      adamResponse: input.fullResponse,
-    });
-    const persisted = await tryPersistInteractiveJournalSection({
-      sessionId:    input.shell.resolvedSessionId,
-      userMessage:  input.shell.userMessage,
-      adamResponse: input.fullResponse,
-      topicId,
-    });
-    if (persisted) return persisted.sections;
-  } catch (err) {
-    console.warn('[journal:draft-save] interactive persist failed', err);
+}): Promise<{
+  sections?:     Partial<Record<JournalSectionId, string>>;
+  lastSection?:  JournalSectionId;
+  mergedDisplay?: string;
+} | undefined> {
+  if (!input.shell.isFounder) {
+    return input.sectionDraftMap
+      ? { sections: input.sectionDraftMap }
+      : undefined;
   }
-  return input.sectionDraftMap;
+
+  let sections = input.sectionDraftMap;
+  let lastSection: JournalSectionId | undefined;
+
+  const pipelineAlreadySaved =
+    Boolean(input.sectionDraftMap && Object.keys(input.sectionDraftMap).length > 0)
+    && (
+      input.journal.journalWriteBySections
+      || founderWantsJournalSectionEdit(input.shell.userMessage)
+    );
+
+  const addendumPersist =
+    adamReplyIsJournalSectionAddendum(input.fullResponse)
+    || adamReplyIsJournalSaveConfirmation(input.fullResponse)
+    || founderWantsJournalSectionAppend(input.shell.userMessage)
+    || founderWantsJournalSaveAddendum(input.shell.userMessage);
+
+  const saveConfirmationOnly =
+    adamReplyIsJournalSaveConfirmation(input.fullResponse)
+    && !founderWantsJournalSaveAddendum(input.shell.userMessage)
+    && !founderWantsJournalSectionAppend(input.shell.userMessage);
+
+  const addendumTurnAlreadySaved =
+    Boolean(input.sectionDraftMap && Object.keys(input.sectionDraftMap).length > 0)
+    && (
+      founderWantsJournalSaveAddendum(input.shell.userMessage)
+      || founderWantsJournalSectionAppend(input.shell.userMessage)
+    );
+
+  if ((!pipelineAlreadySaved || addendumPersist) && !saveConfirmationOnly && !addendumTurnAlreadySaved) {
+    try {
+      const recent = await loadMessageHistory(input.shell.resolvedSessionId, 10);
+      const adamTextForPersist = resolveAdamTextForJournalPersist({
+        userMessage:  input.shell.userMessage,
+        adamResponse: input.fullResponse,
+        recentAdam:   recent,
+      });
+      const topicId = await resolveJournalTopicIdForDraftAsync({
+        topicId:      input.journal.journalTopic?.topicId ?? input.journal.journalTopicId,
+        userMessage:  input.shell.userMessage,
+        adamResponse: adamTextForPersist,
+        sessionId:    input.shell.resolvedSessionId,
+      });
+      const persisted = await tryPersistInteractiveJournalSection({
+        sessionId:    input.shell.resolvedSessionId,
+        userMessage:  input.shell.userMessage,
+        adamResponse: adamTextForPersist,
+        topicId,
+      });
+      if (persisted) {
+        sections = persisted.sections;
+        lastSection = persisted.lastSection;
+      }
+    } catch (err) {
+      console.warn('[journal:draft-save] interactive persist failed', err);
+    }
+  }
+
+  const topicId = await resolveJournalTopicIdForDraftAsync({
+    topicId:      input.journal.journalTopic?.topicId ?? input.journal.journalTopicId,
+    userMessage:  input.shell.userMessage,
+    adamResponse: input.fullResponse,
+    sessionId:    input.shell.resolvedSessionId,
+  });
+  if (topicId) {
+    const draftFromDb = await loadJournalSectionDraft(
+      input.shell.resolvedSessionId,
+      topicId,
+    );
+    if (draftFromDb?.sections && Object.keys(draftFromDb.sections).length > 0) {
+      sections = draftFromDb.sections;
+      lastSection = lastSection ?? draftFromDb.lastSection;
+    }
+  } else {
+    const sessionDraft = await loadLatestJournalSectionDraftForSession(
+      input.shell.resolvedSessionId,
+    );
+    if (sessionDraft?.sections && Object.keys(sessionDraft.sections).length > 0) {
+      sections = sessionDraft.sections;
+      lastSection = lastSection ?? sessionDraft.lastSection;
+    }
+  }
+
+  if (!sections || Object.keys(sections).length === 0) {
+    return sections ? { sections } : undefined;
+  }
+
+  const writtenIds = JOURNAL_SECTION_ORDER.filter(
+    (id) => (sections[id]?.trim().length ?? 0) >= 80,
+  );
+  if (writtenIds.length === 0) {
+    return { sections, lastSection };
+  }
+
+  const highlight = lastSection ?? writtenIds[writtenIds.length - 1]!;
+  let mergedDisplay = assembleManuscriptForChatReview(sections, {
+    lastSection: highlight,
+    index:       JOURNAL_SECTION_ORDER.indexOf(highlight) + 1,
+    total:       JOURNAL_SECTION_ORDER.length,
+    complete:    allJournalSectionsComplete(sections),
+  });
+
+  const displayTurn = founderJournalDisplayTurn({
+    userMessage:  input.shell.userMessage,
+    adamResponse: input.fullResponse,
+  });
+
+  const shouldMerge =
+    mergedDisplay.length >= 80
+    && (
+      displayTurn
+      || pipelineAlreadySaved
+    );
+
+  return {
+    sections,
+    lastSection: highlight,
+    mergedDisplay: shouldMerge ? mergedDisplay : undefined,
+  };
 }
 
 export async function finishAdamChatTurn(input: {
@@ -130,6 +251,32 @@ export async function finishAdamChatTurn(input: {
 
   if (!finalResponse?.trim() && fullResponse?.trim()) {
     finalResponse = fullResponse.trim();
+  }
+  if (isJournalManuscriptDisplay(fullResponse)) {
+    finalResponse = sanitizeEastAsianScriptLeaks(fullResponse.trim(), speakerLocale);
+  } else if (
+    shell.isFounder
+    && adamReplyIsJournalSaveConfirmation(finalResponse)
+    && sectionDraftMap
+    && Object.keys(sectionDraftMap).length > 0
+  ) {
+    const writtenIds = JOURNAL_SECTION_ORDER.filter(
+      (id) => (sectionDraftMap[id]?.trim().length ?? 0) >= 80,
+    );
+    if (writtenIds.length > 0) {
+      const highlight =
+        inferJournalSectionFromAdamResponse(finalResponse)
+        ?? writtenIds[writtenIds.length - 1]!;
+      finalResponse = sanitizeEastAsianScriptLeaks(
+        assembleManuscriptForChatReview(sectionDraftMap, {
+          lastSection: highlight,
+          index:       JOURNAL_SECTION_ORDER.indexOf(highlight) + 1,
+          total:       JOURNAL_SECTION_ORDER.length,
+          complete:    allJournalSectionsComplete(sectionDraftMap),
+        }),
+        speakerLocale,
+      );
+    }
   }
   if (!finalResponse?.trim()) {
     console.warn('[adam:post-turn] empty finalResponse before save', {

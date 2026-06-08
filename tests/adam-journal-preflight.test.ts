@@ -46,17 +46,28 @@ import {
 } from '../src/adam/adam-journal-continuation.config';
 import {
   assembleManuscriptFromSections,
+  assembleManuscriptForChatReview,
   buildCompletedSectionsSummary,
 } from '../src/adam/adam-journal-section-writer';
 import { JOURNAL_SECTION_ORDER } from '../src/adam/adam-journal-section.types';
 import {
   extractSectionBodyForSave,
+  founderWantsJournalSectionEdit,
   inferJournalSectionFromAdamResponse,
+  inferJournalSectionFromDisplayIndex,
   inferJournalSectionIntent,
+  adamReplyIsJournalSectionAddendum,
+  founderWantsJournalSectionAppend,
+  founderWantsJournalSaveAddendum,
+  resolveAdamTextForJournalPersist,
+  adamReplyIsJournalSaveConfirmation,
+  founderJournalDisplayTurn,
   INTERACTIVE_SAVEABLE_SECTIONS,
+  resolveJournalSectionEditTarget,
   resolveJournalSectionForTurn,
   resolveJournalTopicIdForDraft,
 } from '../src/adam/adam-journal-section-detect';
+import { shouldSelectNewJournalTopic } from '../src/adam/adam-journal-topic-selector';
 import {
   selectFounderJournalProseSource,
   sectionModeSkipsSessionCorpus,
@@ -305,6 +316,41 @@ transfer of energy between beings and systems.
     ).toBe('movement_1_human_opening');
   });
 
+  it('maps UI movement index (3/9) to Convention Knowledge — Achievement', () => {
+    expect(inferJournalSectionFromDisplayIndex('review (3/9)')).toBe('movement_2_achievement');
+    expect(
+      resolveJournalSectionEditTarget('expand Convention Knowledge — Achievement (3/9)'),
+    ).toBe('movement_2_achievement');
+  });
+
+  it('detects founder section expand/edit intent', () => {
+    expect(
+      founderWantsJournalSectionEdit('Please expand Convention Knowledge — Achievement (3/9)'),
+    ).toBe(true);
+    expect(founderWantsJournalSectionEdit('luaskan bab Convention Knowledge — Achievement')).toBe(true);
+    expect(founderWantsJournalSectionEdit('continue')).toBe(false);
+  });
+
+  it('assembleManuscriptForChatReview includes all completed movements', () => {
+    const display = assembleManuscriptForChatReview(
+      {
+        title_and_abstract:       '# Title\n\n## Abstrak\n\nRingkasan.',
+        movement_1_human_opening: 'Pembukaan manusia.',
+        movement_2_achievement:   'Pencapaian konvensional.',
+      },
+      {
+        lastSection: 'movement_2_achievement',
+        index:       3,
+        total:       9,
+        complete:    false,
+      },
+    );
+    expect(display).toContain('## Title & Abstract');
+    expect(display).toContain('## Introduction — Human Opening');
+    expect(display).toContain('## Convention Knowledge — Achievement');
+    expect(display).toContain('(3/9)');
+  });
+
   it('prefers user section intent over ADAM structure', () => {
     expect(
       resolveJournalSectionForTurn(
@@ -339,6 +385,119 @@ transfer of energy between beings and systems.
     expect(body).toMatch(/^#\s+Entropy/);
     expect(body).toContain('Abstract');
     expect(body.length).toBeGreaterThan(80);
+  });
+
+  it('extractSectionBodyForSave does not swallow later movements from merged display', () => {
+    const merged =
+      '## Convention Knowledge — Achievement\n\n'
+      + 'Pencapaian konvensional yang mendalam. '.repeat(8)
+      + '\n\n## Convention Knowledge — The Honest Wall\n\n'
+      + 'Dinding jujur konvensional. '.repeat(8);
+    const body = extractSectionBodyForSave(merged, 'movement_2_achievement');
+    expect(body).toContain('Pencapaian konvensional');
+    expect(body).not.toContain('Honest Wall');
+    expect(body).not.toContain('Dinding jujur');
+  });
+
+  it('detects add-to intent for section edit', () => {
+    expect(
+      founderWantsJournalSectionEdit('Add to Convention Knowledge — Achievement (3/9)'),
+    ).toBe(false);
+    expect(
+      founderWantsJournalSectionAppend('Add to Convention Knowledge — Achievement (3/9)'),
+    ).toBe(true);
+    expect(
+      founderWantsJournalSectionAppend('Masukkan ke Convention Knowledge — Achievement (3/9)'),
+    ).toBe(true);
+  });
+
+  it('detects organic ADAM addendum and strips chat wrappers for storage', () => {
+    const adamAddendum = `Bismillahirahmanirrahim.
+
+P.alt, berikut adalah tambahan yang dimasukkan secara organik ke dalam **Convention Knowledge — Achievement (3/9)**:
+
+---
+
+**Pengetahuan Konvensional — Pencapaian**
+*(Bahagian Ai dikembangkan)*
+
+Namun, di tengah semua pencapaian ini, satu bidang baru sedang muncul: **kecerdasan buatan (AI)**.
+${'Kalkulus dan AI perlu selaras dengan MASA. '.repeat(12)}
+
+---
+
+P.alt, saya sedia memperbaiki jika ada bahagian yang perlu diperhalusi.`;
+
+    expect(adamReplyIsJournalSectionAddendum(adamAddendum)).toBe(true);
+    expect(inferJournalSectionFromAdamResponse(adamAddendum)).toBe('movement_2_achievement');
+
+    const body = extractSectionBodyForSave(adamAddendum, 'movement_2_achievement');
+    expect(body).toContain('kecerdasan buatan');
+    expect(body).not.toContain('P.alt, berikut adalah tambahan');
+    expect(body).not.toContain('saya sedia memperbaiki');
+    expect(body).not.toContain('Pengetahuan Konvensional — Pencapaian');
+  });
+
+  it('detects ADAM save confirmation and triggers journal display turn', () => {
+    const confirm =
+      'P.alt, bahagian Ai telah disimpan ke dalam **Convention Knowledge — Achievement (3/9)** secara penuh. '
+      + 'Saya sedia untuk *continue*, *edit*, atau *seal journal*.';
+    expect(adamReplyIsJournalSaveConfirmation(confirm)).toBe(true);
+    expect(
+      founderJournalDisplayTurn({ userMessage: 'ok', adamResponse: confirm }),
+    ).toBe(true);
+    expect(founderWantsJournalSaveAddendum('Simpan ke Convention Knowledge — Achievement (3/9)')).toBe(true);
+  });
+
+  it('does not use full manuscript accordion as persist source on save turn', () => {
+    const manuscript =
+      '## Title & Abstract\n\n'
+      + '# Test Journal\n\n## Abstrak\n\nAbstrak ringkas. '.repeat(5)
+      + '\n\n## Convention Knowledge — Achievement\n\n'
+      + 'Pencapaian sedia ada. '.repeat(10)
+      + '\n\n## Convention Knowledge — The Honest Wall\n\n'
+      + 'Dinding jujur. '.repeat(10);
+    const resolved = resolveAdamTextForJournalPersist({
+      userMessage:  'Simpan ke Convention Knowledge — Achievement (3/9)',
+      adamResponse: manuscript,
+      recentAdam:   [],
+    });
+    expect(resolved).toBe('');
+  });
+
+  it('founderWantsJournalSaveAddendum resolves last ADAM addendum from history', () => {
+    const priorAdam = `P.alt, berikut adalah bahagian **Ai** dimasukkan secara organik ke dalam **Convention Knowledge — Achievement (3/9)**:
+
+---
+
+**Pengetahuan Konvensional — Pencapaian**
+
+${'AI dan MASA. '.repeat(30)}`;
+
+    const resolved = resolveAdamTextForJournalPersist({
+      userMessage:  'Simpan balasan tadi ke Convention Knowledge — Achievement (3/9)',
+      adamResponse: 'Baik P.alt, disimpan.',
+      recentAdam:   [
+        { role: 'founder', content: 'Add to achievement' },
+        { role: 'adam', content: priorAdam },
+      ],
+    });
+    expect(founderWantsJournalSaveAddendum('Simpan balasan tadi ke Achievement (3/9)')).toBe(true);
+    expect(resolved.trim()).toBe(priorAdam.trim());
+    expect(resolved).toContain('Pengetahuan Konvensional');
+  });
+
+  it('shouldSelectNewJournalTopic — lock topic on continue/save, not re-pick', () => {
+    expect(shouldSelectNewJournalTopic('continue', undefined)).toBe(false);
+    expect(shouldSelectNewJournalTopic('Tulis jurnal', undefined)).toBe(true);
+    expect(shouldSelectNewJournalTopic('full V2 journal', undefined)).toBe(true);
+    expect(shouldSelectNewJournalTopic('Tulis jurnal', '3.1-thermo-example')).toBe(false);
+    expect(
+      shouldSelectNewJournalTopic('Simpan ke Convention Knowledge — Achievement (3/9)', undefined),
+    ).toBe(false);
+    expect(
+      shouldSelectNewJournalTopic('Luaskan Convention Knowledge — Achievement (3/9)', undefined),
+    ).toBe(false);
   });
 });
 

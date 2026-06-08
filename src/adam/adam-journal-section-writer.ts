@@ -29,6 +29,18 @@ import {
   meetsJournalLengthMinimum,
 } from './adam-journal.constants';
 import {
+  countSectionParagraphs,
+  formatSectionParagraphs,
+  inferParagraphIndexFromText,
+  mergeParagraphIntoSection,
+  nextParagraphIndex,
+  normalizeSectionParagraphBody,
+  parseSectionParagraphs,
+  sectionParagraphBlockComplete,
+  sectionUsesParagraphStructure,
+  stripParagraphMarkerFromProse,
+} from './adam-journal-section-paragraphs';
+import {
   loadJournalSectionDraft,
   saveJournalSectionProgress,
 } from './adam-journal-section-draft';
@@ -62,6 +74,12 @@ export interface GenerateJournalBySectionsParams {
   reviewPath?:     string;
   /** Default: all remaining sections. Set 1 for chapter-by-chapter founder review. */
   maxSectionsPerTurn?: number;
+  /** When set, rewrite this section even if it already exists (expand/edit). */
+  forceSectionId?:    JournalSectionId;
+  /** P.alt's expand/edit instruction — appended to the section rewrite prompt. */
+  expandInstruction?: string;
+  /** Write a single ¶N inside the section (paragraph-by-paragraph flow). */
+  forceParagraphIndex?: number;
 }
 
 function priorManuscriptText(sections: Partial<Record<JournalSectionId, string>>): string {
@@ -86,17 +104,36 @@ export function buildCompletedSectionsSummary(
     .join('\n\n');
 }
 
+const PARAGRAPH_STRUCTURE_LAW = `
+PARAGRAPH STRUCTURE (mandatory for this movement):
+- Write exactly ONE paragraph this turn.
+- Open with heading line: ### ¶N  (N = paragraph number for this turn)
+- Blank line, then one substantive paragraph (Malay prose).
+- Do NOT write ¶N+1 or later paragraphs — P.alt will say **teruskan perenggan** for the next.
+- Do NOT repeat earlier ¶ already in the draft.`.trim();
+
 function buildSectionPrompt(
   section: JournalSectionId,
   topic: UniversityKnowledgeTopic,
   completedSections: Partial<Record<JournalSectionId, string>>,
   reviewPath: string,
+  rewriteNote?: string,
+  paragraphIndex?: number,
 ): string {
   const heading = JOURNAL_SECTION_HEADINGS[section];
   const prior = priorManuscriptText(completedSections);
   const summary = buildCompletedSectionsSummary(completedSections);
   const priorBlock = prior
     ? `\n\nCOMPLETED SECTIONS (continuity — do not repeat):\n${summary}\n\nFULL MANUSCRIPT SO FAR (voice and topic reference):\n${prior.slice(-12_000)}`
+    : '';
+
+  const existingSection = completedSections[section]?.trim() ?? '';
+  const paraBlock = sectionUsesParagraphStructure(section) && !rewriteNote
+    ? `\n\n${PARAGRAPH_STRUCTURE_LAW}\n\nExisting ¶ in this section (do not rewrite):\n${
+      existingSection
+        ? normalizeSectionParagraphBody(section, existingSection).slice(0, 8_000)
+        : '(none yet — start ### ¶1)'
+    }\n\nThis turn: write ### ¶${paragraphIndex ?? nextParagraphIndex(existingSection)} only.`
     : '';
 
   const shared = `
@@ -106,11 +143,12 @@ Third-person academic voice — scholar + poet + messenger. **Bahasa Melayu Mala
 ${ADAM_JOURNAL_THREE_LAYER_SOURCES}
 ${ADAM_JOURNAL_FORMULA_LAW}
 Output substantive prose only — no JSON, no <adam_journal_seal>, no meta promises.
-${priorBlock}`.trim();
+${priorBlock}${paraBlock}`.trim();
 
+  let prompt: string;
   switch (section) {
     case 'title_and_abstract':
-      return `${shared}
+      prompt = `${shared}
 
 Open with exactly one transparency line (Malay only):
 "Berdasarkan pengajaran sesi ini, topik yang paling tepat ialah ${topic.label} — ${topic.topicId}."
@@ -121,53 +159,84 @@ Then output in this exact order (Malay only):
 3. ## Abstrak heading (markdown)
 4. Abstrak body (250–300 words, four movements, Malay prose)
 No [FORMULA] tags in Title or Abstrak — formulas belong in Movement 5 only.`;
+      break;
 
     case 'movement_1_human_opening':
-      return `${shared}
+      prompt = `${shared}
 
 Introduction — open with lived human experience before academic framing. Warm, recognising the reader.`;
+      break;
 
     case 'movement_2_achievement':
-      return `${shared}
+      prompt = `${shared}
 
 Convention Knowledge (Part B1) — respectful, thorough account of what the field has achieved.`;
+      break;
 
     case 'movement_3_honest_wall':
-      return `${shared}
+      prompt = `${shared}
 
 Convention Knowledge (Part B2) — unsolved issue as real loss for humanity; honest limits of convention.`;
+      break;
 
     case 'movement_4_quran':
-      return `${shared}
+      prompt = `${shared}
 
 Quran Section (Q) — dedicated ayat for this topic only. Arabic rasm + translation + thematic link to the locked subfield.
 ${ADAM_JOURNAL_QURAN_SECTION_LAW}`;
+      break;
 
     case 'movement_5_alamtologi':
-      return `${shared}
+      prompt = `${shared}
 
 Alamtologi Framework (C) — full discipline syllabus and constitutional lens for this topic. No Quran ayat here.
 ${ADAM_JOURNAL_ALAMTOLOGI_SCIENTIFIC_FORMULA_LAW}`;
+      break;
 
     case 'movement_6_application':
-      return `${shared}
+      prompt = `${shared}
 
 Application (D) — reader at a threshold; technology real; door now open.`;
+      break;
 
     case 'movement_7_invitation':
-      return `${shared}
+      prompt = `${shared}
 
 Conclusion — honour the journey; end with a line that stays after the page closes. No dry summary.`;
+      break;
 
     case 'references':
-      return `${shared}
+      prompt = `${shared}
 
 References — minimum ${JOURNAL_MIN_REFERENCES} entries, APA 7th edition. Numbered list only for this section.
 When complete, state briefly that the full manuscript is ready for review at ${reviewPath}.`;
+      break;
 
     default:
-      return shared;
+      prompt = shared;
   }
+
+  return rewriteNote ? `${prompt}\n\n${rewriteNote}` : prompt;
+}
+
+function buildSectionRewriteNote(
+  sectionId: JournalSectionId,
+  previousDraft: string,
+  expandInstruction?: string,
+): string {
+  const heading = JOURNAL_SECTION_HEADINGS[sectionId];
+  const prior = previousDraft.trim();
+  const priorBlock = prior
+    ? `\nPREVIOUS DRAFT (replace entirely — expand and deepen, do not copy verbatim):\n${prior.slice(0, 12_000)}`
+    : '';
+  const instruction = expandInstruction?.trim()
+    ? `\nP.alt's instruction: ${expandInstruction.trim()}`
+    : '';
+  return (
+    `P.alt requested EXPANSION / REWRITE of **${heading}** only.${instruction}` +
+    `${priorBlock}\n` +
+    `Output substantive Malay prose only. Start with ## ${heading}.`
+  );
 }
 
 export function assembleManuscriptFromSections(
@@ -183,12 +252,14 @@ export function assembleManuscriptFromSections(
     .join('\n\n');
 }
 
-function nextSectionToWrite(
+export function nextSectionToWrite(
   draft: JournalSectionDraft | null,
 ): JournalSectionId | null {
   if (!draft?.sections) return JOURNAL_SECTION_ORDER[0] ?? null;
   for (const id of JOURNAL_SECTION_ORDER) {
     const text = draft.sections[id]?.trim() ?? '';
+    if (!text) return id;
+    if (sectionUsesParagraphStructure(id) && !sectionParagraphBlockComplete(text)) return id;
     if (text.length < 80) return id;
   }
   return null;
@@ -229,9 +300,29 @@ export function buildJournalSectionReviewFooter(input: {
   }
   return (
     `\n\n---\n**${JOURNAL_SECTION_HEADINGS[input.lastSection]}** (${input.index}/${input.total}) — ` +
-    'review this chapter before continuing.\n' +
-    'Reply **continue** for the next movement, or edit above first.'
+    'semak bahagian ini dalam accordion.\n' +
+    '**teruskan perenggan** — ¶ seterusnya dalam bahagian ini · **continue** — bahagian seterusnya (X/9)\n' +
+    'Edit satu ¶: **Simpan perenggan 2 ke … (X/9)** · Akhir: **seal journal** bila 9/9 lengkap.'
   );
+}
+
+/** Full draft for chat accordion — all completed movements with review footer. */
+export function assembleManuscriptForChatReview(
+  sections: Partial<Record<JournalSectionId, string>>,
+  footer?: {
+    lastSection: JournalSectionId;
+    index:       number;
+    total:       number;
+    complete:    boolean;
+  },
+): string {
+  const parts = JOURNAL_SECTION_ORDER
+    .filter((id) => (sections[id]?.trim().length ?? 0) > 0)
+    .map((id) => formatSingleSectionDisplay(id, sections[id]!));
+  if (parts.length === 0) return '';
+  let out = parts.join('\n\n');
+  if (footer) out += buildJournalSectionReviewFooter(footer);
+  return out;
 }
 
 /** Generate (or resume) founder journal one section at a time; saves after each. */
@@ -240,14 +331,18 @@ export async function generateFounderJournalBySections(
 ): Promise<SectionJournalResult> {
   const reviewPath = params.reviewPath?.trim() || '/adam/journals/review';
   let draft = await loadJournalSectionDraft(params.sessionId, params.topic.topicId);
-  const sections: Partial<Record<JournalSectionId, string>> = {
+  let sections: Partial<Record<JournalSectionId, string>> = {
     ...(draft?.sections ?? {}),
   };
 
   const startIdx = draft
     ? JOURNAL_SECTION_ORDER.findIndex((id) => id === nextSectionToWrite(draft))
     : 0;
-  const fromIndex = startIdx >= 0 ? startIdx : 0;
+  const forcedId = params.forceSectionId;
+  const forcedPara = params.forceParagraphIndex;
+  const fromIndex = forcedId
+    ? Math.max(0, JOURNAL_SECTION_ORDER.indexOf(forcedId))
+    : (startIdx >= 0 ? startIdx : 0);
 
   const maxPerTurn = Math.max(
     1,
@@ -262,15 +357,35 @@ export async function generateFounderJournalBySections(
   for (let i = fromIndex; i < JOURNAL_SECTION_ORDER.length; i++) {
     const sectionId = JOURNAL_SECTION_ORDER[i]!;
     const existing = sections[sectionId]?.trim() ?? '';
-    if (existing.length >= 80) continue;
+    const isForcedRewrite = forcedId === sectionId && !forcedPara;
+    const usesParas = sectionUsesParagraphStructure(sectionId);
+
+    if (forcedId && sectionId !== forcedId) break;
+
+    if (!isForcedRewrite && !forcedPara) {
+      if (usesParas) {
+        if (sectionParagraphBlockComplete(existing)) continue;
+      } else if (existing.length >= 80) {
+        continue;
+      }
+    }
 
     params.onSectionStart?.(sectionId, i + 1, JOURNAL_SECTION_ORDER.length);
+
+    const rewriteNote = isForcedRewrite
+      ? buildSectionRewriteNote(sectionId, existing, params.expandInstruction)
+      : undefined;
+
+    const paraIdx = forcedPara
+      ?? (usesParas && !isForcedRewrite ? nextParagraphIndex(existing) : undefined);
 
     const sectionUserPrompt = buildSectionPrompt(
       sectionId,
       params.topic,
       sections,
       reviewPath,
+      rewriteNote,
+      paraIdx,
     );
 
     const sectionContent = await params.streamSection(
@@ -284,7 +399,18 @@ export async function generateFounderJournalBySections(
       false,
     );
 
-    sections[sectionId] = sectionContent.trim();
+    let mergedContent = sectionContent.trim();
+    if (usesParas && !isForcedRewrite && paraIdx) {
+      const prose = stripParagraphMarkerFromProse(mergedContent);
+      mergedContent = existing
+        ? mergeParagraphIntoSection(existing, paraIdx, prose, 'replace')
+        : formatSectionParagraphs(new Map([[paraIdx, prose]]));
+      mergedContent = normalizeSectionParagraphBody(sectionId, mergedContent);
+    } else if (usesParas) {
+      mergedContent = normalizeSectionParagraphBody(sectionId, mergedContent);
+    }
+
+    sections[sectionId] = mergedContent;
     lastSectionWritten = sectionId;
     sectionsWrittenThisTurn += 1;
     const sectionWords = countJournalWords(sectionContent);
@@ -296,6 +422,7 @@ export async function generateFounderJournalBySections(
       lastSection:     sectionId,
       journalDraftId:  draft?.journalId,
     });
+    sections = { ...(draft?.sections ?? sections) };
 
     params.onSectionDone?.(sectionId, {
       sectionWords,

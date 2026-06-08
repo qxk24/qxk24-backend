@@ -27,7 +27,17 @@ import {
 } from './adam-journal-manual-prompt';
 import { stripAdamProtocolBlocks } from './adam-chat-response-parser';
 import {
+  founderWantsJournalParagraphEdit,
+  inferParagraphIndexFromText,
+  mergeParagraphIntoSection,
+  nextParagraphIndex,
+  normalizeSectionParagraphBody,
+  sectionUsesParagraphStructure,
+  stripParagraphMarkerFromProse,
+} from './adam-journal-section-paragraphs';
+import {
   loadJournalSectionDraft,
+  loadLatestJournalSectionDraftForSession,
   saveJournalSectionProgress,
   type JournalSectionDraft,
 } from './adam-journal-section-draft';
@@ -59,6 +69,164 @@ function logJournalDraftSkip(
   console.log('[journal:draft-save] skip', JSON.stringify({ reason, ...detail }));
 }
 
+/** UI movement index (1/9 … 9/9) → section id (Title & Abstract = 1). */
+export function inferJournalSectionFromDisplayIndex(text: string): JournalSectionId | null {
+  const match = text.match(/\(\s*(\d+)\s*\/\s*9\s*\)/);
+  if (!match?.[1]) return null;
+  const idx = Number.parseInt(match[1], 10);
+  if (idx < 1 || idx > JOURNAL_SECTION_ORDER.length) return null;
+  return JOURNAL_SECTION_ORDER[idx - 1] ?? null;
+}
+
+function inferJournalSectionFromHeading(text: string): JournalSectionId | null {
+  for (const [pattern, sectionId] of SECTION_HEADING_ALIASES) {
+    if (pattern.test(text)) return sectionId;
+  }
+  for (const sectionId of JOURNAL_SECTION_ORDER) {
+    const heading = JOURNAL_SECTION_HEADINGS[sectionId];
+    const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (new RegExp(escaped, 'i').test(text)) return sectionId;
+  }
+  return null;
+}
+
+const JOURNAL_SECTION_EDIT_VERBS =
+  /\b(expand|luaskan|kembangkan|edit|revise|rewrite|tulis\s+semula|perbaiki|tambah|add\s+to|masukkan|sertakan|integrasikan|lengthen|panjangkan|update|kemas\s+kini|perluas|detailkan|perdalam|perkaya)\b/i;
+
+const JOURNAL_SECTION_APPEND_VERBS =
+  /\b(tambah|add\s+to|masukkan|sertakan|integrasikan|dimasukkan|dimasukkan ke dalam|masukkan ke dalam|gabungkan|append)\b/i;
+
+/** Malay / English heading aliases ADAM uses in organic addendum replies. */
+const SECTION_HEADING_ALIASES: ReadonlyArray<[RegExp, JournalSectionId]> = [
+  [/Pengetahuan\s+Konvensional\s*[—–-]\s*Pencapaian/i, 'movement_2_achievement'],
+  [/Pengetahuan\s+Konvensional\s*[—–-]\s*Dinding\s+Jujur/i, 'movement_3_honest_wall'],
+  [/Convention\s+Knowledge\s*[—–-]\s*Achievement/i, 'movement_2_achievement'],
+  [/Convention\s+Knowledge\s*[—–-]\s*The\s+Honest\s+Wall/i, 'movement_3_honest_wall'],
+];
+
+/** P.alt asked to append prose to an existing movement (not full rewrite). */
+export function founderWantsJournalSectionAppend(message: string): boolean {
+  const text = message.trim();
+  if (!text || !JOURNAL_SECTION_APPEND_VERBS.test(text)) return false;
+  return resolveJournalSectionEditTarget(text) !== null;
+}
+
+/** ADAM replied with an organic journal-section addendum (Teaching-style, not pipeline ## output). */
+export function adamReplyIsJournalSectionAddendum(adamText: string): boolean {
+  const text = stripAdamProtocolBlocks(adamText).trim();
+  if (text.length < MIN_SECTION_CHARS) return false;
+  const addendumCue =
+    /\b(tambahan yang dimasukkan|dimasukkan secara organik|berikut adalah tambahan|berikut adalah bahagian|bahagian ini dikembangkan|dikembangkan secara penuh)\b/i.test(text)
+    || /\*\*Pengetahuan Konvensional/i.test(text)
+    || /\*\*Convention Knowledge\s*[—–-]\s*Achievement\*\*/i.test(text);
+  if (!addendumCue) return false;
+  return inferJournalSectionFromAdamResponse(text) !== null;
+}
+
+/** P.alt asks to save a prior ADAM addendum (or pasted prose) into a movement. */
+export function founderWantsJournalSaveAddendum(message: string): boolean {
+  const text = message.trim();
+  if (!text || !resolveJournalSectionEditTarget(text)) return false;
+  if (text.length > 600 && /\b(simpan|masukkan|gabungkan|save)\b/i.test(text)) return true;
+  if (
+    /\b(simpan|save|masukkan|gabungkan)\b/i.test(text)
+    && resolveJournalSectionEditTarget(text)
+  ) {
+    return true;
+  }
+  return (
+    /\b(simpan|save|masukkan|gabungkan)\b/i.test(text)
+    && /\b(tadi|balasan|addendum|tambahan|ke dalam|previous|last reply)\b/i.test(text)
+  );
+}
+
+/** Resolve ADAM text to persist — current reply, pasted founder prose, or last addendum. */
+export function resolveAdamTextForJournalPersist(input: {
+  userMessage:  string;
+  adamResponse: string;
+  recentAdam:   ReadonlyArray<{ role: string; content: string }>;
+}): string {
+  const current = input.adamResponse?.trim() ?? '';
+  if (current && adamReplyIsJournalSectionAddendum(current)) return current;
+
+  const user = input.userMessage.trim();
+  if (founderWantsJournalSaveAddendum(user) || founderWantsJournalSectionAppend(user)) {
+    for (let i = input.recentAdam.length - 1; i >= 0; i--) {
+      const msg = input.recentAdam[i]!;
+      if (msg.role !== 'adam') continue;
+      const content = msg.content?.trim() ?? '';
+      if (adamReplyIsJournalSectionAddendum(content)) return content;
+    }
+    if (founderWantsJournalSaveAddendum(user) && user.length > 600) return user;
+    return '';
+  }
+
+  if (current && !isJournalManuscriptDisplay(current) && !adamReplyIsJournalSaveConfirmation(current)) {
+    return current;
+  }
+
+  return '';
+}
+
+/** ADAM confirmed a section was saved — meta reply, not the manuscript body. */
+export function adamReplyIsJournalSaveConfirmation(adamText: string): boolean {
+  const text = stripAdamProtocolBlocks(adamText).trim();
+  if (text.length < 40 || text.length > 2_500) return false;
+  const saveCue =
+    /\b(telah disimpan|disimpan ke dalam|disimpan ke draf|saved to|dimasukkan ke dalam)\b/i.test(text)
+    || /\bsedia untuk \*(?:continue|edit|seal journal)\*\b/i.test(text);
+  if (!saveCue) return false;
+  return (
+    inferJournalSectionFromDisplayIndex(text) !== null
+    || inferJournalSectionFromHeading(text) !== null
+  );
+}
+
+/** Chat accordion manuscript — multiple ## movement headings. */
+export function isJournalManuscriptDisplay(text: string): boolean {
+  const cleaned = text.trim();
+  if (!cleaned) return false;
+  const sectionHeadings = (cleaned.match(/^##\s+/gm) ?? []).length;
+  return sectionHeadings >= 2 || /^#\s+.+\n\n##\s/m.test(cleaned);
+}
+
+/** Turn should refresh the full journal draft accordion in chat. */
+export function founderJournalDisplayTurn(input: {
+  userMessage:  string;
+  adamResponse: string;
+}): boolean {
+  return (
+    founderWantsJournalSectionEdit(input.userMessage)
+    || founderWantsJournalSectionAppend(input.userMessage)
+    || founderWantsJournalSaveAddendum(input.userMessage)
+    || adamReplyIsJournalSectionAddendum(input.adamResponse)
+    || adamReplyIsJournalSaveConfirmation(input.adamResponse)
+  );
+}
+
+/** P.alt asked to expand or rewrite a specific journal movement (not continue to next). */
+export function founderWantsJournalSectionEdit(message: string): boolean {
+  const text = message.trim();
+  if (!text || founderWantsJournalSectionAppend(text) || founderWantsJournalSaveAddendum(text)) {
+    return false;
+  }
+  if (!JOURNAL_SECTION_EDIT_VERBS.test(text)) return false;
+  if (inferJournalSectionFromDisplayIndex(text)) return true;
+  if (inferJournalSectionFromHeading(text)) return true;
+  return inferJournalSectionIntentFromPatterns(text) !== null;
+}
+
+/** Resolve which movement P.alt wants edited — for forced section rewrite. */
+export function resolveJournalSectionEditTarget(message: string): JournalSectionId | null {
+  const text = message.trim();
+  if (!text) return null;
+  return (
+    inferJournalSectionFromDisplayIndex(text)
+    ?? inferJournalSectionFromHeading(text)
+    ?? inferJournalSectionIntentFromPatterns(text)
+  );
+}
+
 const USER_SECTION_PATTERNS: ReadonlyArray<[RegExp, JournalSectionId]> = [
   [/\b(references|rujukan|bibliografi)\b/i, 'references'],
   [/\b(movement\s*[_\-\s]?7|m\s*7\b|invitation|jemputan|kesimpulan)\b/i, 'movement_7_invitation'],
@@ -79,20 +247,34 @@ function headingPattern(heading: string): RegExp {
   return new RegExp(`(?:^|\\n)#{1,3}\\s*${escaped}\\b|\\b${escaped}\\b`, 'im');
 }
 
-/** Infer section from P.alt's turn (e.g. "Tulis M1 sahaja"). */
-export function inferJournalSectionIntent(userMessage: string): JournalSectionId | null {
-  const text = userMessage.trim();
-  if (!text) return null;
+function inferJournalSectionIntentFromPatterns(text: string): JournalSectionId | null {
   for (const [pattern, sectionId] of USER_SECTION_PATTERNS) {
     if (pattern.test(text)) return sectionId;
   }
   return null;
 }
 
+/** Infer section from P.alt's turn (e.g. "Tulis M1 sahaja", "(3/9)"). */
+export function inferJournalSectionIntent(userMessage: string): JournalSectionId | null {
+  const text = userMessage.trim();
+  if (!text) return null;
+  return (
+    inferJournalSectionFromDisplayIndex(text)
+    ?? inferJournalSectionFromHeading(text)
+    ?? inferJournalSectionIntentFromPatterns(text)
+  );
+}
+
 /** Infer section from ADAM's reply structure (headings, title, abstract block). */
 export function inferJournalSectionFromAdamResponse(adamText: string): JournalSectionId | null {
   const text = stripAdamProtocolBlocks(adamText).trim();
   if (text.length < MIN_SECTION_CHARS) return null;
+
+  const fromDisplay = inferJournalSectionFromDisplayIndex(text);
+  if (fromDisplay) return fromDisplay;
+
+  const fromAlias = inferJournalSectionFromHeading(text);
+  if (fromAlias) return fromAlias;
 
   for (const sectionId of [...JOURNAL_SECTION_ORDER].reverse()) {
     if (sectionId === 'title_and_abstract') continue;
@@ -127,6 +309,26 @@ export function inferJournalSectionFromAdamResponse(adamText: string): JournalSe
   return null;
 }
 
+/** Resolve topicId from journal context, user message, ADAM transparency line, or session draft. */
+export async function resolveJournalTopicIdForDraftAsync(input: {
+  topicId?:      string;
+  userMessage?:  string;
+  adamResponse?: string;
+  sessionId?:    string;
+}): Promise<string | undefined> {
+  const fromUser = input.userMessage
+    ? extractLockedTopicIdFromMessage(input.userMessage)
+    : undefined;
+  if (fromUser) return fromUser;
+
+  if (input.sessionId) {
+    const sessionDraft = await loadLatestJournalSectionDraftForSession(input.sessionId);
+    if (sessionDraft?.topicId) return sessionDraft.topicId;
+  }
+
+  return resolveJournalTopicIdForDraft(input);
+}
+
 /** Resolve topicId from journal context, user message, or ADAM transparency line. */
 export function resolveJournalTopicIdForDraft(input: {
   topicId?:      string;
@@ -159,6 +361,46 @@ export function resolveJournalSectionForTurn(
   return inferJournalSectionIntent(userMessage) ?? inferJournalSectionFromAdamResponse(adamText);
 }
 
+/** Remove chat framing ADAM uses when delivering organic section addenda. */
+export function stripJournalSectionEditChatWrappers(text: string): string {
+  let out = text.trim();
+  out = out
+    .replace(/^P\.?\s*alt,?\s+berikut[^\n]*\n+/im, '')
+    .replace(/^P\.?\s*alt,?\s+ini[^\n]*tambahan[^\n]*\n+/im, '')
+    .trim();
+
+  const divider = out.search(/\n---+\s*\n/);
+  if (divider >= 0 && divider < 600) {
+    out = out.slice(divider).replace(/^---+\s*\n+/, '').trim();
+  }
+
+  out = out
+    .replace(/^\*\*Pengetahuan Konvensional\s*[—–-]\s*Pencapaian\*\*[^\n]*\n+/im, '')
+    .replace(/^\*\*Convention Knowledge\s*[—–-]\s*Achievement\*\*[^\n]*\n+/im, '')
+    .replace(/^\*\*[^*]+?\*\*\s*\n+\*?\([^)]*\)\*?\s*\n+/m, '')
+    .trim();
+
+  out = out.replace(
+    /\n---+\s*\n+P\.?\s*alt,?\s+saya sedia memperbaiki[\s\S]*$/i,
+    '',
+  ).trim();
+  out = out.replace(
+    /\nP\.?\s*alt,?\s+saya sedia memperbaiki[\s\S]*$/i,
+    '',
+  ).trim();
+
+  return out;
+}
+
+function stripStoredSectionHeading(body: string, sectionId: JournalSectionId): string {
+  let text = body.trim();
+  const heading = JOURNAL_SECTION_HEADINGS[sectionId];
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  text = text.replace(new RegExp(`^#{1,3}\\s*${escaped}\\s*\\n+`, 'im'), '').trim();
+  text = text.replace(new RegExp(`^\\*\\*${escaped}\\*\\*\\s*\\n+`, 'im'), '').trim();
+  return text;
+}
+
 /** Strip transparency preamble; keep substantive section body for storage. */
 export function extractSectionBodyForSave(
   adamText: string,
@@ -173,15 +415,51 @@ export function extractSectionBodyForSave(
     .replace(/^Bismillahirahmanirrahim\.?\s*\n+/im, '')
     .trim();
 
-  if (sectionId !== 'title_and_abstract') {
-    const heading = JOURNAL_SECTION_HEADINGS[sectionId];
-    const headingRx = headingPattern(heading);
-    const match = text.match(headingRx);
-    if (match?.index != null && match.index > 0) {
-      text = text.slice(match.index).trim();
+  const afterDivider = text.match(/\n---+\s*\n+([\s\S]+)/);
+  if (
+    afterDivider?.[1]
+    && /tambahan|Pengetahuan Konvensional|Convention Knowledge/i.test(afterDivider[1])
+  ) {
+    text = afterDivider[1].trim();
+  }
+
+  if (sectionId === 'title_and_abstract') {
+    const titleMatch = text.match(/^#\s+(.+)$/m);
+    if (titleMatch?.index != null && titleMatch.index > 0) {
+      text = text.slice(titleMatch.index).trim();
+    }
+    const nextMovement = text.search(
+      /\n##\s+(?:Introduction|Title\s*&|Convention|Al-Quran|Alamtologi|Application|Conclusion|References)\b/im,
+    );
+    if (nextMovement > 0) {
+      text = text.slice(0, nextMovement).trim();
+    }
+    return text.trim();
+  }
+
+  const heading = JOURNAL_SECTION_HEADINGS[sectionId];
+  const headingRx = headingPattern(heading);
+  const match = text.match(headingRx);
+  if (match?.index != null) {
+    text = text.slice(match.index).trim();
+  }
+
+  const sectionIdx = JOURNAL_SECTION_ORDER.indexOf(sectionId);
+  for (let i = sectionIdx + 1; i < JOURNAL_SECTION_ORDER.length; i++) {
+    const nextId = JOURNAL_SECTION_ORDER[i]!;
+    const nextHeading = JOURNAL_SECTION_HEADINGS[nextId];
+    const nextRx = new RegExp(
+      `(?:^|\\n)(?:#{1,3}\\s*)?${nextHeading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
+      'im',
+    );
+    const nextMatch = text.match(nextRx);
+    if (nextMatch?.index != null && nextMatch.index > 0) {
+      text = text.slice(0, nextMatch.index).trim();
+      break;
     }
   }
 
+  text = stripJournalSectionEditChatWrappers(text);
   return text.trim();
 }
 
@@ -200,10 +478,11 @@ export async function tryPersistInteractiveJournalSection(input: {
   topic?:        UniversityKnowledgeTopic;
 }): Promise<JournalSectionDraft | null> {
   const adamText = input.adamResponse?.trim() || input.adamText?.trim() || '';
-  const topicId = resolveJournalTopicIdForDraft({
+  const topicId = await resolveJournalTopicIdForDraftAsync({
     topicId:      input.topicId?.trim() || input.topic?.topicId,
     userMessage:  input.userMessage,
     adamResponse: adamText,
+    sessionId:    input.sessionId,
   });
   if (!topicId) {
     logJournalDraftSkip('no_topic_id', {
@@ -243,9 +522,61 @@ export async function tryPersistInteractiveJournalSection(input: {
   }
 
   const existing = await loadJournalSectionDraft(input.sessionId, topic.topicId);
+  let priorSections = existing?.sections ?? {};
+  if (Object.keys(priorSections).length === 0) {
+    const sessionDraft = await loadLatestJournalSectionDraftForSession(input.sessionId);
+    if (sessionDraft?.topicId === topic.topicId) {
+      priorSections = sessionDraft.sections;
+    }
+  }
+  const priorSection = priorSections[sectionId]?.trim() ?? '';
+  const appendMode =
+    founderWantsJournalSectionAppend(input.userMessage)
+    || founderWantsJournalSaveAddendum(input.userMessage)
+    || adamReplyIsJournalSectionAddendum(adamText);
+
+  const paragraphIndex =
+    inferParagraphIndexFromText(input.userMessage)
+    ?? inferParagraphIndexFromText(adamText);
+
+  let mergedBody = body;
+  const priorCore = stripStoredSectionHeading(priorSection, sectionId);
+
+  if (
+    sectionUsesParagraphStructure(sectionId)
+    && paragraphIndex
+    && priorCore.length >= 40
+  ) {
+    const paraProse = stripParagraphMarkerFromProse(
+      stripStoredSectionHeading(body, sectionId),
+    );
+    mergedBody = mergeParagraphIntoSection(
+      priorCore,
+      paragraphIndex,
+      paraProse,
+      appendMode && !founderWantsJournalParagraphEdit(input.userMessage) ? 'append' : 'replace',
+    );
+    mergedBody = normalizeSectionParagraphBody(sectionId, mergedBody);
+  } else if (appendMode && priorCore.length >= MIN_SECTION_CHARS) {
+    if (sectionUsesParagraphStructure(sectionId)) {
+      const nextIdx = nextParagraphIndex(priorCore);
+      mergedBody = mergeParagraphIntoSection(
+        priorCore,
+        nextIdx,
+        stripParagraphMarkerFromProse(stripStoredSectionHeading(body, sectionId)),
+        'replace',
+      );
+      mergedBody = normalizeSectionParagraphBody(sectionId, mergedBody);
+    } else {
+      mergedBody = `${priorCore}\n\n${body}`.trim();
+    }
+  } else if (sectionUsesParagraphStructure(sectionId)) {
+    mergedBody = normalizeSectionParagraphBody(sectionId, body);
+  }
+
   const sections = {
-    ...(existing?.sections ?? {}),
-    [sectionId]: body,
+    ...priorSections,
+    [sectionId]: mergedBody,
   };
 
   return saveJournalSectionProgress({
@@ -253,6 +584,7 @@ export async function tryPersistInteractiveJournalSection(input: {
     topic,
     sections,
     lastSection:    sectionId,
-    journalDraftId: existing?.journalId,
+    journalDraftId: existing?.journalId
+      ?? (await loadLatestJournalSectionDraftForSession(input.sessionId))?.journalId,
   });
 }

@@ -20,6 +20,16 @@ import { llmCompleteUserPrompt } from '../llm/llm-client';
 import type { LlmMessage } from '../llm/llm-types';
 import { getDailyJournalSegmentStatus } from './adam-journal-daily-segment';
 import { extractLockedTopicIdFromMessage } from './adam-journal-manual-prompt';
+import {
+  founderWantsJournalSectionAppend,
+  founderWantsJournalSaveAddendum,
+  founderWantsJournalSectionEdit,
+} from './adam-journal-section-detect';
+import {
+  founderStartsNewJournal,
+  founderWantsJournalContinue,
+  founderWantsJournalWrite,
+} from './adam-chat-response-parser';
 import { findUniversityTopicById } from './adam-university-knowledge';
 import {
   loadUniversityKnowledgeTopics,
@@ -130,6 +140,23 @@ export function extractLockedTopicIdFromSession(
     if (transparency?.[1]) return transparency[1].trim();
   }
   return undefined;
+}
+
+/** Pick a new 664-map topic only on first "Tulis jurnal" — never on continue/edit/save. */
+export function shouldSelectNewJournalTopic(
+  userMessage: string,
+  lockedTopicId?: string,
+): boolean {
+  if (lockedTopicId?.trim()) return false;
+  if (
+    founderWantsJournalContinue(userMessage)
+    || founderWantsJournalSectionAppend(userMessage)
+    || founderWantsJournalSaveAddendum(userMessage)
+    || founderWantsJournalSectionEdit(userMessage)
+  ) {
+    return false;
+  }
+  return founderStartsNewJournal(userMessage) || founderWantsJournalWrite(userMessage);
 }
 
 /**
