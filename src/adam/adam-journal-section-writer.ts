@@ -22,7 +22,7 @@ import type { UniversityKnowledgeTopic } from './adam-university-knowledge';
 import { buildKnowledgeTopicBreadcrumb } from './adam-university-knowledge';
 import { ADAM_JOURNAL_FORMULA_LAW, ADAM_JOURNAL_ALAMTOLOGI_SCIENTIFIC_FORMULA_LAW, ADAM_JOURNAL_QURAN_SECTION_LAW } from './adam-journal-formula';
 import { ADAM_JOURNAL_THREE_LAYER_SOURCES } from './adam-journal-manual-prompt';
-import { ADAM_JOURNAL_SENTENCE_RHYTHM_LAW } from './adam-journal-writing-voice';
+import { ADAM_JOURNAL_ABSTRAK_STRUCTURE_LAW, ADAM_JOURNAL_SENTENCE_RHYTHM_LAW } from './adam-journal-writing-voice';
 import { sanitizeAdamProseDashBridges } from './adam-prose-sanitize';
 import { formatTitleAbstractSectionForDisplay } from './adam-journal-section-display';
 import {
@@ -162,10 +162,11 @@ Then output in this exact order (Malay only):
 1. Journal Title as a single markdown # heading line (Malay)
 2. Blank line
 3. ## Abstrak heading (markdown)
-4. Abstrak body (250–300 words, four movements, Malay prose)
-Write connected paragraphs — not a stack of single-line sentences. Read-aloud test: smooth academic Malay.
-ABSOLUTE: no em dash (—) anywhere in Abstrak.
-When listing empat gerak (pertama… keempat): one flowing sentence per item; semicolons between items OK.
+4. Abstrak body (250–300 words, Malay prose)
+${ADAM_JOURNAL_ABSTRAK_STRUCTURE_LAW}
+${ADAM_JOURNAL_SENTENCE_RHYTHM_LAW}
+Write connected paragraphs with blank lines — not one wall of text, not telegraphic one-liners.
+ABSOLUTE: no em dash (—) in Abstrak prose.
 No [FORMULA] tags in Title or Abstrak — formulas belong in Movement 5 only.`;
       break;
 

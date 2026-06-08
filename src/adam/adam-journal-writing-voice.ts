@@ -36,7 +36,19 @@ SENTENCE RHYTHM (mandatory — natural flow, precise, smooth):
 - Wrong (too long): "Oral Literature, khususnya Spoken Word, bukan sekadar bentuk ekspresi lisan yang berakar dalam tradisi lama, tetapi satu disiplin ilmu yang hidup, di mana suara manusia menjadi medium langsung antara MASA yang berdenyut, TENAGA yang menyampaikan, dan CAHAYA yang menyaksikan."
 - Wrong (too choppy): "Oral Literature bukan tradisi lama. Ia disiplin hidup. Suara medium langsung. MASA berdenyut. TENAGA menyampaikan. CAHAYA menyaksikan."
 - Right (same meaning, flows): "Oral Literature, khususnya Spoken Word, bukan sekadar warisan lisan, melainkan disiplin ilmu yang hidup. Suara manusia menjadi medium langsung antara MASA yang berdenyut, TENAGA yang menyampaikan, dan CAHAYA yang menyaksikan."
-- Abstrak four-movement list (pertama… keempat): one **complete flowing sentence** per item; semicolons between items OK; no em dash bridges.
+- Abstrak empat gerak (pertama… keempat): **four separate sentences** — each starts with Pertama/Kedua/Ketiga/Keempat on its own line or in its own breath; **never** one semicolon chain; max ~35 words each.
+`.trim();
+
+/** Five-paragraph Abstrak layout for movement 1/9. */
+export const ADAM_JOURNAL_ABSTRAK_STRUCTURE_LAW = `
+ABSTRAK STRUCTURE (mandatory — Title & Abstract / 1/9):
+- Total 250–300 words. **Five paragraphs** with blank lines between them.
+- ¶1 (2 sentences): topik + prinsip Alamtologi (MASA, TENAGA, CAHAYA) — flowing, not staccato.
+- ¶2 (2–3 sentences): bagaimana konvensyen akademik memperlakukan topik + apa yang terlepas.
+- ¶3 (1–2 sentences): jurnal pertama siri Alamtologi + akar CAHAYA.
+- ¶4 (**exactly 4 sentences**): masing-masing bermula **Pertama,** **Kedua,** **Ketiga,** **Keempat,** — satu gerak satu ayat; jangan gabung dengan koma bertubi atau titik koma panjang.
+- ¶5 (1–2 sentences): undangan penutup — saksi, bukan data.
+- Hard cap ~35 words per sentence; split if longer while keeping flow.
 `.trim();
 
 /** System-level writing voice — applies to every QXK24 journal ADAM writes. */
