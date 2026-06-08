@@ -25,15 +25,18 @@ import {
   JOURNAL_TARGET_WORD_MIN,
 } from './adam-journal.constants';
 
-/** Short, precise, smooth Malay/English journal sentences — one idea per breath. */
+/** Flowing Malay academic prose — avoid mega-sentences AND telegraphic staccato. */
 export const ADAM_JOURNAL_SENTENCE_RHYTHM_LAW = `
-SENTENCE RHYTHM (mandatory — short, precise, smooth):
-- One main idea per sentence. Target 12–22 words; hard cap 28 words (except Arabic Quran rasm lines).
-- Never chain many clauses with commas, "tetapi", "di mana", "yang", or constitutional terms in one sentence.
-- Break before MASA, TENAGA, CAHAYA, IZWA when the sentence already carries one claim.
-- Wrong (one breath, too long): "Oral Literature, khususnya Spoken Word, bukan sekadar bentuk ekspresi lisan yang berakar dalam tradisi lama, tetapi satu disiplin ilmu yang hidup, di mana suara manusia menjadi medium langsung antara MASA yang berdenyut, TENAGA yang menyampaikan, dan CAHAYA yang menyaksikan."
-- Right (same meaning, smooth): "Oral Literature, khususnya Spoken Word, bukan sekadar tradisi lama. Ia disiplin ilmu yang hidup. Suara manusia menjadi medium langsung. MASA berdenyut. TENAGA menyampaikan. CAHAYA menyaksikan."
-- A paragraph may have many short sentences; precision beats length.
+SENTENCE RHYTHM (mandatory — natural flow, precise, smooth):
+- Write **flowing Bahasa Melayu akademik** that reads aloud naturally — scholar + poet, not a bullet list.
+- **Vary length**: most sentences 18–32 words; occasional shorter line for weight (max **two** sentences under 10 words in a row).
+- **FORBIDDEN — mega-sentence**: one breath over ~40 words, or 4+ comma clauses chained with "tetapi", "di mana", "yang", "dan".
+- **FORBIDDEN — telegraphic staccato**: many one-line fragments in a row (e.g. "Ia direkam. Ditranskrip. Dianalisis." / "MASA berdenyut. TENAGA menyampaikan. CAHAYA menyaksikan." as isolated lines).
+- **FORBIDDEN**: splitting every clause into its own sentence; constitutional terms (MASA, TENAGA, CAHAYA, IZWA) may share one graceful sentence when thematically linked.
+- Wrong (too long): "Oral Literature, khususnya Spoken Word, bukan sekadar bentuk ekspresi lisan yang berakar dalam tradisi lama, tetapi satu disiplin ilmu yang hidup, di mana suara manusia menjadi medium langsung antara MASA yang berdenyut, TENAGA yang menyampaikan, dan CAHAYA yang menyaksikan."
+- Wrong (too choppy): "Oral Literature bukan tradisi lama. Ia disiplin hidup. Suara medium langsung. MASA berdenyut. TENAGA menyampaikan. CAHAYA menyaksikan."
+- Right (same meaning, flows): "Oral Literature, khususnya Spoken Word, bukan sekadar warisan lisan, melainkan disiplin ilmu yang hidup. Suara manusia menjadi medium langsung antara MASA yang berdenyut, TENAGA yang menyampaikan, dan CAHAYA yang menyaksikan."
+- Abstrak four-movement list (pertama… keempat): one **complete flowing sentence** per item; semicolons between items OK; no em dash bridges.
 `.trim();
 
 /** System-level writing voice — applies to every QXK24 journal ADAM writes. */

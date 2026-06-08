@@ -114,7 +114,7 @@ PARAGRAPH STRUCTURE (mandatory for this movement):
 - Blank line, then one substantive paragraph (Malay prose).
 - Do NOT write ¶N+1 or later paragraphs — P.alt will say **teruskan perenggan** for the next.
 - Do NOT repeat earlier ¶ already in the draft.
-- Each ¶ sentence: 12–22 words; max 28. One idea per sentence.`.trim();
+- Prose must **flow naturally** — see SENTENCE RHYTHM law; no telegraphic one-liners.`.trim();
 
 function buildSectionPrompt(
   section: JournalSectionId,
@@ -163,9 +163,9 @@ Then output in this exact order (Malay only):
 2. Blank line
 3. ## Abstrak heading (markdown)
 4. Abstrak body (250–300 words, four movements, Malay prose)
-${ADAM_JOURNAL_SENTENCE_RHYTHM_LAW}
-ABSOLUTE: no em dash (—) anywhere in Abstrak. Use short sentences (12–22 words); break before "tetapi", "di mana", long lists.
-When listing the four movements (pertama, kedua, ketiga, keempat): one short clause per item; semicolons between items are fine.
+Write connected paragraphs — not a stack of single-line sentences. Read-aloud test: smooth academic Malay.
+ABSOLUTE: no em dash (—) anywhere in Abstrak.
+When listing empat gerak (pertama… keempat): one flowing sentence per item; semicolons between items OK.
 No [FORMULA] tags in Title or Abstrak — formulas belong in Movement 5 only.`;
       break;
 
