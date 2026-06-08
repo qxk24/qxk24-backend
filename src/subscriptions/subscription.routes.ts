@@ -53,6 +53,13 @@ import {
   confirmStripeCheckoutSession,
 } from './stripe-gateway.service';
 import { getProviderForRegion } from './tier-access.config';
+import { ENV } from '../config/environments';
+import {
+  freeDailyLimit,
+  getDailyQuotaSnapshot,
+  pelajarDailyLimit,
+} from '../freemium/adam-freemium-daily.service';
+import { guestLifetimeLimit } from '../freemium/adam-freemium-guest.service';
 
 const router = new Hono();
 
@@ -61,21 +68,32 @@ router.get('/pricing', (c) => {
   const pelajar     = getPelajarPricing(region);
   const profesional = getProfesionalPricing(region);
   const studio      = getStudioPricing(region);
+  const stripe      = getStripeGatewayStatus();
+  const paymentWired = ENV.STRIPE_ENABLED && stripe.enabled && stripe.configured;
 
   return c.json({
     region,
     payment: {
-      stripe: getStripeGatewayStatus(),
+      stripe,
       regionalProvider: getProviderForRegion(region),
+      wired:            paymentWired,
+      comingSoon:       !paymentWired,
     },
+    freemium: ENV.ADAM_FREEMIUM_ENABLED ? {
+      guestLifetimeLimit: guestLifetimeLimit(),
+      freeDailyLimit:     freeDailyLimit(),
+      pelajarDailyLimit:  pelajarDailyLimit(),
+    } : null,
     tiers: {
       pencarian: {
         label:         'Pencarian',
         monthlyAmount: 0,
         annualAmount:  0,
         currency:      pelajar.currency,
-        description:   'Founder waqf — your first journey, funded by P.alt.',
-        messageLimit:  100,
+        description:   'Daftar percuma — tanya ADAM setiap hari tanpa bayaran.',
+        messageLimit:  ENV.ADAM_FREEMIUM_ENABLED ? freeDailyLimit() : 100,
+        dailyLimit:    ENV.ADAM_FREEMIUM_ENABLED ? freeDailyLimit() : undefined,
+        guestLimit:    ENV.ADAM_FREEMIUM_ENABLED ? guestLifetimeLimit() : undefined,
         extensionFee:  pelajar.extensionFee,
       },
       pelajar: {
@@ -85,6 +103,8 @@ router.get('/pricing', (c) => {
         currency:      pelajar.currency,
         description:   'Continuous constitutional memory — ADAM remembers you across every return.',
         savingsNote:   '2 months free with annual billing.',
+        comingSoon:    !paymentWired,
+        dailyLimit:    ENV.ADAM_FREEMIUM_ENABLED ? pelajarDailyLimit() : undefined,
       },
       profesional: {
         label:         'Profesional',
@@ -93,6 +113,7 @@ router.get('/pricing', (c) => {
         currency:      profesional.currency,
         description:   'Full relational memory, API, publishing — plus Builder mode when you ship code.',
         savingsNote:   '2 months free with annual billing.',
+        comingSoon:    !paymentWired,
       },
       studio: {
         label:         'Studio Pro',
@@ -126,6 +147,15 @@ router.post('/create', requireAdamUser, async (c) => {
 
   if (body.tier === SubscriptionTier.PENCARIAN) {
     return c.json({ error: 'Pencarian is a founder waqf — no payment required.' }, 400);
+  }
+
+  const stripe = getStripeGatewayStatus();
+  const paymentWired = ENV.STRIPE_ENABLED && stripe.enabled && stripe.configured;
+  if (!paymentWired) {
+    return c.json({
+      error:      'Payment gateway coming soon. Register free to use ADAM today.',
+      comingSoon: true,
+    }, 503);
   }
 
   const user = getTokenUser(c)!;
@@ -170,7 +200,21 @@ router.get('/me', requireAdamUser, async (c) => {
 });
 
 router.get('/pencarian/usage', requireAdamUser, async (c) => {
-  const usage = await getPencarianUsage(getTokenUser(c)!.userId);
+  const userId = getTokenUser(c)!.userId;
+
+  if (ENV.ADAM_FREEMIUM_ENABLED) {
+    const limit = freeDailyLimit();
+    const snap = await getDailyQuotaSnapshot(userId, limit);
+    return c.json({
+      totalMessagesUsed:  snap.questionsUsed,
+      totalMessagesLimit: snap.dailyLimit,
+      currentStage:       'KNOW',
+      dateKey:            snap.dateKey,
+      dailyLimit:         true,
+    });
+  }
+
+  const usage = await getPencarianUsage(userId);
 
   if (!usage) {
     return c.json({ totalMessagesUsed: 0, totalMessagesLimit: 100, currentStage: 'KNOW' });

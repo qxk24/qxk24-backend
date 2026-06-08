@@ -252,6 +252,22 @@ export const ENV = {
 
   PADDLE_API_KEY: optional('PADDLE_API_KEY', ''),
 
+  /** Freemium — guest lifetime + registered daily caps (MY timezone reset) */
+  ADAM_FREEMIUM_ENABLED:        optional('ADAM_FREEMIUM_ENABLED', 'true') === 'true',
+  ADAM_FREEMIUM_PUBLIC_ENABLED: optional('ADAM_FREEMIUM_PUBLIC_ENABLED', 'true') === 'true',
+  ADAM_FREEMIUM_GUEST_LIMIT:    optionalInt('ADAM_FREEMIUM_GUEST_LIMIT', 3),
+  ADAM_FREEMIUM_FREE_DAILY:     optionalInt('ADAM_FREEMIUM_FREE_DAILY', 15),
+  ADAM_FREEMIUM_PELAJAR_DAILY:  optionalInt('ADAM_FREEMIUM_PELAJAR_DAILY', 100),
+  ADAM_FREEMIUM_CREDIT_PACK_SIZE: optionalInt('ADAM_FREEMIUM_CREDIT_PACK_SIZE', 25),
+  ADAM_FREEMIUM_TIMEZONE:       optional('ADAM_FREEMIUM_TIMEZONE', 'Asia/Kuala_Lumpur'),
+
+  /**
+   * Layer 2 — ADAM Jurnal / Buku / Kod servers.
+   * false = Lapisan 1 chat-only fully open; server output gated (testing).
+   * true  = open server subscriptions after full QA (Founder enables on VPS).
+   */
+  ADAM_LAYER2_ENABLED: optional('ADAM_LAYER2_ENABLED', 'false') === 'true',
+
   // ADAM Builder (lab stack — Qwen + qxk24-mcp)
   ADAM_BUILDER_ENABLED: optional('ADAM_BUILDER_ENABLED', 'false') === 'true',
   /** Monorepo root on the host running lab PM2 (for MCP child process) */

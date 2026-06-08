@@ -28,6 +28,25 @@ import {
   shouldRunPencarianGate,
 } from '../../subscriptions/pencarian-chat-gate.service';
 import {
+  freemiumStatusPayload,
+  getStudentFreemiumStatus,
+  isFreemiumEnabled,
+  runStudentFreemiumPreCheck,
+  streamFreemiumBlockedTurn,
+} from '../../freemium/adam-freemium-gate.service';
+import {
+  runLayerGatePreCheck,
+  streamLayerGateBlockedTurn,
+} from '../../adam-servers/adam-layer-gate.service';
+import { attachSubscriptionAccess } from '../../middleware/subscription-guard.middleware';
+import { detectRegionFromHeaders } from '../../subscriptions/region-detector.service';
+import {
+  CREDIT_PACK_ID,
+  getCreditPackOffer,
+  getCreditWalletSnapshot,
+  isCreditPurchaseWired,
+} from '../../freemium/adam-freemium-credit.service';
+import {
   checkTesterLimit,
   isTesterAccount,
 } from '../../tester/alm-tester.service';
@@ -144,6 +163,78 @@ router.get('/auth-config', (c) => {
     stack:               ENV.QXK24_STACK,
     kernel:              'Alamtologi',
   });
+});
+
+// GET /api/adam/student/freemium-status — daily quota for registered students
+router.get('/freemium-status', requireStudent, attachSubscriptionAccess, async (c) => {
+  const user = getTokenUser(c)!;
+  const access = getSubscriptionAccess(c);
+  const status = await getStudentFreemiumStatus(user.userId, access);
+  const region = detectRegionFromHeaders(c.req.raw.headers);
+  const pack   = getCreditPackOffer(region);
+
+  return c.json({
+    success: true,
+    freemium: freemiumStatusPayload(status),
+    credits: {
+      balance:      status.creditBalance,
+      pack,
+      paymentWired: isCreditPurchaseWired(),
+    },
+    tier:     access?.tier ?? 'PENCARIAN',
+    payment:  { comingSoon: !isCreditPurchaseWired() },
+    kernel:   'Alamtologi',
+  });
+});
+
+const BuyCreditSchema = z.object({
+  packId: z.string().optional().default(CREDIT_PACK_ID),
+});
+
+// GET /api/adam/student/credits — wallet + pack pricing
+router.get('/credits', requireStudent, async (c) => {
+  const user = getTokenUser(c)!;
+  const region = detectRegionFromHeaders(c.req.raw.headers);
+  const wallet = await getCreditWalletSnapshot(user.userId);
+  const pack   = getCreditPackOffer(region);
+
+  return c.json({
+    success: true,
+    wallet,
+    pack,
+    paymentWired: isCreditPurchaseWired(),
+    kernel:       'Alamtologi',
+  });
+});
+
+// POST /api/adam/student/credits/buy — purchase credit pack (payment gateway when wired)
+router.post('/credits/buy', requireStudent, zValidator('json', BuyCreditSchema), async (c) => {
+  const user = getTokenUser(c)!;
+  const body = c.req.valid('json');
+  const region = detectRegionFromHeaders(c.req.raw.headers);
+  const pack = getCreditPackOffer(region);
+
+  if (body.packId !== pack.id) {
+    return c.json({ success: false, error: 'Unknown credit pack.' }, 400);
+  }
+
+  if (!isCreditPurchaseWired()) {
+    return c.json({
+      success:      false,
+      comingSoon:   true,
+      error:        'Pembayaran kredit akan dibuka tidak lama lagi.',
+      pack,
+      creditsUrl:   '/adam/credits',
+      kernel:       'ALAMTOLOGI',
+    }, 503);
+  }
+
+  // Future: create Stripe checkout for credit pack, grant on webhook confirm.
+  return c.json({
+    success: false,
+    error:   'Credit checkout is not configured yet.',
+    kernel:  'ALAMTOLOGI',
+  }, 503);
 });
 
 // GET /api/adam/student/register-status — public registration gate
@@ -364,7 +455,18 @@ router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json
 
   return stream(c, async (s) => {
     try {
-      if (shouldRunPencarianGate(access) && message) {
+      if (isFreemiumEnabled() && message && access?.tier !== 'TESTER') {
+        const freemium = await runStudentFreemiumPreCheck(user.userId, access);
+
+        if (!freemium.canContinue) {
+          await streamFreemiumBlockedTurn(s, sessionId!, freemium);
+          return;
+        }
+
+        await s.write(
+          `event: freemium_status\ndata: ${JSON.stringify(freemiumStatusPayload(freemium))}\n\n`,
+        );
+      } else if (shouldRunPencarianGate(access) && message) {
         const pencarian = await runPencarianPreCheck(user.userId, sessionId!, message);
 
         if (!pencarian.canContinue) {
@@ -415,11 +517,25 @@ router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json
         );
       }
 
+      if (message) {
+        const layerGate = await runLayerGatePreCheck({
+          userId:    user.userId,
+          message,
+          mode:      body.mode,
+          isFounder: false,
+          userName:  user.name ?? user.userId,
+        });
+        if (!layerGate.allowed) {
+          await streamLayerGateBlockedTurn(s, sessionId!, layerGate);
+          return;
+        }
+      }
+
       await withSseKeepalive(s, () =>
         streamADAMChat(
           sessionId!,
           message,
-          body.mode,
+          body.mode === 'JOURNAL_GEN' || body.mode === 'AUDIT' ? 'QUESTIONING' : body.mode,
           async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
           body.uploadIds ?? [],
           {
@@ -449,13 +565,29 @@ router.post('/group/chat', requireStudent, requireActiveSubscription, zValidator
   c.header('Cache-Control', 'no-cache');
   c.header('Connection', 'keep-alive');
 
+  const groupMessage = body.message?.trim() ?? '';
+
   return stream(c, async (s) => {
     try {
+      if (groupMessage) {
+        const layerGate = await runLayerGatePreCheck({
+          userId:    user.userId,
+          message:   groupMessage,
+          mode:      body.mode,
+          isFounder: false,
+          userName:  user.name ?? user.userId,
+        });
+        if (!layerGate.allowed) {
+          await streamLayerGateBlockedTurn(s, sessionId, layerGate);
+          return;
+        }
+      }
+
       await withSseKeepalive(s, () =>
         streamADAMChat(
           sessionId,
-          body.message?.trim() ?? '',
-          body.mode,
+          groupMessage,
+          body.mode === 'JOURNAL_GEN' || body.mode === 'AUDIT' ? 'QUESTIONING' : body.mode,
           async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
           body.uploadIds ?? [],
           {

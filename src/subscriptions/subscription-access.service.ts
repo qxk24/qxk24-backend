@@ -22,17 +22,26 @@ import {
   PencarianStage,
 } from '../subscriptions/subscription.schema';
 import { ENV } from '../config/environments';
+import {
+  freeDailyLimit,
+  pelajarDailyLimit,
+  getDailyQuotaSnapshot,
+} from '../freemium/adam-freemium-daily.service';
+import { malaysiaDateKey } from '../freemium/adam-freemium-date';
 
 export type SubscriptionAccessCode =
   | 'SUBSCRIPTION_EXPIRED'
   | 'SUBSCRIPTION_PAUSED'
-  | 'PENCARIAN_LIMIT';
+  | 'PENCARIAN_LIMIT'
+  | 'DAILY_LIMIT';
 
 export interface PencarianAccessSnapshot {
   messagesUsed:      number;
   messagesRemaining: number;
   totalLimit:        number;
   currentStage:      PencarianStage | string;
+  dateKey?:          string;
+  dailyLimit?:       boolean;
 }
 
 export interface SubscriptionAccess {
@@ -81,6 +90,34 @@ export async function resolveSubscriptionAccess(userId: string): Promise<Subscri
         upgradeUrl:  upgradeUrl('/plans'),
       };
     }
+
+    if (ENV.ADAM_FREEMIUM_ENABLED && paidSub.tier === SubscriptionTier.PELAJAR) {
+      const limit = pelajarDailyLimit();
+      const snap  = await getDailyQuotaSnapshot(userId, limit);
+      const pencarianSnap = pencarianSnapshot(snap.questionsUsed, limit, PencarianStage.KNOW);
+      pencarianSnap.dateKey = snap.dateKey;
+      pencarianSnap.dailyLimit = true;
+
+      if (snap.limitReached) {
+        return {
+          canChat:     false,
+          tier:        paidSub.tier,
+          status:      paidSub.status,
+          code:        'DAILY_LIMIT',
+          message:     `Had harian Pelajar (${limit} soalan) tercapai. Beli kredit untuk teruskan.`,
+          upgradeUrl:  upgradeUrl('/adam/credits'),
+          pencarian:   pencarianSnap,
+        };
+      }
+
+      return {
+        canChat:   true,
+        tier:      paidSub.tier,
+        status:    paidSub.status,
+        pencarian: pencarianSnap,
+      };
+    }
+
     return { canChat: true, tier: paidSub.tier, status: paidSub.status };
   }
 
@@ -140,6 +177,34 @@ export async function resolveSubscriptionAccess(userId: string): Promise<Subscri
     status: SubscriptionStatus.WAQF,
   });
 
+  if (ENV.ADAM_FREEMIUM_ENABLED) {
+    const limit = freeDailyLimit();
+    const daily = await getDailyQuotaSnapshot(userId, limit);
+    const stage = pencarianSub?.pencarianUsage?.currentStage ?? PencarianStage.KNOW;
+    const snap  = pencarianSnapshot(daily.questionsUsed, limit, stage);
+    snap.dateKey = daily.dateKey;
+    snap.dailyLimit = true;
+
+    if (daily.limitReached) {
+      return {
+        canChat:     false,
+        tier:        SubscriptionTier.PENCARIAN,
+        status:      SubscriptionStatus.WAQF,
+        code:        'DAILY_LIMIT',
+        message:     `Had harian percuma (${limit} soalan) tercapai. Beli kredit untuk teruskan.`,
+        upgradeUrl:  upgradeUrl('/adam/credits'),
+        pencarian:   snap,
+      };
+    }
+
+    return {
+      canChat:   true,
+      tier:      SubscriptionTier.PENCARIAN,
+      status:    SubscriptionStatus.WAQF,
+      pencarian: snap,
+    };
+  }
+
   if (pencarianSub?.pencarianUsage) {
     const usage = pencarianSub.pencarianUsage;
     const limit = usage.totalMessagesLimit + usage.extensionMessagesAdded;
@@ -169,7 +234,11 @@ export async function resolveSubscriptionAccess(userId: string): Promise<Subscri
     canChat:  true,
     tier:     SubscriptionTier.PENCARIAN,
     status:   SubscriptionStatus.WAQF,
-    pencarian: pencarianSnapshot(0, 100, PencarianStage.KNOW),
+    pencarian: {
+      ...pencarianSnapshot(0, freeDailyLimit(), PencarianStage.KNOW),
+      dateKey:     malaysiaDateKey(),
+      dailyLimit:  true,
+    },
   };
 }
 

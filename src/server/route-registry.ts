@@ -27,6 +27,8 @@ import adamUploadRoutes from '../routes/adam/adam-upload.routes';
 import adamKnowledgeRoutes from '../routes/adam/adam-knowledge.routes';
 import { qxk24BrainRoutes } from '../qxk24brain/qxk24brain.routes';
 import adamStudentRoutes from '../routes/adam/adam-student.routes';
+import adamPublicRoutes from '../routes/adam/adam-public.routes';
+import adamServerRoutes from '../routes/adam/adam-server.routes';
 import adamStudentsRoutes from '../routes/adam/adam-students.routes';
 import adamConsultRoutes from '../routes/adam/adam-consult.routes';
 import adamFounderRoutes from '../routes/adam/adam-founder.routes';
@@ -118,6 +120,8 @@ export function registerRoutes(app: Hono): void {
   app.route('/api/adam/ama/neuro',     amaNeuroRoutes);
   app.route('/api/adam/teaching-bridge', teachingBridgeRoutes);
   app.route('/api/adam/llm-pipeline', llmPipelineRoutes);
+  app.route('/api/adam/public',        adamPublicRoutes);
+  app.route('/api/adam/servers',       adamServerRoutes);
   app.route('/api/adam/student',       adamStudentRoutes);
   app.route('/api/adam/students',      adamStudentsRoutes);
   app.route('/api/adam/consults',      adamConsultRoutes);
@@ -157,6 +161,8 @@ export function registerRoutes(app: Hono): void {
   console.log('  POST /api/adam/upload');
   console.log('  *    /api/adam/knowledge');
   console.log('  *    /api/adam/brain');
+  console.log('  *    /api/adam/public');
+  console.log('  *    /api/adam/servers (Layer 2 · Jurnal/Buku/Kod)');
   console.log('  *    /api/adam/student');
   console.log('  *    /api/adam/students');
   console.log('  *    /api/adam/consults');
