@@ -311,22 +311,23 @@ export function buildJournalSectionReviewFooter(input: {
   }
   const topicBlock = input.topic
     ? (
-      `\n**Topik dikunci (664-map):** ${buildKnowledgeTopicBreadcrumb(input.topic)}\n` +
-      `**Label:** ${input.topic.label} · **topicId:** \`${input.topic.topicId}\` · **Lens:** ${input.topic.alamtologiLens}\n` +
-      `**Carian pembaca:** [journals](https://alamtologi.com/journals) · major **${input.topic.majorName}** · q=\`${input.topic.topicId}\`\n`
+      `\n**Topik (664-map):** ${buildKnowledgeTopicBreadcrumb(input.topic).replace(/\s*[—–]\s+/g, ' · ')} · \`${input.topic.topicId}\` · ${input.topic.alamtologiLens}\n`
     )
     : '';
+  const nextId = input.index < input.total ? JOURNAL_SECTION_ORDER[input.index] : undefined;
+  const continueHint = nextId
+    ? `**continue** → ${JOURNAL_SECTION_ORDER.indexOf(nextId) + 1}/${input.total} ${JOURNAL_SECTION_HEADINGS[nextId]}`
+    : '**continue** — bahagian seterusnya';
   const paraHint = sectionUsesParagraphStructure(input.lastSection)
     ? '**teruskan perenggan** — ¶ seterusnya dalam bahagian ini · '
     : '';
   return (
     `\n\n---${topicBlock}` +
-    `**${JOURNAL_SECTION_HEADINGS[input.lastSection]}** (${input.index}/${input.total}) — ` +
-    'semak bahagian ini dalam accordion.\n' +
-    `${paraHint}**continue** — bahagian seterusnya (X/9)\n` +
+    `**${JOURNAL_SECTION_HEADINGS[input.lastSection]}** (${input.index}/${input.total}) — semak dalam accordion.\n` +
+    `${paraHint}${continueHint}\n` +
     (sectionUsesParagraphStructure(input.lastSection)
       ? 'Edit satu ¶: **Simpan perenggan 2 ke … (X/9)** · '
-      : 'Edit: **Simpan ke … (X/9)** · ') +
+      : `Edit: **Simpan ke ${JOURNAL_SECTION_HEADINGS[input.lastSection]} (${input.index}/${input.total})** · `) +
     'Akhir: **seal journal** bila 9/9 lengkap.'
   );
 }
