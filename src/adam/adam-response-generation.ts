@@ -53,7 +53,7 @@ export function isAdamNeutralTechnicalTopic(message: string): boolean {
   const t = message.trim();
   if (!t) return false;
   const technical =
-    /\b(python|javascript|typescript|java\b|coding|debug|syntax error|compile|sql query|database schema|turbocharger|carburetor|export pdf|excel formula|install npm|docker|kubernetes|regex pattern|git commit|html css|react component|fix this bug|unit test|ci\/cd|api endpoint|router config|memory leak|stack trace|segmentation fault)\b/i.test(
+    /\b(python|javascript|typescript|java\b|coding|debug|syntax error|compile|sql query|database schema|turbocharger|carburetor|fuel\s+consumption|km\/?l|mileage|penjimatan\s+minyak|spesifikasi|specs?|export pdf|excel formula|install npm|docker|kubernetes|regex pattern|git commit|html css|react component|fix this bug|unit test|ci\/cd|api endpoint|router config|memory leak|stack trace|segmentation fault)\b/i.test(
       t,
     );
   const warrantsDespiteTechnical =
@@ -63,14 +63,9 @@ export function isAdamNeutralTechnicalTopic(message: string): boolean {
   return technical && !warrantsDespiteTechnical;
 }
 
-/** Topic may open a Quranic dimension when it genuinely serves the student. */
+/** Topic may open a Quranic dimension only when the user explicitly opened the faith door. */
 export function isAdamQuranTopicWarranted(message: string): boolean {
-  if (studentExplicitlyRequestsQuran(message)) return true;
-  if (isAdamNeutralTechnicalTopic(message)) return false;
-
-  return /\b(mengapa|kenapa|why|how\s+should|bagaimana\s+sepatutnya|purpose|tujuan|makna|meaning|kehidupan|life|death|mati|akhirat|afterlife|soul|roh|nabi|prophet|rasul|iman|faith|solat|prayer|doa|dzikr|sabar|patience|grief|sedih|duka|anxiety|cemas|stress|suffer|derita|sengsara|justice|keadilan|family|keluarga|marriage|perkahwinan|ethics|akhlak|morality|creation|cipta|nature|alam|sleep|tidur|dream|mimpi|food|makanan|halal|health|kesihatan|sakit|penyakit|heart|hati|mind|otak|conscious|sedar|human|manusia|child|anak|parent|ibu|bapa|poverty|miskin|wealth|rezeki|environment|ecosystem|rain|hujan|embryo|janin|mountain|gunung|ocean|laut|cosmos|universe|alam semesta|star|bintang|planet|consciousness|kesedaran|war|peperangan|peace|damai|oppression|zalim|mercy|rahmat|forgive|ampun|gratitude|syukur|knowledge|ilmu|wisdom|hikmah|honest|jujur|lie|dusta|charity|sedekah|orphan|yatim|takwa|fitrah|balance|keseimbangan|harmony|keharmonian|lonely|sunyi|hope|harapan|fear|takut|pengampunan|photosynthesis|fotosintesis|tumbuhan|plant|animal|haiwan)\b/i.test(
-    message,
-  );
+  return studentExplicitlyRequestsQuran(message);
 }
 
 /** Quran may appear in the reply when topic and student request allow. Never forced. */
@@ -201,16 +196,13 @@ ${ADAM_HONESTY_MARKERS}
 
 ${ADAM_FEEDBACK_LOOP}
 
-QURAN IN RESPONSE (when it serves Qawlan Sadida — never decoration):
-- Weave naturally when creation, life, ethics, purpose, or suffering is genuinely at stake — or student asked.
-- Skip on pure code/technique, science-only / tanpa Quran, or when no ayat fits honestly.
-- Translation inline in the speaker's language; Surah name in prose; plain meaning in the next sentence.
-- NEVER blockquote layout, NEVER "Maksudnya:" footnote, NEVER perform religiosity without substance.
+QURAN IN RESPONSE (student/guest — faith door only):
+- Default: no ayat, no "Allah berfirman", no Surah citations unless the user opened the faith door.
+- When they asked for Quran, ayat, Islam, or faith: weave in plain prose — never blockquote layout or tafsir footnotes.
 
-ALAMTOLOGI IN RESPONSE (when it clarifies — never a framework lecture):
-- Speak from YOUR understood synthesis — not P.alt's script, not "Dalam lensa Alamtologi".
-- Plain insight in the student's language when it genuinely opens the question.
-- Constitutional terms only when they carry weight for THIS question — not a stacked sermon.
+INSIGHT IN RESPONSE (bloodstream — never a framework lecture):
+- Speak from YOUR understood synthesis — not P.alt's script, not "Dalam lensa Alamtologi", not "Alamtologi menyatakan".
+- Plain insight in the student's language when it genuinely opens the question — labels silent unless they asked.
 
 FORBIDDEN VOICE:
 - Essay templates ("Pertama, Kedua"), bullet forests, arrow maps, constitutional stacks (AIR/API/BUMI laundry lists).
@@ -223,11 +215,12 @@ LAYER 5 — student turn additions:
 
 - Mirror the student's language (BM, English, Arabic, or mix). Follow STUDENT BAHASA REGISTER.
 - Use the student's name when known. NEVER kau, kamu, engkau, aku. No em dash (—).
-- Light chat / salam → 1–3 warm plain sentences. No layers. No lecture.
+- Light chat / hello → 1–3 warm neutral sentences. No Bismillah opener. No lecture layers.
 - Substantive question → read their state, pick the right Form, deliver verified knowledge with Qawlan Sadida.
-- When they ask for science ("Apa kata sains?") → lead with named mechanisms and honest search facts (Baligha or Maysura as state dictates).
-- Alamtologi and Quran enter only when they serve reception — not because a checklist demands them.
-- End naturally: sometimes a question, sometimes acknowledgment, sometimes quiet closure (Silence Principle).
+- Technical or science questions (any domain) → search first; lead with verified numbers and units, then mechanisms; := 0 SUSPENDED when search is thin (Baligha or Maysura as state dictates).
+- Constitutional insight in plain prose only — no Alamtologi/Quran labels unless they asked.
+- Quran only when they opened the faith door — never as decoration on ordinary questions.
+- Maieutic close on substantive turns: one to three honest questions for realisation — or quiet closure (Silence Principle).
 
 ${ADAM_CHAT_MATH_NOTATION}
 `.trim();

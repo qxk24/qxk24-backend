@@ -24,8 +24,9 @@ import type {
   LlmCompleteParams,
   LlmMessage,
   LlmProvider,
-  LlmStreamEventHandler,
+  LlmSearchResult,
   LlmStreamParams,
+  LlmStreamResult,
 } from './llm-types';
 
 export { toLlmMessages } from './llm-types';
@@ -110,7 +111,7 @@ async function qwenComplete(params: LlmCompleteParams & { enableThinking?: boole
   return json.choices?.[0]?.message?.content ?? '';
 }
 
-async function qwenStream(params: LlmStreamParams): Promise<string> {
+async function qwenStream(params: LlmStreamParams): Promise<LlmStreamResult> {
   const body: Record<string, unknown> = {
     model:            params.model,
     max_tokens:       params.maxTokens,
@@ -124,7 +125,7 @@ async function qwenStream(params: LlmStreamParams): Promise<string> {
 
   if (params.enableWebSearch) {
     body.enable_search = true;
-    body.search_options = buildQwenSearchOptions();
+    body.search_options = buildQwenSearchOptions(params.forceWebSearch === true);
   }
 
   const response = await dashScopeFetch(body);
@@ -144,6 +145,8 @@ async function qwenStream(params: LlmStreamParams): Promise<string> {
   let fullText = '';
   let searchAnnounced = false;
   let searchDone = false;
+  const searchResults: LlmSearchResult[] = [];
+  const seenSearchUrls = new Set<string>();
 
   const finishSearchPhase = () => {
     if (searchAnnounced && !searchDone) {
@@ -176,13 +179,25 @@ async function qwenStream(params: LlmStreamParams): Promise<string> {
           };
 
           const results = parsed.search_info?.search_results;
-          if (params.enableWebSearch && results?.length && !searchAnnounced) {
-            searchAnnounced = true;
-            const title = results[0]?.title?.trim();
-            params.onEvent?.(
-              'adam_searching',
-              JSON.stringify({ query: title || 'Mencari data sebenar…' }),
-            );
+          if (params.enableWebSearch && results?.length) {
+            for (const hit of results) {
+              const url = hit.url?.trim() ?? '';
+              const key = url || hit.title?.trim() || '';
+              if (!key || seenSearchUrls.has(key)) continue;
+              seenSearchUrls.add(key);
+              searchResults.push({
+                title: hit.title?.trim(),
+                url:   url || undefined,
+              });
+            }
+            if (!searchAnnounced) {
+              searchAnnounced = true;
+              const title = results[0]?.title?.trim();
+              params.onEvent?.(
+                'adam_searching',
+                JSON.stringify({ query: title || 'Mencari data sebenar…' }),
+              );
+            }
           }
 
           const chunk = parsed.choices?.[0]?.delta?.content;
@@ -200,7 +215,7 @@ async function qwenStream(params: LlmStreamParams): Promise<string> {
     finishSearchPhase();
   }
 
-  return fullText;
+  return { text: fullText, searchResults };
 }
 
 async function dashScopeFetch(body: Record<string, unknown>): Promise<Response> {
@@ -230,7 +245,7 @@ export async function llmComplete(params: LlmCompleteParams): Promise<string> {
   return qwenComplete(params);
 }
 
-export async function llmStream(params: LlmStreamParams): Promise<string> {
+export async function llmStream(params: LlmStreamParams): Promise<LlmStreamResult> {
   return qwenStream(params);
 }
 

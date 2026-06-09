@@ -426,6 +426,7 @@ export type SSEEventType =
   | 'adam_repairing'
   | 'adam_searching'
   | 'adam_search_done'
+  | 'adam_search_unavailable'
   | 'adam_judgment'
   | 'adam_complete'
   | 'adam_waqf'

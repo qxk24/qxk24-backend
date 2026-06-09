@@ -76,7 +76,7 @@ export function detectRegionFromHeaders(headers: Headers, userRegion?: string | 
   if (mappedX) return mappedX;
 
   const lang = headers.get('accept-language') ?? '';
-  if (lang.includes('ms'))    return SupportedRegion.MY;
+  if (lang.includes('ms') || lang.includes('en-MY')) return SupportedRegion.MY;
   if (lang.includes('id'))    return SupportedRegion.ID;
   if (lang.includes('ar'))    return SupportedRegion.AE;
   if (lang.includes('en-GB')) return SupportedRegion.GB;

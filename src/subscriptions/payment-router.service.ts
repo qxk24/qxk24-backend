@@ -29,7 +29,6 @@ import {
   TIER_ACCESS,
   getPelajarPricing,
   getProfesionalPricing,
-  getProviderForRegion,
 } from './tier-access.config';
 import { detectRegionFromHeaders } from './region-detector.service';
 import { ENV } from '../config/environments';
@@ -60,7 +59,7 @@ export async function routeSubscriptionCreation(
   input: CreateSubscriptionInput,
 ): Promise<SubscriptionCreationResult> {
   const region   = detectRegionFromHeaders(input.headers);
-  const provider = getProviderForRegion(region);
+  const provider = PaymentProvider.STRIPE;
 
   switch (input.tier) {
     case SubscriptionTier.PELAJAR:

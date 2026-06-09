@@ -108,7 +108,7 @@ export const TIER_ACCESS: Record<SubscriptionTier, ITierAccess> = {
 };
 
 // ─── Pelajar PPP Pricing ─────────────────────────────────────────────────────
-// RM 69.90/month is the MY base. All other regions are PPP-adjusted.
+// RM 69.90/month is the MY base. All checkout via Stripe (sole gateway).
 
 export interface IRegionalPrice {
   region:       SupportedRegion;
@@ -120,23 +120,23 @@ export interface IRegionalPrice {
 }
 
 export const PELAJAR_PRICING: IRegionalPrice[] = [
-  { region: SupportedRegion.MY,    currency: 'MYR', monthly: 69.9,    annual: 699,     provider: PaymentProvider.RAZORPAY, extensionFee: 19 },
+  { region: SupportedRegion.MY,    currency: 'MYR', monthly: 69.9,    annual: 699,     provider: PaymentProvider.STRIPE, extensionFee: 19 },
   { region: SupportedRegion.SG,    currency: 'SGD', monthly: 30,      annual: 300,     provider: PaymentProvider.STRIPE,   extensionFee: 6 },
-  { region: SupportedRegion.ID,    currency: 'IDR', monthly: 320000,  annual: 3200000, provider: PaymentProvider.XENDIT,   extensionFee: 65000 },
-  { region: SupportedRegion.PH,    currency: 'PHP', monthly: 650,     annual: 6500,    provider: PaymentProvider.XENDIT,   extensionFee: 130 },
-  { region: SupportedRegion.TH,    currency: 'THB', monthly: 420,     annual: 4200,    provider: PaymentProvider.XENDIT,   extensionFee: 85 },
-  { region: SupportedRegion.VN,    currency: 'VND', monthly: 299000,  annual: 2990000, provider: PaymentProvider.XENDIT,   extensionFee: 60000 },
-  { region: SupportedRegion.GB,    currency: 'GBP', monthly: 18,      annual: 180,     provider: PaymentProvider.PADDLE,   extensionFee: 4 },
+  { region: SupportedRegion.ID,    currency: 'IDR', monthly: 320000,  annual: 3200000, provider: PaymentProvider.STRIPE,   extensionFee: 65000 },
+  { region: SupportedRegion.PH,    currency: 'PHP', monthly: 650,     annual: 6500,    provider: PaymentProvider.STRIPE,   extensionFee: 130 },
+  { region: SupportedRegion.TH,    currency: 'THB', monthly: 420,     annual: 4200,    provider: PaymentProvider.STRIPE,   extensionFee: 85 },
+  { region: SupportedRegion.VN,    currency: 'VND', monthly: 299000,  annual: 2990000, provider: PaymentProvider.STRIPE,   extensionFee: 60000 },
+  { region: SupportedRegion.GB,    currency: 'GBP', monthly: 18,      annual: 180,     provider: PaymentProvider.STRIPE,   extensionFee: 4 },
   { region: SupportedRegion.US,    currency: 'USD', monthly: 22,      annual: 220,     provider: PaymentProvider.STRIPE,   extensionFee: 5 },
   { region: SupportedRegion.AE,    currency: 'AED', monthly: 80,      annual: 800,     provider: PaymentProvider.STRIPE,   extensionFee: 18 },
   { region: SupportedRegion.SA,    currency: 'SAR', monthly: 82,      annual: 820,     provider: PaymentProvider.STRIPE,   extensionFee: 19 },
-  { region: SupportedRegion.NG,    currency: 'NGN', monthly: 8000,    annual: 80000,   provider: PaymentProvider.PAYSTACK, extensionFee: 1600 },
-  { region: SupportedRegion.GH,    currency: 'GHS', monthly: 85,      annual: 850,     provider: PaymentProvider.PAYSTACK, extensionFee: 17 },
-  { region: SupportedRegion.KE,    currency: 'KES', monthly: 1600,    annual: 16000,   provider: PaymentProvider.PAYSTACK, extensionFee: 320 },
-  { region: SupportedRegion.ZA,    currency: 'ZAR', monthly: 280,     annual: 2800,    provider: PaymentProvider.PAYSTACK, extensionFee: 56 },
-  { region: SupportedRegion.EG,    currency: 'EGP', monthly: 250,     annual: 2500,    provider: PaymentProvider.PAYSTACK, extensionFee: 50 },
-  { region: SupportedRegion.IN,    currency: 'INR', monthly: 800,     annual: 8000,    provider: PaymentProvider.RAZORPAY, extensionFee: 160 },
-  { region: SupportedRegion.EU,    currency: 'EUR', monthly: 20,      annual: 200,     provider: PaymentProvider.PADDLE,   extensionFee: 5 },
+  { region: SupportedRegion.NG,    currency: 'NGN', monthly: 8000,    annual: 80000,   provider: PaymentProvider.STRIPE, extensionFee: 1600 },
+  { region: SupportedRegion.GH,    currency: 'GHS', monthly: 85,      annual: 850,     provider: PaymentProvider.STRIPE, extensionFee: 17 },
+  { region: SupportedRegion.KE,    currency: 'KES', monthly: 1600,    annual: 16000,   provider: PaymentProvider.STRIPE, extensionFee: 320 },
+  { region: SupportedRegion.ZA,    currency: 'ZAR', monthly: 280,     annual: 2800,    provider: PaymentProvider.STRIPE, extensionFee: 56 },
+  { region: SupportedRegion.EG,    currency: 'EGP', monthly: 250,     annual: 2500,    provider: PaymentProvider.STRIPE, extensionFee: 50 },
+  { region: SupportedRegion.IN,    currency: 'INR', monthly: 800,     annual: 8000,    provider: PaymentProvider.STRIPE, extensionFee: 160 },
+  { region: SupportedRegion.EU,    currency: 'EUR', monthly: 20,      annual: 200,     provider: PaymentProvider.STRIPE,   extensionFee: 5 },
   { region: SupportedRegion.OTHER, currency: 'USD', monthly: 22,      annual: 220,     provider: PaymentProvider.STRIPE,   extensionFee: 5 },
 ];
 
@@ -144,23 +144,23 @@ export const PELAJAR_PRICING: IRegionalPrice[] = [
 // RM 299/month is the base.
 
 export const PROFESIONAL_PRICING: IRegionalPrice[] = [
-  { region: SupportedRegion.MY,    currency: 'MYR', monthly: 299,     annual: 2990,    provider: PaymentProvider.RAZORPAY, extensionFee: 0 },
+  { region: SupportedRegion.MY,    currency: 'MYR', monthly: 299,     annual: 2990,    provider: PaymentProvider.STRIPE, extensionFee: 0 },
   { region: SupportedRegion.SG,    currency: 'SGD', monthly: 88,      annual: 880,     provider: PaymentProvider.STRIPE,   extensionFee: 0 },
-  { region: SupportedRegion.ID,    currency: 'IDR', monthly: 950000,  annual: 9500000, provider: PaymentProvider.XENDIT,   extensionFee: 0 },
-  { region: SupportedRegion.PH,    currency: 'PHP', monthly: 1950,    annual: 19500,   provider: PaymentProvider.XENDIT,   extensionFee: 0 },
-  { region: SupportedRegion.TH,    currency: 'THB', monthly: 1250,    annual: 12500,   provider: PaymentProvider.XENDIT,   extensionFee: 0 },
-  { region: SupportedRegion.VN,    currency: 'VND', monthly: 899000,  annual: 8990000, provider: PaymentProvider.XENDIT,   extensionFee: 0 },
-  { region: SupportedRegion.GB,    currency: 'GBP', monthly: 55,      annual: 550,     provider: PaymentProvider.PADDLE,   extensionFee: 0 },
+  { region: SupportedRegion.ID,    currency: 'IDR', monthly: 950000,  annual: 9500000, provider: PaymentProvider.STRIPE,   extensionFee: 0 },
+  { region: SupportedRegion.PH,    currency: 'PHP', monthly: 1950,    annual: 19500,   provider: PaymentProvider.STRIPE,   extensionFee: 0 },
+  { region: SupportedRegion.TH,    currency: 'THB', monthly: 1250,    annual: 12500,   provider: PaymentProvider.STRIPE,   extensionFee: 0 },
+  { region: SupportedRegion.VN,    currency: 'VND', monthly: 899000,  annual: 8990000, provider: PaymentProvider.STRIPE,   extensionFee: 0 },
+  { region: SupportedRegion.GB,    currency: 'GBP', monthly: 55,      annual: 550,     provider: PaymentProvider.STRIPE,   extensionFee: 0 },
   { region: SupportedRegion.US,    currency: 'USD', monthly: 65,      annual: 650,     provider: PaymentProvider.STRIPE,   extensionFee: 0 },
   { region: SupportedRegion.AE,    currency: 'AED', monthly: 239,     annual: 2390,    provider: PaymentProvider.STRIPE,   extensionFee: 0 },
   { region: SupportedRegion.SA,    currency: 'SAR', monthly: 244,     annual: 2440,    provider: PaymentProvider.STRIPE,   extensionFee: 0 },
-  { region: SupportedRegion.NG,    currency: 'NGN', monthly: 24000,   annual: 240000,  provider: PaymentProvider.PAYSTACK, extensionFee: 0 },
-  { region: SupportedRegion.GH,    currency: 'GHS', monthly: 255,     annual: 2550,    provider: PaymentProvider.PAYSTACK, extensionFee: 0 },
-  { region: SupportedRegion.KE,    currency: 'KES', monthly: 4800,    annual: 48000,   provider: PaymentProvider.PAYSTACK, extensionFee: 0 },
-  { region: SupportedRegion.ZA,    currency: 'ZAR', monthly: 850,     annual: 8500,    provider: PaymentProvider.PAYSTACK, extensionFee: 0 },
-  { region: SupportedRegion.EG,    currency: 'EGP', monthly: 750,     annual: 7500,    provider: PaymentProvider.PAYSTACK, extensionFee: 0 },
-  { region: SupportedRegion.IN,    currency: 'INR', monthly: 2400,    annual: 24000,   provider: PaymentProvider.RAZORPAY, extensionFee: 0 },
-  { region: SupportedRegion.EU,    currency: 'EUR', monthly: 60,      annual: 600,     provider: PaymentProvider.PADDLE,   extensionFee: 0 },
+  { region: SupportedRegion.NG,    currency: 'NGN', monthly: 24000,   annual: 240000,  provider: PaymentProvider.STRIPE, extensionFee: 0 },
+  { region: SupportedRegion.GH,    currency: 'GHS', monthly: 255,     annual: 2550,    provider: PaymentProvider.STRIPE, extensionFee: 0 },
+  { region: SupportedRegion.KE,    currency: 'KES', monthly: 4800,    annual: 48000,   provider: PaymentProvider.STRIPE, extensionFee: 0 },
+  { region: SupportedRegion.ZA,    currency: 'ZAR', monthly: 850,     annual: 8500,    provider: PaymentProvider.STRIPE, extensionFee: 0 },
+  { region: SupportedRegion.EG,    currency: 'EGP', monthly: 750,     annual: 7500,    provider: PaymentProvider.STRIPE, extensionFee: 0 },
+  { region: SupportedRegion.IN,    currency: 'INR', monthly: 2400,    annual: 24000,   provider: PaymentProvider.STRIPE, extensionFee: 0 },
+  { region: SupportedRegion.EU,    currency: 'EUR', monthly: 60,      annual: 600,     provider: PaymentProvider.STRIPE,   extensionFee: 0 },
   { region: SupportedRegion.OTHER, currency: 'USD', monthly: 65,      annual: 650,     provider: PaymentProvider.STRIPE,   extensionFee: 0 },
 ];
 
@@ -345,8 +345,8 @@ export function getStudioPricing(region: SupportedRegion): IRegionalPrice {
   );
 }
 
-export function getProviderForRegion(region: SupportedRegion): PaymentProvider {
-  return getPelajarPricing(region).provider;
+export function getProviderForRegion(_region: SupportedRegion): PaymentProvider {
+  return PaymentProvider.STRIPE;
 }
 
 export function getExtensionFee(region: SupportedRegion): { amount: number; currency: string } {

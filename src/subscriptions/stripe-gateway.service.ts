@@ -30,6 +30,7 @@ import {
 import { convertPencarianToPelajar } from './pencarian-tracker.service';
 import { notifySubscriptionActivated } from './subscription-welcome-mail.service';
 import { ENV } from '../config/environments';
+import { toStripeUnitAmount, stripeSecondsToDate, validDateOrNull, computeBillingPeriodEnd, stripeResourceId } from './stripe-currency';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
 
@@ -51,6 +52,20 @@ interface StripeApiError {
 
 function appUrl(): string {
   return (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
+}
+
+/** Stripe Checkout appearance — ADAM / Alamtologi handoff (hosted page). */
+function buildCheckoutBrandingParams(): Record<string, string> {
+  const logoUrl = `${appUrl()}/adam.png`;
+  return {
+    'branding_settings[display_name]':     'ADAM · Alamtologi',
+    'branding_settings[button_color]':    '#2563eb',
+    'branding_settings[background_color]': '#fafafa',
+    'branding_settings[font_family]':     'inter',
+    'branding_settings[logo][type]':       'url',
+    'branding_settings[logo][url]':        logoUrl,
+    'custom_text[submit][message]':        'Start your journey with deeper memory.',
+  };
 }
 
 function stripeHeaders(): Record<string, string> {
@@ -96,6 +111,45 @@ export function getStripePriceId(tier: SubscriptionTier, cycle: BillingCycle): s
   return map[`${tier}_${cycle}`] ?? '';
 }
 
+function tierCheckoutLabel(tier: SubscriptionTier): string {
+  switch (tier) {
+    case SubscriptionTier.PELAJAR:
+      return 'ADAM Premium';
+    case SubscriptionTier.PROFESIONAL:
+      return 'ADAM Profesional';
+    default:
+      return 'ADAM Subscription';
+  }
+}
+
+function recurringInterval(cycle: BillingCycle): 'month' | 'year' {
+  return cycle === BillingCycle.ANNUAL ? 'year' : 'month';
+}
+
+/** Build Checkout line item from subscription regional amount (all countries). */
+function buildRegionalLineItemParams(sub: ISubscription): Record<string, string> {
+  const currency = (sub.currency || 'USD').toLowerCase();
+  const amount = sub.amountPerCycle ?? 0;
+  const unitAmount = toStripeUnitAmount(amount, currency);
+  if (unitAmount < 1) {
+    throw new Error(`Invalid checkout amount for ${currency}: ${amount}`);
+  }
+
+  const interval = recurringInterval(sub.billingCycle);
+  const label = tierCheckoutLabel(sub.tier);
+  const cycleLabel = interval === 'year' ? 'Annual' : 'Monthly';
+
+  return {
+    'line_items[0][quantity]':                              '1',
+    'line_items[0][price_data][currency]':                  currency,
+    'line_items[0][price_data][unit_amount]':               String(unitAmount),
+    'line_items[0][price_data][recurring][interval]':        interval,
+    'line_items[0][price_data][recurring][interval_count]':  '1',
+    'line_items[0][price_data][product_data][name]':         label,
+    'line_items[0][price_data][product_data][description]': `${label} — ${cycleLabel} subscription`,
+  };
+}
+
 export function getStripeGatewayStatus(): StripeGatewayStatus {
   const missing: string[] = [];
 
@@ -111,17 +165,6 @@ export function getStripeGatewayStatus(): StripeGatewayStatus {
   if (!ENV.STRIPE_SECRET_KEY) missing.push('STRIPE_SECRET_KEY');
   if (!ENV.STRIPE_WEBHOOK_SECRET) missing.push('STRIPE_WEBHOOK_SECRET');
 
-  const priceKeys = [
-    'STRIPE_PRICE_ID_PELAJAR_MONTHLY',
-    'STRIPE_PRICE_ID_PELAJAR_ANNUAL',
-    'STRIPE_PRICE_ID_PROFESIONAL_MONTHLY',
-    'STRIPE_PRICE_ID_PROFESIONAL_ANNUAL',
-  ];
-  for (const key of priceKeys) {
-    const val = process.env[key];
-    if (!val) missing.push(key);
-  }
-
   return {
     enabled:        ENV.STRIPE_ENABLED,
     configured:     missing.length === 0,
@@ -130,7 +173,7 @@ export function getStripeGatewayStatus(): StripeGatewayStatus {
   };
 }
 
-export function assertStripeReady(tier: SubscriptionTier, cycle: BillingCycle): void {
+export function assertStripeReady(): void {
   const status = getStripeGatewayStatus();
   if (!status.enabled) {
     throw new Error(
@@ -140,36 +183,35 @@ export function assertStripeReady(tier: SubscriptionTier, cycle: BillingCycle): 
   if (!ENV.STRIPE_SECRET_KEY) {
     throw new Error('Stripe secret key missing. Add STRIPE_SECRET_KEY to .env.');
   }
-  const priceId = getStripePriceId(tier, cycle);
-  if (!priceId) {
-    throw new Error(
-      `Stripe price not configured for ${tier} ${cycle}. Add STRIPE_PRICE_ID_${tier}_${cycle} to .env.`,
-    );
-  }
 }
 
 export async function createStripeCheckoutSession(
   sub: ISubscription,
   customerEmail?: string,
 ): Promise<StripeCheckoutResult> {
-  assertStripeReady(sub.tier, sub.billingCycle);
+  assertStripeReady();
 
-  const priceId = getStripePriceId(sub.tier, sub.billingCycle);
   const mongoId = sub._id?.toString() ?? '';
+  const lineItem = buildRegionalLineItemParams(sub);
 
   const params: Record<string, string> = {
     mode:                                 'subscription',
-    'line_items[0][price]':               priceId,
-    'line_items[0][quantity]':            '1',
+    ...lineItem,
+    ...buildCheckoutBrandingParams(),
     'metadata[subscriptionId]':           mongoId,
-    'metadata[userId]':                     sub.userId,
-    'metadata[tier]':                       sub.tier,
-    'metadata[billingCycle]':               sub.billingCycle,
+    'metadata[userId]':                   sub.userId,
+    'metadata[tier]':                     sub.tier,
+    'metadata[billingCycle]':             sub.billingCycle,
+    'metadata[region]':                   sub.region ?? '',
+    'metadata[currency]':                 sub.currency ?? '',
+    'metadata[amountPerCycle]':           String(sub.amountPerCycle ?? 0),
     'subscription_data[metadata][subscriptionId]': mongoId,
     'subscription_data[metadata][userId]':         sub.userId,
+    'subscription_data[metadata][region]':         sub.region ?? '',
     success_url:                          `${appUrl()}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:                           `${appUrl()}/subscription/cancelled`,
     client_reference_id:                  mongoId,
+    billing_address_collection:           'auto',
   };
 
   if (customerEmail) {
@@ -255,8 +297,8 @@ async function handleCheckoutCompleted(session: Record<string, unknown>): Promis
 
   if (!mongoId) return;
 
-  const stripeSubId = session.subscription as string | undefined;
-  const stripeCustomerId = session.customer as string | undefined;
+  const stripeSubId = stripeResourceId(session.subscription);
+  const stripeCustomerId = stripeResourceId(session.customer);
   const paymentStatus = session.payment_status as string | undefined;
 
   if (paymentStatus !== 'paid' && paymentStatus !== 'no_payment_required') return;
@@ -281,17 +323,17 @@ async function handleSubscriptionUpdated(sub: Record<string, unknown>): Promise<
   };
 
   const mapped = statusMap[status] ?? SubscriptionStatus.PENDING;
-  const periodStart = sub.current_period_start as number | undefined;
-  const periodEnd = sub.current_period_end as number | undefined;
-  const customerId = sub.customer as string | undefined;
+  const periodStart = stripeSecondsToDate(sub.current_period_start);
+  const periodEnd = stripeSecondsToDate(sub.current_period_end);
+  const customerId = stripeResourceId(sub.customer);
 
   const update: Record<string, unknown> = {
     status:     mapped,
     provider:   PaymentProvider.STRIPE,
     providerSubId: stripeSubId,
     ...(customerId && { providerCustomerId: customerId }),
-    ...(periodStart && { currentPeriodStart: new Date(periodStart * 1000) }),
-    ...(periodEnd && { currentPeriodEnd: new Date(periodEnd * 1000) }),
+    ...(periodStart && { currentPeriodStart: periodStart }),
+    ...(periodEnd && { currentPeriodEnd: periodEnd }),
     ...(mapped === SubscriptionStatus.CANCELLED && { cancelledAt: new Date() }),
   };
 
@@ -318,19 +360,19 @@ async function handleInvoicePayment(
   invoice: Record<string, unknown>,
   status: SubscriptionStatus,
 ): Promise<void> {
-  const stripeSubId = invoice.subscription as string | undefined;
+  const stripeSubId = stripeResourceId(invoice.subscription);
   if (!stripeSubId) return;
 
-  const periodStart = invoice.period_start as number | undefined;
-  const periodEnd = invoice.period_end as number | undefined;
+  const periodStart = stripeSecondsToDate(invoice.period_start);
+  const periodEnd = stripeSecondsToDate(invoice.period_end);
 
   await SubscriptionModel.findOneAndUpdate(
     { providerSubId: stripeSubId, provider: PaymentProvider.STRIPE },
     {
       $set: {
         status,
-        ...(periodStart && { currentPeriodStart: new Date(periodStart * 1000) }),
-        ...(periodEnd && { currentPeriodEnd: new Date(periodEnd * 1000) }),
+        ...(periodStart && { currentPeriodStart: periodStart }),
+        ...(periodEnd && { currentPeriodEnd: periodEnd }),
       },
     },
   );
@@ -346,29 +388,46 @@ async function activateStripeSubscription(
 
   const wasActive = sub.status === SubscriptionStatus.ACTIVE;
 
-  let periodStart = sub.currentPeriodStart ?? new Date();
-  let periodEnd = sub.currentPeriodEnd ?? new Date();
+  let periodStart =
+    validDateOrNull(sub.currentPeriodStart)
+    ?? new Date();
+  let periodEnd =
+    validDateOrNull(sub.currentPeriodEnd)
+    ?? computeBillingPeriodEnd(periodStart, sub.billingCycle);
 
-  if (stripeSubscriptionId) {
+  const resolvedStripeSubId = stripeResourceId(stripeSubscriptionId);
+  if (resolvedStripeSubId) {
     try {
-      const stripeSub = await stripeGet<{
-        current_period_start: number;
-        current_period_end:   number;
-      }>(`/subscriptions/${stripeSubscriptionId}`);
+      const stripeSub = await stripeGet<Record<string, unknown>>(
+        `/subscriptions/${resolvedStripeSubId}`,
+      );
 
-      periodStart = new Date(stripeSub.current_period_start * 1000);
-      periodEnd   = new Date(stripeSub.current_period_end * 1000);
+      const parsedStart = stripeSecondsToDate(stripeSub.current_period_start);
+      const parsedEnd = stripeSecondsToDate(stripeSub.current_period_end);
+
+      if (parsedStart) periodStart = parsedStart;
+      if (parsedEnd) {
+        periodEnd = parsedEnd;
+      } else if (parsedStart) {
+        periodEnd = computeBillingPeriodEnd(parsedStart, sub.billingCycle);
+      }
     } catch {
       // Keep MongoDB period estimates if Stripe fetch fails
     }
+  }
+
+  if (!validDateOrNull(periodEnd)) {
+    periodEnd = computeBillingPeriodEnd(periodStart, sub.billingCycle);
   }
 
   await SubscriptionModel.findByIdAndUpdate(mongoSubscriptionId, {
     $set: {
       status:             SubscriptionStatus.ACTIVE,
       provider:           PaymentProvider.STRIPE,
-      ...(stripeSubscriptionId && { providerSubId: stripeSubscriptionId }),
-      ...(stripeCustomerId && { providerCustomerId: stripeCustomerId }),
+      ...(resolvedStripeSubId && { providerSubId: resolvedStripeSubId }),
+      ...(stripeResourceId(stripeCustomerId) && {
+        providerCustomerId: stripeResourceId(stripeCustomerId)!,
+      }),
       currentPeriodStart: periodStart,
       currentPeriodEnd:   periodEnd,
     },
@@ -423,7 +482,11 @@ export async function confirmStripeCheckoutSession(
     return { activated: false, message: 'Payment not completed yet.' };
   }
 
-  await activateStripeSubscription(mongoId, session.subscription, session.customer);
+  await activateStripeSubscription(
+    mongoId,
+    stripeResourceId(session.subscription),
+    stripeResourceId(session.customer),
+  );
 
   const updated = await SubscriptionModel.findById(mongoId);
   return {

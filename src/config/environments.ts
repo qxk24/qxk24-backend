@@ -228,28 +228,37 @@ export const ENV = {
   QURAN_CORPUS_PATH:      optional('QURAN_CORPUS_PATH', ''),
 
   // ─── Subscriptions & Payments (optional until provider keys are set) ───
-  RAZORPAY_KEY_ID:              optional('RAZORPAY_KEY_ID', ''),
-  RAZORPAY_KEY_SECRET:          optional('RAZORPAY_KEY_SECRET', ''),
-  RAZORPAY_WEBHOOK_SECRET:      optional('RAZORPAY_WEBHOOK_SECRET', ''),
-  RAZORPAY_PLAN_ID_PELAJAR:     optional('RAZORPAY_PLAN_ID_PELAJAR', ''),
-  RAZORPAY_PLAN_ID_PROFESIONAL: optional('RAZORPAY_PLAN_ID_PROFESIONAL', ''),
-
+  /** Stripe — sole payment gateway (Founder policy) */
   STRIPE_SECRET_KEY:        optional('STRIPE_SECRET_KEY', ''),
   STRIPE_PUBLISHABLE_KEY:   optional('STRIPE_PUBLISHABLE_KEY', ''),
   STRIPE_WEBHOOK_SECRET:    optional('STRIPE_WEBHOOK_SECRET', ''),
   /** Flip to true when Stripe keys and price IDs are set in .env */
   STRIPE_ENABLED:           optional('STRIPE_ENABLED', 'false') === 'true',
 
+  /** Premium (Pelajar) monthly — optional legacy MYR Price ID (checkout uses regional PPP by default) */
   STRIPE_PRICE_ID_PELAJAR_MONTHLY:     optional('STRIPE_PRICE_ID_PELAJAR_MONTHLY', ''),
+  /** Premium (Pelajar) annual — optional legacy MYR Price ID */
   STRIPE_PRICE_ID_PELAJAR_ANNUAL:      optional('STRIPE_PRICE_ID_PELAJAR_ANNUAL', ''),
+  /** Profesional monthly — optional legacy MYR Price ID */
   STRIPE_PRICE_ID_PROFESIONAL_MONTHLY: optional('STRIPE_PRICE_ID_PROFESIONAL_MONTHLY', ''),
+  /** Profesional annual — optional legacy MYR Price ID */
   STRIPE_PRICE_ID_PROFESIONAL_ANNUAL:  optional('STRIPE_PRICE_ID_PROFESIONAL_ANNUAL', ''),
 
+  /** @deprecated Legacy — not used; Stripe is sole gateway */
+  RAZORPAY_KEY_ID:              optional('RAZORPAY_KEY_ID', ''),
+  RAZORPAY_KEY_SECRET:          optional('RAZORPAY_KEY_SECRET', ''),
+  RAZORPAY_WEBHOOK_SECRET:      optional('RAZORPAY_WEBHOOK_SECRET', ''),
+  RAZORPAY_PLAN_ID_PELAJAR:     optional('RAZORPAY_PLAN_ID_PELAJAR', ''),
+  RAZORPAY_PLAN_ID_PROFESIONAL: optional('RAZORPAY_PLAN_ID_PROFESIONAL', ''),
+
+  /** @deprecated Legacy — not used */
   XENDIT_SECRET_KEY:     optional('XENDIT_SECRET_KEY', ''),
   XENDIT_CALLBACK_TOKEN: optional('XENDIT_CALLBACK_TOKEN', ''),
 
+  /** @deprecated Legacy — not used */
   PAYSTACK_SECRET_KEY: optional('PAYSTACK_SECRET_KEY', ''),
 
+  /** @deprecated Legacy — not used */
   PADDLE_API_KEY: optional('PADDLE_API_KEY', ''),
 
   /** Freemium — guest lifetime + rolling/daily caps (MY timezone where applicable) */

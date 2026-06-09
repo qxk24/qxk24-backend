@@ -54,6 +54,7 @@ import {
 } from './stripe-gateway.service';
 import { getProviderForRegion } from './tier-access.config';
 import { ENV } from '../config/environments';
+import { grantFounderProfesionalBatch } from './founder-profesional-grant.service';
 import {
   freeDailyLimit,
   pelajarMonthlyLimit,
@@ -347,6 +348,36 @@ router.get('/stripe/confirm', requireAdamUser, async (c) => {
 router.get('/waqf-report', requireFounder, async (c) => {
   const report = await getWaqfReport();
   return c.json(report);
+});
+
+/** POST /api/subscription/founder/grant-profesional — Founder waqf upgrade (no Stripe). */
+router.post('/founder/grant-profesional', requireFounder, async (c) => {
+  const body = await c.req.json() as {
+    identifiers?: string[];
+    userIds?:      string[];
+    notes?:        string;
+    periodMonths?: number;
+  };
+
+  const identifiers = [
+    ...(body.identifiers ?? []),
+    ...(body.userIds ?? []),
+  ].map((s) => s.trim()).filter(Boolean);
+
+  if (identifiers.length === 0) {
+    return c.json({ error: 'identifiers or userIds required.' }, 400);
+  }
+
+  const results = await grantFounderProfesionalBatch(identifiers, {
+    notes:        body.notes,
+    periodMonths: body.periodMonths,
+  });
+
+  return c.json({
+    success: results.every((r) => r.ok),
+    results,
+    kernel:  'ALAMTOLOGI',
+  });
 });
 
 router.post('/webhooks/razorpay', handleRazorpayWebhook);

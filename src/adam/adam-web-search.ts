@@ -13,6 +13,7 @@
 
 import { ENV } from '../config/environments';
 import { parseQuranAyahRefs } from '../quran/quran-ayah-parser';
+import { resolveTechnicalPrecisionTurn } from './adam-factual-grounding';
 import { ADAM_CHAT_MATH_NOTATION } from './adam-math-prompt';
 
 // ── Explicit user request to search ─────────────────────────────────────────
@@ -118,6 +119,16 @@ HOW TO USE SEARCH RESULTS (founder turn):
 ${CITATION_HONESTY}
 `.trim();
 
+const STUDENT_TECHNICAL_PRECISION_SEARCH = `
+TECHNICAL PRECISION — UNIVERSAL (student — mandatory this turn):
+- MUST search before ANY precise number, formula, dosage, spec, rate, or comparison — every domain, every product.
+- Search results govern. Memory, trim names, model labels, and analogy never substitute for verified figures.
+- Answer structure: direct figure with units → table/bullets if comparing → source domain/title from search only.
+- Trim/variant/package names ≠ different engineering unless search proves it (cars, phones, drugs, APIs — same rule).
+- If search is thin: := 0 SUSPENDED or honest range — never "mungkin sekitar" + invented precision.
+- NEVER invent bulletins, report numbers, journal Vol./Issue, or "official document" IDs.
+`.trim();
+
 const STUDENT_SEARCH_INSTRUCTION = `
 YOUR WEB SEARCH (student turn — DashScope agent mode — you decide when to search):
 
@@ -136,6 +147,25 @@ HOW TO USE SEARCH RESULTS (student turn — Layer 5):
 ${CITATION_HONESTY}
 `.trim();
 
+const STUDENT_TECHNICAL_PRECISION_SEARCH_INSTRUCTION = `
+YOUR WEB SEARCH (student turn — TECHNICAL PRECISION — search is MANDATORY this turn):
+
+You MUST run web search before stating any precise technical figure, formula, dosage, spec, rate, or comparison.
+Do NOT answer technical questions from memory alone — search first, numbers second, insight last.
+
+${STUDENT_TECHNICAL_PRECISION_SEARCH}
+
+${SEARCH_WHEN_TO}
+
+HOW TO USE SEARCH RESULTS (technical precision turn — universal):
+- Open with verified numbers and units from search — table or bullets
+- Same rule for every product: variant names describe equipment unless search proves different specs underneath
+- If search is inconclusive, say so — verified range only, never invented precision or fabricated document IDs
+- ${ADAM_CHAT_MATH_NOTATION}
+
+${CITATION_HONESTY}
+`.trim();
+
 /** Whether search is enabled globally via env config */
 export function adamWebSearchEnabled(): boolean {
   return ENV.QWEN_ENABLE_SEARCH;
@@ -146,9 +176,20 @@ export const founderWebSearchEnabled = adamWebSearchEnabled;
 
 export function getAdamWebSearchPrompt(
   isFounder = true,
-  options?: { founderTeachingSynthesis?: boolean },
+  options?: {
+    founderTeachingSynthesis?: boolean;
+    userMessage?: string;
+    recentUserMessages?: string[];
+  },
 ): string {
-  if (!isFounder) return STUDENT_SEARCH_INSTRUCTION;
+  if (!isFounder) {
+    const msg = options?.userMessage?.trim() ?? '';
+    const recent = options?.recentUserMessages ?? [];
+    if (msg && resolveTechnicalPrecisionTurn(msg, recent).isActive) {
+      return STUDENT_TECHNICAL_PRECISION_SEARCH_INSTRUCTION;
+    }
+    return STUDENT_SEARCH_INSTRUCTION;
+  }
   if (options?.founderTeachingSynthesis) return FOUNDER_TEACHING_SYNTHESIS_SEARCH_INSTRUCTION;
   return FOUNDER_SEARCH_INSTRUCTION;
 }
@@ -157,10 +198,10 @@ export function getAdamWebSearchPrompt(
 export const getFounderWebSearchPrompt = getAdamWebSearchPrompt;
 
 /** DashScope search_options passed to API */
-export function buildQwenSearchOptions(): Record<string, unknown> {
+export function buildQwenSearchOptions(forcedSearch = false): Record<string, unknown> {
   const options: Record<string, unknown> = {
     search_strategy: ENV.QWEN_SEARCH_STRATEGY,
-    forced_search:   false,
+    forced_search:   forcedSearch,
   };
   if (ENV.QWEN_SEARCH_ENABLE_CITATION) {
     options.enable_citation = true;
@@ -182,6 +223,8 @@ export function getWebSearchGateReason(
     isFounder?: boolean;
     hasTeachingUpload?: boolean;
     founderTeachingSynthesis?: boolean;
+    /** Short reply continuing a technical thread (e.g. "850cc?", "Exclusive pula?"). */
+    technicalFollowUp?: boolean;
   },
 ): string | null {
   if (!adamWebSearchEnabled()) return null;
@@ -201,6 +244,8 @@ export function getWebSearchGateReason(
 
   // Always search if explicitly requested
   if (EXPLICIT_WEB_SEARCH.test(text)) return 'explicit_search';
+
+  if (options?.technicalFollowUp) return 'technical_follow_up';
 
   // Skip: too short to be factual
   if (text.length < 8) return null;

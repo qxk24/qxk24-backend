@@ -7,7 +7,7 @@
  * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-05
- * Updated     : 2026-06-06 — sync sanitize only; TRAA repair removed
+ * Updated     : 2026-06-08 — universal voice leak strip (Bismillah, framework, unsolicited Quran)
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
@@ -19,6 +19,47 @@
  * Voice and form come from Layer 5 prompts at generation time.
  */
 
+import { sanitizeTechnicalPrecisionOutput } from './adam-factual-grounding';
+import {
+  userAskedForAlamtologi,
+  userOpenedFaithDoor,
+} from './adam-universal-voice';
+
+const FRAMEWORK_LEAK =
+  /\b(?:Dalam\s+lensa\s+Alamtologi|Dari\s+perspektif\s+Alamtologi|Alamtologi\s+menyatakan|framework\s+Alamtologi)\b/i;
+
+const BISMILLAH_OPENER = /^\s*Bismillah(?:irahmanirrahim)?\.?\s*\n?/i;
+
+const BISMILLAH_ONLY_PARAGRAPH = /^\s*Bismillah(?:irahmanirrahim)?\.?\s*$/i;
+
+const QURAN_LEAK =
+  /\b(?:Allah\s+(?:SWT\s+)?berfirman|Surah\s+[A-Za-z'-]+(?:\s+\d+:\d+)?|\(Surah[^)]+\))\b/i;
+
+function stripUniversalVoiceLeaks(text: string, userMessage: string): string {
+  const faithOk = userOpenedFaithDoor(userMessage);
+  const alamtologiOk = userAskedForAlamtologi(userMessage);
+
+  let out = text.replace(BISMILLAH_OPENER, '');
+
+  if (!faithOk) {
+    const paragraphs = out.split(/\n{2,}/);
+    out = paragraphs
+      .filter((para) => !QURAN_LEAK.test(para) && !BISMILLAH_ONLY_PARAGRAPH.test(para.trim()))
+      .join('\n\n');
+  }
+
+  if (!alamtologiOk) {
+    out = out.replace(FRAMEWORK_LEAK, '');
+    out = out.replace(/\bAlamtologi\b/gi, (match, offset, whole) => {
+      const before = whole.slice(Math.max(0, offset - 40), offset);
+      if (/what\s+is\s+$/i.test(before)) return match;
+      return '';
+    });
+  }
+
+  return out.replace(/\n{3,}/g, '\n\n').trim();
+}
+
 const SCRIPTED_CLOSINGS = [
   /Saya\s+sedia\s+mendengar/i,
   /saya\s+boleh\s+bertanya\s+dengan\s+lembut/i,
@@ -28,6 +69,13 @@ const SCRIPTED_CLOSINGS = [
   /dalam\s+diam\s+yang\s+penuh\s+makna/i,
   /Apa\s+yang\s+paling\s+ingin\s+(?:kamu|anda)\s+/i,
   /kembangkan\s+daripada\s+jawapan/i,
+  /Adakah\s+anda\s+sedang\s+mempertimbangkan/i,
+  /ingin\s+membandingkannya\s+dengan\s+model\s+lain/i,
+  /Jika\s+anda\s+ingin\s+saya\s+bandingkan/i,
+  /Bolehkah\s+anda\s+nyatakan/i,
+  /Saya\s+di\s+sini\.?\s*bersama\s+anda/i,
+  /langkah\s+demi\s+langkah/i,
+  /saya\s+sedia\s+bantu\.?\s*$/i,
 ];
 
 const STUDENT_MATH_SLOT = '\x00STUDENT_MATH_';
@@ -97,7 +145,11 @@ function inlineQuranAyat(text: string): string {
 }
 
 /** Sync format hygiene — no LLM, no TRAA surgery. */
-export function sanitizeStudentOutputSync(text: string): string {
+export function sanitizeStudentOutputSync(
+  text: string,
+  userMessage = '',
+  recentUserMessages: string[] = [],
+): string {
   const { text: stashed, slots } = stashStudentMathBlocks(text);
 
   let out = stashed
@@ -114,6 +166,8 @@ export function sanitizeStudentOutputSync(text: string): string {
 
   out = restoreStudentMathBlocks(out, slots);
   out = inlineQuranAyat(out);
+  out = sanitizeTechnicalPrecisionOutput(out, userMessage, recentUserMessages);
+  out = stripUniversalVoiceLeaks(out, userMessage);
 
   const paragraphs = out.split(/\n{2,}/);
   const kept: string[] = [];
@@ -133,8 +187,9 @@ export function sanitizeStudentOutputSync(text: string): string {
 /** Post-stream hook — sync sanitize only. Layer 5 governs voice at generation. */
 export async function repairStudentOutputLeak(
   text: string,
-  _studentMessage: string,
+  studentMessage: string,
+  recentUserMessages: string[] = [],
 ): Promise<string> {
-  const synced = sanitizeStudentOutputSync(text);
+  const synced = sanitizeStudentOutputSync(text, studentMessage, recentUserMessages);
   return synced.length > 0 ? synced : text.trim();
 }

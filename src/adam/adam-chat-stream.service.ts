@@ -17,12 +17,24 @@
 
 import { ENV } from '../config/environments';
 import {
+  buildFactualGroundingPromptBlock,
+  extractRecentUserTurns,
+  finalizeVerificationGatedOutput,
+  prependSearchUnavailableNotice,
+  resolveTechnicalPrecisionTurn,
+  shouldForceWebSearchForTechnicalTurn,
+} from './adam-factual-grounding';
+import { sanitizeSunomVerifiedOutput } from './adam-sunom-verification';
+import { buildKmSensingPromptBlock } from './adam-sunom-km-sensing';
+import { enrichSunomVerificationInput } from './adam-sunom-pipeline';
+import {
   adamWebSearchEnabled,
   getAdamWebSearchPrompt,
   getWebSearchGateReason,
 } from './adam-web-search';
 import { resolveAdamChatModel, resolveAdamMaxTokens, resolveQwenEnableThinking } from '../config/llm-models';
 import { friendlyLlmError, isQwenDataInspectionError, llmStream, toLlmMessages } from '../llm/llm-client';
+import type { LlmSearchResult } from '../llm/llm-types';
 import {
   buildQwenLanguageLock,
   repairEastAsianScriptLeak,
@@ -358,6 +370,20 @@ export async function streamADAMChat(
         if (tamat) amaTamatBlock = tamat;
       }
 
+      const recentUserTurns = extractRecentUserTurns(contextMessages);
+      const precisionTurn = resolveTechnicalPrecisionTurn(messageForAdam, recentUserTurns);
+
+      const factualGroundingPrompt = !isFounder
+        ? [
+          buildFactualGroundingPromptBlock(messageForAdam, {
+            recentUserMessages: recentUserTurns,
+          }),
+          buildKmSensingPromptBlock(messageForAdam, recentUserTurns),
+        ].filter(Boolean).join('\n\n') || undefined
+        : undefined;
+
+      const webSearchEnabledThisTurn = adamWebSearchEnabled() && !founderTeachingAbsorption;
+
       let systemPrompt = prependCoreToSystem(
         buildAdamChatSystemPrompt({
           mode,
@@ -370,10 +396,18 @@ export async function streamADAMChat(
           founderTeachingAbsorption,
           founderTeachingSynthesis,
           amaTamatBlock,
-          webSearchPrompt:          adamWebSearchEnabled() && !isGuestTrial && founderTeachingSynthesis
-            ? getAdamWebSearchPrompt(isFounder, { founderTeachingSynthesis: true })
-            : adamWebSearchEnabled() && !isGuestTrial && !founderTeachingAbsorption
-              ? getAdamWebSearchPrompt(isFounder)
+          factualGroundingPrompt,
+          webSearchPrompt:          webSearchEnabledThisTurn && founderTeachingSynthesis
+            ? getAdamWebSearchPrompt(isFounder, {
+              founderTeachingSynthesis: true,
+              userMessage: messageForAdam,
+              recentUserMessages: recentUserTurns,
+            })
+            : webSearchEnabledThisTurn
+              ? getAdamWebSearchPrompt(isFounder, {
+                userMessage: messageForAdam,
+                recentUserMessages: recentUserTurns,
+              })
               : undefined,
         }),
         !isFounder || founderTeachingLearnerTurn,
@@ -457,8 +491,16 @@ export async function streamADAMChat(
         })
         : founderTeachingAbsorption
           ? null
-          : getWebSearchGateReason(userMessage, { isFounder });
-      const enableWebSearch = !isGuestTrial && Boolean(webSearchGateReason);
+          : getWebSearchGateReason(userMessage, {
+            isFounder,
+            technicalFollowUp: precisionTurn.isFollowUp,
+          });
+      const enableWebSearch = Boolean(webSearchGateReason);
+      const forceWebSearch = enableWebSearch
+        && !isFounder
+        && shouldForceWebSearchForTechnicalTurn(userMessage, {
+          recentUserMessages: recentUserTurns,
+        });
 
       if (enableWebSearch) {
         console.log(
@@ -468,6 +510,9 @@ export async function streamADAMChat(
             messageLength: userMessage.length,
             preview:       userMessage.slice(0, 80),
             reason:        webSearchGateReason,
+            forced:        forceWebSearch,
+            technicalFollowUp: precisionTurn.isFollowUp,
+            guestTrial:    isGuestTrial,
             stack:         ENV.QXK24_STACK,
             llmProvider:   ENV.LLM_PROVIDER,
             ts:            new Date().toISOString(),
@@ -481,7 +526,12 @@ export async function streamADAMChat(
       const streamOnce = async (
         messages: typeof llmMessages,
         withSearch: boolean,
-      ): Promise<string> => {
+      ): Promise<{
+        text: string;
+        searchUsed: boolean;
+        searchDroppedByFilter: boolean;
+        searchResults: LlmSearchResult[];
+      }> => {
         const callStream = (search: boolean) =>
           llmStream({
             model:            modelChoice.model,
@@ -489,6 +539,7 @@ export async function streamADAMChat(
             system:           systemPrompt,
             messages,
             enableWebSearch:  search,
+            forceWebSearch:   search && forceWebSearch,
             enableThinking,
             onEvent:          (event, data) => {
               if (bufferStreamForPostRepair && event === 'adam_chunk') return;
@@ -499,14 +550,35 @@ export async function streamADAMChat(
         const maxAttempts = 3;
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-            return await callStream(withSearch);
+            const result = await callStream(withSearch);
+            return {
+              text:                    result.text,
+              searchUsed:              withSearch,
+              searchDroppedByFilter:   false,
+              searchResults:           result.searchResults,
+            };
           } catch (streamErr: unknown) {
             if (withSearch && isQwenDataInspectionError(streamErr)) {
               console.warn('[adam:qwen-filter] content filter with web search — retrying without search', {
                 sessionId: resolvedSessionId,
                 preview:   userMessage.slice(0, 80),
+                technicalTurn: precisionTurn.isActive,
               });
-              return await callStream(false);
+              onEvent(
+                'adam_search_unavailable',
+                JSON.stringify({
+                  sessionId: resolvedSessionId,
+                  reason:    'content_filter',
+                  message:   'Carian web tidak tersedia pada giliran ini. ADAM akan menjawab tanpa data carian.',
+                }),
+              );
+              const result = await callStream(false);
+              return {
+                text:                    result.text,
+                searchUsed:              false,
+                searchDroppedByFilter:   true,
+                searchResults:           [],
+              };
             }
 
             const errText = streamErr instanceof Error ? streamErr.message : String(streamErr);
@@ -533,7 +605,10 @@ export async function streamADAMChat(
           journal,
           llmMessages,
           enableWebSearch,
-          streamOnce,
+          streamOnce: async (messages, withSearch) => {
+            const result = await streamOnce(messages, withSearch);
+            return result.text;
+          },
           onEvent,
         });
         fullResponse = journalResult.fullResponse;
@@ -544,13 +619,43 @@ export async function streamADAMChat(
         onEvent('adam_stream_idle', JSON.stringify({ sessionId: resolvedSessionId }));
       } else {
         const streamStarted = Date.now();
-        fullResponse = await streamOnce(llmMessages, enableWebSearch);
+        const streamResult = await streamOnce(llmMessages, enableWebSearch);
+        fullResponse = streamResult.text;
         streamMs = Date.now() - streamStarted;
         onEvent('adam_stream_idle', JSON.stringify({ sessionId: resolvedSessionId }));
         const repairStarted = Date.now();
         fullResponse = await repairEastAsianScriptLeak(fullResponse, userMessage);
+        const rawForSunomVerification = fullResponse;
         if (!isFounder) {
-          fullResponse = await repairStudentOutputLeak(fullResponse, userMessage);
+          fullResponse = await repairStudentOutputLeak(
+            fullResponse,
+            userMessage,
+            recentUserTurns,
+          );
+          fullResponse = prependSearchUnavailableNotice(fullResponse, {
+            technicalTurn:       precisionTurn.isActive,
+            searchWasDropped:    streamResult.searchDroppedByFilter,
+          });
+          const sunomInput = await enrichSunomVerificationInput({
+            userMessage,
+            recentUserMessages: recentUserTurns,
+            searchResults:      streamResult.searchResults,
+            searchUsed:         streamResult.searchUsed,
+            searchDropped:      streamResult.searchDroppedByFilter,
+          });
+          if (sunomInput.fingerFetched && sunomInput.fingerFetched > 0) {
+            console.log('[adam:sunom-fingers]', JSON.stringify({
+              sessionId: resolvedSessionId,
+              fetched:   sunomInput.fingerFetched,
+              ms:        sunomInput.fingerFetchMs,
+              km:        sunomInput.kmSensing?.peringkat,
+            }));
+          }
+          fullResponse = sanitizeSunomVerifiedOutput(fullResponse, {
+            ...sunomInput,
+            rawOutputText: rawForSunomVerification,
+          });
+          fullResponse = finalizeVerificationGatedOutput(fullResponse, userMessage, recentUserTurns);
         } else if (founderTeachingLearnerTurn) {
           fullResponse = sanitizeFounderTeachingQuranFormat(fullResponse);
           fullResponse = syncSanitizeFounderTeachingOutput(fullResponse);
@@ -578,8 +683,8 @@ export async function streamADAMChat(
         if (!isFounder) {
           onEvent('adam_stream_done', JSON.stringify({
             sessionId: resolvedSessionId,
-            replace:   Boolean(fullResponse?.trim()),
-            response:  fullResponse,
+            replace:   true,
+            response:  fullResponse ?? '',
           }));
         }
 

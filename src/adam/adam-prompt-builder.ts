@@ -38,6 +38,9 @@ import {
   ADAM_LAYER5_FOUNDER,
   ADAM_LAYER5_STUDENT,
 } from './adam-response-generation';
+import {
+  ADAM_UNIVERSAL_VOICE_POLICY,
+} from './adam-universal-voice';
 import { JOURNAL_GEN_MANUAL_MODE_PROMPT } from './adam-journal-manual-prompt';
 import {
   FOUNDER_TEACHING_ABSORPTION_PROMPT,
@@ -119,6 +122,8 @@ export interface AdamChatSystemPromptParams {
   founderTeachingSynthesis?: boolean;
   /** AMA Tamat Kotak 20–22 anchor (Tahap 2 Layer 5) */
   amaTamatBlock?:          string;
+  /** Technical precision grounding (search-mandatory turns) */
+  factualGroundingPrompt?: string;
 }
 
 /**
@@ -159,9 +164,13 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     behaviourBlock,
     warmthBlock,
     ADAM_BAHASA_MELAYU_LAW,
-    TEACHING_DIRECTION_LAW,
-    buildAnswerStylePromptBlock(voice, params.isFounder),
   ];
+
+  if (params.isFounder) {
+    parts.push(TEACHING_DIRECTION_LAW);
+  }
+
+  parts.push(buildAnswerStylePromptBlock(voice, params.isFounder));
 
   // Philosophy / narrative voice — not during teaching absorption (learner voice)
   if (params.isFounder && voice === 'philosophy' && !teachingLearnerTurn) {
@@ -218,10 +227,12 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
   } else {
     // Students get wisdom — not the framework manual
     // ADAM already knows the laws. He speaks from them, not about them.
+    parts.push(ADAM_UNIVERSAL_VOICE_POLICY);
     parts.push(STUDENT_MODE_PROMPT);
     parts.push(STUDENT_BM_REGISTER);
     if (params.workspacePrompt) parts.push(params.workspacePrompt);
     if (params.studentContinuityBridge) parts.push(params.studentContinuityBridge);
+    if (params.factualGroundingPrompt?.trim()) parts.push(params.factualGroundingPrompt.trim());
     parts.push(`Pelajar semasa / Current student: ${params.participantName}`);
     if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
   }

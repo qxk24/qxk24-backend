@@ -24,6 +24,17 @@ export interface LlmMessage {
 
 export type LlmStreamEventHandler = (event: string, data: string) => void;
 
+/** DashScope web-search hit surfaced during streaming (SuNom picu lerai). */
+export interface LlmSearchResult {
+  title?: string;
+  url?:   string;
+}
+
+export interface LlmStreamResult {
+  text:          string;
+  searchResults: LlmSearchResult[];
+}
+
 export interface LlmCompleteParams {
   system:    string;
   messages:  LlmMessage[];
@@ -32,9 +43,10 @@ export interface LlmCompleteParams {
 }
 
 export interface LlmStreamParams extends LlmCompleteParams {
-  enableWebSearch?:  boolean;
-  enableThinking?:   boolean;
-  onEvent?:          LlmStreamEventHandler;
+  enableWebSearch?:   boolean;
+  forceWebSearch?:    boolean;
+  enableThinking?:    boolean;
+  onEvent?:           LlmStreamEventHandler;
 }
 
 /** Pass-through after coalesce — kept for call-site stability. */
