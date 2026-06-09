@@ -10,6 +10,8 @@ import { buildAdamChatSystemPrompt } from '../src/adam/adam-prompt-builder';
 import { ADAM_STUDENT_OUTPUT_LAW } from '../src/adam/adam-student-output-law';
 import { buildAnswerStylePromptBlock } from '../src/adam/adam-answer-style';
 import { ADAM_LAYER5_CORE } from '../src/adam/adam-response-generation';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
 import {
   runStudentVoicePipeline,
@@ -29,7 +31,9 @@ function expectStudentVoiceInvariants(
   expect(text).not.toMatch(STUDENT_VOICE_INVARIANT_PATTERNS.emDash);
   if (!options?.allowFaith) {
     expect(text).not.toMatch(STUDENT_VOICE_INVARIANT_PATTERNS.unsolicitedQuran);
+    expect(text).not.toMatch(STUDENT_VOICE_INVARIANT_PATTERNS.faithSermon);
   }
+  expect(text).not.toMatch(STUDENT_VOICE_INVARIANT_PATTERNS.constitutionalToken);
 }
 
 function expectWarmTutorVoice(text: string): void {
@@ -148,6 +152,22 @@ describe('Voice regression — bad voice stripped or repaired', () => {
     expect(out).toMatch(/Saya faham/i);
     expect(out).not.toMatch(/\b(kamu|aku|kau|engkau)\b/i);
     expect(out).not.toMatch(/—/);
+  });
+
+  it('V-B04: anxiety sermon with MASA/TENAGA/IZWA → guided fallback, not raw leak', async () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/anxiety-sermon-leak.txt'),
+      'utf8',
+    );
+    const out = await runStudentVoicePipeline({
+      userMessage:    'Kenapa saya rasa cemas sebelum tidur?',
+      rawModelOutput: raw,
+    });
+    expectStudentVoiceInvariants(out);
+    expectWarmTutorVoice(out);
+    expect(out).not.toMatch(/Terima kasih kerana berkongsi/i);
+    expect(out).not.toMatch(/duduk bersama.*kegelapan/i);
+    expect(out).toMatch(/cemas|tidur|saraf|nafas/i);
   });
 
   it('V-B03: passive compare menu stripped from technical answer body', async () => {

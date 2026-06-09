@@ -47,6 +47,8 @@ export const STUDENT_VOICE_INVARIANT_PATTERNS = {
   frameworkLabel:   /Dalam lensa Alamtologi|Dari perspektif Alamtologi/i,
   emDash:           /—/,
   unsolicitedQuran: /Allah berfirman/i,
+  constitutionalToken: /\b(?:MASA|TENAGA|IZWA)\b/,
+  faithSermon: /\bYa\s+ALLAH\b|penyerahan\s+tiga\s+waktu/i,
 } as const;
 
 /** Full student post-stream path through fallbacks and prose sanitize. */

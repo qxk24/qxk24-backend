@@ -5,6 +5,8 @@ import {
   ADAM_STUDENT_OUTPUT_LAW,
   buildStudentForbiddenPronounRegex,
   paragraphHasForbiddenStudentPronoun,
+  paragraphIsConstitutionalFrameworkLeak,
+  paragraphIsTutorPerformanceLeak,
   sanitizeStudentForbiddenPronouns,
   STUDENT_FORBIDDEN_PRONOUNS,
 } from '../src/adam/adam-student-output-law';
@@ -43,6 +45,25 @@ describe('sanitizeStudentForbiddenPronouns', () => {
   it('paragraphHasForbiddenStudentPronoun detects leaks', () => {
     expect(paragraphHasForbiddenStudentPronoun('Kamu boleh mulakan di sini.')).toBe(true);
     expect(paragraphHasForbiddenStudentPronoun('Boleh mulakan di sini.')).toBe(false);
+  });
+});
+
+describe('constitutional and performance leak detectors', () => {
+  it('flags MASA/TENAGA/IZWA framework billboard', () => {
+    expect(
+      paragraphIsConstitutionalFrameworkLeak(
+        'Tubuh peka terhadap MASA, TENAGA, dan IZWA.',
+      ),
+    ).toBe(true);
+    expect(paragraphIsConstitutionalFrameworkLeak('Parasimpatik mengambil alih.')).toBe(false);
+  });
+
+  it('flags poetic tutor prelude', () => {
+    expect(
+      paragraphIsTutorPerformanceLeak(
+        'Terima kasih kerana berkongsi soalan ini. bukan sekadar soalan tentang tidur.',
+      ),
+    ).toBe(true);
   });
 });
 

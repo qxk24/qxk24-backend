@@ -7,7 +7,7 @@
  * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-05
- * Updated     : 2026-06-09 — Fasa 4 pronoun sync from L1
+ * Updated     : 2026-06-09 — constitutional/faith/performance leak strip
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
@@ -21,6 +21,7 @@
 
 import { sanitizeTechnicalPrecisionOutput } from './adam-factual-grounding';
 import {
+  paragraphShouldStripForUniversalVoice,
   sanitizeStudentForbiddenPronouns,
   studentForbiddenPronounAlternation,
 } from './adam-student-output-law';
@@ -45,12 +46,22 @@ function stripUniversalVoiceLeaks(text: string, userMessage: string): string {
 
   let out = text.replace(BISMILLAH_OPENER, '');
 
-  if (!faithOk) {
-    const paragraphs = out.split(/\n{2,}/);
-    out = paragraphs
-      .filter((para) => !QURAN_LEAK.test(para) && !BISMILLAH_ONLY_PARAGRAPH.test(para.trim()))
-      .join('\n\n');
-  }
+  const paragraphs = out.split(/\n{2,}/);
+  out = paragraphs
+    .filter((para) => {
+      const trimmed = para.trim();
+      if (!trimmed) return false;
+      if (!faithOk && (QURAN_LEAK.test(trimmed) || BISMILLAH_ONLY_PARAGRAPH.test(trimmed))) {
+        return false;
+      }
+      if (
+        paragraphShouldStripForUniversalVoice(trimmed, { faithOk, alamtologiOk })
+      ) {
+        return false;
+      }
+      return true;
+    })
+    .join('\n\n');
 
   if (!alamtologiOk) {
     out = out.replace(FRAMEWORK_LEAK, '');
@@ -59,6 +70,10 @@ function stripUniversalVoiceLeaks(text: string, userMessage: string): string {
       if (/what\s+is\s+$/i.test(before)) return match;
       return '';
     });
+  }
+
+  if (!faithOk) {
+    out = out.replace(/\bBismillah(?:irahmanirrahim)?\.?/gi, '');
   }
 
   return out.replace(/\n{3,}/g, '\n\n').trim();
@@ -85,6 +100,10 @@ const SCRIPTED_CLOSINGS: RegExp[] = [
   /Saya\s+di\s+sini\.?\s*bersama\s+anda/i,
   /langkah\s+demi\s+langkah/i,
   /saya\s+sedia\s+bantu\.?\s*$/i,
+  /Jika\s+anda\s+ingin,\s*saya\s+boleh\s+bantu/i,
+  /Saya\s+di\s+sini\.?\s*Bukan\s+untuk\s+mempercepat/i,
+  /duduk\s+bersama.*kegelapan/i,
+  /bukan\s+untuk\s+mempercepat\s+jawapan/i,
 ];
 
 const STUDENT_MATH_SLOT = '\x00STUDENT_MATH_';
@@ -182,10 +201,14 @@ export function sanitizeStudentOutputSync(
   const paragraphs = out.split(/\n{2,}/);
   const kept: string[] = [];
 
+  const faithOk = userOpenedFaithDoor(userMessage);
+  const alamtologiOk = userAskedForAlamtologi(userMessage);
+
   for (const para of paragraphs) {
     const trimmed = para.trim();
     if (!trimmed) continue;
     if (SCRIPTED_CLOSINGS.some((re) => re.test(trimmed))) continue;
+    if (paragraphShouldStripForUniversalVoice(trimmed, { faithOk, alamtologiOk })) continue;
     if (/^\[Source:/i.test(trimmed)) continue;
     if (/^Maksudnya\s*:/i.test(trimmed)) continue;
     kept.push(trimmed);
@@ -200,6 +223,5 @@ export async function repairStudentOutputLeak(
   studentMessage: string,
   recentUserMessages: string[] = [],
 ): Promise<string> {
-  const synced = sanitizeStudentOutputSync(text, studentMessage, recentUserMessages);
-  return synced.length > 0 ? synced : text.trim();
+  return sanitizeStudentOutputSync(text, studentMessage, recentUserMessages);
 }

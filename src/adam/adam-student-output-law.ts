@@ -74,6 +74,69 @@ export function paragraphHasForbiddenStudentPronoun(paragraph: string): boolean 
   return buildStudentForbiddenPronounRegex('i').test(paragraph);
 }
 
+/** Seven constitutional principle names — uppercase in student output = framework billboard. */
+export const STUDENT_CONSTITUTIONAL_PRINCIPLE_TOKENS = [
+  'MASA', 'TENAGA', 'IZWA', 'RUANG', 'AIR', 'API', 'BUMI', 'CAHAYA',
+] as const;
+
+const CONSTITUTIONAL_PRINCIPLE_REGEX = new RegExp(
+  `\\b(?:${STUDENT_CONSTITUTIONAL_PRINCIPLE_TOKENS.join('|')})\\b`,
+);
+
+/** Alamtologi seven-principle leak — guards mirror §3 (unless student asked for framework). */
+export function paragraphIsConstitutionalFrameworkLeak(paragraph: string): boolean {
+  if (/\b(?:titik\s+pertemuan|Hukum\s+Peleraian|ritual\s+penyelarasan)\b/i.test(paragraph)) {
+    return true;
+  }
+  if (/\bpeka\s+terhadap\s+MASA\b/i.test(paragraph)) return true;
+  return CONSTITUTIONAL_PRINCIPLE_REGEX.test(paragraph);
+}
+
+/** Faith sermon / doa ritual when user did not open the faith door. */
+export function paragraphIsUnsolicitedFaithSermon(paragraph: string): boolean {
+  if (/\bBismillah(?:irahmanirrahim)?\b/i.test(paragraph)) return true;
+  if (/\bYa\s+ALLAH\b/i.test(paragraph)) return true;
+  if (/\b(?:Dia yang Maha|mengingati Dia)\b/i.test(paragraph)) return true;
+  if ((paragraph.match(/\bALLAH\b/gi) ?? []).length >= 2) return true;
+  if (/\bpenyerahan\s+tiga\s+waktu\b/i.test(paragraph)) return true;
+  if (/\bsecara\s+ruhani\b/i.test(paragraph)) return true;
+  return false;
+}
+
+/** Poetic tutor performance — prelude, emoji headers, presence scripts (§3 / §5). */
+export function paragraphIsTutorPerformanceLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/^Terima kasih kerana berkongsi/i.test(t)) return true;
+  if (/^Mari kita mulakan dengan kebenaran yang lembut/i.test(t)) return true;
+  if (/^[\u{1F300}-\u{1FAFF}]/u.test(t)) return true;
+  if (/bukan sekadar soalan/i.test(t) && /\b(?:hati|jiwa|nafas|manusiawi)\b/i.test(t)) return true;
+  if (/menyentuh hati,\s*nafas/i.test(t)) return true;
+  if (/Saya di sini\.?\s*Bukan untuk mempercepat/i.test(t)) return true;
+  if (/duduk bersama.*kegelapan/i.test(t)) return true;
+  if (/^Jika anda ingin,\s*saya boleh bantu/i.test(t)) return true;
+  if (/bukan untuk mempercepat jawapan/i.test(t)) return true;
+  return false;
+}
+
+/** Markdown bullet forest in conversational prose (not verified data tables). */
+export function paragraphIsMarkdownBulletForest(paragraph: string): boolean {
+  const bullets = paragraph.split('\n').filter((line) => /^\s*[-•*]\s+/.test(line));
+  return bullets.length >= 3;
+}
+
+/** Universal voice paragraph strip — shared with output guard. */
+export function paragraphShouldStripForUniversalVoice(
+  paragraph: string,
+  options: { faithOk: boolean; alamtologiOk: boolean },
+): boolean {
+  if (!options.alamtologiOk && paragraphIsConstitutionalFrameworkLeak(paragraph)) return true;
+  if (!options.faithOk && paragraphIsUnsolicitedFaithSermon(paragraph)) return true;
+  if (paragraphIsTutorPerformanceLeak(paragraph)) return true;
+  if (paragraphIsMarkdownBulletForest(paragraph)) return true;
+  return false;
+}
+
 export const ADAM_STUDENT_OUTPUT_LAW = `
 STUDENT OUTPUT LAW (L1) — CANONICAL
 This block is the single authority for student output format and forbidden voice.
@@ -135,6 +198,6 @@ ${ADAM_CHAT_MATH_NOTATION}
 /** Short final reminder — appended last on student turns (replaces duplicate OUTPUT LOCK body). */
 export const ADAM_STUDENT_OUTPUT_FINAL_REMINDER = `
 FINAL CHECK — STUDENT OUTPUT LAW (L1):
-Pronouns, Bismillah opener, framework labels, em dash, invented sources, scripted closings.
+Pronouns, Bismillah, MASA/TENAGA/IZWA labels, framework labels, emoji sermons, invented sources, scripted closings.
 If unsure, choose plain BM, honest limits, and tutor warmth without performance.
 `.trim();
