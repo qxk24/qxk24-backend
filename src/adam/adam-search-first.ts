@@ -24,6 +24,7 @@
 
 import type { LlmMessage, LlmSearchResult } from '../llm/llm-types';
 import { isQwenDataInspectionError, llmPrefetchWebSearch } from '../llm/llm-client';
+import { ENV } from '../config/environments';
 import { getFastModel } from '../config/llm-models';
 import { ADAM_SCIENTIST_SCHOLAR_IDENTITY } from './adam-universal-voice';
 
@@ -52,11 +53,12 @@ Do NOT answer the question in this phase.
 After search completes, reply with exactly: OK
 `.trim();
 
-/** Student factual turn — search before synthesis (not founder). */
+/** Student factual turn — blocking prefetch before synthesis (off when inline search is on). */
 export function shouldStudentUseSearchFirstFlow(
   isFounder: boolean,
   searchGateReason: string | null,
 ): boolean {
+  if (ENV.ADAM_STUDENT_INLINE_SEARCH) return false;
   return !isFounder && searchGateReason !== null;
 }
 

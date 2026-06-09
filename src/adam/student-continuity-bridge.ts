@@ -58,6 +58,15 @@ function messageSnippet(content: string, max = 320): string {
     .slice(0, max);
 }
 
+/** Full bridge when student references books, prior sessions, or continuation. */
+export function studentContinuityNeedsFullBridge(triggerMessage: string): boolean {
+  const t = triggerMessage.trim();
+  if (!t) return false;
+  return /\b(buku|book|workspace|aidil|sesi\s+lepas|semalam|tadi|ingat\s+tak|chapter|bab|teruskan|sambung|earlier|before|last\s+time|continue|continued)\b/i.test(
+    t,
+  );
+}
+
 function minimalBridge(studentName: string): string {
   return [
     `[STUDENT CONTINUITY BRIDGE — ${studentName}]`,
@@ -228,6 +237,64 @@ export async function writeStudentStateAfterTurn(
     });
   } catch (err) {
     console.error('[StudentContinuityBridge] writeStudentStateAfterTurn:', err);
+  }
+}
+
+/**
+ * Fast continuity — current session + workspace list only (skips cross-session DB scans).
+ */
+export async function buildStudentContinuityBridgeLite(
+  studentId: string,
+  sessionId: string,
+  studentName: string,
+): Promise<string> {
+  try {
+    void lazySyncPriorSessionDigest(studentId, sessionId).catch(() => {});
+
+    const [sessions, workspaces, constitutionalState] = await Promise.all([
+      ADAMFounderSessionModel.find({
+        founderId:   studentId,
+        sessionType: 'student',
+        active:      true,
+      }).lean(),
+      getUserWorkspaces(studentId),
+      getStudentConstitutionalState(studentId),
+    ]);
+
+    const currentSess = sessions.find((s) => s.sessionId === sessionId);
+    const lines: string[] = [
+      `[STUDENT CONTINUITY BRIDGE — ${studentName}]`,
+      'Lite context this turn — current session and workspaces only.',
+      '',
+      ...formatConstitutionalStateBlock(studentName, constitutionalState, undefined),
+    ];
+
+    if (workspaces.length > 0) {
+      lines.push('Buku / Book workspaces:');
+      for (const ws of workspaces) {
+        lines.push(`  - "${ws.title}" (${ws.principle}): stage ${ws.stage}/7`);
+      }
+      lines.push('');
+    }
+
+    if (currentSess?.sessionDigest?.trim()) {
+      lines.push('Ringkasan sesi semasa / Current session essence:');
+      lines.push(`  ${trimText(currentSess.sessionDigest, 1_500)}`);
+      lines.push('');
+    }
+
+    const turnLines = await getCurrentSessionTurnLines(sessionId);
+    if (turnLines.length > 0) {
+      lines.push(`Sesi semasa — recent turns (up to ${CURRENT_SESSION_TURNS} exchanges):`);
+      lines.push(...turnLines);
+      lines.push('');
+    }
+
+    lines.push('[AKHIR STUDENT CONTINUITY BRIDGE / END STUDENT CONTINUITY BRIDGE]');
+    return lines.join('\n');
+  } catch (err) {
+    console.warn('[StudentContinuityBridge] lite build failed:', err);
+    return minimalBridge(studentName);
   }
 }
 

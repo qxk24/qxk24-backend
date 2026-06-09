@@ -210,6 +210,13 @@ export const ENV = {
   ADAM_QWEN_FAST_MAX_TOKENS: optionalInt('ADAM_QWEN_FAST_MAX_TOKENS', 4096),
   QXK24_SUCCESSION_ENCRYPTION_KEY: optional('QXK24_SUCCESSION_ENCRYPTION_KEY'),
 
+  /**
+   * Student chat latency — true = one LLM call with inline web search (default, faster).
+   * false = blocking search-first prefetch before synthesis (slower, stricter separation).
+   * Does not change memory or output token limits.
+   */
+  ADAM_STUDENT_INLINE_SEARCH: optional('ADAM_STUDENT_INLINE_SEARCH', 'true') === 'true',
+
   /** DashScope web search (agent = model decides when to search) */
   QWEN_ENABLE_SEARCH: optional('QWEN_ENABLE_SEARCH', 'true') === 'true',
   QWEN_SEARCH_STRATEGY: optional('QWEN_SEARCH_STRATEGY', 'agent'),

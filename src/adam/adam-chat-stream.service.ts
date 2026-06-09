@@ -84,7 +84,11 @@ import { isAmaBrainV2Enabled } from '../lib/ama/ama-brain-integration.service';
 import { resolveTamatLayer5Block } from '../lib/ama/tamat-generator';
 import { getOrCreateMaster } from '../qxk24brain/qxk24brain.engine';
 import { buildFounderStudentsAwarenessBlock } from './adam-student-registry.service';
-import { buildStudentContinuityBridge } from './student-continuity-bridge';
+import {
+  buildStudentContinuityBridge,
+  buildStudentContinuityBridgeLite,
+  studentContinuityNeedsFullBridge,
+} from './student-continuity-bridge';
 import {
   fetchPlasPrescan,
   formatPlasBlockedResponse,
@@ -381,6 +385,7 @@ export async function streamADAMChat(
       const contextStarted = Date.now();
       const needContinuity = !isFounder && !isGuestTrial;
       const needTamat = isAmaBrainV2Enabled()
+        && isFounder
         && !founderTeachingLearnerTurn
         && mode !== 'JOURNAL_GEN'
         && !isGuestTrial;
@@ -392,7 +397,7 @@ export async function streamADAMChat(
           : null;
       let searchPrefetchParallel = false;
       let searchPrefetchPromise: ReturnType<typeof runStudentSearchPrefetch> | null = null;
-      if (earlyWebSearchReason) {
+      if (!ENV.ADAM_STUDENT_INLINE_SEARCH && earlyWebSearchReason) {
         searchPrefetchParallel = true;
         searchPrefetchPromise = runStudentSearchPrefetch({
           userMessage,
@@ -427,12 +432,18 @@ export async function streamADAMChat(
           },
         ),
         needContinuity
-          ? buildStudentContinuityBridge(
-            participant.userId,
-            resolvedSessionId,
-            participant.userName,
-            messageForAdam,
-          )
+          ? studentContinuityNeedsFullBridge(messageForAdam)
+            ? buildStudentContinuityBridge(
+              participant.userId,
+              resolvedSessionId,
+              participant.userName,
+              messageForAdam,
+            )
+            : buildStudentContinuityBridgeLite(
+              participant.userId,
+              resolvedSessionId,
+              participant.userName,
+            )
           : Promise.resolve(undefined),
         needTamat
           ? resolveTamatLayer5Block(
@@ -568,9 +579,12 @@ export async function streamADAMChat(
       const forceWebSearch = enableWebSearch
         && !isFounder
         && !studentSearchFirst
-        && shouldForceWebSearchForTechnicalTurn(userMessage, {
-          recentUserMessages: recentUserTurns,
-        });
+        && (
+          shouldForceWebSearchForTechnicalTurn(userMessage, {
+            recentUserMessages: recentUserTurns,
+          })
+          || Boolean(webSearchGateReason)
+        );
 
       if (enableWebSearch) {
         console.log(
@@ -910,6 +924,8 @@ export async function streamADAMChat(
           contextMs,
           searchPrefetchMs,
           searchPrefetchParallel: searchPrefetchParallel && Boolean(searchPrefetchPromise),
+          studentInlineSearch: ENV.ADAM_STUDENT_INLINE_SEARCH,
+          continuityLite: needContinuity && !studentContinuityNeedsFullBridge(messageForAdam),
           streamMs,
           repairMs,
           sunomMs,

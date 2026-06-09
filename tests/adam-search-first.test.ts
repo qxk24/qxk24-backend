@@ -14,8 +14,8 @@ describe('ADAM search-first flow', () => {
     expect(getStudentSearchPrefetchModel()).toBe(getFastModel());
   });
 
-  it('activates for student factual gate only', () => {
-    expect(shouldStudentUseSearchFirstFlow(false, 'factual_question')).toBe(true);
+  it('uses inline search by default — no blocking prefetch', () => {
+    expect(shouldStudentUseSearchFirstFlow(false, 'factual_question')).toBe(false);
     expect(shouldStudentUseSearchFirstFlow(true, 'factual_question')).toBe(false);
     expect(shouldStudentUseSearchFirstFlow(false, null)).toBe(false);
   });
