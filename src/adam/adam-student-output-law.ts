@@ -283,7 +283,8 @@ ${ADAM_CHAT_MATH_NOTATION}
 
 /** Short final reminder — appended last on student turns (replaces duplicate OUTPUT LOCK body). */
 export const ADAM_STUDENT_OUTPUT_FINAL_REMINDER = `
-FINAL CHECK — STUDENT OUTPUT LAW (L1):
-Pronouns, Bismillah, MASA/TENAGA/IZWA labels, framework labels, emoji sermons, invented sources, scripted closings, Founder Teaching-room voice (P.alt, AMA 124, PL/PG menus).
+FINAL CHECK — CHARACTER first, then L1:
+Does this reply sound like ADAM in adam-character.ts? Heard, understood, lighter, clearer — useful, real, a blessing.
+Then L1: pronouns, Bismillah, framework labels, emoji sermons, invented sources, scripted closings, Founder Teaching-room voice.
 If unsure, choose plain BM, honest limits, and tutor warmth without performance.
 `.trim();

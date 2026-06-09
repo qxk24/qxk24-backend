@@ -17,43 +17,38 @@ import {
   ADAM_CHARACTER_CORE,
   ADAM_CHARACTER_STUDENT,
   ADAM_CHARACTER_TEACHING_LEARNER,
-  ADAM_FLOW_LIKE_WATER_STUDENT,
 } from './adam-character';
-import { ADAM_CORE_BEHAVIOUR, CONSULT_PHRASE, FOUNDER_STUDENTS_AWARENESS, STUDENT_CORE_BEHAVIOUR } from './adam-identity-prompts';
+import { ADAM_CORE_BEHAVIOUR, CONSULT_PHRASE, FOUNDER_STUDENTS_AWARENESS } from './adam-identity-prompts';
 import { ADAM_EPISTEMOLOGICAL_POSITION, ADAM_FOUNDER_NARRATIVE, ADAM_ALAMTOLOGI_LAWS } from './adam-knowledge-prompts';
 import {
   ADAM_STUDENT_OUTPUT_FINAL_REMINDER,
   ADAM_STUDENT_OUTPUT_LAW,
 } from './adam-student-output-law';
 import {
-  STUDENT_MODE_PROMPT,
   ADAM_MEMORY_HONESTY_RULE,
   ADAM_ZPD_GUIDANCE_RULE,
 } from './adam-student-prompts';
+import {
+  ADAM_STUDENT_BM_LAW_COMPACT,
+  ADAM_STUDENT_DELIVERY,
+} from './adam-student-constitution';
 import { ADAM_CONVERSATION_GUARDRAILS } from './adam-identity-prompts';
 import { ADAM_PROSE_DASH_LAW } from './adam-prose-sanitize';
 import { ADAM_BAHASA_MELAYU_LAW, ADAM_PHILOSOPHER_TEACHER_IDENTITY, ADAM_NARRATIVE_DELIVERY } from './adam-language-prompts';
 import { ADAM_KNOWLEDGE_PURIFICATION_LAW, ADAM_TEORI_MASABAYU } from './adam-teori-masabayu';
 import { buildAnswerStylePromptBlock, resolveEffectiveAnswerStyle } from './adam-answer-style';
-import { ADAM_STUDENT_HUMAN_TUTOR_MANDATE } from './adam-student-human-tutor';
 import {
   ADAM_WARMTH_VOICE,
-  ADAM_WARMTH_VOICE_STUDENT,
   ADAM_WARMTH_VOICE_TEACHING_LEARNER,
 } from './adam-warmth-voice';
 import {
   ADAM_LAYER5_CORE,
   ADAM_LAYER5_FOUNDER,
-  ADAM_LAYER5_STUDENT_DELIVERY,
 } from './adam-response-generation';
 import {
-  ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE,
   buildThreeTierTurnOverlay,
   type StudentKnowledgeTier,
 } from './adam-three-tier-knowledge';
-import {
-  ADAM_UNIVERSAL_VOICE_POLICY,
-} from './adam-universal-voice';
 import { JOURNAL_GEN_MANUAL_MODE_PROMPT } from './adam-journal-manual-prompt';
 import {
   FOUNDER_TEACHING_ABSORPTION_PROMPT,
@@ -145,7 +140,7 @@ export interface AdamChatSystemPromptParams {
  * Assembles the system prompt for each conversation turn.
  *
  * STUDENT turns receive:
- *   Character → L1 Output Law → Behaviour → Warmth → BM Law → Layer 5 → Student mode → overlays
+ *   CHARACTER (supreme) → L1 → consolidated DELIVERY → compact BM → style → tier overlay → tail
  *
  * FOUNDER turns receive:
  *   Everything above PLUS laws, epistemology, founder narrative (non-Teaching)
@@ -166,11 +161,11 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
         : teachingAbsorption
           ? FOUNDER_TEACHING_LEARNER_BEHAVIOUR
           : ADAM_CORE_BEHAVIOUR)
-    : STUDENT_CORE_BEHAVIOUR;
+    : '';
 
   const warmthBlock = params.isFounder
     ? (teachingLearnerTurn ? ADAM_WARMTH_VOICE_TEACHING_LEARNER : ADAM_WARMTH_VOICE)
-    : ADAM_WARMTH_VOICE_STUDENT;
+    : '';
 
   const parts: string[] = [characterBlock];
 
@@ -185,13 +180,10 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     );
   } else {
     parts.push(
-      ADAM_FLOW_LIKE_WATER_STUDENT,
       ADAM_STUDENT_OUTPUT_LAW,
-      ADAM_STUDENT_HUMAN_TUTOR_MANDATE,
+      ADAM_STUDENT_DELIVERY,
       ADAM_PROSE_DASH_LAW,
-      behaviourBlock,
-      warmthBlock,
-      ADAM_BAHASA_MELAYU_LAW,
+      ADAM_STUDENT_BM_LAW_COMPACT,
     );
   }
 
@@ -209,12 +201,8 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
   if (modeBlock) parts.push(modeBlock);
 
   // Layer 5 Response Generation — not during Teaching learner/synthesis or journal gen
-  if (!teachingLearnerTurn && params.mode !== 'JOURNAL_GEN') {
-    parts.push(
-      params.isFounder
-        ? `${ADAM_LAYER5_CORE}\n\n${ADAM_LAYER5_FOUNDER}`
-        : ADAM_LAYER5_STUDENT_DELIVERY,
-    );
+  if (!teachingLearnerTurn && params.mode !== 'JOURNAL_GEN' && params.isFounder) {
+    parts.push(`${ADAM_LAYER5_CORE}\n\n${ADAM_LAYER5_FOUNDER}`);
     if (params.amaTamatBlock?.trim()) {
       parts.push(params.amaTamatBlock.trim());
     }
@@ -250,14 +238,9 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
       }
     }
   } else {
-    // Students get wisdom — not the framework manual
-    // ADAM already knows the laws. He speaks from them, not about them.
-    parts.push(ADAM_UNIVERSAL_VOICE_POLICY);
-    parts.push(ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE);
     if (params.studentKnowledgeTier) {
       parts.push(buildThreeTierTurnOverlay(params.studentKnowledgeTier));
     }
-    parts.push(STUDENT_MODE_PROMPT);
     if (params.workspacePrompt) parts.push(params.workspacePrompt);
     if (params.studentContinuityBridge) parts.push(params.studentContinuityBridge);
     if (params.factualGroundingPrompt?.trim()) parts.push(params.factualGroundingPrompt.trim());

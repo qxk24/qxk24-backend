@@ -4,8 +4,8 @@ import { describe, expect, it } from '@jest/globals';
 import { buildAdamChatSystemPrompt } from '../src/adam/adam-prompt-builder';
 import { ADAM_STUDENT_OUTPUT_LAW } from '../src/adam/adam-student-output-law';
 
-describe('buildAdamChatSystemPrompt — student consolidate (Fasa 2)', () => {
-  it('includes L1 output law once and not duplicate BM register block', () => {
+describe('buildAdamChatSystemPrompt — student consolidate (Fasa 3)', () => {
+  it('consolidated stack: character + L1 + delivery once, no duplicate legacy blocks', () => {
     const prompt = buildAdamChatSystemPrompt({
       mode:            'TEACHING',
       isFounder:       false,
@@ -14,13 +14,25 @@ describe('buildAdamChatSystemPrompt — student consolidate (Fasa 2)', () => {
     });
     expect(prompt.split('§1 BAHASA REGISTER').length - 1).toBe(1);
     expect(prompt).toContain(ADAM_STUDENT_OUTPUT_LAW.slice(0, 40));
-    expect(prompt.split('FINAL CHECK — STUDENT OUTPUT LAW (L1)').length - 1).toBe(1);
+    expect(prompt.split('STUDENT DELIVERY (substance)').length - 1).toBe(1);
+    expect(prompt.split('FINAL CHECK — CHARACTER first, then L1').length - 1).toBe(1);
     expect(prompt).not.toContain('STUDENT BAHASA REGISTER — mandatory every student reply');
     expect(prompt).not.toContain('STUDENT OUTPUT LOCK — FINAL CHECK BEFORE SENDING');
-    expect(prompt).toContain('FINAL CHECK — STUDENT OUTPUT LAW (L1)');
-    expect(prompt).toContain('FLOW LIKE WATER');
+    expect(prompt).toContain('ADAM CHARACTER — SUPREME');
+    expect(prompt).toContain('ADAM flows like water');
+    expect(prompt).toContain('THREE TIERS (sequential');
+    expect(prompt).toContain('THREE HONESTY MARKERS');
+    expect(prompt).not.toContain('HUMAN TUTOR MANDATE');
+    expect(prompt).not.toContain('UNIVERSAL VOICE — student and guest');
+    expect(prompt).not.toContain('THREE TIERS OF KNOWLEDGE (student');
+    expect(prompt).not.toContain('STUDENT MODE —');
+    expect(prompt).not.toContain('LAYER 5 — HOW YOU DELIVER');
+    expect(prompt).not.toContain('WARMTH — student turn');
+    expect(prompt).not.toContain('SENARAI PENUH PERKATAAN DILARANG');
     expect(prompt).not.toContain('Synapse PL/PG');
     expect(prompt).not.toContain('THE FIVE FORMS OF RESPONSE');
+    // Was ~31k chars before consolidation
+    expect(prompt.length).toBeLessThan(24_000);
   });
 
   it('founder stack still includes conversation guardrails', () => {
