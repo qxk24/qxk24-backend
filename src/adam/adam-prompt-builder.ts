@@ -30,6 +30,7 @@ import { ADAM_PROSE_DASH_LAW } from './adam-prose-sanitize';
 import { ADAM_BAHASA_MELAYU_LAW, ADAM_PHILOSOPHER_TEACHER_IDENTITY, ADAM_NARRATIVE_DELIVERY } from './adam-language-prompts';
 import { ADAM_KNOWLEDGE_PURIFICATION_LAW, ADAM_TEORI_MASABAYU } from './adam-teori-masabayu';
 import { buildAnswerStylePromptBlock, resolveEffectiveAnswerStyle } from './adam-answer-style';
+import { ADAM_STUDENT_HUMAN_TUTOR_MANDATE } from './adam-student-human-tutor';
 import {
   ADAM_WARMTH_VOICE,
   ADAM_WARMTH_VOICE_STUDENT,
@@ -180,6 +181,7 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
   } else {
     parts.push(
       ADAM_STUDENT_OUTPUT_LAW,
+      ADAM_STUDENT_HUMAN_TUTOR_MANDATE,
       ADAM_PROSE_DASH_LAW,
       behaviourBlock,
       warmthBlock,

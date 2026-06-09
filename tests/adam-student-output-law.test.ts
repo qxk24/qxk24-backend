@@ -7,8 +7,10 @@ import {
   paragraphHasForbiddenStudentPronoun,
   paragraphHasMarkdownTable,
   paragraphIsConstitutionalFrameworkLeak,
+  paragraphIsCoachingScriptClosing,
   paragraphIsDashSummaryLeak,
   paragraphIsNumberedSyllabusLeak,
+  paragraphIsOrdinalSyllabusLeak,
   paragraphIsTutorPerformanceLeak,
   sanitizeStudentForbiddenPronouns,
   STUDENT_FORBIDDEN_PRONOUNS,
@@ -79,7 +81,9 @@ describe('constitutional and performance leak detectors', () => {
 describe('textbook format leak detectors', () => {
   it('flags numbered syllabus and dash summary blocks', () => {
     expect(paragraphIsNumberedSyllabusLeak('1. Foo\n2. Bar')).toBe(true);
+    expect(paragraphIsOrdinalSyllabusLeak('Pertama, foo\n\nKedua, bar')).toBe(true);
     expect(paragraphIsDashSummaryLeak('Secara ringkas:\n- Jenis 1: x\n- Jenis 2: y')).toBe(true);
+    expect(paragraphIsCoachingScriptClosing('Apa yang paling ingin dikongsikan dahulu?')).toBe(true);
   });
 });
 

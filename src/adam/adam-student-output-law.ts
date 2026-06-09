@@ -149,6 +149,26 @@ export function paragraphIsNumberedSyllabusLeak(paragraph: string): boolean {
   return numbered.length >= 2;
 }
 
+/** Essay skeleton "Pertama," "Kedua," — machine syllabus, not tutor prose. */
+export function paragraphIsOrdinalSyllabusLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (/^(?:Pertama|Kedua|Ketiga|Keempat|Kelima),/i.test(t)) return true;
+  const ordinals = paragraph.split('\n').filter((line) =>
+    /^\s*(?:Pertama|Kedua|Ketiga|Keempat|Kelima),/i.test(line),
+  );
+  return ordinals.length >= 2;
+}
+
+/** Coaching-script closing — not maieutic tier door. */
+export function paragraphIsCoachingScriptClosing(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (/^Apa\s+yang\s+paling\s+ingin\s+dikongsikan/i.test(t)) return true;
+  if (/^Apa[kk]ah\s+yang\s+paling\s+ingin/i.test(t)) return true;
+  if (/paling\s+ingin\s+(?:anda\s+)?dikongsikan/i.test(t)) return true;
+  if (/paling\s+ingin\s+kamu\s+kembangkan/i.test(t)) return true;
+  return false;
+}
+
 /** "Secara ringkas:" + dash bullets — cold summary block. */
 export function paragraphIsDashSummaryLeak(paragraph: string): boolean {
   const t = paragraph.trim();
@@ -189,7 +209,7 @@ If any other block conflicts, L1 wins. Re-read before sending.
 §2 FORBIDDEN FORMAT
 - Em dash (—) inside sentences
 - Markdown bullet lines starting with "- " in conversational replies (not data tables)
-- Numbered syllabus lines (1. 2. 3.) on explanatory health/science answers — use flowing paragraphs
+- Numbered syllabus lines (1. 2. 3.) or "Pertama," "Kedua," essay skeleton on explanatory answers — use flowing paragraphs
 - "Secara ringkas:" followed by dash bullets — weave types and mechanisms in prose instead
 - Cold textbook opener as first line ("X adalah keadaan … yang berlaku apabila") without a human acknowledge first
 - Markdown tables (| Lapisan |) on life, emotion, or relationship questions — use flowing paragraphs instead
@@ -205,7 +225,7 @@ If any other block conflicts, L1 wins. Re-read before sending.
 - "Saya telah melakukan carian ilmiah" / "tiga temuan utama yang sah secara saintifik"
 - [Source: "Title" — Harvard / Lancet / Nature / Max Planck, Vol. X, Issue Y] — never invent
 - "bukan sebagai sistem" / "bukan sebagai jawapan automatik" / "nafas yang menunggu" / "mengubah arah angin"
-- "Apakah yang ingin engkau" / "Maksudnya:" / "Apa yang paling ingin kamu kembangkan"
+- "Apakah yang ingin engkau" / "Maksudnya:" / "Apa yang paling ingin kamu kembangkan" / "Apa yang paling ingin dikongsikan"
 - Blockquote ayat: "Allah berfirman:" then quoted lines on separate rows
 - Pseudo-spiritual "jiwa/rohani" sermon replacing verified plain insight
 - Do NOT name Alamtologi, Quran, or the framework in the answer body unless the student opted into that tier
@@ -220,7 +240,7 @@ If any other block conflicts, L1 wins. Re-read before sending.
 §5 FORBIDDEN CLOSINGS
 - "Saya sedia mendengar" / "saya boleh bertanya dengan lembut" / "Adakah ada saat-saat di mana"
 - "Saya sedia duduk — bersama ... dalam diam yang penuh makna"
-- Coaching-script menus and passive sales compare offers
+- Coaching-script menus: "Apa yang paling ingin dikongsikan", passive sales compare offers
 
 §6 RIGHT PATTERNS
 - Hello / light greeting: "Hello." / "Hi." / "Salam sejahtera." — optional name; no Bismillah; no lecture layers.

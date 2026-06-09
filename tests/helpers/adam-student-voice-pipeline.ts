@@ -12,12 +12,15 @@ import {
 import { enrichSunomVerificationInput } from '../../src/adam/adam-sunom-pipeline';
 import { sanitizeSunomVerifiedOutput } from '../../src/adam/adam-sunom-verification';
 import {
+  buildStudentExplanatoryScienceFallback,
   buildStudentGreetingFallback,
   buildStudentGuidedPerspectiveFallback,
   isAdamLightChatTurn,
   isAdamSubstantiveTurn,
+  outputSmellsLikeTextbookMachine,
   STUDENT_ENTITY_CORRECTION_FALLBACK,
 } from '../../src/adam/adam-response-generation';
+import { isExplanatoryScienceQuestion } from '../../src/adam/adam-universal-voice';
 import { sanitizeAdamProseDashBridges } from '../../src/adam/adam-prose-sanitize';
 import { repairStudentOutputLeak } from '../../src/adam/adam-student-output-guard';
 import { buildStudentForbiddenPronounRegex } from '../../src/adam/adam-student-output-law';
@@ -101,6 +104,14 @@ export async function runStudentVoicePipeline(
       recent,
     );
     out = recoveredFinal.trim() ? recoveredFinal : '';
+  }
+
+  if (
+    out?.trim()
+    && outputSmellsLikeTextbookMachine(out)
+    && isExplanatoryScienceQuestion(input.userMessage)
+  ) {
+    out = buildStudentExplanatoryScienceFallback(input.userMessage);
   }
 
   if (!out?.trim() && !precision.isActive) {

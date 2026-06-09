@@ -78,23 +78,24 @@ export function getAdamWebSearchPrompt(
   },
 ): string {
   if (!isFounder) {
-    if (options?.searchPrefetched) {
-      const msg = options?.userMessage?.trim() ?? '';
-      if (msg && isLifeEmotionTurn(msg)) {
-        return buildStudentWebSearchPrompt('life_substantive');
-      }
-      if (msg && isExplanatoryScienceQuestion(msg)) {
-        return buildStudentWebSearchPrompt('explanatory_science');
-      }
-      return buildStudentWebSearchPrompt('prefetched');
-    }
     const msg = options?.userMessage?.trim() ?? '';
     const recent = options?.recentUserMessages ?? [];
+    const inline = !options?.searchPrefetched;
+
     if (msg && resolveTechnicalPrecisionTurn(msg, recent).isActive) {
       return buildStudentWebSearchPrompt('technical_precision');
     }
     if (msg && isUserEntityCorrectionMessage(msg)) {
       return buildStudentWebSearchPrompt('entity_correction');
+    }
+    if (msg && isLifeEmotionTurn(msg)) {
+      return buildStudentWebSearchPrompt('life_substantive', { inline });
+    }
+    if (msg && isExplanatoryScienceQuestion(msg)) {
+      return buildStudentWebSearchPrompt('explanatory_science', { inline });
+    }
+    if (options?.searchPrefetched) {
+      return buildStudentWebSearchPrompt('prefetched');
     }
     return buildStudentWebSearchPrompt('agent_default');
   }

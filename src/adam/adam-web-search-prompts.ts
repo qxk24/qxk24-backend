@@ -109,7 +109,9 @@ EXPLANATORY SCIENCE ("apa punca", "kenapa", health/biology — NOT a spec sheet)
 - Sound like P.alt teaching: warm tutor at the table — facts with soul, not hospital pamphlet or Wikipedia paste.
 - Open with one short human line that honours the question — then weave mechanisms in 3–5 flowing paragraphs (2–4 sentences each).
 - Full scientific depth (imiah) in prose: types, mechanisms, risk factors — separate paragraphs, not labels.
-- FORBIDDEN: numbered syllabus (1. 2. 3.), "Secara ringkas:" dash summaries, cold textbook opener ("X adalah keadaan … yang berlaku apabila" as first line).
+- FORBIDDEN: "Pertama," "Kedua," "Ketiga," numbered syllabus (1. 2. 3.), "Secara ringkas:" dash summaries.
+- FORBIDDEN cold opener: "X adalah keadaan … yang berlaku apabila" as your first sentence.
+- FORBIDDEN close: "Apa yang paling ingin dikongsikan" and other coaching menus.
 - REQUIRED: synthesize hits into your own sentences; cite authority in plain prose when hits provide it.
 `.trim();
 
@@ -150,7 +152,11 @@ export type FounderWebSearchVariant =
   | 'teaching_absorption'
   | 'teaching_synthesis';
 
-export function buildStudentWebSearchPrompt(variant: StudentWebSearchVariant): string {
+export function buildStudentWebSearchPrompt(
+  variant: StudentWebSearchVariant,
+  options?: { inline?: boolean },
+): string {
+  const inline = options?.inline === true;
   switch (variant) {
     case 'prefetched':
       return joinWebSearchSections(
@@ -160,16 +166,22 @@ export function buildStudentWebSearchPrompt(variant: StudentWebSearchVariant): s
       );
     case 'explanatory_science':
       return joinWebSearchSections(
-        'YOUR WEB SEARCH (student turn — EXPLANATORY SCIENCE — SEARCH DONE, NOW ANALISA + JAWAB):',
-        STUDENT_PREFETCHED_DELTA,
-        STUDENT_EXPLANATORY_SCIENCE_DELTA,
+        inline
+          ? 'YOUR WEB SEARCH (student — EXPLANATORY SCIENCE — search then warm tutor prose):'
+          : 'YOUR WEB SEARCH (student turn — EXPLANATORY SCIENCE — SEARCH DONE, NOW ANALISA + JAWAB):',
+        ...(inline
+          ? [ADAM_SEARCH_WHEN_TO, STUDENT_EXPLANATORY_SCIENCE_DELTA, STUDENT_SEARCH_DELIVERY_BASE]
+          : [STUDENT_PREFETCHED_DELTA, STUDENT_EXPLANATORY_SCIENCE_DELTA]),
         ADAM_CITATION_HONESTY,
       );
     case 'life_substantive':
       return joinWebSearchSections(
-        'YOUR WEB SEARCH (student turn — LIFE/EMOTION — SEARCH DONE, NOW ANALISA + JAWAB):',
-        STUDENT_PREFETCHED_DELTA,
-        STUDENT_LIFE_SUBSTANTIVE_DELTA,
+        inline
+          ? 'YOUR WEB SEARCH (student — LIFE/EMOTION — search then warm flowing prose):'
+          : 'YOUR WEB SEARCH (student turn — LIFE/EMOTION — SEARCH DONE, NOW ANALISA + JAWAB):',
+        ...(inline
+          ? [ADAM_SEARCH_WHEN_TO, STUDENT_LIFE_SUBSTANTIVE_DELTA, STUDENT_SEARCH_DELIVERY_BASE]
+          : [STUDENT_PREFETCHED_DELTA, STUDENT_LIFE_SUBSTANTIVE_DELTA]),
         ADAM_CITATION_HONESTY,
       );
     case 'technical_precision':

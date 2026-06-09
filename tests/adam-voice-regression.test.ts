@@ -54,6 +54,7 @@ describe('Voice regression — prompt stack (Fasa 0–4 contracts)', () => {
     expect(studentPrompt).toContain(ADAM_STUDENT_OUTPUT_LAW.slice(0, 40));
     expect(studentPrompt).toContain('Qawlan Sadida');
     expect(studentPrompt).toContain('UNIVERSAL VOICE');
+    expect(studentPrompt).toContain('HUMAN TUTOR MANDATE');
     expect(studentPrompt).not.toContain('FIVE RULES — CHECK EVERY REPLY');
     expect(studentPrompt).not.toContain('ADAM_ALAMTOLOGI_LAWS');
     expect(studentPrompt).not.toContain('STUDENT OUTPUT LOCK — FINAL CHECK BEFORE SENDING');
@@ -184,6 +185,23 @@ describe('Voice regression — bad voice stripped or repaired', () => {
     expect(out).not.toMatch(/Terima kasih kerana berkongsi/i);
     expect(out).not.toMatch(/duduk bersama.*kegelapan/i);
     expect(out).toMatch(/cemas|tidur|saraf|nafas/i);
+  });
+
+  it('V-B07: diabetes Pertama/Kedua + dikongsikan → warm fallback, tier door', async () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/diabetes-ordinal-leak.txt'),
+      'utf8',
+    );
+    const out = await runStudentVoicePipeline({
+      userMessage:    'Apa punca manusia mengidap diabetes?',
+      rawModelOutput: raw,
+      searchUsed:     true,
+    });
+    expectStudentVoiceInvariants(out);
+    expect(out).not.toMatch(/Pertama,/i);
+    expect(out).not.toMatch(/paling ingin dikongsikan/i);
+    expect(out).toMatch(/diabetes|insulin/i);
+    expect(out).toMatch(/sudut Alamtologi/i);
   });
 
   it('V-B06: diabetes textbook numbered syllabus → repaired prose, facts kept', async () => {

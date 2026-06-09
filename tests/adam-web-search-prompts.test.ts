@@ -61,13 +61,23 @@ describe('adam-web-search-prompts (Fasa 3)', () => {
     expect(prompt).not.toContain('WHEN TO SEARCH:');
   });
 
+  it('getAdamWebSearchPrompt routes inline explanatory science turns', () => {
+    const prompt = getAdamWebSearchPrompt(false, {
+      userMessage: 'Apa punca manusia mengidap diabetes?',
+    });
+    expect(prompt).toMatch(/EXPLANATORY SCIENCE/);
+    expect(prompt).toMatch(/P\.alt teaching/i);
+    expect(prompt).toMatch(/WHEN TO SEARCH/);
+    expect(prompt).toMatch(/Pertama.*Kedua/i);
+  });
+
   it('getAdamWebSearchPrompt routes prefetched explanatory science turns', () => {
     const prompt = getAdamWebSearchPrompt(false, {
       searchPrefetched: true,
       userMessage:      'Apa punca manusia mengidap diabetes?',
     });
     expect(prompt).toMatch(/EXPLANATORY SCIENCE/);
-    expect(prompt).toMatch(/P\.alt teaches/i);
+    expect(prompt).toMatch(/P\.alt teaching/i);
     expect(prompt).not.toContain('WHEN TO SEARCH:');
   });
 
