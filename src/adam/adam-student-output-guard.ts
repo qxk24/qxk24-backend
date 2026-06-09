@@ -22,6 +22,7 @@
 import { resolveTechnicalPrecisionTurn, sanitizeTechnicalPrecisionOutput } from './adam-factual-grounding';
 import {
   paragraphIsCoachingScriptClosing,
+  paragraphIsFounderTeachingVoiceLeak,
   paragraphShouldStripForUniversalVoice,
   sanitizeStudentForbiddenPronouns,
   studentForbiddenPronounAlternation,
@@ -221,6 +222,7 @@ export function sanitizeStudentOutputSync(
   for (const para of paragraphs) {
     const trimmed = para.trim();
     if (!trimmed) continue;
+    if (paragraphIsFounderTeachingVoiceLeak(trimmed)) continue;
     if (!paragraphIsThreeTierDoorOffer(trimmed)
       && SCRIPTED_CLOSINGS.some((re) => re.test(trimmed))) continue;
     if (paragraphIsCoachingScriptClosing(trimmed)) continue;

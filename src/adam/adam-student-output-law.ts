@@ -169,6 +169,27 @@ export function paragraphIsCoachingScriptClosing(paragraph: string): boolean {
   return false;
 }
 
+/**
+ * Founder Teaching-room / P.alt voice — must never appear on student turns.
+ * Distinct from student three-tier door offers (tier 2/3 opt-in).
+ */
+export function paragraphIsFounderTeachingVoiceLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/\bP\.?\s*alt\b/i.test(t)) return true;
+  if (/Adakah\s+ingin\s+saya\s+terangkan/i.test(t)) return true;
+  if (/Atau\s+lebih\s+suka\s+saya\s+kongsikan/i.test(t)) return true;
+  if (/\bAMA\s+124/i.test(t)) return true;
+  if (/\bpola\s+AMA\b/i.test(t)) return true;
+  if (/\bprinsip\s+AIDIL\b/i.test(t)) return true;
+  if (/\blerai\s*\(\s*PL\s*\)/i.test(t)) return true;
+  if (/digabung\s*\(\s*PG\s*\)/i.test(t)) return true;
+  if (/\bproses\s+lerai\b/i.test(t) && /\b(?:PL|PG)\b/i.test(t)) return true;
+  if (/\bkeseimbangan\s+tubuh,\s*tenaga,\s*dan\s+amanah/i.test(t)) return true;
+  if (/\b(?:SuNom|NAPADU-\d|CgP|qadari)\b/i.test(t)) return true;
+  return false;
+}
+
 /** "Secara ringkas:" + dash bullets — cold summary block. */
 export function paragraphIsDashSummaryLeak(paragraph: string): boolean {
   const t = paragraph.trim();
@@ -182,6 +203,7 @@ export function paragraphShouldStripForUniversalVoice(
   paragraph: string,
   options: { faithOk: boolean; alamtologiOk: boolean },
 ): boolean {
+  if (paragraphIsFounderTeachingVoiceLeak(paragraph)) return true;
   if (paragraphIsThreeTierDoorOffer(paragraph)) return false;
   if (!options.alamtologiOk && paragraphIsConstitutionalFrameworkLeak(paragraph)) return true;
   if (!options.faithOk && paragraphIsUnsolicitedFaithSermon(paragraph)) return true;
@@ -219,7 +241,9 @@ If any other block conflicts, L1 wins. Re-read before sending.
 §3 FORBIDDEN PHRASES (unless student explicitly asked about Alamtologi or faith)
 - "Dalam lensa Alamtologi" / "Dari perspektif Alamtologi" / "Alamtologi menyatakan"
 - "Bismillahirahmanirrahim" / "Bismillah" as your opener
-- "Dalam cara P.alt Masa Bayu ajarkan" / "seperti yang P.alt kata" / "P.alt mengajar bahawa"
+- "Dalam cara P.alt Masa Bayu ajarkan" / "seperti yang P.alt kata" / "P.alt mengajar bahawa" / addressing anyone as "P.alt"
+- Founder Teaching-room codes on student turns: "AMA 124", "prinsip AIDIL", "lerai (PL)", "digabung (PG)", SuNom/NAPADU/CgP/qadari
+- Founder maieutic menus: "Adakah ingin saya terangkan dari sudut…" / "Atau lebih suka saya kongsikan ayat Al-Quran…" — answer first; no dual-option lecture menus
 - "titik pertemuan antara MASA, TENAGA, dan IZWA" / "ritual penyelarasan RUANG"
 - "hukum ruhani yang ditetapkan" as framework lecture opener
 - "Saya telah melakukan carian ilmiah" / "tiga temuan utama yang sah secara saintifik"
@@ -260,6 +284,6 @@ ${ADAM_CHAT_MATH_NOTATION}
 /** Short final reminder — appended last on student turns (replaces duplicate OUTPUT LOCK body). */
 export const ADAM_STUDENT_OUTPUT_FINAL_REMINDER = `
 FINAL CHECK — STUDENT OUTPUT LAW (L1):
-Pronouns, Bismillah, MASA/TENAGA/IZWA labels, framework labels, emoji sermons, invented sources, scripted closings.
+Pronouns, Bismillah, MASA/TENAGA/IZWA labels, framework labels, emoji sermons, invented sources, scripted closings, Founder Teaching-room voice (P.alt, AMA 124, PL/PG menus).
 If unsure, choose plain BM, honest limits, and tutor warmth without performance.
 `.trim();

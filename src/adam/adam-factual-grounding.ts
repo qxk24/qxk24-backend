@@ -19,6 +19,7 @@
  */
 
 import type { LlmMessage } from '../llm/llm-types';
+import { paragraphIsFounderTeachingVoiceLeak } from './adam-student-output-law';
 import { isTechnicalPrecisionQuestion, userOpenedFaithDoor } from './adam-universal-voice';
 
 export interface TechnicalPrecisionTurnContext {
@@ -468,7 +469,8 @@ export function paragraphShouldStripAfterVerificationFailure(
   userMessage = '',
   recentUserMessages: string[] = [],
 ): boolean {
-  return paragraphClaimsFalseSearchVerification(paragraph)
+  return paragraphIsFounderTeachingVoiceLeak(paragraph)
+    || paragraphClaimsFalseSearchVerification(paragraph)
     || paragraphIsPassiveStudentMenu(paragraph)
     || paragraphIsHollowPerformanceOffer(paragraph)
     || paragraphIsHollowSearchResultTeaser(paragraph)
