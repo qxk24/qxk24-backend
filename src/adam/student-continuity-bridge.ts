@@ -115,35 +115,41 @@ async function getPriorSessionSummaries(
     .lean();
 
   const wsBySession = new Map(workspaces.map((w) => [w.sessionId, w]));
-  const out: string[] = [];
+  const sessionIds = sessions.map((s) => s.sessionId);
+  if (sessionIds.length === 0) return [];
 
-  for (const sess of sessions) {
+  const [countRows, firstStudentRows] = await Promise.all([
+    ADAMMessageModel.aggregate<{ _id: string; count: number }>([
+      { $match: { sessionId: { $in: sessionIds } } },
+      { $group: { _id: '$sessionId', count: { $sum: 1 } } },
+    ]),
+    ADAMMessageModel.aggregate<{ _id: string; content: string }>([
+      { $match: { sessionId: { $in: sessionIds }, role: 'student' } },
+      { $sort: { createdAt: 1 } },
+      { $group: { _id: '$sessionId', content: { $first: '$content' } } },
+    ]),
+  ]);
+
+  const turnCountBySession = new Map(countRows.map((r) => [r._id, r.count]));
+  const firstStudentBySession = new Map(firstStudentRows.map((r) => [r._id, r.content]));
+
+  return sessions.map((sess) => {
     const ws = wsBySession.get(sess.sessionId);
     const label = ws ? `book "${ws.title}"` : 'general chat';
-    const [turnCount, firstStudent] = await Promise.all([
-      ADAMMessageModel.countDocuments({ sessionId: sess.sessionId }),
-      ADAMMessageModel.findOne({
-        sessionId: sess.sessionId,
-        role:      'student',
-      })
-        .sort({ createdAt: 1 })
-        .lean(),
-    ]);
-
+    const turnCount = turnCountBySession.get(sess.sessionId) ?? 0;
     const date = sess.lastActiveAt
       ? new Date(sess.lastActiveAt).toLocaleDateString('ms-MY')
       : '—';
-    const topic = trimText(firstStudent?.content ?? 'Sesi pembelajaran', PRIOR_TOPIC_CAP);
+    const topic = trimText(
+      firstStudentBySession.get(sess.sessionId) ?? 'Sesi pembelajaran',
+      PRIOR_TOPIC_CAP,
+    );
     const digest = sess.sessionDigest?.trim()
       ? ` — ${trimText(sess.sessionDigest, 120)}`
       : '';
 
-    out.push(
-      `  ${date}: ${label} — "${topic}" — ${turnCount} message(s)${digest}`,
-    );
-  }
-
-  return out;
+    return `  ${date}: ${label} — "${topic}" — ${turnCount} message(s)${digest}`;
+  });
 }
 
 function formatConstitutionalStateBlock(

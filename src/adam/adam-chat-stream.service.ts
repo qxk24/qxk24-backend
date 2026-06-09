@@ -45,7 +45,9 @@ import type { LlmSearchResult } from '../llm/llm-types';
 import {
   buildQwenLanguageLock,
   repairEastAsianScriptLeak,
+  sanitizeEastAsianScriptLeaks,
 } from './adam-language-guard';
+import { detectLanguage } from './adam-language-mirror.service';
 import {
   buildStudentGreetingFallback,
   buildStudentGuidedPerspectiveFallback,
@@ -53,7 +55,7 @@ import {
   isAdamLightChatTurn,
   isAdamSubstantiveTurn,
 } from './adam-response-generation';
-import { repairStudentOutputLeak } from './adam-student-output-guard';
+import { repairStudentOutputLeak, sanitizeStudentOutputSync } from './adam-student-output-guard';
 import { sanitizeAdamProseDashBridges } from './adam-prose-sanitize';
 import { founderRequestsConstitutionalMirror, founderRequestsTeachingSynthesis, sanitizeFounderTeachingQuranFormat, founderTeachingStoredUserContent } from './adam-founder-teaching-prompts';
 import { repairFounderTeachingOutputLeak, detectFounderTeachingOutputLeak, syncSanitizeFounderTeachingOutput } from './adam-founder-teaching-output-guard';
@@ -732,6 +734,7 @@ export async function streamADAMChat(
       let sectionDraftMap = undefined;
       let streamMs = 0;
       let repairMs = 0;
+      let syncRepairMs = 0;
       let sunomMs = 0;
 
       if (mode === 'JOURNAL_GEN' && isFounder) {
@@ -769,8 +772,47 @@ export async function streamADAMChat(
         streamMs = Date.now() - streamStarted;
         onEvent('adam_stream_idle', JSON.stringify({ sessionId: resolvedSessionId }));
         const repairStarted = Date.now();
-        const sunomEnrichStarted = Date.now();
+        let quickStudentResponse = '';
         const runStudentSuNom = !isFounder && precisionTurn.isActive;
+        if (!isFounder) {
+          const syncStarted = Date.now();
+          const expectedLocale = detectLanguage(userMessage).detectedLocale;
+          let quick = sanitizeEastAsianScriptLeaks(rawModelStream, expectedLocale);
+          quick = sanitizeStudentOutputSync(quick, userMessage, recentUserTurns);
+          if (runStudentSuNom) {
+            quick = prependSearchUnavailableNotice(quick, {
+              technicalTurn:    precisionTurn.isActive,
+              searchWasDropped: streamResult.searchDroppedByFilter,
+            });
+            const quickSunom = await enrichSunomVerificationInput({
+              userMessage,
+              recentUserMessages: recentUserTurns,
+              searchResults:      streamResult.searchResults,
+              searchUsed:         streamResult.searchUsed,
+              searchDropped:      streamResult.searchDroppedByFilter,
+              skipFingerFetch:    true,
+            });
+            quick = sanitizeSunomVerifiedOutput(quick, {
+              ...quickSunom,
+              rawOutputText: rawModelStream,
+            });
+            quick = finalizeVerificationGatedOutput(quick, userMessage, recentUserTurns);
+          } else {
+            const finalized = finalizeVerificationGatedOutput(quick, userMessage, recentUserTurns);
+            quick = finalized.trim() ? finalized : quick;
+          }
+          quickStudentResponse = quick.trim();
+          syncRepairMs = Date.now() - syncStarted;
+          if (quickStudentResponse) {
+            onEvent('adam_stream_done', JSON.stringify({
+              sessionId: resolvedSessionId,
+              replace:   true,
+              response:  quickStudentResponse,
+              silentGate: precisionTurn.isActive && !quickStudentResponse,
+            }));
+          }
+        }
+        const sunomEnrichStarted = Date.now();
         const sunomEnrichPromise = runStudentSuNom
           ? enrichSunomVerificationInput({
             userMessage,
@@ -881,11 +923,15 @@ export async function streamADAMChat(
         }
         repairMs = Date.now() - repairStarted;
 
-        if (!isFounder) {
+        if (
+          !isFounder
+          && fullResponse?.trim()
+          && fullResponse.trim() !== quickStudentResponse
+        ) {
           onEvent('adam_stream_done', JSON.stringify({
             sessionId: resolvedSessionId,
             replace:   true,
-            response:  fullResponse ?? '',
+            response:  fullResponse,
             silentGate: precisionTurn.isActive && !fullResponse?.trim(),
           }));
         }
@@ -928,6 +974,7 @@ export async function streamADAMChat(
           continuityLite: needContinuity && !studentContinuityNeedsFullBridge(messageForAdam),
           streamMs,
           repairMs,
+          syncRepairMs: !isFounder ? syncRepairMs : undefined,
           sunomMs,
           inputTurns: llmMessages.length,
         }),

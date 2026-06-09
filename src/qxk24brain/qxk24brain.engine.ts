@@ -171,8 +171,11 @@ async function callBrainJson<T>(
 
 // ─── Get or Create Master Entity ──────────────────────────────
 
-export async function getOrCreateMaster(
-  founderId = 'masa-bayu',
+/** Coalesce parallel getOrCreateMaster calls within the same turn. */
+const masterInflight = new Map<string, Promise<AlamtologiBrainMasterDocument>>();
+
+async function loadOrCreateMaster(
+  founderId: string,
 ): Promise<AlamtologiBrainMasterDocument> {
   let master = await AlamtologiBrainMasterModel.findOne({ founderId });
 
@@ -194,6 +197,19 @@ export async function getOrCreateMaster(
   }
 
   return master;
+}
+
+export async function getOrCreateMaster(
+  founderId = 'masa-bayu',
+): Promise<AlamtologiBrainMasterDocument> {
+  const inflight = masterInflight.get(founderId);
+  if (inflight) return inflight;
+
+  const promise = loadOrCreateMaster(founderId).finally(() => {
+    masterInflight.delete(founderId);
+  });
+  masterInflight.set(founderId, promise);
+  return promise;
 }
 
 // ─── THE CORE TRANSFORMATION: A + B = C ───────────────────────
