@@ -187,7 +187,7 @@ describe('Voice regression — bad voice stripped or repaired', () => {
     expect(out).toMatch(/cemas|tidur|saraf|nafas/i);
   });
 
-  it('V-B07: diabetes Pertama/Kedua + dikongsikan → warm fallback, tier door', async () => {
+  it('V-B07: diabetes coaching close stripped — model facts kept, no hardcoded fallback', async () => {
     const raw = readFileSync(
       join(__dirname, 'fixtures/diabetes-ordinal-leak.txt'),
       'utf8',
@@ -198,13 +198,12 @@ describe('Voice regression — bad voice stripped or repaired', () => {
       searchUsed:     true,
     });
     expectStudentVoiceInvariants(out);
-    expect(out).not.toMatch(/Pertama,/i);
     expect(out).not.toMatch(/paling ingin dikongsikan/i);
-    expect(out).toMatch(/diabetes|insulin/i);
-    expect(out).toMatch(/sudut Alamtologi/i);
+    expect(out).not.toMatch(/sentiasa dekat dengan kehidupan harian/i);
+    expect(out).toMatch(/diabetes|insulin|pankreas/i);
   });
 
-  it('V-B06: diabetes textbook numbered syllabus → repaired prose, facts kept', async () => {
+  it('V-B06: diabetes numbered syllabus — model output preserved, coaching close stripped', async () => {
     const raw = readFileSync(
       join(__dirname, 'fixtures/diabetes-textbook-leak.txt'),
       'utf8',
@@ -215,8 +214,8 @@ describe('Voice regression — bad voice stripped or repaired', () => {
       searchUsed:     true,
     });
     expectStudentVoiceInvariants(out);
-    expect(out).not.toMatch(/^\s*1\.\s/m);
-    expect(out).not.toMatch(/Secara ringkas:/i);
+    expect(out).not.toMatch(/paling ingin dikongsikan/i);
+    expect(out).not.toMatch(/sentiasa dekat dengan kehidupan harian/i);
     expect(out).toMatch(/diabetes|insulin|pankreas/i);
   });
 

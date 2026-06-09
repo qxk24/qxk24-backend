@@ -67,32 +67,6 @@ export function buildStudentGreetingFallback(
  * Warm tutor voice when verification strips fabricated facts but the turn still
  * deserves substance — not a machine error string.
  */
-/** Model output still reads like textbook / coaching bot after guards. */
-export function outputSmellsLikeTextbookMachine(text: string): boolean {
-  const t = text.trim();
-  if (!t) return false;
-  if (/^[\p{L}][\p{L}\s]{0,40} adalah keadaan\b/iu.test(t)) return true;
-  if (/\badalah keadaan\s+(?:metabolik|kronik)\b/i.test(t)) return true;
-  if (/Punca utamanya berkait rapat dengan dua mekanisme utama/i.test(t)) return true;
-  if (/(?:^|\n)\s*(?:Pertama|Kedua|Ketiga),/im.test(t)) return true;
-  if (/paling\s+ingin\s+dikongsikan/i.test(t)) return true;
-  return false;
-}
-
-/** Warm tutor fallback when machine voice cannot be repaired (explanatory science). */
-export function buildStudentExplanatoryScienceFallback(userMessage: string): string {
-  const t = userMessage.trim();
-  if (/\b(?:diabetes|kencing\s+manis)\b/i.test(t)) {
-    return [
-      'Soalan tentang diabetes sentiasa dekat dengan kehidupan harian — bukan sekadar label perubatan, tetapi bagaimana tubuh mengurus tenaga setiap hari.',
-      'Pada lazimnya dua laluan utama: jenis 1, apabila pankreas tidak lagi menghasilkan insulin secukupnya, dan jenis 2, apabila sel badan menjadi kurang responsif kepada insulin walaupun hormon itu masih ada. Gaya hidup, genetik, dan berat badan sangat mempengaruhi risiko — terutama pada jenis 2.',
-      'Terdapat juga diabetes semasa hamil, prediabetes, dan bentuk jarang yang berkait penyakit pankreas atau ubat tertentu.',
-      'Adakah anda ingin melihat soalan ini dari sudut Alamtologi selepas fakta saintifik ini?',
-    ].join('\n\n');
-  }
-  return buildStudentGuidedPerspectiveFallback(t);
-}
-
 export function buildStudentGuidedPerspectiveFallback(userMessage: string): string {
   const t = userMessage.trim();
   if (/\b(?:cemas|anxious|anxiety|risau|gelisah|tidur|sleep|insomnia|stres|stress)\b/i.test(t)) {

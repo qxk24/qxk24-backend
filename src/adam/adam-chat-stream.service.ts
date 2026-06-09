@@ -47,15 +47,12 @@ import {
   repairEastAsianScriptLeak,
 } from './adam-language-guard';
 import {
-  buildStudentExplanatoryScienceFallback,
   buildStudentGreetingFallback,
   buildStudentGuidedPerspectiveFallback,
-  outputSmellsLikeTextbookMachine,
   STUDENT_ENTITY_CORRECTION_FALLBACK,
   isAdamLightChatTurn,
   isAdamSubstantiveTurn,
 } from './adam-response-generation';
-import { isExplanatoryScienceQuestion } from './adam-universal-voice';
 import { repairStudentOutputLeak } from './adam-student-output-guard';
 import { sanitizeAdamProseDashBridges } from './adam-prose-sanitize';
 import { founderRequestsConstitutionalMirror, founderRequestsTeachingSynthesis, sanitizeFounderTeachingQuranFormat, founderTeachingStoredUserContent } from './adam-founder-teaching-prompts';
@@ -845,13 +842,6 @@ export async function streamADAMChat(
               recentUserTurns,
             );
             fullResponse = recoveredFinal.trim() ? recoveredFinal : '';
-          }
-          if (
-            fullResponse?.trim()
-            && outputSmellsLikeTextbookMachine(fullResponse)
-            && isExplanatoryScienceQuestion(userMessage)
-          ) {
-            fullResponse = buildStudentExplanatoryScienceFallback(userMessage);
           }
           if (!fullResponse?.trim() && !precisionTurn.isActive) {
             if (isAdamLightChatTurn(userMessage)) {
