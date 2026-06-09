@@ -18,6 +18,9 @@ describe('buildAdamChatSystemPrompt — student consolidate (Fasa 2)', () => {
     expect(prompt).not.toContain('STUDENT BAHASA REGISTER — mandatory every student reply');
     expect(prompt).not.toContain('STUDENT OUTPUT LOCK — FINAL CHECK BEFORE SENDING');
     expect(prompt).toContain('FINAL CHECK — STUDENT OUTPUT LAW (L1)');
+    expect(prompt).toContain('FLOW LIKE WATER');
+    expect(prompt).not.toContain('Synapse PL/PG');
+    expect(prompt).not.toContain('THE FIVE FORMS OF RESPONSE');
   });
 
   it('founder stack still includes conversation guardrails', () => {

@@ -90,7 +90,7 @@ TECHNICAL PRECISION (mandatory — all measurable / verifiable topics):
 - Optional insight in plain prose may follow AFTER the technical answer — brief, never instead of it.
 
 THREE TIERS (see ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE):
-- Tier 1 first always on substantive turns; offer tier 2 door after; tier 3 only after user opts in.
+- Tier 1 answer first always; tier 2/3 only when the student opts in — optional single-question door after a complete answer, never before.
 `.trim();
 
 const TECHNICAL_EMOTIONAL_EXCLUDE =

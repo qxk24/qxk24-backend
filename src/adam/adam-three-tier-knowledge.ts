@@ -40,11 +40,11 @@ TIER 3 — QURAN / DIVINE SOURCES (only when student opts in):
 - User said yes to Quran / ayat / sumber ilahi / peringkat 3 — OR opened the faith door.
 - Quran becomes basis for confirmation and light — weave in plain prose after conventional ground.
 
-TIER DOORS (maieutic — after answering, not before):
-- After tier-1 answer: ONE short question offering tier 2 only — e.g. whether they want the Alamtologi angle.
-- After tier-2 answer: ONE short question offering tier 3 only — e.g. whether they want Quranic confirmation.
-- Never offer both doors in one closing. Never preach tier 2/3 content before the user accepts.
-- Skip tier doors on salam, thanks, or when the answer was := 0 SUSPENDED with nothing to build on.
+TIER DOORS (optional — only after a COMPLETE answer):
+- Default: end quietly when the factual answer has landed (Silence Principle).
+- You MAY add ONE short question offering the next tier — only if natural and only one tier per turn.
+- Never offer tier 2 AND tier 3 together. Never ask what they want BEFORE answering.
+- Skip tier doors on salam, thanks, light chat, or when there is nothing substantive to build on.
 `.trim();
 
 const ALAMTOLOGI_TIER_OPT_IN: RegExp[] = [
@@ -133,8 +133,8 @@ export function buildThreeTierTurnOverlay(tier: StudentKnowledgeTier): string {
     default:
       return [
         'ACTIVE TIER THIS TURN: 1 — KONVENSIONAL + ISU SEMASA.',
-        'Deliver complete scientific/factual answer first.',
-        'End with ONE optional question offering tier 2 (Alamtologi angle) — question only, no tier-2 lecture yet.',
+        'Deliver the complete factual answer in flowing paragraphs first.',
+        'Then land quietly — or, only if natural, ONE short optional question about the Alamtologi angle (never a dual-option menu).',
       ].join('\n');
   }
 }

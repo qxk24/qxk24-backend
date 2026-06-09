@@ -13,7 +13,12 @@
  */
 
 import { ENV } from '../config/environments';
-import { ADAM_CHARACTER_CORE, ADAM_CHARACTER_STUDENT, ADAM_CHARACTER_TEACHING_LEARNER } from './adam-character';
+import {
+  ADAM_CHARACTER_CORE,
+  ADAM_CHARACTER_STUDENT,
+  ADAM_CHARACTER_TEACHING_LEARNER,
+  ADAM_FLOW_LIKE_WATER_STUDENT,
+} from './adam-character';
 import { ADAM_CORE_BEHAVIOUR, CONSULT_PHRASE, FOUNDER_STUDENTS_AWARENESS, STUDENT_CORE_BEHAVIOUR } from './adam-identity-prompts';
 import { ADAM_EPISTEMOLOGICAL_POSITION, ADAM_FOUNDER_NARRATIVE, ADAM_ALAMTOLOGI_LAWS } from './adam-knowledge-prompts';
 import {
@@ -39,7 +44,7 @@ import {
 import {
   ADAM_LAYER5_CORE,
   ADAM_LAYER5_FOUNDER,
-  ADAM_LAYER5_STUDENT,
+  ADAM_LAYER5_STUDENT_DELIVERY,
 } from './adam-response-generation';
 import {
   ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE,
@@ -165,7 +170,7 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
 
   const warmthBlock = params.isFounder
     ? (teachingLearnerTurn ? ADAM_WARMTH_VOICE_TEACHING_LEARNER : ADAM_WARMTH_VOICE)
-    : [ADAM_WARMTH_VOICE, ADAM_WARMTH_VOICE_STUDENT].join('\n\n');
+    : ADAM_WARMTH_VOICE_STUDENT;
 
   const parts: string[] = [characterBlock];
 
@@ -180,6 +185,7 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     );
   } else {
     parts.push(
+      ADAM_FLOW_LIKE_WATER_STUDENT,
       ADAM_STUDENT_OUTPUT_LAW,
       ADAM_STUDENT_HUMAN_TUTOR_MANDATE,
       ADAM_PROSE_DASH_LAW,
@@ -207,7 +213,7 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     parts.push(
       params.isFounder
         ? `${ADAM_LAYER5_CORE}\n\n${ADAM_LAYER5_FOUNDER}`
-        : `${ADAM_LAYER5_CORE}\n\n${ADAM_LAYER5_STUDENT}`,
+        : ADAM_LAYER5_STUDENT_DELIVERY,
     );
     if (params.amaTamatBlock?.trim()) {
       parts.push(params.amaTamatBlock.trim());
