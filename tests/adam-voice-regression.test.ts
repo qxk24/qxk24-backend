@@ -186,6 +186,22 @@ describe('Voice regression — bad voice stripped or repaired', () => {
     expect(out).toMatch(/cemas|tidur|saraf|nafas/i);
   });
 
+  it('V-B06: diabetes textbook numbered syllabus → repaired prose, facts kept', async () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/diabetes-textbook-leak.txt'),
+      'utf8',
+    );
+    const out = await runStudentVoicePipeline({
+      userMessage:    'Apa punca manusia mengidap diabetes?',
+      rawModelOutput: raw,
+      searchUsed:     true,
+    });
+    expectStudentVoiceInvariants(out);
+    expect(out).not.toMatch(/^\s*1\.\s/m);
+    expect(out).not.toMatch(/Secara ringkas:/i);
+    expect(out).toMatch(/diabetes|insulin|pankreas/i);
+  });
+
   it('V-B03: passive compare menu stripped from technical answer body', async () => {
     const out = await runStudentVoicePipeline({
       userMessage: 'Berapa tork enjin varian Elite?',

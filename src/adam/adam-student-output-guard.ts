@@ -19,17 +19,60 @@
  * Voice and form come from Layer 5 prompts at generation time.
  */
 
-import { sanitizeTechnicalPrecisionOutput } from './adam-factual-grounding';
+import { resolveTechnicalPrecisionTurn, sanitizeTechnicalPrecisionOutput } from './adam-factual-grounding';
 import {
+  paragraphIsDashSummaryLeak,
+  paragraphIsNumberedSyllabusLeak,
   paragraphShouldStripForUniversalVoice,
   sanitizeStudentForbiddenPronouns,
   studentForbiddenPronounAlternation,
 } from './adam-student-output-law';
 import { paragraphIsThreeTierDoorOffer } from './adam-three-tier-knowledge';
 import {
+  isTechnicalPrecisionQuestion,
   userAskedForAlamtologi,
   userOpenedFaithDoor,
 } from './adam-universal-voice';
+
+/** Collapse textbook numbered lists / dash summaries on explanatory turns (not spec sheets). */
+export function repairStudentTextbookFormat(
+  text: string,
+  userMessage: string,
+  recentUserMessages: string[] = [],
+): string {
+  if (resolveTechnicalPrecisionTurn(userMessage, recentUserMessages).isActive) return text;
+  if (isTechnicalPrecisionQuestion(userMessage.trim())) return text;
+
+  let out = text;
+  const numberedCount = (out.match(/^\s*\d+[.)]\s+/gm) ?? []).length;
+  if (numberedCount >= 2) {
+    out = out.replace(/^\s*\d+[.)]\s+/gm, '\n\n');
+  }
+
+  out = out.replace(
+    /\nSecara ringkas:\s*\n((?:\s*[-•*]\s+.+\n?)+)/gi,
+    (_match, bullets: string) => {
+      const items = bullets
+        .split('\n')
+        .map((l: string) => l.replace(/^\s*[-•*]\s+/, '').trim())
+        .filter(Boolean);
+      return items.length ? `\n\n${items.join(' ')}` : '';
+    },
+  );
+
+  const lines = out.split('\n');
+  const bulletLineCount = lines.filter((l) => /^\s*[-•*]\s+/.test(l)).length;
+  if (bulletLineCount >= 2 && !/\|/.test(out)) {
+    out = lines
+      .map((line) => {
+        const m = line.match(/^\s*[-•*]\s+(.+)$/);
+        return m ? m[1].trim() : line;
+      })
+      .join('\n');
+  }
+
+  return out.replace(/\n{3,}/g, '\n\n').trim();
+}
 
 const FRAMEWORK_LEAK =
   /\b(?:Dalam\s+lensa\s+Alamtologi|Dari\s+perspektif\s+Alamtologi|Alamtologi\s+menyatakan|framework\s+Alamtologi)\b/i;
@@ -202,6 +245,7 @@ export function sanitizeStudentOutputSync(
 
   out = restoreStudentMathBlocks(out, slots);
   out = inlineQuranAyat(out);
+  out = repairStudentTextbookFormat(out, userMessage, recentUserMessages);
   out = sanitizeTechnicalPrecisionOutput(out, userMessage, recentUserMessages);
   out = sanitizeStudentForbiddenPronouns(out);
   out = stripUniversalVoiceLeaks(out, userMessage);
@@ -211,12 +255,17 @@ export function sanitizeStudentOutputSync(
 
   const faithOk = userOpenedFaithDoor(userMessage);
   const alamtologiOk = userAskedForAlamtologi(userMessage);
+  const technicalOk = resolveTechnicalPrecisionTurn(userMessage, recentUserMessages).isActive
+    || isTechnicalPrecisionQuestion(userMessage.trim());
 
   for (const para of paragraphs) {
     const trimmed = para.trim();
     if (!trimmed) continue;
     if (!paragraphIsThreeTierDoorOffer(trimmed)
       && SCRIPTED_CLOSINGS.some((re) => re.test(trimmed))) continue;
+    if (!technicalOk && (paragraphIsNumberedSyllabusLeak(trimmed) || paragraphIsDashSummaryLeak(trimmed))) {
+      continue;
+    }
     if (paragraphShouldStripForUniversalVoice(trimmed, { faithOk, alamtologiOk })) continue;
     if (/^\[Source:/i.test(trimmed)) continue;
     if (/^Maksudnya\s*:/i.test(trimmed)) continue;

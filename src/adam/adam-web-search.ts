@@ -17,7 +17,7 @@ import {
   isUserEntityCorrectionMessage,
   resolveTechnicalPrecisionTurn,
 } from './adam-factual-grounding';
-import { isLifeEmotionTurn } from './adam-universal-voice';
+import { isExplanatoryScienceQuestion, isLifeEmotionTurn } from './adam-universal-voice';
 import {
   buildFounderWebSearchPrompt,
   buildStudentWebSearchPrompt,
@@ -82,6 +82,9 @@ export function getAdamWebSearchPrompt(
       const msg = options?.userMessage?.trim() ?? '';
       if (msg && isLifeEmotionTurn(msg)) {
         return buildStudentWebSearchPrompt('life_substantive');
+      }
+      if (msg && isExplanatoryScienceQuestion(msg)) {
+        return buildStudentWebSearchPrompt('explanatory_science');
       }
       return buildStudentWebSearchPrompt('prefetched');
     }

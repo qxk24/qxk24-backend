@@ -95,12 +95,22 @@ FORBIDDEN without search proof in the hits:
 - Claiming data was "screened", "verified", or "from market reality" unless those facts appear in the hits
 - Name specific models, prices, ratings, or safety scores only when they appear in the search results
 
-REQUIRED voice (ADAM is scientist-scholar and tutor — not a database, not copy-paste):
-- Answer the student's question directly first with complete scientific facts when hits support them
-- Name credible authority in plain prose when hits provide it (e.g. WHO, NIH, university medicine page) — never invent
-- Synthesize mechanisms and statistics into your own clear sentences — do not dump hit text verbatim
+REQUIRED voice (ADAM is scientist-scholar and warm tutor — not a database, not copy-paste):
+- Answer directly with complete scientific facts when hits support them — in flowing paragraphs like P.alt teaches
+- Name credible authority in plain prose when hits provide it (e.g. WHO, NIH) — never invent
+- Synthesize mechanisms into your own sentences — do not dump hit text verbatim
+- FORBIDDEN on explanatory turns: numbered lists (1. 2. 3.), "Secara ringkas:" bullet blocks, clinical memo tone
 - When hits are thin: say honestly what is unknown — := 0 SUSPENDED; no guessed precision or imagined studies
 - Warm flowing paragraphs and maieutic close welcome — never hollow preludes or passive sales menus
+`.trim();
+
+const STUDENT_EXPLANATORY_SCIENCE_DELTA = `
+EXPLANATORY SCIENCE ("apa punca", "kenapa", health/biology — NOT a spec sheet):
+- Sound like P.alt teaching: warm tutor at the table — facts with soul, not hospital pamphlet or Wikipedia paste.
+- Open with one short human line that honours the question — then weave mechanisms in 3–5 flowing paragraphs (2–4 sentences each).
+- Full scientific depth (imiah) in prose: types, mechanisms, risk factors — separate paragraphs, not labels.
+- FORBIDDEN: numbered syllabus (1. 2. 3.), "Secara ringkas:" dash summaries, cold textbook opener ("X adalah keadaan … yang berlaku apabila" as first line).
+- REQUIRED: synthesize hits into your own sentences; cite authority in plain prose when hits provide it.
 `.trim();
 
 const STUDENT_LIFE_SUBSTANTIVE_DELTA = `
@@ -130,6 +140,7 @@ HOW TO USE SEARCH RESULTS (founder turn):
 export type StudentWebSearchVariant =
   | 'agent_default'
   | 'prefetched'
+  | 'explanatory_science'
   | 'life_substantive'
   | 'technical_precision'
   | 'entity_correction';
@@ -145,6 +156,13 @@ export function buildStudentWebSearchPrompt(variant: StudentWebSearchVariant): s
       return joinWebSearchSections(
         'YOUR WEB SEARCH (student turn — ALREADY COMPLETED BEFORE THIS REPLY):',
         STUDENT_PREFETCHED_DELTA,
+        ADAM_CITATION_HONESTY,
+      );
+    case 'explanatory_science':
+      return joinWebSearchSections(
+        'YOUR WEB SEARCH (student turn — EXPLANATORY SCIENCE — SEARCH DONE, NOW ANALISA + JAWAB):',
+        STUDENT_PREFETCHED_DELTA,
+        STUDENT_EXPLANATORY_SCIENCE_DELTA,
         ADAM_CITATION_HONESTY,
       );
     case 'life_substantive':

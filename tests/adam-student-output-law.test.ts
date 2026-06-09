@@ -7,6 +7,8 @@ import {
   paragraphHasForbiddenStudentPronoun,
   paragraphHasMarkdownTable,
   paragraphIsConstitutionalFrameworkLeak,
+  paragraphIsDashSummaryLeak,
+  paragraphIsNumberedSyllabusLeak,
   paragraphIsTutorPerformanceLeak,
   sanitizeStudentForbiddenPronouns,
   STUDENT_FORBIDDEN_PRONOUNS,
@@ -71,6 +73,13 @@ describe('constitutional and performance leak detectors', () => {
         'Terima kasih kerana berkongsi soalan ini. bukan sekadar soalan tentang tidur.',
       ),
     ).toBe(true);
+  });
+});
+
+describe('textbook format leak detectors', () => {
+  it('flags numbered syllabus and dash summary blocks', () => {
+    expect(paragraphIsNumberedSyllabusLeak('1. Foo\n2. Bar')).toBe(true);
+    expect(paragraphIsDashSummaryLeak('Secara ringkas:\n- Jenis 1: x\n- Jenis 2: y')).toBe(true);
   });
 });
 

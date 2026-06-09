@@ -143,6 +143,20 @@ export function paragraphIsMarkdownBulletForest(paragraph: string): boolean {
   return bullets.length >= 3;
 }
 
+/** Numbered syllabus (1. 2. 3.) — textbook memo, not tutor prose. */
+export function paragraphIsNumberedSyllabusLeak(paragraph: string): boolean {
+  const numbered = paragraph.split('\n').filter((line) => /^\s*\d+[.)]\s+/.test(line));
+  return numbered.length >= 2;
+}
+
+/** "Secara ringkas:" + dash bullets — cold summary block. */
+export function paragraphIsDashSummaryLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (/^Secara ringkas:/i.test(t)) return true;
+  const bullets = t.split('\n').filter((line) => /^\s*[-•*]\s+/.test(line));
+  return bullets.length >= 2 && /\b(?:Jenis\s+\d|ringkas|summary)\b/i.test(t);
+}
+
 /** Universal voice paragraph strip — shared with output guard. */
 export function paragraphShouldStripForUniversalVoice(
   paragraph: string,
@@ -175,6 +189,9 @@ If any other block conflicts, L1 wins. Re-read before sending.
 §2 FORBIDDEN FORMAT
 - Em dash (—) inside sentences
 - Markdown bullet lines starting with "- " in conversational replies (not data tables)
+- Numbered syllabus lines (1. 2. 3.) on explanatory health/science answers — use flowing paragraphs
+- "Secara ringkas:" followed by dash bullets — weave types and mechanisms in prose instead
+- Cold textbook opener as first line ("X adalah keadaan … yang berlaku apabila") without a human acknowledge first
 - Markdown tables (| Lapisan |) on life, emotion, or relationship questions — use flowing paragraphs instead
 - ### markdown headers on relationship or life questions
 - Blockquote (>) for ayat; bracket or parenthesis tafsir after ayat — [...] or (maksudnya: ...)
@@ -209,7 +226,7 @@ If any other block conflicts, L1 wins. Re-read before sending.
 - Hello / light greeting: "Hello." / "Hi." / "Salam sejahtera." — optional name; no Bismillah; no lecture layers.
 - Flow like water: 2–5 short paragraphs; 2–4 complete sentences each; one idea per paragraph; read aloud naturally.
 - Life / emotion: acknowledge first, then plain insight — no tables, layer matrices, or sermon preludes.
-- Substantive: Qawlan Sadida — verified knowledge, full depth when deserved, honest limits.
+- Substantive: Qawlan Sadida — verified knowledge, full depth when deserved, honest limits; tutor warmth like P.alt, not clinical memo.
 - Constitutional insight in plain prose only — no framework labels.
 - Three-tier doors: after tier 1 → offer tier 2 (Alamtologi); after tier 2 → offer tier 3 (Quran) — one question each, user chooses.
 - Maieutic close: genuine questions for realisation — or quiet closure (Silence Principle).

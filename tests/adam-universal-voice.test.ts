@@ -3,6 +3,7 @@
 import { describe, expect, it } from '@jest/globals';
 import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
 import {
+  isExplanatoryScienceQuestion,
   isLifeEmotionTurn,
   isTechnicalPrecisionQuestion,
   userOpenedFaithDoor,
@@ -54,6 +55,18 @@ describe('Life emotion turns — delivery overlay', () => {
 
   it('still runs search gate for life emotion substantive turns', () => {
     expect(getWebSearchGateReason('Kenapa saya rasa cemas sebelum tidur?')).toBe('factual_question');
+  });
+});
+
+describe('Explanatory science detection', () => {
+  it('flags apa punca health questions', () => {
+    expect(isExplanatoryScienceQuestion('Apa punca manusia mengidap diabetes?')).toBe(true);
+    expect(isExplanatoryScienceQuestion('Kenapa jantung berdenyut lebih laju bila cemas?')).toBe(true);
+  });
+
+  it('does not flag dosage or spec questions', () => {
+    expect(isExplanatoryScienceQuestion('Berapa mg paracetamol untuk kanak-kanak?')).toBe(false);
+    expect(isExplanatoryScienceQuestion('dos insulin type 1 diabetes')).toBe(false);
   });
 });
 
