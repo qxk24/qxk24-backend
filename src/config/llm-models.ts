@@ -178,10 +178,12 @@ export function resolveAdamMaxTokens(
 export function resolveQwenEnableThinking(
   tier: ModelTier,
   mode: ADAMChatMode,
-  options?: { founderTeachingAbsorption?: boolean },
+  options?: { founderTeachingAbsorption?: boolean; isStudent?: boolean },
 ): boolean {
   if (!ENV.QWEN_ENABLE_THINKING) return false;
   if (tier === 'fast') return false;
+  // Students — first visible token sooner; synthesis max_tokens unchanged
+  if (options?.isStudent) return false;
   // Teaching absorption — stream visible sooner; output tokens unchanged
   if (options?.founderTeachingAbsorption) return false;
   return DEEP_MODES.includes(mode);

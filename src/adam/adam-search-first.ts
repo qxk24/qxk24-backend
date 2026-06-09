@@ -24,7 +24,13 @@
 
 import type { LlmMessage, LlmSearchResult } from '../llm/llm-types';
 import { isQwenDataInspectionError, llmPrefetchWebSearch } from '../llm/llm-client';
+import { getFastModel } from '../config/llm-models';
 import { ADAM_SCIENTIST_SCHOLAR_IDENTITY } from './adam-universal-voice';
+
+/** Search-only phase — fast tier; synthesis keeps deep model and full token budget. */
+export function getStudentSearchPrefetchModel(): string {
+  return getFastModel();
+}
 
 /** Canonical student reply pipeline — prompt + registry reference. */
 export const ADAM_STUDENT_REPLY_PIPELINE = `
@@ -113,7 +119,8 @@ export interface StudentSearchPrefetchResult {
 export async function runStudentSearchPrefetch(input: {
   userMessage:          string;
   recentUserMessages?:  LlmMessage[];
-  model:                string;
+  /** Defaults to getStudentSearchPrefetchModel() — turbo for search-only. */
+  model?:               string;
   onSearching?:         () => void;
   onSearchDone?:        () => void;
 }): Promise<StudentSearchPrefetchResult> {
@@ -132,8 +139,8 @@ export async function runStudentSearchPrefetch(input: {
         role:    'user',
         content: buildSearchPrefetchUserPrompt(input.userMessage, recent),
       }],
-      model:     input.model,
-      maxTokens: 64,
+      model:     input.model ?? getStudentSearchPrefetchModel(),
+      maxTokens: 32,
     });
     input.onSearchDone?.();
     return {

@@ -1,13 +1,19 @@
 /// <reference types="jest" />
 
 import { describe, expect, it } from '@jest/globals';
+import { getFastModel } from '../src/config/llm-models';
 import {
   buildPrefetchedSearchContextBlock,
   buildSearchPrefetchUserPrompt,
+  getStudentSearchPrefetchModel,
   shouldStudentUseSearchFirstFlow,
 } from '../src/adam/adam-search-first';
 
 describe('ADAM search-first flow', () => {
+  it('uses fast tier for search-only prefetch', () => {
+    expect(getStudentSearchPrefetchModel()).toBe(getFastModel());
+  });
+
   it('activates for student factual gate only', () => {
     expect(shouldStudentUseSearchFirstFlow(false, 'factual_question')).toBe(true);
     expect(shouldStudentUseSearchFirstFlow(true, 'factual_question')).toBe(false);

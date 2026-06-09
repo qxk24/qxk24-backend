@@ -386,6 +386,29 @@ export async function streamADAMChat(
         && !isGuestTrial;
       const needTesterPrefix = !isFounder && participant.sessionType === 'student';
 
+      const earlyWebSearchReason =
+        !isFounder && adamWebSearchEnabled()
+          ? getWebSearchGateReason(messageForAdam, { isFounder: false })
+          : null;
+      let searchPrefetchParallel = false;
+      let searchPrefetchPromise: ReturnType<typeof runStudentSearchPrefetch> | null = null;
+      if (earlyWebSearchReason) {
+        searchPrefetchParallel = true;
+        searchPrefetchPromise = runStudentSearchPrefetch({
+          userMessage,
+          recentUserMessages: [],
+          onSearching: () => {
+            onEvent(
+              'adam_searching',
+              JSON.stringify({ query: userMessage.slice(0, 80) || 'Mencari data sebenar…' }),
+            );
+          },
+          onSearchDone: () => {
+            onEvent('adam_search_done', JSON.stringify({ query: '' }));
+          },
+        });
+      }
+
       const [
         contextMessages,
         studentContinuityBridge,
@@ -537,7 +560,10 @@ export async function streamADAMChat(
       const enableThinking = resolveQwenEnableThinking(
         modelChoice.tier,
         mode,
-        { founderTeachingAbsorption: founderTeachingLearnerTurn },
+        {
+          founderTeachingAbsorption: founderTeachingLearnerTurn,
+          isStudent:                 !isFounder,
+        },
       );
       const forceWebSearch = enableWebSearch
         && !isFounder
@@ -571,21 +597,25 @@ export async function streamADAMChat(
       let prefetchedSearchDropped = false;
 
       if (studentSearchFirst) {
-        const prefetch = await runStudentSearchPrefetch({
-          userMessage:         userMessage,
-          recentUserMessages:  llmMessages,
-          model:               modelChoice.model,
-          onSearching: () => {
-            onEvent(
-              'adam_searching',
-              JSON.stringify({ query: userMessage.slice(0, 80) || 'Mencari data sebenar…' }),
-            );
-          },
-          onSearchDone: () => {
-            onEvent('adam_search_done', JSON.stringify({ query: '' }));
-          },
-        });
-        searchPrefetchMs = prefetch.prefetchMs;
+        const prefetchStarted = Date.now();
+        const prefetch = searchPrefetchPromise
+          ? await searchPrefetchPromise
+          : await runStudentSearchPrefetch({
+            userMessage,
+            recentUserMessages: llmMessages,
+            onSearching: () => {
+              onEvent(
+                'adam_searching',
+                JSON.stringify({ query: userMessage.slice(0, 80) || 'Mencari data sebenar…' }),
+              );
+            },
+            onSearchDone: () => {
+              onEvent('adam_search_done', JSON.stringify({ query: '' }));
+            },
+          });
+        searchPrefetchMs = searchPrefetchPromise
+          ? Date.now() - prefetchStarted
+          : prefetch.prefetchMs;
         prefetchedSearchResults = prefetch.searchResults;
         prefetchedSearchUsed = prefetch.searchUsed;
         prefetchedSearchDropped = prefetch.searchDroppedByFilter;
@@ -608,6 +638,8 @@ export async function streamADAMChat(
           hits:      prefetchedSearchResults.length,
           dropped:   prefetchedSearchDropped,
           ms:        searchPrefetchMs,
+          parallel:  searchPrefetchParallel && Boolean(searchPrefetchPromise),
+          waitedMs:  searchPrefetchPromise ? Date.now() - prefetchStarted : prefetch.prefetchMs,
         }));
       }
 
@@ -877,6 +909,7 @@ export async function streamADAMChat(
           reason:    modelChoice.reason,
           contextMs,
           searchPrefetchMs,
+          searchPrefetchParallel: searchPrefetchParallel && Boolean(searchPrefetchPromise),
           streamMs,
           repairMs,
           sunomMs,
