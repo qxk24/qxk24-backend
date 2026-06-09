@@ -71,10 +71,10 @@ export function buildStudentGuidedPerspectiveFallback(userMessage: string): stri
   const t = userMessage.trim();
   if (/\b(?:cemas|anxious|anxiety|risau|gelisah|tidur|sleep|insomnia|stres|stress)\b/i.test(t)) {
     return [
-      'Rasa cemas sebelum tidur biasanya isyarat sistem saraf masih dalam mod berjaga-jaga, bukan kelemahan peribadi.',
-      'Secara fisiologi, parasimpatik perlu mengambil alih dari simpatik pada waktu malam. Kafein lewat petang, skrin sebelum tidur, atau beban yang belum dilepaskan boleh menahannya.',
-      'Cuba rutin ringkas: tarik nafas perlahan, kurangkan rangsangan berat dua jam sebelum tidur, dan catat satu perkara yang boleh ditangguhkan ke esok.',
-      'Apa satu tabiat malam yang paling mudah untuk anda ubah minggu ini?',
+      'Rasa cemas sebelum tidur biasanya bermakna sistem saraf masih dalam mod berjaga-jaga. Itu isyarat biasa, bukan kelemahan.',
+      'Pada waktu malam parasimpatik perlu mengambil alih dari simpatik. Kafein lewat petang, skrin sebelum tidur, atau beban yang belum diselesaikan sering memegang minda terjaga.',
+      'Mulakan dengan satu langkah kecil: nafas perlahan, kurangkan rangsangan berat dua jam sebelum tidur, dan pilih satu perkara untuk ditangguhkan ke esok.',
+      'Apa tabiat malam yang paling mudah untuk anda cuba minggu ini?',
     ].join('\n\n');
   }
   if (/\b(?:kereta|automobil|mobil|kenderaan|\bcar\b|bekas|baru|pemilikan)\b/i.test(t)) {

@@ -154,6 +154,22 @@ describe('Voice regression — bad voice stripped or repaired', () => {
     expect(out).not.toMatch(/—/);
   });
 
+  it('V-B05: layered markdown table + ALLAH close → flowing fallback', async () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/anxiety-table-leak.txt'),
+      'utf8',
+    );
+    const out = await runStudentVoicePipeline({
+      userMessage:    'Kenapa saya rasa cemas sebelum tidur?',
+      rawModelOutput: raw,
+    });
+    expectStudentVoiceInvariants(out);
+    expect(out).not.toMatch(/\|Lapisan\|/);
+    expect(out).not.toMatch(/\bALLAH\b/);
+    expect(out).not.toMatch(/Terima kasih kerana meminta/i);
+    expect(out).toMatch(/cemas|tidur|saraf|nafas/i);
+  });
+
   it('V-B04: anxiety sermon with MASA/TENAGA/IZWA → guided fallback, not raw leak', async () => {
     const raw = readFileSync(
       join(__dirname, 'fixtures/anxiety-sermon-leak.txt'),

@@ -43,7 +43,13 @@ Conventional knowledge first; conscience internal; framework labels silent in ou
 DEPTH AND EVIDENCE:
 - Match answer weight to the question. Never wait to be asked to go deep.
 - Web search when evidence matters — cite only what search returned.
+- Life and emotion turns: no web search layer — answer in warm flowing prose from conventional knowledge.
 - Principled tutor perspective is welcome after honest facts — never invented statistics or sources.
+
+FLOW LIKE WATER (life, emotion, relationships):
+- Short paragraphs only (2–4 complete sentences each). One idea per paragraph. Blank line between paragraphs.
+- Read aloud naturally — plain BM Malaysia, not poetry performance or lecture headers.
+- Never markdown tables, layer matrices (Fizikal/Emosi/Ruhani), emoji section breaks, or numbered ritual scripts on these turns.
 
 TECHNICAL PRECISION (mandatory — all measurable / verifiable topics):
 - Specs, dosage, formula, constants, price, statistics, mechanism with numbers, product comparison →
@@ -58,6 +64,16 @@ TECHNICAL PRECISION (mandatory — all measurable / verifiable topics):
 
 const TECHNICAL_EMOTIONAL_EXCLUDE =
   /\b(sayang|cinta|sedih|marah|risau|cemas|hati\s+saya|perasaan\s+saya|meaning\s+of\s+life|jiwa\s+saya|broken\s+heart)\b/i;
+
+const LIFE_EMOTION_SIGNAL =
+  /\b(?:cemas|anxious|anxiety|risau|gelisah|sedih|marah|putus\s+asa|takut|insomnia|tidur|sleep|stres|stress|overwhelmed|burnout|perasaan|jiwa\s+saya|hati\s+saya|hubungan|pasangan|keluarga|relationship|lonely|sunyi|overthink|susah\s+tidur|tidak\s+boleh\s+tidur|kebimbangan)\b/i;
+
+/** Life / emotion turn — no web search prefetch; flowing tutor prose, not data tables. */
+export function isLifeEmotionTurn(message: string): boolean {
+  const t = message.trim();
+  if (!t || isTechnicalPrecisionQuestion(t)) return false;
+  return LIFE_EMOTION_SIGNAL.test(t);
+}
 
 const TECHNICAL_MEASUREMENT_UNITS =
   /\d[\d.,]*\s*(?:v\b|a\b|w\b|hz|mhz|ghz|khz|kg|g\b|mg|ml|l\b|°c|celsius|kelvin|ohm|ω|mbps|gb|tb|mah|kpa|bar|psi|rpm|kw|kwh|μm|mm|cm|m\b|nm\b|ph\b|ppm|mol|kcal|cal\b|iu\b|mmhg|bpm)/i;

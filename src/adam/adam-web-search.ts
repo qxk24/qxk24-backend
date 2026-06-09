@@ -17,6 +17,7 @@ import {
   isUserEntityCorrectionMessage,
   resolveTechnicalPrecisionTurn,
 } from './adam-factual-grounding';
+import { isLifeEmotionTurn } from './adam-universal-voice';
 import {
   buildFounderWebSearchPrompt,
   buildStudentWebSearchPrompt,
@@ -159,6 +160,8 @@ export function getWebSearchGateReason(
   if (parseQuranAyahRefs(text).length > 0) return null;
 
   if (PURE_REFLECTION.test(text)) return null;
+
+  if (isLifeEmotionTurn(text)) return null;
 
   if (
     options?.isFounder &&

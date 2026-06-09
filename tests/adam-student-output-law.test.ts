@@ -5,6 +5,7 @@ import {
   ADAM_STUDENT_OUTPUT_LAW,
   buildStudentForbiddenPronounRegex,
   paragraphHasForbiddenStudentPronoun,
+  paragraphHasMarkdownTable,
   paragraphIsConstitutionalFrameworkLeak,
   paragraphIsTutorPerformanceLeak,
   sanitizeStudentForbiddenPronouns,
@@ -56,6 +57,12 @@ describe('constitutional and performance leak detectors', () => {
       ),
     ).toBe(true);
     expect(paragraphIsConstitutionalFrameworkLeak('Parasimpatik mengambil alih.')).toBe(false);
+  });
+
+  it('flags markdown layer tables', () => {
+    expect(
+      paragraphHasMarkdownTable('| Lapisan | Apa | Tanda |\n|---|---|---|'),
+    ).toBe(true);
   });
 
   it('flags poetic tutor prelude', () => {

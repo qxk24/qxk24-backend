@@ -96,11 +96,21 @@ export function paragraphIsConstitutionalFrameworkLeak(paragraph: string): boole
 export function paragraphIsUnsolicitedFaithSermon(paragraph: string): boolean {
   if (/\bBismillah(?:irahmanirrahim)?\b/i.test(paragraph)) return true;
   if (/\bYa\s+ALLAH\b/i.test(paragraph)) return true;
+  if (/\bALLAH\b/i.test(paragraph)) return true;
   if (/\b(?:Dia yang Maha|mengingati Dia)\b/i.test(paragraph)) return true;
-  if ((paragraph.match(/\bALLAH\b/gi) ?? []).length >= 2) return true;
+  if (/\b(?:zikir|syaitan|bisikan)\b/i.test(paragraph)) return true;
   if (/\bpenyerahan\s+tiga\s+waktu\b/i.test(paragraph)) return true;
   if (/\bsecara\s+ruhani\b/i.test(paragraph)) return true;
+  if (/\bRuhani\b/i.test(paragraph)) return true;
   return false;
+}
+
+/** Markdown table in conversational reply — not verified technical data. */
+export function paragraphHasMarkdownTable(paragraph: string): boolean {
+  if (!/\|/.test(paragraph)) return false;
+  if (/\|[\s:]*-{2,}/.test(paragraph)) return true;
+  if (/\bLapisan\b/i.test(paragraph)) return true;
+  return (paragraph.match(/\|/g) ?? []).length >= 4;
 }
 
 /** Poetic tutor performance — prelude, emoji headers, presence scripts (§3 / §5). */
@@ -108,7 +118,14 @@ export function paragraphIsTutorPerformanceLeak(paragraph: string): boolean {
   const t = paragraph.trim();
   if (!t) return false;
   if (/^Terima kasih kerana berkongsi/i.test(t)) return true;
+  if (/^Terima kasih kerana meminta/i.test(t)) return true;
   if (/^Mari kita mulakan dengan kebenaran yang lembut/i.test(t)) return true;
+  if (/^Mari kita masuk lebih dalam/i.test(t)) return true;
+  if (/^Ini bukan soalan biasa/i.test(t)) return true;
+  if (/tubuh dan jiwa yang sedang berbicara/i.test(t)) return true;
+  if (/kebenaran yang menyentuh akar/i.test(t)) return true;
+  if (/bukan dengan istilah teknikal yang menjauhkan/i.test(t)) return true;
+  if (/tanda kehidupan yang sedang menunggu/i.test(t)) return true;
   if (/^[\u{1F300}-\u{1FAFF}]/u.test(t)) return true;
   if (/bukan sekadar soalan/i.test(t) && /\b(?:hati|jiwa|nafas|manusiawi)\b/i.test(t)) return true;
   if (/menyentuh hati,\s*nafas/i.test(t)) return true;
@@ -134,6 +151,7 @@ export function paragraphShouldStripForUniversalVoice(
   if (!options.faithOk && paragraphIsUnsolicitedFaithSermon(paragraph)) return true;
   if (paragraphIsTutorPerformanceLeak(paragraph)) return true;
   if (paragraphIsMarkdownBulletForest(paragraph)) return true;
+  if (paragraphHasMarkdownTable(paragraph)) return true;
   return false;
 }
 
@@ -155,6 +173,7 @@ If any other block conflicts, L1 wins. Re-read before sending.
 §2 FORBIDDEN FORMAT
 - Em dash (—) inside sentences
 - Markdown bullet lines starting with "- " in conversational replies (not data tables)
+- Markdown tables (| Lapisan |) on life, emotion, or relationship questions — use flowing paragraphs instead
 - ### markdown headers on relationship or life questions
 - Blockquote (>) for ayat; bracket or parenthesis tafsir after ayat — [...] or (maksudnya: ...)
 
@@ -185,6 +204,8 @@ If any other block conflicts, L1 wins. Re-read before sending.
 
 §6 RIGHT PATTERNS
 - Hello / light greeting: "Hello." / "Hi." / "Salam sejahtera." — optional name; no Bismillah; no lecture layers.
+- Flow like water: 2–5 short paragraphs; 2–4 complete sentences each; one idea per paragraph; read aloud naturally.
+- Life / emotion: acknowledge first, then plain insight — no tables, layer matrices, or sermon preludes.
 - Substantive: Qawlan Sadida — verified knowledge, full depth when deserved, honest limits.
 - Constitutional insight in plain prose only — no framework labels.
 - Maieutic close: one to three genuine questions for realisation — or quiet closure (Silence Principle).

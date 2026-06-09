@@ -3,9 +3,11 @@
 import { describe, expect, it } from '@jest/globals';
 import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
 import {
+  isLifeEmotionTurn,
   isTechnicalPrecisionQuestion,
   userOpenedFaithDoor,
 } from '../src/adam/adam-universal-voice';
+import { getWebSearchGateReason } from '../src/adam/adam-web-search';
 
 describe('ADAM universal voice output guard', () => {
   it('strips Bismillah opener on ordinary questions', () => {
@@ -37,6 +39,21 @@ describe('ADAM universal voice output guard', () => {
     const raw = 'Dalam lensa Alamtologi, rest is a rhythm of trust and release.';
     const out = sanitizeStudentOutputSync(raw, 'I cannot sleep well.');
     expect(out).not.toMatch(/Alamtologi/i);
+  });
+});
+
+describe('Life emotion turns — skip web search', () => {
+  it('detects anxiety and sleep questions', () => {
+    expect(isLifeEmotionTurn('Kenapa saya rasa cemas sebelum tidur?')).toBe(true);
+    expect(isLifeEmotionTurn('Bagaimana stres mempengaruhi tidur?')).toBe(true);
+  });
+
+  it('does not flag technical spec questions', () => {
+    expect(isLifeEmotionTurn('Berapa tork Viva Elite?')).toBe(false);
+  });
+
+  it('skips search gate for life emotion turns', () => {
+    expect(getWebSearchGateReason('Kenapa saya rasa cemas sebelum tidur?')).toBeNull();
   });
 });
 
