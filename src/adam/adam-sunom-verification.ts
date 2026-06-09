@@ -349,12 +349,12 @@ function resolveKadarAndLika(input: {
   const tenaga = tenagaFromKadar(gabung.kadar, lika);
 
   if (unsupportedClaims === picu.length) {
-    // Search ran with hits but picu not in titles/snippets — soften to sa, not full pasif wipe.
+    // Search ran but no picu in evidence — pasif silent gate (no invented specs).
     return {
-      lika: 'sa',
-      kadar: gabung.kadar,
-      ratioLabel: gabung.ratioLabel,
-      tenaga: tenagaFromKadar(gabung.kadar, 'sa'),
+      lika: 'pasif',
+      kadar: 'Sa',
+      ratioLabel: '1:1',
+      tenaga: 1,
       unsupportedClaims,
       anchors,
       snippetBackedHits: gabung.snippetBackedHits,
@@ -412,7 +412,7 @@ const HOLLOW_TECH_TEASER =
   /\b(?:berikut|di\s+bawah|below)\b[^.\n]{0,50}\b(?:perbandingan|comparison|ringkas|spesifikasi|spec|jadual|table)\b/i;
 
 const PASSIVE_TECH_MENU =
-  /\bAdakah\s+anda\s+(?:ingin|sedang\s+mempertimbangkan)\b|\batau\s+(?:perlukan\s+penjelasan|ingin\s+membanding)|\bmodel\s+(?:kereta\s+)?lain\b|\bmempertimbangkan\s+pembelian\b|\b0[\s–-]100\s*km|\bpenggunaan\s+bahan\s+api\b|\bsaya\s+boleh\s+bantu\s+dengan\s+detail\b|\bhow\s+does\s+.+\s+affect\b/i;
+  /\bAdakah\s+anda\s+(?:ingin|sedang\s+mempertimbangkan)\b|\batau\s+(?:perlukan\s+penjelasan|ingin\s+membanding)|\bJika\s+anda\s+ingin\s+saya\s+(?:bantu\s+)?bandingkan\b|\bmodel\s+(?:kereta\s+)?lain\b|\bmempertimbangkan\s+pembelian\b|\b0[\s–-]100\s*km|\bpenggunaan\s+bahan\s+api\b|\bsaya\s+boleh\s+(?:bantu\s+dengan\s+detail|carikan)\b|\bhow\s+does\s+.+\s+affect\b/i;
 
 const USEFUL_TECH_CLARIFIER =
   /\b(?:tahun|chassis|kod\s+varian|varian\s+khas|spesifikasi\s+tepat|carian\s+semula)\b/i;
@@ -482,15 +482,6 @@ function paragraphHasUnverifiedSourceCitations(
   );
 }
 
-function searchAttemptedWithEvidence(
-  report: SunomVerificationReport,
-  evidence: SunomEvidenceHit[],
-): boolean {
-  return report.searchUsed === true
-    && report.searchDropped !== true
-    && evidence.length > 0;
-}
-
 function shouldStripPasifParagraph(
   paragraph: string,
   report: SunomVerificationReport,
@@ -500,9 +491,11 @@ function shouldStripPasifParagraph(
 ): boolean {
   if (paragraphShouldStripAfterVerificationFailure(paragraph, userMessage, recentUserMessages)) return true;
   if (paragraphHasUnverifiedSourceCitations(paragraph, evidence)) return true;
+  if (paragraphHasUnsupportedPicu(paragraph, report.picuInOutput, evidence)) return true;
   if (
-    !searchAttemptedWithEvidence(report, evidence)
-    && paragraphHasUnsupportedPicu(paragraph, report.picuInOutput, evidence)
+    resolveTechnicalPrecisionTurn(userMessage, recentUserMessages).isActive
+    && PRECISE_SPEC_LINE.test(paragraph)
+    && !paragraphHasEvidenceBackedPicu(paragraph, evidence)
   ) return true;
   if (paragraphHasUnverifiedQualitativeSpec(paragraph)) return true;
   if (paragraphIsHollowTechnicalTeaser(paragraph)) return true;

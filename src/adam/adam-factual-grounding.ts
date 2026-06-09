@@ -131,6 +131,108 @@ export function resolveTechnicalPrecisionTurn(
   return { isActive, isFollowUp, precisionText };
 }
 
+export interface UserEntityCorrectionTurnContext {
+  isActive: boolean;
+  /** Token the student rejected (wrong name/brand/model). */
+  rejectedHint?: string;
+  /** Token the student affirmed as correct. */
+  acceptedHint?: string;
+}
+
+const ENTITY_CORRECTION_CUE =
+  /\b(?:anda\s+(?:salah|silap|buat\s+silap)|awak\s+salah|salah\s+(?:brand|nama|eja|sebut)|sengaja\s+buat\s+silap|you\s+(?:got\s+it\s+wrong|are\s+wrong)|that'?s\s+wrong|bukan\s+itu|ini\s+bukan)\b/i;
+
+const ENTITY_CORRECTION_MANDATE = `
+USER ENTITY CORRECTION TURN — UNIVERSAL (all domains):
+
+The student is correcting a wrong name, brand, model, spelling, or entity from your prior reply.
+
+MANDATORY:
+1. Accept the correction in one short sentence — no defensiveness, no "technical error" essay.
+2. Answer ONLY about the entity the student affirmed — use fresh web search for specs/facts.
+3. If they said "there is no X, this is Y" — do NOT invent that X is also a real separate product unless search clearly documents it.
+4. Never write a parallel history comparing a rejected wrong name vs the corrected name (rebadging, factory, "original design") unless search proves both as distinct official products.
+5. No philosophical closing about truth, adab, or epistemology — facts or an honest gap only.
+`.trim();
+
+function extractEntityCorrectionPair(message: string): Pick<UserEntityCorrectionTurnContext, 'rejectedHint' | 'acceptedHint'> {
+  const t = message.replace(/\s+/g, ' ').trim();
+  let m = t.match(/\bkenapa\s+([^\s?.!,]+)[?.!,]?\s+ini\s+([^\s?.!,]+)/i);
+  if (m) return { rejectedHint: m[1], acceptedHint: m[2] };
+  m = t.match(/\bbukan\s+([^\s?.!,]+)[,.\s]+ini\s+([^\s?.!,]+)/i);
+  if (m) return { rejectedHint: m[1], acceptedHint: m[2] };
+  m = t.match(/\bini\s+bukan\s+([^\s?.!,]+)(?:[,.\s]+(?:ini\s+)?([^\s?.!,]+))?/i);
+  if (m) return { rejectedHint: m[1], acceptedHint: m[2] };
+  return {};
+}
+
+/** Student corrects wrong brand/model/name — search + honest answer about affirmed entity only. */
+export function isUserEntityCorrectionMessage(message: string): boolean {
+  const t = message.trim();
+  if (!t) return false;
+  if (ENTITY_CORRECTION_CUE.test(t)) return true;
+  if (/\bkenapa\s+\S+/i.test(t) && /\bini\s+\S+/i.test(t) && t.length < 160) return true;
+  if (/\bbukan\s+\S+/i.test(t) && /\b(?:ini|sebenarnya|patutnya)\s+\S+/i.test(t) && t.length < 160) {
+    return true;
+  }
+  return false;
+}
+
+export function resolveUserEntityCorrectionTurn(
+  currentMessage: string,
+  recentUserMessages: string[] = [],
+): UserEntityCorrectionTurnContext {
+  const current = currentMessage.trim();
+  if (isUserEntityCorrectionMessage(current)) {
+    return { isActive: true, ...extractEntityCorrectionPair(current) };
+  }
+  const anchor = recentUserMessages[recentUserMessages.length - 1] ?? '';
+  if (anchor && isUserEntityCorrectionMessage(anchor) && current.length < 64) {
+    return { isActive: true, ...extractEntityCorrectionPair(anchor) };
+  }
+  return { isActive: false };
+}
+
+/** System prompt block when student corrects a wrong entity name. */
+export function buildEntityCorrectionPromptBlock(
+  message: string,
+  recentUserMessages: string[] = [],
+): string {
+  if (!resolveUserEntityCorrectionTurn(message, recentUserMessages).isActive) return '';
+  return ENTITY_CORRECTION_MANDATE;
+}
+
+/** Invented dual-product lineage (rebadge, plant, year span) — universal, no brand lists. */
+export function paragraphIsInventedProductLineageNarrative(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  const hasYearSpan = /\(\s*(?:19|20)\d{2}\s*[–-]\s*(?:19|20)\d{2}\s*\)/.test(t);
+  const hasRebadge = /\b(?:rebadg(?:ed|ing)?|badge\s+engine|platform\s+sharing)\b/i.test(t);
+  const hasOriginalDesignClaim = /\b(?:sepenuhnya\s+asal|reka\s+bentuk\s+asal|completely\s+original|original\s+design)\b/i.test(t);
+  const hasPlantOrigin = /\b(?:dihasilkan\s+di|dibuat\s+di|diperbuat\s+di|built\s+in)\b/i.test(t);
+  const hasContrast = /\b(?:berbeza\s+dengan|beza\s+dengan|tidak\s+sama\s+dengan|vs\.?|versus)\b/i.test(t);
+  if (hasYearSpan && (hasRebadge || hasOriginalDesignClaim || hasPlantOrigin)) return true;
+  if (hasRebadge && hasContrast) return true;
+  if (hasOriginalDesignClaim && hasContrast && hasYearSpan) return true;
+  return false;
+}
+
+function paragraphDoublesDownOnRejectedEntity(
+  paragraph: string,
+  userMessage: string,
+  recentUserMessages: string[] = [],
+): boolean {
+  const ctx = resolveUserEntityCorrectionTurn(userMessage, recentUserMessages);
+  if (!ctx.isActive || !ctx.rejectedHint) return false;
+  const rejected = ctx.rejectedHint.replace(/[?.!,]/g, '').toLowerCase();
+  if (!rejected || rejected.length < 3) return false;
+  const p = paragraph.toLowerCase();
+  if (!p.includes(rejected)) return false;
+  return paragraphIsInventedProductLineageNarrative(paragraph)
+    || /\(\s*(?:19|20)\d{2}\s*[–-]\s*(?:19|20)\d{2}\s*\)/.test(paragraph)
+    || /\b(?:rebadg|asal\s+reka|kilang|dibuat\s+di)\b/i.test(paragraph);
+}
+
 /** System prompt block injected on technical precision turns. */
 export function buildFactualGroundingPromptBlock(
   message: string,
@@ -239,7 +341,7 @@ const HAS_VERIFIED_STYLE_NUMBER =
 
 /** Model claims search verified specs — strip when verification gate already failed. */
 export const FALSE_SEARCH_VERIFIED_CLAIM =
-  /\b(?:disahkan\s+melalui\s+carian|carian\s+web\s+terkini|carian\s+semasa|berdasarkan\s+carian\s+semasa|data\s+teknikal\s+yang\s+disahkan|berdasarkan\s+spesifikasi\s+rasmi|ini\s+berdasarkan\s+spesifikasi|saya\s+telah\s+(?:men)?jalankan\s+carian|(?:men)?jalankan\s+carian\s+(?:web\s+)?(?:khusus|terkini)?|telah\s+(?:men)?jalankan\s+carian|berdasarkan\s+sumber\s+rasmi|laporan\s+teknikal\s+terverifikasi|spesifikasi\s+rasmi\s+\w+|hasil\s+pengesahan|pengesahan\s+daripada\s+sumber|hasil\s+carian\s+yang\s+sah|tiada\s+rekod\s+rasmi|sah\s+dan\s+diverifikasi|data\s+di\s+atas\s+adalah\s+sah|carian\s+khusus\s+untuk|saya\s+akan\s+cari\s+semula)\b/i;
+  /\b(?:disahkan\s+melalui\s+carian|carian\s+web\s+terkini|carian\s+semasa|berdasarkan\s+carian\s+semasa|data\s+teknikal\s+yang\s+disahkan|berdasarkan\s+spesifikasi\s+rasmi|ini\s+berdasarkan\s+spesifikasi|saya\s+telah\s+(?:men)?jalankan\s+carian|(?:men)?jalankan\s+carian\s+(?:web\s+)?(?:khusus|terkini)?|telah\s+(?:men)?jalankan\s+carian|berdasarkan\s+sumber\s+rasmi|dari\s+sumber\s+rasmi|disaring\s+dari\s+data|berdasarkan\s+realiti\s+pasaran|panduan\s+praktikal\s+berdasarkan|laporan\s+teknikal\s+terverifikasi|laporan\s+uji\s+jalan\s+terpercaya|spesifikasi\s+rasmi\s+\w+|hasil\s+pengesahan|pengesahan\s+daripada\s+sumber|hasil\s+carian\s+yang\s+(?:sah|disahkan)|tiada\s+rekod\s+rasmi|sah\s+dan\s+diverifikasi|data\s+di\s+atas\s+adalah\s+sah|carian\s+khusus\s+untuk|saya\s+akan\s+cari\s+semula)\b/i;
 
 export function paragraphClaimsFalseSearchVerification(paragraph: string): boolean {
   if (FALSE_SEARCH_VERIFIED_CLAIM.test(paragraph)) return true;
@@ -288,6 +390,8 @@ export function paragraphIsTechnicalAskDeflection(paragraph: string): boolean {
 export function paragraphIsEpistemicFrameworkLeak(paragraph: string): boolean {
   return /\bsetiap\s+nama,\s*angka,\s*dan\s+pola\s+ada\s+maksud/i.test(paragraph)
     || /\bkebenaran\s+teknikal\s+mesti\s+bermula\s+dari\s+realiti\b/i.test(paragraph)
+    || /\badab\s+kepada\s+kebenaran\b/i.test(paragraph)
+    || /\bbukan\s+sekadar\s+ketepatan\s+data\b/i.test(paragraph)
     || /^Dalam\s*,\s*setiap\s+nama/i.test(paragraph.trim());
 }
 
@@ -295,6 +399,67 @@ export function paragraphIsSpeculativePossibilitiesList(paragraph: string): bool
   const t = paragraph.trim();
   if (HAS_VERIFIED_STYLE_NUMBER.test(t)) return false;
   return /^Ini\s+mungkin\s+nama\s+kod\b/i.test(t);
+}
+
+/** Opens with weighty preamble instead of answering — no product lists. */
+export function paragraphIsHollowImportanceOpener(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!/^Pertanyaan\s+ini\s+penting/i.test(t)) return false;
+  return /\b(?:kewangan|tanggungjawab|keluarga|keselamatan\s+jangka\s+panjang)\b/i.test(t);
+}
+
+/** False authority — claims screened market data without search proof (not plain tutor guidance). */
+export function paragraphIsFalseMarketDataGuide(paragraph: string): boolean {
+  return /\bdisaring\s+dari\s+data\b/i.test(paragraph)
+    || (/\bberdasarkan\s+realiti\s+pasaran\b/i.test(paragraph) && /\b20\d{2}\s*[–-]\s*20\d{2}\b/.test(paragraph));
+}
+
+/** Invented industry association report with year — no product names in pattern. */
+export function paragraphIsInventedIndustryReportClaim(paragraph: string): boolean {
+  return /\b(?:laporan|report)\b[^.\n]{0,100}\b(?:20\d{2})\b/i.test(paragraph)
+    && /\b(?:Association|persatuan|aftermarket|automotive)\b/i.test(paragraph);
+}
+
+/** Markdown cost table with RM figures — likely fabricated without search picu. */
+export function paragraphHasFabricatedCostTable(paragraph: string): boolean {
+  return /\|/.test(paragraph) && /\bRM\s*[\d,]+/i.test(paragraph);
+}
+
+/** Reliability failure-rate percentage without verified picu in paragraph. */
+export function paragraphIsReliabilityPercentageClaim(paragraph: string): boolean {
+  return /\b\d+[.,]?\d*\s*%\b/.test(paragraph)
+    && /\b(?:kegagalan|reliability|kebolehpercayaan|komponen\s+kritikal)\b/i.test(paragraph);
+}
+
+/** Multiple model-year recommendation bullets — brochure pick list. */
+export function paragraphHasUnverifiedModelRecommendationBullets(paragraph: string): boolean {
+  const bullets = paragraph.split('\n').filter((line) => /^[-•*]\s+/.test(line.trim()));
+  const withYear = bullets.filter((line) => /\(\d{4}/.test(line) || /\b20\d{2}\s*[–-]\s*20\d{2}\b/.test(line));
+  return withYear.length >= 2;
+}
+
+/** Prescriptive NCAP / airbag checklist without verified model context. */
+export function paragraphIsUnverifiedSafetyRatingPrescription(paragraph: string): boolean {
+  if (!/\bNCAP\b/i.test(paragraph)) return false;
+  return /\b(?:minimum|sekurang|semak\s+sijil|cari\s+.+\s+dengan)\b/i.test(paragraph)
+    || /\b(?:airbag|ABS|ISOFIX|ESC)\b/i.test(paragraph);
+}
+
+/** Conditional “if you use for X…” feature shopping lists — brochure tone, no verified pick. */
+export function paragraphIsGenericPurchaseGuideBullet(paragraph: string): boolean {
+  if (HAS_VERIFIED_STYLE_NUMBER.test(paragraph)) return false;
+  const bulletLines = paragraph.split('\n').filter((l) => /^[-•*]\s+/.test(l.trim())).length;
+  if (bulletLines < 1) return false;
+  return /\b(?:Jika\s+guna|Jika\s+lalu|Jika\s+jarak|lebih\s+penting\s+daripada)\b/i.test(paragraph)
+    && /\b(?:sunroof|audio\s+premium|kelajuan\s+maksimum|ruang\s+kargo)\b/i.test(paragraph);
+}
+
+/** Philosophy closer on ownership cost / controlled defects — not a factual answer. */
+export function paragraphIsOwnershipPhilosophyCloser(paragraph: string): boolean {
+  const t = paragraph.trim();
+  return /^Sebagai\s+panduan\s+praktikal/i.test(t)
+    || /\b(?:jumlah\s+kos\s+kepemilisan|cacatnya\s+terkawal|risiko\s+minimum\s+kepada\s+nyawa)\b/i.test(t)
+    || (/\bKereta\s+[“"]?murah[”"]?\b/i.test(t) && /\bKereta\s+[“"]?cukup\s+kualiti[”"]?\b/i.test(t));
 }
 
 /** Universal strip set after verification catatan (no brand names). */
@@ -310,6 +475,16 @@ export function paragraphShouldStripAfterVerificationFailure(
     || paragraphIsTechnicalAskDeflection(paragraph)
     || paragraphIsEpistemicFrameworkLeak(paragraph)
     || paragraphIsSpeculativePossibilitiesList(paragraph)
+    || paragraphIsInventedProductLineageNarrative(paragraph)
+    || paragraphDoublesDownOnRejectedEntity(paragraph, userMessage, recentUserMessages)
+    || paragraphIsHollowImportanceOpener(paragraph)
+    || paragraphIsUnverifiedSafetyRatingPrescription(paragraph)
+    || paragraphIsGenericPurchaseGuideBullet(paragraph)
+    || paragraphIsFalseMarketDataGuide(paragraph)
+    || paragraphIsInventedIndustryReportClaim(paragraph)
+    || paragraphHasFabricatedCostTable(paragraph)
+    || paragraphIsReliabilityPercentageClaim(paragraph)
+    || paragraphHasUnverifiedModelRecommendationBullets(paragraph)
     || /^Soalan\s+anda\./i.test(paragraph.trim())
     || /\bSaya\s+di\s+sini\.?\s*bersama\s+anda\b/i.test(paragraph)
     || /\blangkah\s+demi\s+langkah\b/i.test(paragraph);
@@ -409,7 +584,7 @@ const BISMILLAH_ONLY_PARAGRAPH = /^\s*Bismillah(?:irahmanirrahim)?\.?\s*$/i;
 
 /** Universal passive menus — no brand names; sales/compare deflection after failed verification. */
 const PASSIVE_STUDENT_MENU =
-  /\bAdakah\s+anda\s+(?:ingin|sedang\s+mempertimbangkan)\b|\bAtau\s+jika\s+anda\s+ingin\s+bandingkan\b|\batau\s+ingin\s+membanding|\bJika\s+anda\s+ingin\s+saya\s+bandingkan\b|\bBolehkah\s+anda\s+nyatakan\b|\bmodel\s+lain\b|\bmempertimbangkan\s+pembelian\b|\b0[\s–-]100\s*km|\bpenggunaan\s+bahan\s+api\b|\bsaya\s+boleh\s+bantu\s+dengan\s+detail\b|\bSaya\s+akan\s+cari\s+semula\b/i;
+  /\bAdakah\s+anda\s+(?:ingin|sedang\s+mempertimbangkan)\b|\bAtau\s+jika\s+anda\s+ingin\s+bandingkan\b|\batau\s+ingin\s+membanding|\bJika\s+anda\s+(?:ingin\s+saya\s+(?:bantu\s+)?bandingkan|sudah\s+ada\s+model)\b|\bApa\s+model\s+atau\s+varian\s+yang\s+sedang\s+anda\s+pertimbangkan\b|\bBolehkah\s+anda\s+nyatakan\b|\bmodel\s+lain\b|\bmempertimbangkan\s+pembelian\b|\b0[\s–-]100\s*km|\bpenggunaan\s+bahan\s+api\b|\bsaya\s+boleh\s+(?:bantu\s+(?:dengan\s+detail|bandingkan)|carikan)\b|\bSaya\s+akan\s+cari\s+semula\b/i;
 
 export function paragraphIsPassiveStudentMenu(paragraph: string): boolean {
   return PASSIVE_STUDENT_MENU.test(paragraph);

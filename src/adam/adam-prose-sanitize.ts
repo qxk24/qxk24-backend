@@ -28,7 +28,6 @@ ADAM PROSE DASH LAW (all languages, all writing modes — journal, article, essa
 /** Em/en dash clause bridges → comma-led prose (all languages). */
 export function sanitizeAdamProseDashBridges(text: string): string {
   if (!text) return '';
-
   let out = text.replace(/\s*[—–]\s+/g, ', ');
   out = out.replace(/,\s*,+/g, ', ');
   out = out.replace(/;\s*,/g, '; ');

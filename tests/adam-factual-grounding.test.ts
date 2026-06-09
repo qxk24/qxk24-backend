@@ -2,20 +2,26 @@
 
 import { describe, expect, it } from '@jest/globals';
 import {
+  buildEntityCorrectionPromptBlock,
   buildFactualGroundingPromptBlock,
   buildTechnicalVerificationFallback,
   precisionAskAlreadyAnchored,
   finalizeVerificationGatedOutput,
   consolidateVerificationCatatan,
   INVENTED_CITATION_NOTE,
+  isUserEntityCorrectionMessage,
+  paragraphIsInventedProductLineageNarrative,
   prependSearchUnavailableNotice,
   resolveTechnicalPrecisionTurn,
+  resolveUserEntityCorrectionTurn,
   sanitizeTechnicalPrecisionOutput,
   shouldForceWebSearchForTechnicalTurn,
   stripInventedTechnicalCitations,
   stripTechnicalGuessHallucination,
   UNIFIED_VERIFICATION_CATATAN,
   paragraphIsTechnicalAskDeflection,
+  paragraphIsHollowImportanceOpener,
+  paragraphIsOwnershipPhilosophyCloser,
 } from '../src/adam/adam-factual-grounding';
 import { getAdamWebSearchPrompt, getWebSearchGateReason } from '../src/adam/adam-web-search';
 import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
@@ -288,5 +294,94 @@ describe('Universal technical output guard', () => {
     expect(auto).not.toMatch(/PERODUA|VIVA|660 cc|Perodua|Viva/i);
     expect(chem).toMatch(/paracetamol/i);
     expect(chem).not.toMatch(/PERODUA|VIVA|tork enjin/i);
+  });
+});
+
+describe('Hollow advisory essay strip (universal)', () => {
+  const advisoryEssay =
+    'Pertanyaan ini penting. bukan hanya dari segi kewangan, tetapi juga dari segi tanggungjawab terhadap diri sendiri, keluarga, dan keselamatan jangka panjang.\n\n'
+    + 'Yang paling penting bukan harga paling rendah, bukan juga jenama paling tersohor. tetapi keseimbangan antara tiga pilar utama:\n\n'
+    + '1. Keselamatan sebenar (bukan sekadar fitur marketing) \n'
+    + '- Semak sijil ujian keselamatan rasmi: ASEAN NCAP atau Euro NCAP (jika model tersedia di pasaran tersebut). \n'
+    + '- Cari kereta dengan minimum 4 airbag, ABS + EBD, stabiliti elektronik (ESC), dan ISOFIX jika ada anak.\n\n'
+    + '3. Kesesuaian dengan keperluan sebenar. bukan hasrat sementara \n'
+    + '- Jika guna harian untuk keluarga kecil: ruang kargo & keselesaan penumpang belakang lebih penting daripada kelajuan maksimum.\n\n'
+    + 'Sebagai panduan praktikal: \n'
+    + 'Kereta “cukup kualiti” bukan kereta yang tiada cacat. tetapi kereta yang cacatnya terkawal, dapat diramal, dan mudah diperbaiki.';
+
+  it('detects hollow importance opener and ownership philosophy', () => {
+    const opener = advisoryEssay.split('\n\n')[0] ?? '';
+    expect(paragraphIsHollowImportanceOpener(opener)).toBe(true);
+    expect(paragraphIsOwnershipPhilosophyCloser(advisoryEssay)).toBe(true);
+  });
+
+  it('finalize strips unverified NCAP specs but keeps tutor perspective', () => {
+    const out = finalizeVerificationGatedOutput(
+      advisoryEssay,
+      'kereta murah tapi berkualiti untuk keluarga',
+      [],
+    );
+    expect(out).not.toMatch(/NCAP|4\s+airbag|Pertanyaan\s+ini\s+penting/i);
+    expect(out).toMatch(/keseimbangan|Kereta\s+[“"]?cukup\s+kualiti/i);
+  });
+
+  it('finalize strips fabricated data but keeps honest perspective paragraphs', () => {
+    const brandedEssay =
+      'Kereta murah berkualiti bukan kontradiksi. ia adalah keseimbangan yang boleh dicapai, asalkan kita tahu di mana fokuskan perhatian.\n\n'
+      + 'Berikut adalah panduan praktikal berdasarkan realiti pasaran Malaysia (2024–2026), disaring dari data ujian keselamatan:\n\n'
+      + '2. Tiga indikator kualiti yang tidak kelihatan di iklan\n'
+      + '- Rekod kebolehpercayaan: Berdasarkan laporan Malaysian Automotive Aftermarket Association (MAAA) 2025, kadar kegagalan < 3.2%:\n'
+      + ' - Model A (varian 1.3 AV)\n - Model B (1.3 Premium)\n\n'
+      + '3. Kos kepemilikan tahunan\n| Insurans | RM1,180 |\n| Servis | RM2,950 |\n\n'
+      + '→ Kereta baru murah sering lebih berkualiti daripada kereta bekas murah.\n\n'
+      + 'Apa model atau varian yang sedang anda pertimbangkan?';
+    const out = finalizeVerificationGatedOutput(
+      brandedEssay,
+      'kereta murah berkualiti',
+      [],
+    );
+    expect(out).not.toMatch(/MAAA|RM1,180|3\.2\s*%|disaring\s+dari\s+data|Apa model atau varian/i);
+    expect(out).toMatch(/bukan kontradiksi|Kereta\s+baru\s+murah/i);
+  });
+});
+
+describe('User entity correction (universal)', () => {
+  const correctionMsg = 'Kenapa proton? ini perodua. Anda sengaja buat silap ker';
+
+  it('detects entity correction messages', () => {
+    expect(isUserEntityCorrectionMessage(correctionMsg)).toBe(true);
+    expect(isUserEntityCorrectionMessage('salam')).toBe(false);
+  });
+
+  it('extracts rejected and accepted hints', () => {
+    const ctx = resolveUserEntityCorrectionTurn(correctionMsg, []);
+    expect(ctx.isActive).toBe(true);
+    expect(ctx.rejectedHint?.toLowerCase()).toBe('proton');
+    expect(ctx.acceptedHint?.toLowerCase()).toBe('perodua');
+  });
+
+  it('builds entity correction mandate without brand lists', () => {
+    const block = buildEntityCorrectionPromptBlock(correctionMsg, []);
+    expect(block).toMatch(/USER ENTITY CORRECTION/);
+    expect(block).toMatch(/do NOT invent/i);
+    expect(block).not.toMatch(/PERODUA|PROTON|VIVA/i);
+  });
+
+  it('forces web search on entity correction', () => {
+    expect(getWebSearchGateReason(correctionMsg)).toBe('entity_correction');
+  });
+
+  it('strips invented parallel product lineage after correction', () => {
+    const bad =
+      'Proton Viva (2007–2015) berbeza dengan Perodua Viva: ia adalah rebadged Mitsubishi Colt CZ3 '
+      + 'dihasilkan di Tanjung Malim. Perodua Viva pula sepenuhnya asal reka bentuk, diperbuat di Rawang.';
+    expect(paragraphIsInventedProductLineageNarrative(bad)).toBe(true);
+    const out = finalizeVerificationGatedOutput(
+      `Maaf atas kesilapan.\n\n${bad}\n\nKetepatan bukan sekadar data — ia soal adab kepada kebenaran.`,
+      correctionMsg,
+      [],
+    );
+    expect(out).not.toMatch(/rebadg|Mitsubishi|adab kepada kebenaran/i);
+    expect(out).toMatch(/Maaf atas kesilapan/i);
   });
 });

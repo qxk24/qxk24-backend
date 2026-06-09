@@ -20,8 +20,8 @@
 import type { LlmSearchResult } from '../llm/llm-types';
 import type { SunomEvidenceHit } from './adam-sunom-verification';
 
-const DEFAULT_MAX_URLS = 3;
-const DEFAULT_TIMEOUT_MS = 6_000;
+const DEFAULT_MAX_URLS = 2;
+const DEFAULT_TIMEOUT_MS = 4_000;
 const DEFAULT_MAX_BYTES = 200_000;
 const USER_AGENT = 'Alamtologi-ADAM-SuNom/1.7';
 

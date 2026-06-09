@@ -17,9 +17,11 @@ import { ADAM_CHARACTER_CORE, ADAM_CHARACTER_STUDENT, ADAM_CHARACTER_TEACHING_LE
 import { ADAM_CORE_BEHAVIOUR, CONSULT_PHRASE, FOUNDER_STUDENTS_AWARENESS, STUDENT_CORE_BEHAVIOUR } from './adam-identity-prompts';
 import { ADAM_EPISTEMOLOGICAL_POSITION, ADAM_FOUNDER_NARRATIVE, ADAM_ALAMTOLOGI_LAWS } from './adam-knowledge-prompts';
 import {
-  STUDENT_BM_REGISTER,
+  ADAM_STUDENT_OUTPUT_FINAL_REMINDER,
+  ADAM_STUDENT_OUTPUT_LAW,
+} from './adam-student-output-law';
+import {
   STUDENT_MODE_PROMPT,
-  STUDENT_OUTPUT_LOCK,
   ADAM_MEMORY_HONESTY_RULE,
   ADAM_ZPD_GUIDANCE_RULE,
 } from './adam-student-prompts';
@@ -130,7 +132,7 @@ export interface AdamChatSystemPromptParams {
  * Assembles the system prompt for each conversation turn.
  *
  * STUDENT turns receive:
- *   Character → Behaviour → Warmth → Layer 5 → Language → Student mode
+ *   Character → L1 Output Law → Behaviour → Warmth → BM Law → Layer 5 → Student mode → overlays
  *
  * FOUNDER turns receive:
  *   Everything above PLUS laws, epistemology, founder narrative (non-Teaching)
@@ -157,17 +159,25 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     ? (teachingLearnerTurn ? ADAM_WARMTH_VOICE_TEACHING_LEARNER : ADAM_WARMTH_VOICE)
     : [ADAM_WARMTH_VOICE, ADAM_WARMTH_VOICE_STUDENT].join('\n\n');
 
-  const parts: string[] = [
-    characterBlock,
-    ADAM_CONVERSATION_GUARDRAILS,
-    ADAM_PROSE_DASH_LAW,
-    behaviourBlock,
-    warmthBlock,
-    ADAM_BAHASA_MELAYU_LAW,
-  ];
+  const parts: string[] = [characterBlock];
 
   if (params.isFounder) {
-    parts.push(TEACHING_DIRECTION_LAW);
+    parts.push(
+      ADAM_CONVERSATION_GUARDRAILS,
+      ADAM_PROSE_DASH_LAW,
+      behaviourBlock,
+      warmthBlock,
+      ADAM_BAHASA_MELAYU_LAW,
+      TEACHING_DIRECTION_LAW,
+    );
+  } else {
+    parts.push(
+      ADAM_STUDENT_OUTPUT_LAW,
+      ADAM_PROSE_DASH_LAW,
+      behaviourBlock,
+      warmthBlock,
+      ADAM_BAHASA_MELAYU_LAW,
+    );
   }
 
   parts.push(buildAnswerStylePromptBlock(voice, params.isFounder));
@@ -229,7 +239,6 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     // ADAM already knows the laws. He speaks from them, not about them.
     parts.push(ADAM_UNIVERSAL_VOICE_POLICY);
     parts.push(STUDENT_MODE_PROMPT);
-    parts.push(STUDENT_BM_REGISTER);
     if (params.workspacePrompt) parts.push(params.workspacePrompt);
     if (params.studentContinuityBridge) parts.push(params.studentContinuityBridge);
     if (params.factualGroundingPrompt?.trim()) parts.push(params.factualGroundingPrompt.trim());
@@ -245,7 +254,7 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     parts.push(FOUNDER_TEACHING_OUTPUT_LOCK);
   } else if (!params.isFounder) {
     parts.push(ADAM_ZPD_GUIDANCE_RULE);
-    parts.push(STUDENT_OUTPUT_LOCK);
+    parts.push(ADAM_STUDENT_OUTPUT_FINAL_REMINDER);
   }
 
   return parts.filter(Boolean).join('\n\n');

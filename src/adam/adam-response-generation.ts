@@ -19,7 +19,6 @@
  */
 
 import { studentExplicitlyRequestsQuran } from './adam-student-prompts';
-import { ADAM_CHAT_MATH_NOTATION } from './adam-math-prompt';
 
 /** Salam, thanks, or other turns that skip full response architecture. */
 export function isAdamLightChatTurn(message: string): boolean {
@@ -39,6 +38,49 @@ export function isAdamLightChatTurn(message: string): boolean {
 /** Substantive turn — not light chat. Used for model routing only. */
 export function isAdamSubstantiveTurn(message: string): boolean {
   return !isAdamLightChatTurn(message);
+}
+
+/** When the student corrects a wrong brand/model — acknowledge, do not invent. */
+export const STUDENT_ENTITY_CORRECTION_FALLBACK =
+  'Maaf atas kesilapan tadi. Saya terima pembetulan anda — sila hantar semula soalan dengan nama/model yang tepat supaya saya boleh cari maklumat yang betul.';
+
+/** Guaranteed visible reply when the model returns empty on a greeting/light turn. */
+export function buildStudentGreetingFallback(
+  userMessage: string,
+  userName?: string,
+): string {
+  const t = userMessage.trim();
+  if (/assalamu|salam|waalaikum/i.test(t)) {
+    return 'Waalaikumussalam. Salam sejahtera — apa yang ingin dikongsi hari ini?';
+  }
+  if (/terima\s+kasih|thank|syukran|thanks/i.test(t)) {
+    return 'Sama-sama. Ada apa-apa lagi yang boleh saya bantu?';
+  }
+  const name = userName?.trim();
+  if (name) {
+    return `Hello, ${name}. Good to see you — what's on your mind today?`;
+  }
+  return "Hello. Good to see you — what's on your mind today?";
+}
+
+/**
+ * Warm tutor voice when verification strips fabricated facts but the turn still
+ * deserves substance — not a machine error string.
+ */
+export function buildStudentGuidedPerspectiveFallback(userMessage: string): string {
+  const t = userMessage.trim();
+  if (/\b(?:kereta|automobil|mobil|kenderaan|\bcar\b|bekas|baru|pemilikan)\b/i.test(t)) {
+    return [
+      'Kereta murah dan berkualiti boleh wujud serentak — bukan kontradiksi, tetapi keseimbangan.',
+      'Fokus bukan pada harga di papan iklan sahaja, tetapi pada kos pemilikan sebenar: insurans, servis berkala, kebolehpercayaan, dan keselamatan asas yang memadai untuk kegunaan anda.',
+      'Semak rekod servis, sijil ujian keselamatan untuk model yang anda pertimbangkan, dan sama ada kos alat ganti masih mampu milik selepas beberapa tahun.',
+      'Apa keutamaan anda: jarak harian, ruang keluarga, atau had bajet bulanan?',
+    ].join('\n\n');
+  }
+  return [
+    'Soalan ini layak dijawab dengan teliti. Pada giliran ini bukti web yang mencukupi belum tersedia untuk angka atau nama spesifik.',
+    'Sementara itu, nyatakan satu aspek yang paling penting bagi anda — supaya saya boleh fokus carian seterusnya pada perkara yang benar-benar relevan.',
+  ].join('\n\n');
 }
 
 /** Student/user asked for conventional science only — omit Quran dimension. */
@@ -211,18 +253,12 @@ FORBIDDEN VOICE:
 `.trim();
 
 export const ADAM_LAYER5_STUDENT = `
-LAYER 5 — student turn additions:
+LAYER 5 — student turn additions (format: STUDENT OUTPUT LAW L1):
 
-- Mirror the student's language (BM, English, Arabic, or mix). Follow STUDENT BAHASA REGISTER.
-- Use the student's name when known. NEVER kau, kamu, engkau, aku. No em dash (—).
-- Light chat / hello → 1–3 warm neutral sentences. No Bismillah opener. No lecture layers.
-- Substantive question → read their state, pick the right Form, deliver verified knowledge with Qawlan Sadida.
-- Technical or science questions (any domain) → search first; lead with verified numbers and units, then mechanisms; := 0 SUSPENDED when search is thin (Baligha or Maysura as state dictates).
-- Constitutional insight in plain prose only — no Alamtologi/Quran labels unless they asked.
-- Quran only when they opened the faith door — never as decoration on ordinary questions.
-- Maieutic close on substantive turns: one to three honest questions for realisation — or quiet closure (Silence Principle).
-
-${ADAM_CHAT_MATH_NOTATION}
+- Mirror the student's language (BM, English, Arabic, or mix).
+- Substantive question → read state, pick Form, deliver verified knowledge with Qawlan Sadida.
+- Technical questions → search first; lead with verified numbers and units; := 0 SUSPENDED when search is thin.
+- Maieutic close or Silence Principle when they help realisation.
 `.trim();
 
 export const ADAM_LAYER5_FOUNDER = `

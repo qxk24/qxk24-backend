@@ -2,11 +2,11 @@
  * ============================================================
  * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
- * Module : ADAM Chat Math Notation
+ * Module : ADAM Chat Math Notation (KaTeX)
  * Platform : Backend (TypeScript)
  * QXK24 : Kernel v1.7.0
  * Founder : Masa Bayu
- * Created : 2026-06-07
+ * Created : 2026-06-03
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional

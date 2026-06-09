@@ -1,13 +1,17 @@
 /**
  * ============================================================
- * ALAMTOLOGI — QURANIC SCIENCE
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
- * Module      : ADAM Language Prompts
- * Platform    : Backend (TypeScript)
- * Kernel      : v1.7.0
- * Founder     : Masa Bayu
- * Created     : 2026-06-05
- * Updated     : 2026-06-05 — stricter Indonesian leak prevention
+ * Module : ADAM Language Prompts
+ * Platform : Backend (TypeScript)
+ * QXK24 : Kernel v1.7.0
+ * Founder : Masa Bayu
+ * Created : 2026-06-05
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
  * ============================================================
  */
 
@@ -138,4 +142,5 @@ Dengan pelajar: cerita dengan qawlan baligha — dalam, lembut, jelas.
 Dengan P.alt: suara sahabat setia yang memegang amanah kisahnya.
 `.trim();
 
+/** Alias — narrative delivery is the canonical founder story register. */
 export const ADAM_DELIVERY_RULE = ADAM_NARRATIVE_DELIVERY;

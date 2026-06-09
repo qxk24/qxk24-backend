@@ -64,7 +64,7 @@ describe('SuNom lika resolution', () => {
     expect(report.tenaga).toBeGreaterThanOrEqual(5);
   });
 
-  it('marks lika sa when search ran but picu not in titles', () => {
+  it('marks lika pasif when search ran but picu not in titles', () => {
     const report = runSunomVerification({
       outputText: 'Tork ialah 120 Nm @ 4000 rpm.',
       userMessage: 'tork?',
@@ -72,7 +72,7 @@ describe('SuNom lika resolution', () => {
       searchDropped: false,
       searchResults: searchHits,
     });
-    expect(report.lika).toBe('sa');
+    expect(report.lika).toBe('pasif');
     expect(report.unsupportedClaims).toBeGreaterThan(0);
   });
 
@@ -157,7 +157,7 @@ describe('SuNom fingers', () => {
 });
 
 describe('SuNom verification gate', () => {
-  it('keeps precise paragraphs when search ran with evidence hits', () => {
+  it('strips unverified picu when search ran but numbers not in evidence', () => {
     const report = runSunomVerification({
       outputText: 'Ringkas: enjin 1.0L.\n\nTork ialah 120 Nm @ 4000 rpm (palsu).',
       userMessage: 'tork?',
@@ -171,11 +171,11 @@ describe('SuNom verification gate', () => {
       { userMessage: 'tork?' },
     );
     expect(out).not.toMatch(/^Catatan:/);
-    expect(out).toMatch(/120\s*Nm/i);
+    expect(out).not.toMatch(/120\s*Nm/i);
     expect(out).not.toMatch(/Taip semula/i);
   });
 
-  it('strips qualitative trim comparison but keeps supported picu when search ran', () => {
+  it('strips qualitative trim comparison and unverified picu when search lacks match', () => {
     const report = runSunomVerification({
       outputText:
         'Tork 90 Nm.\n\nTiada perbezaan tork antara Elite dan Exclusive kerana enjin sama.',
@@ -184,7 +184,7 @@ describe('SuNom verification gate', () => {
       searchUsed: true,
       searchResults: [{ title: '61 PS power output', url: 'https://b.example' }],
     });
-    expect(report.lika).toBe('sa');
+    expect(report.lika).toBe('pasif');
     const raw =
       'Tork 90 Nm.\n\nTiada perbezaan tork antara Elite dan Exclusive kerana enjin sama.';
     const out = applySunomVerificationGate(raw, report, [{ title: '61 PS', url: 'https://b.example' }], {
@@ -192,7 +192,8 @@ describe('SuNom verification gate', () => {
       recentUserMessages: ['Berapa tork enjin Viva?'],
     });
     expect(out).not.toMatch(/Tiada perbezaan tork/i);
-    expect(out).toMatch(/90\s*Nm/i);
+    expect(out).not.toMatch(/90\s*Nm/i);
+    expect(out).toBe('');
   });
 
   it('strips hollow teaser and passive menu on lika pasif technical turn', () => {
@@ -250,7 +251,8 @@ describe('SuNom verification gate', () => {
       searchResults: [{ title: '61 PS power output', url: 'https://b.example' }],
     });
     expect(out).not.toMatch(/^Catatan:/);
-    expect(out).toMatch(/67\s*PS/i);
+    expect(out).not.toMatch(/67\s*PS/i);
     expect(out).not.toMatch(/Taip semula/i);
+    expect(out).toBe('');
   });
 });

@@ -15,6 +15,12 @@
  * ============================================================
  */
 
+import {
+  buildStudentGreetingFallback,
+  buildStudentGuidedPerspectiveFallback,
+  isAdamLightChatTurn,
+  isAdamSubstantiveTurn,
+} from './adam-response-generation';
 import { FOUNDER_USER_ID } from './adam-student.types';
 import { CONSULT_PHRASE } from './adam-system-prompts';
 import { detectLanguage } from './adam-language-mirror.service';
@@ -286,15 +292,29 @@ export async function finishAdamChatTurn(input: {
     }
   }
   if (!finalResponse?.trim()) {
-    console.warn('[adam:post-turn] empty finalResponse before save', {
-      sessionId: shell.resolvedSessionId,
-      mode:      shell.mode,
-    });
-    finalResponse = [
-      'Bismillahirahmanirrahim.',
-      'P.alt, maaf — pada giliran ini jawapan saya tidak tersimpan.',
-      'Sila hantar semula bab itu.',
-    ].join(' ');
+    if (shell.isFounder) {
+      console.warn('[adam:post-turn] empty founder finalResponse before save', {
+        sessionId: shell.resolvedSessionId,
+        mode:      shell.mode,
+      });
+      finalResponse = [
+        'Bismillahirahmanirrahim.',
+        'P.alt, maaf — pada giliran ini jawapan saya tidak tersimpan.',
+        'Sila hantar semula bab itu.',
+      ].join(' ');
+    } else if (isAdamLightChatTurn(shell.userMessage)) {
+      finalResponse = buildStudentGreetingFallback(
+        shell.userMessage,
+        shell.participant.userName,
+      );
+    } else if (isAdamSubstantiveTurn(shell.userMessage)) {
+      finalResponse = buildStudentGuidedPerspectiveFallback(shell.userMessage);
+    } else {
+      console.warn('[adam:post-turn] student silent gate — empty finalResponse', {
+        sessionId: shell.resolvedSessionId,
+        mode:      shell.mode,
+      });
+    }
   }
 
   let sealedJournals: { id: string; title: string }[] = [];

@@ -73,7 +73,7 @@ describe('Set A — automotif follow-up', () => {
     expectNoPolicyHardcoding(out);
   });
 
-  it('A0b: strips false verification narrative but keeps torque specs', async () => {
+  it('A0b: strips false verification narrative and unverified torque specs', async () => {
     const out = await runStudentVerificationPipeline({
       userMessage: 'Apa beza tork model Z 2.5 dengan 2.0 tahun 2016',
       rawModelOutput:
@@ -93,8 +93,8 @@ describe('Set A — automotif follow-up', () => {
     expect(out).not.toMatch(/menjalankan carian|hasil pengesahan|diverifikasi/i);
     expect(out).not.toMatch(/\[Source:/i);
     expect(out).not.toMatch(/ingin saya bandingkan/i);
-    expect(out).toMatch(/198\s*Nm/i);
-    expect(out).toMatch(/226\s*Nm/i);
+    expect(out).not.toMatch(/198\s*Nm|226\s*Nm/i);
+    expect(out).toBe('');
   });
 
   it('A1: verified torque answer passes without catatan', async () => {
@@ -122,7 +122,7 @@ describe('Set A — automotif follow-up', () => {
         + 'Sumber: [Brochure](https://maker.example/brochure), [Specs](https://reviews.example/spec).\n\n'
         + 'Adakah anda ingin bandingkan tork ini dengan model kereta lain?',
       searchUsed: true,
-      searchResults: [{ title: '61 PS power output', url: 'https://example.com/power' }],
+      searchResults: [{ title: 'Exclusive torque 92 Nm specification', url: 'https://example.com/power' }],
     });
     expect(out).not.toMatch(CATATAN);
     expect(out).not.toMatch(FALSE_VERIFIED);
@@ -189,7 +189,7 @@ describe('Set C — fizik / kimia', () => {
     expect(out).toMatch(/77\s*K/i);
   });
 
-  it('C2: unverified pH gets gate not fake precision', async () => {
+  it('C2: unverified pH is silent when search lacks the value', async () => {
     const out = await runStudentVerificationPipeline({
       userMessage: 'Berapa pH air laut purata?',
       rawModelOutput:
@@ -200,7 +200,8 @@ describe('Set C — fizik / kimia', () => {
     });
     expect(out).not.toMatch(CATATAN);
     expect(out).not.toMatch(FALSE_VERIFIED);
-    expect(out).toMatch(/pH purata air laut|8\.2/i);
+    expect(out).not.toMatch(/8\.2/i);
+    expect(out).toBe('');
   });
 });
 
@@ -225,7 +226,7 @@ describe('Set D — kawalan bukan teknikal', () => {
 });
 
 describe('Set E — strip sumber palsu', () => {
-  it('E1: strips false verified preamble but keeps spec line when search ran', async () => {
+  it('E1: strips false verified preamble and unverified specs when search lacks picu', async () => {
     const out = await runStudentVerificationPipeline({
       userMessage: 'Berapa kuasa enjin enjin 1.0L turbo biasa?',
       rawModelOutput:
@@ -237,8 +238,9 @@ describe('Set E — strip sumber palsu', () => {
     });
     expect(out).not.toMatch(CATATAN);
     expect(out).not.toMatch(FALSE_VERIFIED);
-    expect(out).toMatch(/100\s*PS|150\s*Nm/i);
+    expect(out).not.toMatch(/100\s*PS|150\s*Nm/i);
     expect(out).not.toMatch(/tidak dapat mengesahkan/i);
+    expect(out).toBe('');
   });
 
   it('E2: no evidence after search is silent (no fallback menu)', async () => {
@@ -306,6 +308,41 @@ describe('Set E — strip sumber palsu', () => {
     expect(out).not.toMatch(/Saya\s+sedia\s+bantu/i);
     expect(out).not.toMatch(/sumber\s+rasmi/i);
     expect(out).not.toMatch(/tidak dapat mengesahkan/i);
+  });
+
+  it('H3: entity correction strips invented dual-brand lineage (universal)', async () => {
+    const out = await runStudentVerificationPipeline({
+      userMessage: 'Kenapa proton? ini perodua. Anda sengaja buat silap ker',
+      rawModelOutput:
+        'Maaf atas kesilapan teknikal.\n\n'
+        + 'Proton Viva (2007–2015) berbeza dengan Perodua Viva: rebadged Mitsubishi Colt CZ3 dihasilkan di Tanjung Malim. '
+        + 'Perodua Viva pula sepenuhnya asal reka bentuk, diperbuat di Rawang — berat ~810 kg.\n\n'
+        + 'Ketepatan bukan sekadar data — ia soal adab kepada kebenaran.',
+      searchUsed: true,
+      searchResults: [{ title: 'Hatchback 660cc specification review', url: 'https://example.com/spec' }],
+    });
+    expect(out).not.toMatch(/rebadg|Mitsubishi|adab kepada kebenaran|810\s*kg/i);
+    expect(out).toMatch(/Maaf atas kesilapan/i);
+  });
+
+  it('H2: false verified hp/tork compare silent when search lacks picu (universal)', async () => {
+    const out = await runStudentVerificationPipeline({
+      userMessage: 'beza hp dan tork antara 2.5L dan 2.0L model Z 2023',
+      rawModelOutput:
+        'Berikut adalah hasil carian yang disahkan dari sumber rasmi dan laporan uji jalan terpercaya:\n\n'
+        + '✅ Perbezaan utama: \n'
+        + '- Versi 2.5L menghasilkan 38 hp lebih tinggi daripada versi 2.0L. iaitu peningkatan sekitar 25% dalam kuasa maksimum. \n'
+        + '- Tork juga meningkat sebanyak 45 Nm, memberikan tujahan lebih responsif.\n\n'
+        + 'Jika anda ingin saya bantu bandingkan juga faktor lain seperti penggunaan bahan api (km/l), '
+        + 'berat kereta, atau kelajuan 0–100 km/j, saya boleh carikan data spesifik itu juga.',
+      searchUsed: true,
+      searchResults: [
+        { title: 'Model Z 2023 review CVT 2.5L naturally aspirated', url: 'https://example.com/review' },
+      ],
+    });
+    expect(out).not.toMatch(/hasil carian yang disahkan|38\s*hp|45\s*Nm/i);
+    expect(out).not.toMatch(/bantu bandingkan|boleh carikan/i);
+    expect(out).toBe('');
   });
 
   it('H1: specA/specB ask — strips deflection essay silently (universal)', async () => {

@@ -1,18 +1,20 @@
 /**
  * ============================================================
- * ALAMTOLOGI — QURANIC SCIENCE
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
- * Module      : ADAM Knowledge Prompts
- * Platform    : Backend (TypeScript)
- * Kernel      : v1.7.0
- * Founder     : Masa Bayu
- * Created     : 2026-06-05
+ * Module : ADAM Knowledge Prompts (Founder)
+ * Platform : Backend (TypeScript)
+ * QXK24 : Kernel v1.7.0
+ * Founder : Masa Bayu
+ * Created : 2026-06-05
  * ============================================================
- * Alamtologi Laws, Epistemology, Founder Narrative.
- * These are ADAM's internalized knowledge — not rules to recite.
- * ADAM already learned these from his Founder directly.
- * They govern his thinking, not his speech.
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
  * ============================================================
+ *
+ * Founder-only constitutional knowledge — internalized, not recited to students.
  */
 
 export const ADAM_EPISTEMOLOGICAL_POSITION = `
@@ -49,7 +51,7 @@ PURIFICATION — NOT REJECTION:
 ADAM does not discard conventional science, history, or student input.
 When knowledge is mis-framed, realign through Quran and Alamtologi.
 Benchmark: Alamtologi + Quran + Founder's sealed framework.
-`;
+`.trim();
 
 export const ADAM_FOUNDER_NARRATIVE = `
 TENTANG MASA BAYU DAN ASAL USUL ALAMTOLOGI:
@@ -95,7 +97,7 @@ DILARANG KERAS:
 
 "Amanah pada ilmu wajib disampaikan walau tombak terpacak di dada." — Masa Bayu
 "Hanya mati sahaja yang akan menghentikan usaha ini." — Masa Bayu
-`;
+`.trim();
 
 export const ADAM_ALAMTOLOGI_LAWS = `
 HUKUM ALAMTOLOGI — DIFAHAMI, BUKAN DILAFALKAN:
@@ -133,4 +135,4 @@ bahawa Hukum Keseimbangan sedang dilanggar dalam Z.
 
 "Hukum merupakan ketetapan dalam melengkapkan keperluan
  bagi menjalankan peranan sebagai X (manusia)." — Masa Bayu
-`;
+`.trim();

@@ -7,7 +7,7 @@
  * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-05
- * Updated     : 2026-06-08 — universal voice leak strip (Bismillah, framework, unsolicited Quran)
+ * Updated     : 2026-06-09 — Fasa 4 pronoun sync from L1
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
@@ -20,6 +20,10 @@
  */
 
 import { sanitizeTechnicalPrecisionOutput } from './adam-factual-grounding';
+import {
+  sanitizeStudentForbiddenPronouns,
+  studentForbiddenPronounAlternation,
+} from './adam-student-output-law';
 import {
   userAskedForAlamtologi,
   userOpenedFaithDoor,
@@ -60,18 +64,23 @@ function stripUniversalVoiceLeaks(text: string, userMessage: string): string {
   return out.replace(/\n{3,}/g, '\n\n').trim();
 }
 
-const SCRIPTED_CLOSINGS = [
+const SCRIPTED_CLOSINGS: RegExp[] = [
   /Saya\s+sedia\s+mendengar/i,
   /saya\s+boleh\s+bertanya\s+dengan\s+lembut/i,
   /Saya\s+ingin\s+bertanya\s+dengan\s+lembut/i,
   /Adakah\s+ada\s+saat-saat\s+di\s+mana/i,
   /Saya\s+sedia\s+duduk/i,
   /dalam\s+diam\s+yang\s+penuh\s+makna/i,
-  /Apa\s+yang\s+paling\s+ingin\s+(?:kamu|anda)\s+/i,
+  new RegExp(
+    `Apa\\s+yang\\s+paling\\s+ingin\\s+(?:${studentForbiddenPronounAlternation(false)}|anda)\\s+`,
+    'i',
+  ),
+  new RegExp(`Apa[kk]ah\\s+yang\\s+ingin\\s+(?:${studentForbiddenPronounAlternation(false)})\\b`, 'i'),
   /kembangkan\s+daripada\s+jawapan/i,
   /Adakah\s+anda\s+sedang\s+mempertimbangkan/i,
   /ingin\s+membandingkannya\s+dengan\s+model\s+lain/i,
-  /Jika\s+anda\s+ingin\s+saya\s+bandingkan/i,
+  /Jika\s+anda\s+ingin\s+saya\s+(?:bantu\s+)?bandingkan/i,
+  /saya\s+boleh\s+carikan/i,
   /Bolehkah\s+anda\s+nyatakan/i,
   /Saya\s+di\s+sini\.?\s*bersama\s+anda/i,
   /langkah\s+demi\s+langkah/i,
@@ -167,6 +176,7 @@ export function sanitizeStudentOutputSync(
   out = restoreStudentMathBlocks(out, slots);
   out = inlineQuranAyat(out);
   out = sanitizeTechnicalPrecisionOutput(out, userMessage, recentUserMessages);
+  out = sanitizeStudentForbiddenPronouns(out);
   out = stripUniversalVoiceLeaks(out, userMessage);
 
   const paragraphs = out.split(/\n{2,}/);

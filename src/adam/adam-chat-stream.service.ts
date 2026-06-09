@@ -17,16 +17,23 @@
 
 import { ENV } from '../config/environments';
 import {
+  buildEntityCorrectionPromptBlock,
   buildFactualGroundingPromptBlock,
   extractRecentUserTurns,
   finalizeVerificationGatedOutput,
   prependSearchUnavailableNotice,
   resolveTechnicalPrecisionTurn,
+  resolveUserEntityCorrectionTurn,
   shouldForceWebSearchForTechnicalTurn,
 } from './adam-factual-grounding';
 import { sanitizeSunomVerifiedOutput } from './adam-sunom-verification';
 import { buildKmSensingPromptBlock } from './adam-sunom-km-sensing';
 import { enrichSunomVerificationInput } from './adam-sunom-pipeline';
+import {
+  buildPrefetchedSearchContextBlock,
+  runStudentSearchPrefetch,
+  shouldStudentUseSearchFirstFlow,
+} from './adam-search-first';
 import {
   adamWebSearchEnabled,
   getAdamWebSearchPrompt,
@@ -39,6 +46,13 @@ import {
   buildQwenLanguageLock,
   repairEastAsianScriptLeak,
 } from './adam-language-guard';
+import {
+  buildStudentGreetingFallback,
+  buildStudentGuidedPerspectiveFallback,
+  STUDENT_ENTITY_CORRECTION_FALLBACK,
+  isAdamLightChatTurn,
+  isAdamSubstantiveTurn,
+} from './adam-response-generation';
 import { repairStudentOutputLeak } from './adam-student-output-guard';
 import { sanitizeAdamProseDashBridges } from './adam-prose-sanitize';
 import { founderRequestsConstitutionalMirror, founderRequestsTeachingSynthesis, sanitizeFounderTeachingQuranFormat, founderTeachingStoredUserContent } from './adam-founder-teaching-prompts';
@@ -116,6 +130,43 @@ import type {
 } from './adam-chat-stream.types';
 
 export type { StreamADAMChatOptions } from './adam-chat-stream.types';
+
+/** Tester language/greeting overlay — safe to fetch in parallel with context. */
+async function loadTesterSystemPrefix(
+  participant: ChatParticipant,
+  isGreetingTurn: boolean,
+): Promise<string> {
+  if (participant.sessionType !== 'student') return '';
+  const isTester = await isTesterAccount(participant.userId);
+  if (!isTester) return '';
+
+  const lang = await getTesterLanguage(participant.userId);
+  const parts: string[] = [];
+  const languageInstruction = buildLanguageInstruction(lang);
+  if (languageInstruction) parts.push(languageInstruction);
+
+  if (isGreetingTurn && lang) {
+    const langOpt = getLanguageByCode(lang);
+    const sub = await SubscriptionModel.findOne({
+      userId: participant.userId,
+      tier:   SubscriptionTier.TESTER,
+    });
+    const limit = (sub?.pencarianUsage?.totalMessagesLimit ?? 50)
+      + (sub?.pencarianUsage?.extensionMessagesAdded ?? 0);
+    parts.push(buildTesterGreeting(
+      participant.userName,
+      lang,
+      langOpt?.nativeName ?? lang,
+      limit,
+    ));
+  }
+
+  return parts.filter(Boolean).join('\n\n');
+}
+
+/** Last resort when no salvage path applies — prefer buildStudentGuidedPerspectiveFallback. */
+const STUDENT_EMPTY_TURN_FALLBACK =
+  'Maaf — jawapan tidak tersedia pada giliran ini. Sila hantar semula.';
 
 export async function streamADAMChat(
   sessionId: string,
@@ -327,17 +378,48 @@ export async function streamADAMChat(
       const founderTeachingLearnerTurn = founderTeachingAbsorption || founderTeachingSynthesis;
 
       const contextStarted = Date.now();
-      const contextMessages = await buildSmartContext(
-        resolvedSessionId,
-        isGroup ? `[${participant.userName}]: ${messageForAdam}` : messageForAdam,
-        participant,
-        workspace,
-        mode,
-        {
-          recallProbeMessage: normalizedMessage,
-          founderTeachingAbsorption: founderTeachingLearnerTurn,
-        },
-      );
+      const needContinuity = !isFounder && !isGuestTrial;
+      const needTamat = isAmaBrainV2Enabled()
+        && !founderTeachingLearnerTurn
+        && mode !== 'JOURNAL_GEN'
+        && !isGuestTrial;
+      const needTesterPrefix = !isFounder && participant.sessionType === 'student';
+
+      const [
+        contextMessages,
+        studentContinuityBridge,
+        amaTamatBlock,
+        testerSystemPrefix,
+      ] = await Promise.all([
+        buildSmartContext(
+          resolvedSessionId,
+          isGroup ? `[${participant.userName}]: ${messageForAdam}` : messageForAdam,
+          participant,
+          workspace,
+          mode,
+          {
+            recallProbeMessage: normalizedMessage,
+            founderTeachingAbsorption: founderTeachingLearnerTurn,
+          },
+        ),
+        needContinuity
+          ? buildStudentContinuityBridge(
+            participant.userId,
+            resolvedSessionId,
+            participant.userName,
+            messageForAdam,
+          )
+          : Promise.resolve(undefined),
+        needTamat
+          ? resolveTamatLayer5Block(
+            messageForAdam,
+            () => getOrCreateMaster(FOUNDER_USER_ID),
+          ).then((t) => t ?? undefined)
+          : Promise.resolve(undefined),
+        needTesterPrefix
+          ? loadTesterSystemPrefix(participant, isTesterGreetingTurn)
+          : Promise.resolve(''),
+      ]);
       const contextMs = Date.now() - contextStarted;
 
       const workspacePrompt = workspace
@@ -346,43 +428,36 @@ export async function streamADAMChat(
 
       const macBridgeBlock = isFounder ? buildMacBridgeContextBlock() : '';
 
-      let studentContinuityBridge: string | undefined;
-      if (!isFounder && !isGuestTrial) {
-        studentContinuityBridge = await buildStudentContinuityBridge(
-          participant.userId,
-          resolvedSessionId,
-          participant.userName,
-          messageForAdam,
-        );
-      }
-
-      let amaTamatBlock: string | undefined;
-      if (
-        isAmaBrainV2Enabled()
-        && !founderTeachingLearnerTurn
-        && mode !== 'JOURNAL_GEN'
-        && !isGuestTrial
-      ) {
-        const tamat = await resolveTamatLayer5Block(
-          messageForAdam,
-          () => getOrCreateMaster(FOUNDER_USER_ID),
-        );
-        if (tamat) amaTamatBlock = tamat;
-      }
-
       const recentUserTurns = extractRecentUserTurns(contextMessages);
       const precisionTurn = resolveTechnicalPrecisionTurn(messageForAdam, recentUserTurns);
+      const entityCorrectionTurn = resolveUserEntityCorrectionTurn(messageForAdam, recentUserTurns);
 
       const factualGroundingPrompt = !isFounder
         ? [
           buildFactualGroundingPromptBlock(messageForAdam, {
             recentUserMessages: recentUserTurns,
           }),
+          buildEntityCorrectionPromptBlock(messageForAdam, recentUserTurns),
           buildKmSensingPromptBlock(messageForAdam, recentUserTurns),
         ].filter(Boolean).join('\n\n') || undefined
         : undefined;
 
       const webSearchEnabledThisTurn = adamWebSearchEnabled() && !founderTeachingAbsorption;
+
+      const webSearchGateReason = founderTeachingSynthesis
+        ? getWebSearchGateReason(userMessage, {
+          isFounder,
+          hasTeachingUpload: teaching.fileNames.length > 0,
+          founderTeachingSynthesis: true,
+        })
+        : founderTeachingAbsorption
+          ? null
+          : getWebSearchGateReason(userMessage, {
+            isFounder,
+            technicalFollowUp: precisionTurn.isFollowUp,
+          });
+      const enableWebSearch = Boolean(webSearchGateReason);
+      const studentSearchFirst = shouldStudentUseSearchFirstFlow(!isFounder, webSearchGateReason);
 
       let systemPrompt = prependCoreToSystem(
         buildAdamChatSystemPrompt({
@@ -407,6 +482,7 @@ export async function streamADAMChat(
               ? getAdamWebSearchPrompt(isFounder, {
                 userMessage: messageForAdam,
                 recentUserMessages: recentUserTurns,
+                searchPrefetched: studentSearchFirst,
               })
               : undefined,
         }),
@@ -417,33 +493,8 @@ export async function streamADAMChat(
         systemPrompt = `${systemPrompt}\n\n${macBridgeBlock}`;
       }
 
-      if (!isFounder && participant.sessionType === 'student') {
-        const isTester = await isTesterAccount(participant.userId);
-        if (isTester) {
-          const lang = await getTesterLanguage(participant.userId);
-          const languageInstruction = buildLanguageInstruction(lang);
-          if (languageInstruction) {
-            systemPrompt = `${languageInstruction}\n\n${systemPrompt}`;
-          }
-
-          if (isTesterGreetingTurn && lang) {
-            const langOpt = getLanguageByCode(lang);
-            const sub = await SubscriptionModel.findOne({
-              userId: participant.userId,
-              tier:   SubscriptionTier.TESTER,
-            });
-            const limit = (sub?.pencarianUsage?.totalMessagesLimit ?? 50)
-              + (sub?.pencarianUsage?.extensionMessagesAdded ?? 0);
-
-            const greetingInstruction = buildTesterGreeting(
-              participant.userName,
-              lang,
-              langOpt?.nativeName ?? lang,
-              limit,
-            );
-            systemPrompt = `${greetingInstruction}\n\n${systemPrompt}`;
-          }
-        }
+      if (testerSystemPrefix) {
+        systemPrompt = `${testerSystemPrefix}\n\n${systemPrompt}`;
       }
 
       let journal: JournalGenContext = {
@@ -483,21 +534,9 @@ export async function streamADAMChat(
         mode,
         { founderTeachingAbsorption: founderTeachingLearnerTurn },
       );
-      const webSearchGateReason = founderTeachingSynthesis
-        ? getWebSearchGateReason(userMessage, {
-          isFounder,
-          hasTeachingUpload: teaching.fileNames.length > 0,
-          founderTeachingSynthesis: true,
-        })
-        : founderTeachingAbsorption
-          ? null
-          : getWebSearchGateReason(userMessage, {
-            isFounder,
-            technicalFollowUp: precisionTurn.isFollowUp,
-          });
-      const enableWebSearch = Boolean(webSearchGateReason);
       const forceWebSearch = enableWebSearch
         && !isFounder
+        && !studentSearchFirst
         && shouldForceWebSearchForTechnicalTurn(userMessage, {
           recentUserMessages: recentUserTurns,
         });
@@ -511,6 +550,7 @@ export async function streamADAMChat(
             preview:       userMessage.slice(0, 80),
             reason:        webSearchGateReason,
             forced:        forceWebSearch,
+            searchFirst:   studentSearchFirst,
             technicalFollowUp: precisionTurn.isFollowUp,
             guestTrial:    isGuestTrial,
             stack:         ENV.QXK24_STACK,
@@ -518,6 +558,52 @@ export async function streamADAMChat(
             ts:            new Date().toISOString(),
           }),
         );
+      }
+
+      let searchPrefetchMs = 0;
+      let prefetchedSearchResults: LlmSearchResult[] = [];
+      let prefetchedSearchUsed = false;
+      let prefetchedSearchDropped = false;
+
+      if (studentSearchFirst) {
+        const prefetch = await runStudentSearchPrefetch({
+          userMessage:         userMessage,
+          recentUserMessages:  llmMessages,
+          model:               modelChoice.model,
+          onSearching: () => {
+            onEvent(
+              'adam_searching',
+              JSON.stringify({ query: userMessage.slice(0, 80) || 'Mencari data sebenar…' }),
+            );
+          },
+          onSearchDone: () => {
+            onEvent('adam_search_done', JSON.stringify({ query: '' }));
+          },
+        });
+        searchPrefetchMs = prefetch.prefetchMs;
+        prefetchedSearchResults = prefetch.searchResults;
+        prefetchedSearchUsed = prefetch.searchUsed;
+        prefetchedSearchDropped = prefetch.searchDroppedByFilter;
+        if (prefetchedSearchDropped) {
+          onEvent(
+            'adam_search_unavailable',
+            JSON.stringify({
+              sessionId: resolvedSessionId,
+              reason:    'content_filter',
+              message:   'Carian web tidak tersedia pada giliran ini. ADAM akan menjawab tanpa data carian.',
+            }),
+          );
+        }
+        systemPrompt = `${systemPrompt}\n\n${buildPrefetchedSearchContextBlock(
+          prefetchedSearchResults,
+          { searchDropped: prefetchedSearchDropped },
+        )}`;
+        console.log('[adam:search-first] prefetch complete', JSON.stringify({
+          sessionId: resolvedSessionId,
+          hits:      prefetchedSearchResults.length,
+          dropped:   prefetchedSearchDropped,
+          ms:        searchPrefetchMs,
+        }));
       }
 
       // Live stream for students — post-repair is sync sanitize only (no LLM rewrite).
@@ -595,6 +681,7 @@ export async function streamADAMChat(
       let sectionDraftMap = undefined;
       let streamMs = 0;
       let repairMs = 0;
+      let sunomMs = 0;
 
       if (mode === 'JOURNAL_GEN' && isFounder) {
         const journalResult = await streamAdamJournalResponse({
@@ -619,11 +706,30 @@ export async function streamADAMChat(
         onEvent('adam_stream_idle', JSON.stringify({ sessionId: resolvedSessionId }));
       } else {
         const streamStarted = Date.now();
-        const streamResult = await streamOnce(llmMessages, enableWebSearch);
-        fullResponse = streamResult.text;
+        const synthesisWithSearch = enableWebSearch && !studentSearchFirst;
+        const streamResult = await streamOnce(llmMessages, synthesisWithSearch);
+        if (studentSearchFirst) {
+          streamResult.searchResults = prefetchedSearchResults;
+          streamResult.searchUsed = prefetchedSearchUsed;
+          streamResult.searchDroppedByFilter = prefetchedSearchDropped;
+        }
+        const rawModelStream = streamResult.text;
+        fullResponse = rawModelStream;
         streamMs = Date.now() - streamStarted;
         onEvent('adam_stream_idle', JSON.stringify({ sessionId: resolvedSessionId }));
         const repairStarted = Date.now();
+        const sunomEnrichStarted = Date.now();
+        const runStudentSuNom = !isFounder && precisionTurn.isActive;
+        const sunomEnrichPromise = runStudentSuNom
+          ? enrichSunomVerificationInput({
+            userMessage,
+            recentUserMessages: recentUserTurns,
+            searchResults:      streamResult.searchResults,
+            searchUsed:         streamResult.searchUsed,
+            searchDropped:      streamResult.searchDroppedByFilter,
+          })
+          : null;
+
         fullResponse = await repairEastAsianScriptLeak(fullResponse, userMessage);
         const rawForSunomVerification = fullResponse;
         if (!isFounder) {
@@ -632,30 +738,74 @@ export async function streamADAMChat(
             userMessage,
             recentUserTurns,
           );
-          fullResponse = prependSearchUnavailableNotice(fullResponse, {
-            technicalTurn:       precisionTurn.isActive,
-            searchWasDropped:    streamResult.searchDroppedByFilter,
-          });
-          const sunomInput = await enrichSunomVerificationInput({
-            userMessage,
-            recentUserMessages: recentUserTurns,
-            searchResults:      streamResult.searchResults,
-            searchUsed:         streamResult.searchUsed,
-            searchDropped:      streamResult.searchDroppedByFilter,
-          });
-          if (sunomInput.fingerFetched && sunomInput.fingerFetched > 0) {
-            console.log('[adam:sunom-fingers]', JSON.stringify({
-              sessionId: resolvedSessionId,
-              fetched:   sunomInput.fingerFetched,
-              ms:        sunomInput.fingerFetchMs,
-              km:        sunomInput.kmSensing?.peringkat,
-            }));
+          if (runStudentSuNom) {
+            fullResponse = prependSearchUnavailableNotice(fullResponse, {
+              technicalTurn:    precisionTurn.isActive,
+              searchWasDropped: streamResult.searchDroppedByFilter,
+            });
+            const sunomInput = await sunomEnrichPromise!;
+            sunomMs = Date.now() - sunomEnrichStarted;
+            if (sunomInput.fingerFetched && sunomInput.fingerFetched > 0) {
+              console.log('[adam:sunom-fingers]', JSON.stringify({
+                sessionId: resolvedSessionId,
+                fetched:   sunomInput.fingerFetched,
+                ms:        sunomInput.fingerFetchMs,
+                km:        sunomInput.kmSensing?.peringkat,
+              }));
+            }
+            fullResponse = sanitizeSunomVerifiedOutput(fullResponse, {
+              ...sunomInput,
+              rawOutputText: rawForSunomVerification,
+            });
+            fullResponse = finalizeVerificationGatedOutput(
+              fullResponse,
+              userMessage,
+              recentUserTurns,
+            );
+          } else {
+            const repairedBeforeFinalize = fullResponse;
+            const finalized = finalizeVerificationGatedOutput(
+              fullResponse,
+              userMessage,
+              recentUserTurns,
+            );
+            const searchBackedTurn = streamResult.searchUsed
+              && !streamResult.searchDroppedByFilter;
+            if (finalized.trim()) {
+              fullResponse = finalized;
+            } else if (!entityCorrectionTurn.isActive && !searchBackedTurn) {
+              fullResponse = repairedBeforeFinalize;
+            } else {
+              fullResponse = '';
+            }
           }
-          fullResponse = sanitizeSunomVerifiedOutput(fullResponse, {
-            ...sunomInput,
-            rawOutputText: rawForSunomVerification,
-          });
-          fullResponse = finalizeVerificationGatedOutput(fullResponse, userMessage, recentUserTurns);
+          if (!fullResponse?.trim() && rawModelStream.trim()) {
+            const recovered = await repairStudentOutputLeak(
+              rawModelStream,
+              userMessage,
+              recentUserTurns,
+            );
+            const recoveredFinal = finalizeVerificationGatedOutput(
+              recovered,
+              userMessage,
+              recentUserTurns,
+            );
+            fullResponse = recoveredFinal.trim() ? recoveredFinal : '';
+          }
+          if (!fullResponse?.trim() && !precisionTurn.isActive) {
+            if (isAdamLightChatTurn(userMessage)) {
+              fullResponse = buildStudentGreetingFallback(
+                userMessage,
+                participant.userName,
+              );
+            } else if (entityCorrectionTurn.isActive) {
+              fullResponse = STUDENT_ENTITY_CORRECTION_FALLBACK;
+            } else if (isAdamSubstantiveTurn(userMessage)) {
+              fullResponse = buildStudentGuidedPerspectiveFallback(userMessage);
+            } else {
+              fullResponse = STUDENT_EMPTY_TURN_FALLBACK;
+            }
+          }
         } else if (founderTeachingLearnerTurn) {
           fullResponse = sanitizeFounderTeachingQuranFormat(fullResponse);
           fullResponse = syncSanitizeFounderTeachingOutput(fullResponse);
@@ -685,20 +835,28 @@ export async function streamADAMChat(
             sessionId: resolvedSessionId,
             replace:   true,
             response:  fullResponse ?? '',
+            silentGate: precisionTurn.isActive && !fullResponse?.trim(),
           }));
         }
 
         if (!fullResponse?.trim()) {
-          console.warn('[adam:teaching] empty model response after stream/repair', {
-            sessionId: resolvedSessionId,
-            mode,
-            upload: teaching.fileNames,
-          });
-          fullResponse = [
-            'Bismillahirahmanirrahim.',
-            'P.alt, maaf — pada giliran ini jawapan saya kosong.',
-            'Sila hantar semula bab itu.',
-          ].join(' ');
+          if (isFounder) {
+            console.warn('[adam:stream] empty founder response after stream/repair', {
+              sessionId: resolvedSessionId,
+              mode,
+              upload: teaching.fileNames,
+            });
+            fullResponse = [
+              'Bismillahirahmanirrahim.',
+              'P.alt, maaf — pada giliran ini jawapan saya kosong.',
+              'Sila hantar semula bab itu.',
+            ].join(' ');
+          } else {
+            console.warn('[adam:stream] student silent gate — empty after verification strip', {
+              sessionId: resolvedSessionId,
+              mode,
+            });
+          }
         }
       }
 
@@ -713,8 +871,10 @@ export async function streamADAMChat(
           tier:      modelChoice.tier,
           reason:    modelChoice.reason,
           contextMs,
+          searchPrefetchMs,
           streamMs,
           repairMs,
+          sunomMs,
           inputTurns: llmMessages.length,
         }),
       );

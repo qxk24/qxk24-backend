@@ -249,6 +249,18 @@ export async function llmStream(params: LlmStreamParams): Promise<LlmStreamResul
   return qwenStream(params);
 }
 
+/** Phase-1 search — forced web search before answer synthesis (discards generated text). */
+export async function llmPrefetchWebSearch(
+  params: LlmStreamParams,
+): Promise<LlmStreamResult> {
+  return qwenStream({
+    ...params,
+    enableWebSearch: true,
+    forceWebSearch:  true,
+    enableThinking:  false,
+  });
+}
+
 export async function llmCompleteUserPrompt(
   system: string,
   userPrompt: string,

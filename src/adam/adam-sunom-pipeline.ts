@@ -50,9 +50,9 @@ export async function enrichSunomVerificationInput(
   let fingerFetchMs = 0;
   let fingerFetched = 0;
 
-  const titlesHaveMeasuredSpecs = baseResults.filter((hit) =>
+  const titlesHaveMeasuredSpecs = baseResults.some((hit) =>
     /\b\d[\d.,]*\s*(?:nm|n·m|ps|hp|mg|ml|cc|rpm|k\b|°c|kw)\b/i.test(hit.title ?? ''),
-  ).length >= 2;
+  );
 
   const shouldFetch = !input.skipFingerFetch
     && precision.isActive
