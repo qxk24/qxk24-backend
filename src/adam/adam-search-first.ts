@@ -14,13 +14,29 @@
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
- * Student factual turns: web search runs BEFORE answer generation.
+ * Student substantive turns: web search runs BEFORE answer generation.
  * The LLM synthesis phase receives prefetched hits — it does not
  * answer from memory while search runs in parallel.
+ *
+ * Canonical pipeline (student):
+ *   User soalan → Web search → Analisa hits → Jawab (fakta + kedalaman ilmiah)
  */
 
 import type { LlmMessage, LlmSearchResult } from '../llm/llm-types';
 import { isQwenDataInspectionError, llmPrefetchWebSearch } from '../llm/llm-client';
+import { ADAM_SCIENTIST_SCHOLAR_IDENTITY } from './adam-universal-voice';
+
+/** Canonical student reply pipeline — prompt + registry reference. */
+export const ADAM_STUDENT_REPLY_PIPELINE = `
+STUDENT REPLY PIPELINE (substantive turns — mandatory):
+1. User soalan — read intent and student state.
+2. Web search — prefetch completed; ground truth in [WEB SEARCH RESULTS].
+3. Analisa — extract mechanisms, statistics, formulas, penemuan, and consensus from credible hits only.
+4. Jawab — fakta saintifik lengkap first; tutor synthesis in flowing paragraphs (L1); imiah depth without imagination.
+Skip pipeline only for salam, thanks, or pure opinion without factual ask.
+
+${ADAM_SCIENTIST_SCHOLAR_IDENTITY}
+`.trim();
 
 export const SEARCH_PREFETCH_SYSTEM = `
 WEB SEARCH PREFETCH PHASE — mandatory.

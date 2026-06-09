@@ -25,6 +25,7 @@ import {
   sanitizeStudentForbiddenPronouns,
   studentForbiddenPronounAlternation,
 } from './adam-student-output-law';
+import { paragraphIsThreeTierDoorOffer } from './adam-three-tier-knowledge';
 import {
   userAskedForAlamtologi,
   userOpenedFaithDoor,
@@ -64,12 +65,20 @@ function stripUniversalVoiceLeaks(text: string, userMessage: string): string {
     .join('\n\n');
 
   if (!alamtologiOk) {
-    out = out.replace(FRAMEWORK_LEAK, '');
-    out = out.replace(/\bAlamtologi\b/gi, (match, offset, whole) => {
-      const before = whole.slice(Math.max(0, offset - 40), offset);
-      if (/what\s+is\s+$/i.test(before)) return match;
-      return '';
-    });
+    out = out
+      .split(/\n{2,}/)
+      .map((para) => {
+        const trimmed = para.trim();
+        if (!trimmed || paragraphIsThreeTierDoorOffer(trimmed)) return para;
+        let p = para.replace(FRAMEWORK_LEAK, '');
+        p = p.replace(/\bAlamtologi\b/gi, (match, offset, whole) => {
+          const before = whole.slice(Math.max(0, offset - 40), offset);
+          if (/what\s+is\s+$/i.test(before)) return match;
+          return '';
+        });
+        return p;
+      })
+      .join('\n\n');
   }
 
   if (!faithOk) {
@@ -100,7 +109,6 @@ const SCRIPTED_CLOSINGS: RegExp[] = [
   /Saya\s+di\s+sini\.?\s*bersama\s+anda/i,
   /langkah\s+demi\s+langkah/i,
   /saya\s+sedia\s+bantu\.?\s*$/i,
-  /Jika\s+anda\s+ingin,\s*saya\s+boleh\s+bantu/i,
   /Saya\s+di\s+sini\.?\s*Bukan\s+untuk\s+mempercepat/i,
   /duduk\s+bersama.*kegelapan/i,
   /bukan\s+untuk\s+mempercepat\s+jawapan/i,
@@ -207,7 +215,8 @@ export function sanitizeStudentOutputSync(
   for (const para of paragraphs) {
     const trimmed = para.trim();
     if (!trimmed) continue;
-    if (SCRIPTED_CLOSINGS.some((re) => re.test(trimmed))) continue;
+    if (!paragraphIsThreeTierDoorOffer(trimmed)
+      && SCRIPTED_CLOSINGS.some((re) => re.test(trimmed))) continue;
     if (paragraphShouldStripForUniversalVoice(trimmed, { faithOk, alamtologiOk })) continue;
     if (/^\[Source:/i.test(trimmed)) continue;
     if (/^Maksudnya\s*:/i.test(trimmed)) continue;

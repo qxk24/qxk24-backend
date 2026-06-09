@@ -23,6 +23,8 @@ import {
   buildStudentWebSearchPrompt,
 } from './adam-web-search-prompts';
 
+export { ADAM_STUDENT_REPLY_PIPELINE } from './adam-search-first';
+
 export {
   ADAM_CITATION_HONESTY,
   ADAM_SEARCH_WHEN_TO,
@@ -77,6 +79,10 @@ export function getAdamWebSearchPrompt(
 ): string {
   if (!isFounder) {
     if (options?.searchPrefetched) {
+      const msg = options?.userMessage?.trim() ?? '';
+      if (msg && isLifeEmotionTurn(msg)) {
+        return buildStudentWebSearchPrompt('life_substantive');
+      }
       return buildStudentWebSearchPrompt('prefetched');
     }
     const msg = options?.userMessage?.trim() ?? '';
@@ -160,8 +166,6 @@ export function getWebSearchGateReason(
   if (parseQuranAyahRefs(text).length > 0) return null;
 
   if (PURE_REFLECTION.test(text)) return null;
-
-  if (isLifeEmotionTurn(text)) return null;
 
   if (
     options?.isFounder &&

@@ -42,7 +42,7 @@ describe('ADAM universal voice output guard', () => {
   });
 });
 
-describe('Life emotion turns — skip web search', () => {
+describe('Life emotion turns — delivery overlay', () => {
   it('detects anxiety and sleep questions', () => {
     expect(isLifeEmotionTurn('Kenapa saya rasa cemas sebelum tidur?')).toBe(true);
     expect(isLifeEmotionTurn('Bagaimana stres mempengaruhi tidur?')).toBe(true);
@@ -52,8 +52,8 @@ describe('Life emotion turns — skip web search', () => {
     expect(isLifeEmotionTurn('Berapa tork Viva Elite?')).toBe(false);
   });
 
-  it('skips search gate for life emotion turns', () => {
-    expect(getWebSearchGateReason('Kenapa saya rasa cemas sebelum tidur?')).toBeNull();
+  it('still runs search gate for life emotion substantive turns', () => {
+    expect(getWebSearchGateReason('Kenapa saya rasa cemas sebelum tidur?')).toBe('factual_question');
   });
 });
 

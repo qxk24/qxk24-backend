@@ -41,6 +41,11 @@ import {
   ADAM_LAYER5_STUDENT,
 } from './adam-response-generation';
 import {
+  ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE,
+  buildThreeTierTurnOverlay,
+  type StudentKnowledgeTier,
+} from './adam-three-tier-knowledge';
+import {
   ADAM_UNIVERSAL_VOICE_POLICY,
 } from './adam-universal-voice';
 import { JOURNAL_GEN_MANUAL_MODE_PROMPT } from './adam-journal-manual-prompt';
@@ -126,6 +131,8 @@ export interface AdamChatSystemPromptParams {
   amaTamatBlock?:          string;
   /** Technical precision grounding (search-mandatory turns) */
   factualGroundingPrompt?: string;
+  /** 1 = konvensional, 2 = Alamtologi opt-in, 3 = Quran opt-in */
+  studentKnowledgeTier?:  StudentKnowledgeTier;
 }
 
 /**
@@ -238,6 +245,10 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     // Students get wisdom — not the framework manual
     // ADAM already knows the laws. He speaks from them, not about them.
     parts.push(ADAM_UNIVERSAL_VOICE_POLICY);
+    parts.push(ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE);
+    if (params.studentKnowledgeTier) {
+      parts.push(buildThreeTierTurnOverlay(params.studentKnowledgeTier));
+    }
     parts.push(STUDENT_MODE_PROMPT);
     if (params.workspacePrompt) parts.push(params.workspacePrompt);
     if (params.studentContinuityBridge) parts.push(params.studentContinuityBridge);

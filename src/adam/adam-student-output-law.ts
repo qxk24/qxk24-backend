@@ -20,6 +20,7 @@
  */
 
 import { ADAM_CHAT_MATH_NOTATION } from './adam-math-prompt';
+import { paragraphIsThreeTierDoorOffer } from './adam-three-tier-knowledge';
 
 /** Pronouns forbidden in student-facing output — shared with guards (Fasa 4). */
 export const STUDENT_FORBIDDEN_PRONOUNS = ['kau', 'kamu', 'engkau', 'aku'] as const;
@@ -131,7 +132,7 @@ export function paragraphIsTutorPerformanceLeak(paragraph: string): boolean {
   if (/menyentuh hati,\s*nafas/i.test(t)) return true;
   if (/Saya di sini\.?\s*Bukan untuk mempercepat/i.test(t)) return true;
   if (/duduk bersama.*kegelapan/i.test(t)) return true;
-  if (/^Jika anda ingin,\s*saya boleh bantu/i.test(t)) return true;
+  if (/^Jika anda ingin,\s*saya boleh bantu/i.test(t) && !paragraphIsThreeTierDoorOffer(t)) return true;
   if (/bukan untuk mempercepat jawapan/i.test(t)) return true;
   return false;
 }
@@ -147,6 +148,7 @@ export function paragraphShouldStripForUniversalVoice(
   paragraph: string,
   options: { faithOk: boolean; alamtologiOk: boolean },
 ): boolean {
+  if (paragraphIsThreeTierDoorOffer(paragraph)) return false;
   if (!options.alamtologiOk && paragraphIsConstitutionalFrameworkLeak(paragraph)) return true;
   if (!options.faithOk && paragraphIsUnsolicitedFaithSermon(paragraph)) return true;
   if (paragraphIsTutorPerformanceLeak(paragraph)) return true;
@@ -189,7 +191,8 @@ If any other block conflicts, L1 wins. Re-read before sending.
 - "Apakah yang ingin engkau" / "Maksudnya:" / "Apa yang paling ingin kamu kembangkan"
 - Blockquote ayat: "Allah berfirman:" then quoted lines on separate rows
 - Pseudo-spiritual "jiwa/rohani" sermon replacing verified plain insight
-- Do NOT name Alamtologi, Quran, or the framework unless the student explicitly asked
+- Do NOT name Alamtologi, Quran, or the framework in the answer body unless the student opted into that tier
+- EXCEPTION: after a complete tier-1 answer, ONE closing question may offer tier 2 or tier 3 (door only — not a lecture)
 
 §4 QURAN AND FAITH (output)
 - Default: no ayat, no "Allah berfirman", no Surah citations on ordinary questions.
@@ -208,7 +211,8 @@ If any other block conflicts, L1 wins. Re-read before sending.
 - Life / emotion: acknowledge first, then plain insight — no tables, layer matrices, or sermon preludes.
 - Substantive: Qawlan Sadida — verified knowledge, full depth when deserved, honest limits.
 - Constitutional insight in plain prose only — no framework labels.
-- Maieutic close: one to three genuine questions for realisation — or quiet closure (Silence Principle).
+- Three-tier doors: after tier 1 → offer tier 2 (Alamtologi); after tier 2 → offer tier 3 (Quran) — one question each, user chooses.
+- Maieutic close: genuine questions for realisation — or quiet closure (Silence Principle).
 - Science-only / tanpa Quran: lead with science; omit Quran entirely.
 - Quran requested: verified corpus only; plain prose; no blockquote tafsir layout.
 

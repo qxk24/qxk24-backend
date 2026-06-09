@@ -79,6 +79,7 @@ import {
 } from './adam-student.types';
 import type { ADAMChatMode, SSEEventType } from './adam.types';
 import { buildAdamChatSystemPrompt } from './adam-system-prompts';
+import { resolveStudentKnowledgeTier } from './adam-three-tier-knowledge';
 import { isAmaBrainV2Enabled } from '../lib/ama/ama-brain-integration.service';
 import { resolveTamatLayer5Block } from '../lib/ama/tamat-generator';
 import { getOrCreateMaster } from '../qxk24brain/qxk24brain.engine';
@@ -458,6 +459,9 @@ export async function streamADAMChat(
           });
       const enableWebSearch = Boolean(webSearchGateReason);
       const studentSearchFirst = shouldStudentUseSearchFirstFlow(!isFounder, webSearchGateReason);
+      const studentKnowledgeTier = !isFounder
+        ? resolveStudentKnowledgeTier(messageForAdam, recentUserTurns)
+        : undefined;
 
       let systemPrompt = prependCoreToSystem(
         buildAdamChatSystemPrompt({
@@ -472,6 +476,7 @@ export async function streamADAMChat(
           founderTeachingSynthesis,
           amaTamatBlock,
           factualGroundingPrompt,
+          studentKnowledgeTier,
           webSearchPrompt:          webSearchEnabledThisTurn && founderTeachingSynthesis
             ? getAdamWebSearchPrompt(isFounder, {
               founderTeachingSynthesis: true,

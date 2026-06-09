@@ -29,7 +29,9 @@ describe('adam-web-search-prompts (Fasa 3)', () => {
     const prompt = buildStudentWebSearchPrompt('prefetched');
     expect(prompt).not.toContain('WHEN TO SEARCH:');
     expect(countOccurrences(prompt, 'CITATION HONESTY')).toBe(1);
-    expect(prompt).toMatch(/tutor, not a database/);
+    expect(prompt).toMatch(/scientist-scholar/i);
+    expect(prompt).toMatch(/NOT copy-paste/i);
+    expect(prompt).toMatch(/diabetes/i);
   });
 
   it('technical overlay keeps universal mandate', () => {
@@ -50,6 +52,22 @@ describe('adam-web-search-prompts (Fasa 3)', () => {
     const prompt = buildFounderWebSearchPrompt('teaching_absorption');
     expect(prompt).toMatch(/teaching absorption/);
     expect(countOccurrences(prompt, 'CITATION HONESTY')).toBe(1);
+  });
+
+  it('life substantive overlay includes pipeline and flowing prose rules', () => {
+    const prompt = buildStudentWebSearchPrompt('life_substantive');
+    expect(prompt).toMatch(/STUDENT REPLY PIPELINE/);
+    expect(prompt).toMatch(/flowing like water/i);
+    expect(prompt).not.toContain('WHEN TO SEARCH:');
+  });
+
+  it('getAdamWebSearchPrompt routes prefetched life turns', () => {
+    const prompt = getAdamWebSearchPrompt(false, {
+      searchPrefetched: true,
+      userMessage:      'Kenapa saya rasa cemas sebelum tidur?',
+    });
+    expect(prompt).toMatch(/LIFE\/EMOTION/);
+    expect(prompt).toMatch(/STUDENT REPLY PIPELINE/);
   });
 
   it('getAdamWebSearchPrompt routes student technical turns', () => {
