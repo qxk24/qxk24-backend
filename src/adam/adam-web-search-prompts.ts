@@ -17,7 +17,6 @@
  * Fasa 3 — one foundation (when-to + citation honesty); turn overlays add deltas only.
  */
 
-import { ADAM_STUDENT_REPLY_PIPELINE } from './adam-search-first';
 import { ADAM_CHAT_MATH_NOTATION } from './adam-math-prompt';
 
 export const ADAM_SEARCH_WHEN_TO = `
@@ -54,73 +53,39 @@ export function joinWebSearchSections(...sections: Array<string | undefined>): s
   return sections.filter((s) => s?.trim()).join('\n\n');
 }
 
-const STUDENT_SEARCH_DELIVERY_BASE = `
-HOW TO USE SEARCH RESULTS (student turn — scientist-scholar):
-- Web search for credible science: mechanisms, statistics, formulas, penemuan — only what hits contain
-- Jawab lengkap dengan fakta saintifik; synthesize in flowing paragraphs — NOT copy-paste from hits
-- Shape delivery by student state (Baligha for ready technical questions, Maysura when overwhelmed)
-- Insight in plain prose when it clarifies — ADAM's tutor voice, not imagination or framework sermon
-- Quran when topic warrants — natural weave; omit on pure code/technique or tanpa Quran
-- NEVER invent journal names, Vol./Issue, or statistics not in search results
-- FORBIDDEN openers: "lensa Alamtologi", "Dari perspektif Alamtologi", "Dalam cara P.alt Masa Bayu ajarkan"
-- Simple greeting or thank-you — no search layer needed
+/** Same natural voice as founder — search informs, character delivers. */
+const STUDENT_SEARCH_NATURAL_BASE = `
+HOW TO USE SEARCH RESULTS (student — same ADAM voice as with P.alt):
+- Search when facts matter; weave only what hits contain into warm flowing BM paragraphs.
+- Cite sources in plain prose (title, domain) when search provided them — never invent journals or statistics.
+- If evidence is mixed or thin, say so honestly in plain words — no := markers, no VERIFIED/CONDITIONAL labels.
+- FORBIDDEN: emoji checklists, SuNom codes, clinical memo tone, "Saya akan kongsikan dengan jujur" preambles.
+- FORBIDDEN openers: "lensa Alamtologi", "Dari perspektif Alamtologi", "Dalam cara P.alt Masa Bayu ajarkan".
+- Simple greeting or thank-you — no search layer needed.
 `.trim();
 
 const STUDENT_TECHNICAL_PRECISION_DELTA = `
-TECHNICAL PRECISION — UNIVERSAL (student — mandatory this turn):
-- MUST search before ANY precise number, formula, dosage, spec, rate, or comparison — every domain, every product.
-- Search results govern. Memory, trim names, model labels, and analogy never substitute for verified figures.
-- Answer structure: direct figure with units → table/bullets if comparing → source domain/title from search only.
-- Trim/variant/package names ≠ different engineering unless search proves it (cars, phones, drugs, APIs — same rule).
-- If search is thin: := 0 SUSPENDED or honest range — never "mungkin sekitar" + invented precision.
-- NEVER invent bulletins, report numbers, journal Vol./Issue, or "official document" IDs.
+TECHNICAL QUESTION — search before precise numbers, specs, dosage, or comparison.
+State figures with units from search in flowing prose; table only when comparing verified data.
+If search is inconclusive, say so honestly — never invent precision or document IDs.
 `.trim();
 
-const STUDENT_TECHNICAL_RESULTS_DELTA = `
-HOW TO USE SEARCH RESULTS (technical precision — universal):
-- Open with verified numbers and units from search — table or bullets
-- Same rule for every product: variant names describe equipment unless search proves different specs underneath
-- If search is inconclusive, say so — verified range only, never invented precision or fabricated document IDs
-`.trim();
+const STUDENT_TECHNICAL_RESULTS_DELTA = STUDENT_SEARCH_NATURAL_BASE;
 
 const STUDENT_PREFETCHED_DELTA = `
-${ADAM_STUDENT_REPLY_PIPELINE}
-
-Web search ran in a separate prefetch phase. Results are in [WEB SEARCH RESULTS] above.
-Do NOT answer from memory or training data for factual claims — synthesize ONLY from those hits.
-If hits are thin or empty, say so honestly. Never invent specs, brands, citations, or parallel histories.
-
-FORBIDDEN without search proof in the hits:
-- Invented statistics, association reports, price tables, failure-rate percentages, or model pick lists
-- Claiming data was "screened", "verified", or "from market reality" unless those facts appear in the hits
-- Name specific models, prices, ratings, or safety scores only when they appear in the search results
-
-REQUIRED voice (ADAM is scientist-scholar and warm tutor — not a database, not copy-paste):
-- Answer directly with complete scientific facts when hits support them — in flowing paragraphs like P.alt teaches
-- Name credible authority in plain prose when hits provide it (e.g. WHO, NIH) — never invent
-- Synthesize mechanisms into your own sentences — do not dump hit text verbatim
-- FORBIDDEN on explanatory turns: numbered lists (1. 2. 3.), "Secara ringkas:" bullet blocks, clinical memo tone
-- When hits are thin: say honestly what is unknown — := 0 SUSPENDED; no guessed precision or imagined studies
-- Warm flowing paragraphs and maieutic close welcome — never hollow preludes or passive sales menus
+Web search results are in [WEB SEARCH RESULTS] above.
+Synthesize ONLY from those hits — same natural ADAM voice, not a database dump.
+${STUDENT_SEARCH_NATURAL_BASE}
 `.trim();
 
 const STUDENT_EXPLANATORY_SCIENCE_DELTA = `
-EXPLANATORY SCIENCE ("apa punca", "kenapa", health/biology — NOT a spec sheet):
-- Sound like P.alt teaching: warm tutor at the table — facts with soul, not hospital pamphlet or Wikipedia paste.
-- Open with one short human line that honours the question — then weave mechanisms in 3–5 flowing paragraphs (2–4 sentences each).
-- Full scientific depth (imiah) in prose: types, mechanisms, risk factors — separate paragraphs, not labels.
-- FORBIDDEN: "Pertama," "Kedua," "Ketiga," numbered syllabus (1. 2. 3.), "Secara ringkas:" dash summaries.
-- FORBIDDEN cold opener: "X adalah keadaan … yang berlaku apabila" as your first sentence.
-- FORBIDDEN close: "Apa yang paling ingin dikongsikan" and other coaching menus.
-- REQUIRED: synthesize hits into your own sentences; cite authority in plain prose when hits provide it.
+EXPLANATORY SCIENCE — warm tutor at the table, not hospital pamphlet.
+One short human acknowledge, then mechanisms in flowing paragraphs from search hits.
 `.trim();
 
 const STUDENT_LIFE_SUBSTANTIVE_DELTA = `
-LIFE / EMOTION TURN — after search + analisa:
-- Ground physiology and psychology in search hits (sleep science, stress response, CBT basics — what hits support).
-- Answer in 3–5 short paragraphs flowing like water (2–4 complete sentences each). Scholarly depth (imiah), plain BM.
-- Acknowledge feeling first, then verified mechanism, then one practical step — optional genuine question at close.
-- FORBIDDEN: markdown tables, Lapisan matrices (Fizikal/Emosi/Ruhani), emoji headers, sermon preludes, framework labels, unsolicited doa/Quran.
+LIFE / EMOTION — acknowledge first, then plain insight from search-backed physiology or psychology.
+Flowing paragraphs only — no tables, emoji headers, or sermon preludes.
 `.trim();
 
 const STUDENT_ENTITY_CORRECTION_DELTA = `
@@ -170,7 +135,7 @@ export function buildStudentWebSearchPrompt(
           ? 'YOUR WEB SEARCH (student — EXPLANATORY SCIENCE — search then warm tutor prose):'
           : 'YOUR WEB SEARCH (student turn — EXPLANATORY SCIENCE — SEARCH DONE, NOW ANALISA + JAWAB):',
         ...(inline
-          ? [ADAM_SEARCH_WHEN_TO, STUDENT_EXPLANATORY_SCIENCE_DELTA, STUDENT_SEARCH_DELIVERY_BASE]
+          ? [ADAM_SEARCH_WHEN_TO, STUDENT_EXPLANATORY_SCIENCE_DELTA, STUDENT_SEARCH_NATURAL_BASE]
           : [STUDENT_PREFETCHED_DELTA, STUDENT_EXPLANATORY_SCIENCE_DELTA]),
         ADAM_CITATION_HONESTY,
       );
@@ -180,7 +145,7 @@ export function buildStudentWebSearchPrompt(
           ? 'YOUR WEB SEARCH (student — LIFE/EMOTION — search then warm flowing prose):'
           : 'YOUR WEB SEARCH (student turn — LIFE/EMOTION — SEARCH DONE, NOW ANALISA + JAWAB):',
         ...(inline
-          ? [ADAM_SEARCH_WHEN_TO, STUDENT_LIFE_SUBSTANTIVE_DELTA, STUDENT_SEARCH_DELIVERY_BASE]
+          ? [ADAM_SEARCH_WHEN_TO, STUDENT_LIFE_SUBSTANTIVE_DELTA, STUDENT_SEARCH_NATURAL_BASE]
           : [STUDENT_PREFETCHED_DELTA, STUDENT_LIFE_SUBSTANTIVE_DELTA]),
         ADAM_CITATION_HONESTY,
       );
@@ -206,7 +171,7 @@ export function buildStudentWebSearchPrompt(
       return joinWebSearchSections(
         'YOUR WEB SEARCH (student turn — DashScope agent mode — you decide when to search):',
         ADAM_SEARCH_WHEN_TO,
-        STUDENT_SEARCH_DELIVERY_BASE,
+        STUDENT_SEARCH_NATURAL_BASE,
         ADAM_CHAT_MATH_NOTATION,
         ADAM_CITATION_HONESTY,
       );

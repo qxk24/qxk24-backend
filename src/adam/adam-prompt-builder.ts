@@ -20,14 +20,8 @@ import {
 } from './adam-character';
 import { ADAM_CORE_BEHAVIOUR, CONSULT_PHRASE, FOUNDER_STUDENTS_AWARENESS } from './adam-identity-prompts';
 import { ADAM_EPISTEMOLOGICAL_POSITION, ADAM_FOUNDER_NARRATIVE, ADAM_ALAMTOLOGI_LAWS } from './adam-knowledge-prompts';
-import {
-  ADAM_STUDENT_OUTPUT_FINAL_REMINDER,
-  ADAM_STUDENT_OUTPUT_LAW,
-} from './adam-student-output-law';
-import {
-  ADAM_MEMORY_HONESTY_RULE,
-  ADAM_ZPD_GUIDANCE_RULE,
-} from './adam-student-prompts';
+import { ADAM_STUDENT_OUTPUT_LAW_SURFACE } from './adam-student-output-law';
+import { ADAM_MEMORY_HONESTY_RULE, ADAM_MEMORY_HONESTY_RULE_STUDENT } from './adam-student-prompts';
 import {
   ADAM_STUDENT_BM_LAW_COMPACT,
   ADAM_STUDENT_DELIVERY,
@@ -130,8 +124,6 @@ export interface AdamChatSystemPromptParams {
   founderTeachingSynthesis?: boolean;
   /** AMA Tamat Kotak 20–22 anchor (Tahap 2 Layer 5) */
   amaTamatBlock?:          string;
-  /** Technical precision grounding (search-mandatory turns) */
-  factualGroundingPrompt?: string;
   /** 1 = konvensional, 2 = Alamtologi opt-in, 3 = Quran opt-in */
   studentKnowledgeTier?:  StudentKnowledgeTier;
 }
@@ -140,7 +132,7 @@ export interface AdamChatSystemPromptParams {
  * Assembles the system prompt for each conversation turn.
  *
  * STUDENT turns receive:
- *   CHARACTER (supreme) → L1 → consolidated DELIVERY → compact BM → style → tier overlay → tail
+ *   CHARACTER → L1 surface → WARMTH (same as founder) → delivery → tier overlay → tail
  *
  * FOUNDER turns receive:
  *   Everything above PLUS laws, epistemology, founder narrative (non-Teaching)
@@ -165,7 +157,7 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
 
   const warmthBlock = params.isFounder
     ? (teachingLearnerTurn ? ADAM_WARMTH_VOICE_TEACHING_LEARNER : ADAM_WARMTH_VOICE)
-    : '';
+    : ADAM_WARMTH_VOICE;
 
   const parts: string[] = [characterBlock];
 
@@ -180,7 +172,8 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     );
   } else {
     parts.push(
-      ADAM_STUDENT_OUTPUT_LAW,
+      ADAM_STUDENT_OUTPUT_LAW_SURFACE,
+      warmthBlock,
       ADAM_STUDENT_DELIVERY,
       ADAM_PROSE_DASH_LAW,
       ADAM_STUDENT_BM_LAW_COMPACT,
@@ -243,21 +236,18 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     }
     if (params.workspacePrompt) parts.push(params.workspacePrompt);
     if (params.studentContinuityBridge) parts.push(params.studentContinuityBridge);
-    if (params.factualGroundingPrompt?.trim()) parts.push(params.factualGroundingPrompt.trim());
     parts.push(`Pelajar semasa / Current student: ${params.participantName}`);
     if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
   }
 
   // ── 7. Memory honesty — always last ──────────────────────────
-  parts.push(ADAM_MEMORY_HONESTY_RULE);
+  parts.push(params.isFounder ? ADAM_MEMORY_HONESTY_RULE : ADAM_MEMORY_HONESTY_RULE_STUDENT);
   if (teachingSynthesis) {
     parts.push(FOUNDER_TEACHING_SYNTHESIS_OUTPUT_LOCK);
   } else if (teachingAbsorption) {
     parts.push(FOUNDER_TEACHING_OUTPUT_LOCK);
-  } else if (!params.isFounder) {
-    parts.push(ADAM_ZPD_GUIDANCE_RULE);
-    parts.push(ADAM_STUDENT_OUTPUT_FINAL_REMINDER);
   }
+
 
   return parts.filter(Boolean).join('\n\n');
 }

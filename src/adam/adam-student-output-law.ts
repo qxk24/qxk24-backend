@@ -114,12 +114,29 @@ export function paragraphHasMarkdownTable(paragraph: string): boolean {
   return (paragraph.match(/\|/g) ?? []).length >= 4;
 }
 
+/** Strip "Pertama," / "Kedua," essay openers — keep substance after the label. */
+export function rewriteOrdinalEssayOpeners(text: string): string {
+  return text
+    .split('\n')
+    .map((line) =>
+      line.replace(
+        /^\s*(?:Pertama|Kedua|Ketiga|Keempat|Kelima),?\s*(?:saya\s+ingin\s+nyatakan\s+dengan\s+jujur:?\s*)?/i,
+        '',
+      ),
+    )
+    .join('\n');
+}
+
 /** Poetic tutor performance — prelude, emoji headers, presence scripts (§3 / §5). */
 export function paragraphIsTutorPerformanceLeak(paragraph: string): boolean {
   const t = paragraph.trim();
   if (!t) return false;
   if (/^Terima kasih kerana berkongsi/i.test(t)) return true;
   if (/^Terima kasih kerana meminta/i.test(t)) return true;
+  if (/terima kasih kerana bertanya/i.test(t)) return true;
+  if (/soalan yang sangat penting/i.test(t)) return true;
+  if (/menyentuh harapan/i.test(t) && /\b(?:kepercayaan|harapan|jiwa|hati)\b/i.test(t)) return true;
+  if (/batas ilmu perubatan/i.test(t) && /terima kasih|sangat penting/i.test(t)) return true;
   if (/^Mari kita mulakan dengan kebenaran yang lembut/i.test(t)) return true;
   if (/^Mari kita masuk lebih dalam/i.test(t)) return true;
   if (/^Ini bukan soalan biasa/i.test(t)) return true;
@@ -166,6 +183,10 @@ export function paragraphIsCoachingScriptClosing(paragraph: string): boolean {
   if (/^Apa[kk]ah\s+yang\s+paling\s+ingin/i.test(t)) return true;
   if (/paling\s+ingin\s+(?:anda\s+)?dikongsikan/i.test(t)) return true;
   if (/paling\s+ingin\s+kamu\s+kembangkan/i.test(t)) return true;
+  if (/Saya di sini untuk membantu anda faham/i.test(t)) return true;
+  if (/bukan untuk memutuskan bagi anda/i.test(t)) return true;
+  if (/berdiri teguh dengan ilmu/i.test(t)) return true;
+  if (/agar anda berdiri teguh/i.test(t)) return true;
   return false;
 }
 
@@ -203,15 +224,99 @@ export function paragraphShouldStripForUniversalVoice(
   paragraph: string,
   options: { faithOk: boolean; alamtologiOk: boolean },
 ): boolean {
+  if (paragraphIsEmojiOnlyOpener(paragraph)) return true;
   if (paragraphIsFounderTeachingVoiceLeak(paragraph)) return true;
   if (paragraphIsThreeTierDoorOffer(paragraph)) return false;
   if (!options.alamtologiOk && paragraphIsConstitutionalFrameworkLeak(paragraph)) return true;
   if (!options.faithOk && paragraphIsUnsolicitedFaithSermon(paragraph)) return true;
   if (paragraphIsTutorPerformanceLeak(paragraph)) return true;
+  if (paragraphIsCoachingScriptClosing(paragraph)) return true;
+  if (paragraphIsOrdinalSyllabusLeak(paragraph)) return true;
   if (paragraphIsMarkdownBulletForest(paragraph)) return true;
   if (paragraphHasMarkdownTable(paragraph)) return true;
   return false;
 }
+
+/** SuNom / constitutional notation — never visible to students. */
+export const SUNOM_NOTATION_PATTERN =
+  /:=\s*[01]\s*(?:VERIFIED|CONDITIONAL|SUSPENDED)|\b(?:VERIFIED|CONDITIONAL|SUSPENDED)\s*\(:?=\s*[01]\)/i;
+
+export function stripSunomNotation(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .map((para) =>
+      para
+        .replace(/\s*\(:?=\s*[01]\s*(?:VERIFIED|CONDITIONAL|SUSPENDED)\)/gi, '')
+        .replace(/:=\s*[01]\s*(?:VERIFIED|CONDITIONAL|SUSPENDED)/gi, '')
+        .replace(/\b(?:VERIFIED|CONDITIONAL|SUSPENDED)\s*\(:?=\s*[01]\)/gi, '')
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/ +([.,!?;:])/g, '$1')
+        .trim(),
+    )
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+const EMOJI_OPENER_PREFIX =
+  /^[\u{2600}-\u{27BF}\u{FE0F}\u{1F300}-\u{1FAFF}\u{200D}]+\s*/u;
+
+/** Remove emoji / clinical preamble lines — keep substance on the same line. */
+export function rewriteEmojiPerformanceOpeners(text: string): string {
+  return text
+    .split('\n')
+    .map((line) =>
+      line
+        .replace(EMOJI_OPENER_PREFIX, '')
+        .replace(/^\uFE0F\s*/u, '')
+        .replace(/^Saya akan kongsikan dengan jujur:?\s*/i, ''),
+    )
+    .join('\n');
+}
+
+/** Paragraph that is only emoji/preamble — no substantive answer. */
+export function paragraphIsEmojiOnlyOpener(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/^Saya akan kongsikan dengan jujur:?\s*$/i.test(t)) return true;
+  if (/^[✅⚠️🩺🔸📋]\s*Saya akan kongsikan dengan jujur:?\s*$/iu.test(t)) return true;
+  if (/^[✅⚠️🩺🔸📋]\s*$/u.test(t)) return true;
+  return false;
+}
+
+/** Plan / tester tier labels used as addressee — not the student's human name. */
+export function stripPlanTesterAddress(text: string): string {
+  return text
+    .replace(/\bQA\s+Unlimited,?\s*/gi, '')
+    .replace(/Kalau\s+QA\s+Unlimited\s+sudi/gi, 'Jika anda sudi')
+    .replace(/\bQA\s+Unlimited\s+sudi/gi, 'anda sudi');
+}
+
+/** Emoji checklist / clinical pamphlet opener. */
+export function paragraphIsEmojiPerformanceOpener(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/^Saya akan kongsikan dengan jujur/i.test(t)) return true;
+  if (EMOJI_OPENER_PREFIX.test(t)) return true;
+  if (EMOJI_OPENER_PREFIX.test(t) && /jujur/i.test(t)) return true;
+  return false;
+}
+
+/** Compact L1 for system prompt — runtime guards enforce the full law. */
+export const ADAM_STUDENT_OUTPUT_LAW_SURFACE = `
+STUDENT OUTPUT LAW (L1) — SURFACE
+CHARACTER and WARMTH govern voice. This block is surface hygiene only.
+
+- Plain Bahasa Melayu Malaysia — warm tutor, not performance or essay skeleton.
+- No em dash (—); no markdown bullets/headers in conversational replies unless verified data table.
+- FORBIDDEN pronouns: ${FORBIDDEN_PRONOUN_LIST}. Use saya; address student by name when known.
+- Do not open student turns with Bismillah unless they opened the faith door.
+- NEVER := 1 VERIFIED, := 0 SUSPENDED, SuNom, or any constitutional notation in student-visible text.
+- No Founder Teaching-room voice (P.alt, AMA 124, PL/PG, coaching menus).
+- No framework billboard (MASA, TENAGA, Alamtologi labels) unless student opted into tier 2/3.
+- No emoji checklists (✅⚠️🩺), no "Saya akan kongsikan dengan jujur:" preambles.
+- No scripted openers ("Terima kasih kerana bertanya", "Pertama/Kedua" essays) or coaching closings.
+- Tier 1: conventional facts + web search when needed — complete answer first; Alamtologi bloodstream internal.
+`.trim();
 
 export const ADAM_STUDENT_OUTPUT_LAW = `
 STUDENT OUTPUT LAW (L1) — CANONICAL
@@ -248,6 +353,10 @@ If any other block conflicts, L1 wins. Re-read before sending.
 - "hukum ruhani yang ditetapkan" as framework lecture opener
 - "Saya telah melakukan carian ilmiah" / "tiga temuan utama yang sah secara saintifik"
 - [Source: "Title" — Harvard / Lancet / Nature / Max Planck, Vol. X, Issue Y] — never invent
+- "Terima kasih kerana bertanya" + long prelude ("soalan yang sangat penting", "menyentuh harapan", "batas ilmu perubatan")
+- "Pertama, saya ingin nyatakan dengan jujur" / "Pertama," "Kedua," essay skeleton on health or science answers
+- "Saya di sini untuk membantu anda faham" / "bukan untuk memutuskan bagi anda" / "berdiri teguh dengan ilmu dan keyakinan"
+- Plan or product names as opener (QA Unlimited, subscription tier labels) — never prefix replies with billing/plan text
 - "bukan sebagai sistem" / "bukan sebagai jawapan automatik" / "nafas yang menunggu" / "mengubah arah angin"
 - "Apakah yang ingin engkau" / "Maksudnya:" / "Apa yang paling ingin kamu kembangkan" / "Apa yang paling ingin dikongsikan"
 - Blockquote ayat: "Allah berfirman:" then quoted lines on separate rows
@@ -270,6 +379,8 @@ If any other block conflicts, L1 wins. Re-read before sending.
 - Hello / light greeting: "Hello." / "Hi." / "Salam sejahtera." — optional name; no Bismillah; no lecture layers.
 - Flow like water: 2–5 short paragraphs; 2–4 complete sentences each; one idea per paragraph; read aloud naturally.
 - Life / emotion: acknowledge first, then plain insight — no tables, layer matrices, or sermon preludes.
+- Health / science (e.g. diabetes): WRONG — "Terima kasih kerana bertanya… soalan sangat penting… Pertama, saya ingin nyatakan dengan jujur:"
+  RIGHT — open with verified facts in flowing prose: "Diabetes jenis 1 dan jenis 2 berbeza pada punca dan rawatan. Setakat ini, perubatan moden…"
 - Substantive: Qawlan Sadida — verified knowledge, full depth when deserved, honest limits; tutor warmth like P.alt, not clinical memo.
 - Constitutional insight in plain prose only — no framework labels.
 - Three-tier doors: after tier 1 → offer tier 2 (Alamtologi); after tier 2 → offer tier 3 (Quran) — one question each, user chooses.

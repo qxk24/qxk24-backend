@@ -23,8 +23,13 @@ import { resolveTechnicalPrecisionTurn, sanitizeTechnicalPrecisionOutput } from 
 import {
   paragraphIsCoachingScriptClosing,
   paragraphIsFounderTeachingVoiceLeak,
+  paragraphIsOrdinalSyllabusLeak,
   paragraphShouldStripForUniversalVoice,
+  rewriteEmojiPerformanceOpeners,
+  rewriteOrdinalEssayOpeners,
   sanitizeStudentForbiddenPronouns,
+  stripPlanTesterAddress,
+  stripSunomNotation,
   studentForbiddenPronounAlternation,
 } from './adam-student-output-law';
 import { paragraphIsThreeTierDoorOffer } from './adam-three-tier-knowledge';
@@ -117,6 +122,10 @@ const SCRIPTED_CLOSINGS: RegExp[] = [
   /bukan\s+untuk\s+mempercepat\s+jawapan/i,
   /Apa\s+yang\s+paling\s+ingin\s+dikongsikan/i,
   /paling\s+ingin\s+(?:anda\s+)?dikongsikan/i,
+  /Saya\s+di\s+sini\s+untuk\s+membantu\s+anda\s+faham/i,
+  /bukan\s+untuk\s+memutuskan\s+bagi\s+anda/i,
+  /berdiri\s+teguh\s+dengan\s+ilmu/i,
+  /agar\s+anda\s+berdiri\s+teguh/i,
 ];
 
 const STUDENT_MATH_SLOT = '\x00STUDENT_MATH_';
@@ -207,9 +216,15 @@ export function sanitizeStudentOutputSync(
 
   out = restoreStudentMathBlocks(out, slots);
   out = inlineQuranAyat(out);
+  out = rewriteOrdinalEssayOpeners(out);
+  out = rewriteEmojiPerformanceOpeners(out);
+  out = stripSunomNotation(out);
+  out = stripPlanTesterAddress(out);
   out = sanitizeTechnicalPrecisionOutput(out, userMessage, recentUserMessages);
   out = sanitizeStudentForbiddenPronouns(out);
   out = stripUniversalVoiceLeaks(out, userMessage);
+  out = stripSunomNotation(out);
+  out = stripPlanTesterAddress(out);
 
   const paragraphs = out.split(/\n{2,}/);
   const kept: string[] = [];
@@ -226,6 +241,7 @@ export function sanitizeStudentOutputSync(
     if (!paragraphIsThreeTierDoorOffer(trimmed)
       && SCRIPTED_CLOSINGS.some((re) => re.test(trimmed))) continue;
     if (paragraphIsCoachingScriptClosing(trimmed)) continue;
+    if (paragraphIsOrdinalSyllabusLeak(trimmed)) continue;
     if (paragraphShouldStripForUniversalVoice(trimmed, { faithOk, alamtologiOk })) continue;
     if (/^\[Source:/i.test(trimmed)) continue;
     if (/^Maksudnya\s*:/i.test(trimmed)) continue;
@@ -241,5 +257,14 @@ export async function repairStudentOutputLeak(
   studentMessage: string,
   recentUserMessages: string[] = [],
 ): Promise<string> {
+  return sanitizeStudentOutputSync(text, studentMessage, recentUserMessages);
+}
+
+/** Founder-style student default — surface leak strip only, no LLM rewrite. */
+export function applyStudentSurfaceOutputRepair(
+  text: string,
+  studentMessage: string,
+  recentUserMessages: string[] = [],
+): string {
   return sanitizeStudentOutputSync(text, studentMessage, recentUserMessages);
 }

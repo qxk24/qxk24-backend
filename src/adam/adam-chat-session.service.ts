@@ -62,7 +62,7 @@ function requirePersistedContent(
   return '(message)';
 }
 
-/** Session id with the most persisted founder messages (source of truth vs messageCount). */
+/** Session id with the most persisted founder messages (legacy fallback only). */
 export async function founderSessionIdWithMostMessages(
   founderId = FOUNDER_USER_ID,
 ): Promise<string | null> {
@@ -76,17 +76,47 @@ export async function founderSessionIdWithMostMessages(
   return top && top.count > 0 ? top._id : null;
 }
 
+/** Most recently active founder teaching session — continuity follows lastActiveAt, not total count. */
+export async function founderSessionIdMostRecentlyActive(
+  founderId = FOUNDER_USER_ID,
+): Promise<string | null> {
+  const recent = await ADAMFounderSessionModel.findOne({
+    founderId,
+    sessionType: 'founder',
+  })
+    .sort({ lastActiveAt: -1, createdAt: -1 })
+    .lean();
+  return recent?.sessionId ?? null;
+}
+
 /** Reuse teaching thread with history — avoid spawning empty sessions after sleep/refresh. */
 export async function resolveFounderTeachingSession(
   founderId = FOUNDER_USER_ID,
+  preferredSessionId?: string,
 ): Promise<string> {
-  const historicalId = await founderSessionIdWithMostMessages(founderId);
-  if (historicalId) {
+  const preferred = preferredSessionId?.trim();
+  if (preferred) {
+    const doc = await ADAMFounderSessionModel.findOne({
+      sessionId: preferred,
+      founderId,
+      sessionType: 'founder',
+    }).lean();
+    if (doc) {
+      await ADAMFounderSessionModel.updateOne(
+        { sessionId: doc.sessionId },
+        { active: true, lastActiveAt: new Date(), wakeAcknowledged: false },
+      );
+      return doc.sessionId;
+    }
+  }
+
+  const recentId = await founderSessionIdMostRecentlyActive(founderId);
+  if (recentId) {
     await ADAMFounderSessionModel.updateOne(
-      { sessionId: historicalId },
+      { sessionId: recentId },
       { active: true, lastActiveAt: new Date(), wakeAcknowledged: false },
     );
-    return historicalId;
+    return recentId;
   }
 
   return getOrCreateSession(founderId, 'founder');
@@ -101,13 +131,13 @@ export async function getOrCreateSession(
   }
 
   if (sessionType === 'founder') {
-    const historicalId = await founderSessionIdWithMostMessages(userId);
-    if (historicalId) {
+    const recentId = await founderSessionIdMostRecentlyActive(userId);
+    if (recentId) {
       await ADAMFounderSessionModel.updateOne(
-        { sessionId: historicalId },
+        { sessionId: recentId },
         { active: true, lastActiveAt: new Date() },
       );
-      return historicalId;
+      return recentId;
     }
     await closeInactiveFounderSessions(userId);
   }
@@ -187,14 +217,13 @@ export async function ensureSession(
   const existing = await ADAMFounderSessionModel.findOne({
     sessionId,
     sessionType,
-    active: true,
     ...(sessionType === 'group' ? {} : { founderId: userId }),
   });
 
   if (existing) {
     await ADAMFounderSessionModel.updateOne(
       { sessionId },
-      { lastActiveAt: new Date() },
+      { active: true, lastActiveAt: new Date() },
     );
     return sessionId;
   }

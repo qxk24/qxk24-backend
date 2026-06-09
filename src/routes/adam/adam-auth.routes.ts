@@ -109,7 +109,11 @@ router.get('/session', requireFounder, async (c) => {
     console.error('[ADAM] background consult sync:', msg);
   });
 
-  const sessionId = await resolveFounderTeachingSession('masa-bayu');
+  const preferred = c.req.query('sessionId')?.trim();
+  const sessionId = await resolveFounderTeachingSession(
+    'masa-bayu',
+    preferred || undefined,
+  );
   return c.json({
     success:   true,
     sessionId,

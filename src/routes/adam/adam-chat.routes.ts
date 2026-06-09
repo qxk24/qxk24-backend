@@ -21,6 +21,7 @@ import {
   listChatSessions,
   getOrCreateSession,
   resolveFounderTeachingSession,
+  ensureSession,
   loadMessageHistory,
   deleteFounderMessage,
   assertCanClearSessionChat,
@@ -68,15 +69,14 @@ router.post('/', requireFounder, zValidator('json', ChatSchema), async (c) => {
   const authHeader = c.req.header('Authorization');
   const founderToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
+  const user = getTokenUser(c);
+  const founderId = user?.userId ?? 'masa-bayu';
+
   let sessionId = body.sessionId;
   if (!sessionId) {
-    sessionId = await resolveFounderTeachingSession('masa-bayu');
+    sessionId = await resolveFounderTeachingSession(founderId);
   } else {
-    const existing = await loadMessageHistory(sessionId, 1);
-    if (existing.length === 0) {
-      const canonical = await resolveFounderTeachingSession('masa-bayu');
-      if (canonical !== sessionId) sessionId = canonical;
-    }
+    sessionId = await ensureSession(sessionId, founderId, 'founder');
   }
 
   // Set SSE headers
@@ -128,15 +128,14 @@ router.post('/simple', requireFounder, zValidator('json', SimpleChatSchema), asy
   const uploadIds = body.uploadIds ?? [];
   const mode      = resolveFounderApiMode(message, body.mode);
 
+  const user = getTokenUser(c);
+  const founderId = user?.userId ?? 'masa-bayu';
+
   let sessionId = body.sessionId;
   if (!sessionId) {
-    sessionId = await resolveFounderTeachingSession('masa-bayu');
+    sessionId = await resolveFounderTeachingSession(founderId);
   } else {
-    const existing = await loadMessageHistory(sessionId, 1);
-    if (existing.length === 0) {
-      const canonical = await resolveFounderTeachingSession('masa-bayu');
-      if (canonical !== sessionId) sessionId = canonical;
-    }
+    sessionId = await ensureSession(sessionId, founderId, 'founder');
   }
 
   let fullResponse = '';
