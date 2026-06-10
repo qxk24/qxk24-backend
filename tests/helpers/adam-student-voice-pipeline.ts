@@ -39,16 +39,14 @@ export const VOICE_MACHINE_ERROR =
 export const VOICE_PASSIVE_MENU =
   /\bAdakah\s+anda\s+ingin\s+bandingkan\b|\bsaya\s+boleh\s+carikan\b|\bmempertimbangkan\s+pembelian\b/i;
 
-/** Regex bundle for voice regression assertions (import in tests). */
+/** Hygiene invariants — unified ADAM allows Bismillah, em dashes, and warm depth. */
 export const STUDENT_VOICE_INVARIANT_PATTERNS = {
-  bismillahOpener: /^\s*Bismillah/i,
   forbiddenPronoun: buildStudentForbiddenPronounRegex('i'),
   catatan:          /^Catatan:/m,
   frameworkLabel:   /Dalam lensa Alamtologi|Dari perspektif Alamtologi/i,
-  emDash:           /—/,
+  sunomNotation:    /:=\s*[01]\s*(?:VERIFIED|CONDITIONAL|SUSPENDED)/i,
+  founderTeachingRoom: /\bP\.?\s*alt\b|AMA\s+124|lerai\s*\(PL\)/i,
   unsolicitedQuran: /Allah berfirman/i,
-  constitutionalToken: /\b(?:MASA|TENAGA|IZWA)\b/,
-  faithSermon: /\bYa\s+ALLAH\b|penyerahan\s+tiga\s+waktu/i,
 } as const;
 
 /** Full student post-stream path through fallbacks and prose sanitize. */

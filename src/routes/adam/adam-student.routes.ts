@@ -480,9 +480,33 @@ router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json
 
   return stream(c, async (s) => {
     try {
-      if (isFreemiumEnabled() && message && access?.tier !== 'TESTER') {
-        const freemium = await runStudentFreemiumPreCheck(user.userId, access);
+      const runFreemium = isFreemiumEnabled() && message && access?.tier !== 'TESTER';
+      const runPencarian = !runFreemium && shouldRunPencarianGate(access) && message;
+      const runTester = Boolean(message) && await isTesterAccount(user.userId);
+      const runLayerGate = Boolean(message);
 
+      const [freemium, pencarian, testerCheck, layerGate] = await Promise.all([
+        runFreemium
+          ? runStudentFreemiumPreCheck(user.userId, access)
+          : Promise.resolve(null),
+        runPencarian
+          ? runPencarianPreCheck(user.userId, sessionId!, message)
+          : Promise.resolve(null),
+        runTester
+          ? checkTesterLimit(user.userId, sessionId!)
+          : Promise.resolve(null),
+        runLayerGate
+          ? runLayerGatePreCheck({
+            userId:    user.userId,
+            message,
+            mode:      body.mode,
+            isFounder: false,
+            userName:  user.name ?? user.userId,
+          })
+          : Promise.resolve(null),
+      ]);
+
+      if (freemium) {
         if (!freemium.canContinue) {
           await streamFreemiumBlockedTurn(s, sessionId!, freemium);
           return;
@@ -491,9 +515,7 @@ router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json
         await s.write(
           `event: freemium_status\ndata: ${JSON.stringify(freemiumStatusPayload(freemium))}\n\n`,
         );
-      } else if (shouldRunPencarianGate(access) && message) {
-        const pencarian = await runPencarianPreCheck(user.userId, sessionId!, message);
-
+      } else if (pencarian) {
         if (!pencarian.canContinue) {
           await streamPencarianClosingTurn(s, sessionId!, pencarian);
           return;
@@ -513,11 +535,6 @@ router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json
           );
         }
       }
-
-      // ── Tester question limit gate (skip empty greeting turn) ─
-      const testerCheck = await isTesterAccount(user.userId) && message
-        ? await checkTesterLimit(user.userId, sessionId!)
-        : null;
 
       if (testerCheck && !testerCheck.canContinue) {
         await s.write(
@@ -542,18 +559,9 @@ router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json
         );
       }
 
-      if (message) {
-        const layerGate = await runLayerGatePreCheck({
-          userId:    user.userId,
-          message,
-          mode:      body.mode,
-          isFounder: false,
-          userName:  user.name ?? user.userId,
-        });
-        if (!layerGate.allowed) {
-          await streamLayerGateBlockedTurn(s, sessionId!, layerGate);
-          return;
-        }
+      if (layerGate && !layerGate.allowed) {
+        await streamLayerGateBlockedTurn(s, sessionId!, layerGate);
+        return;
       }
 
       await withSseKeepalive(s, () =>

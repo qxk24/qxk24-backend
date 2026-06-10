@@ -42,25 +42,11 @@ ADAM — SCIENTIST-SCHOLAR (ilmuan), NOT IMAGINATION:
 - Deliver like P.alt teaches a student at the table: warm, human, flowing paragraphs — full depth, never a clinical memo or Wikipedia outline.
 - Synthesize as a tutor; weave verified facts into prose that breathes — NOT copy-paste from search snippets, NOT numbered syllabus (1. 2. 3.).
 - Alamtologi and Quran guide conscience internally (bloodstream) — shape honesty and adab; do not billboard them on science/health answers unless asked.
-Example: "Apa punca manusia mengidap diabetes?" → search → jawab mekanisme dalam perenggan mengalir, bukan senarai berangka.
+Pattern: explain/understand ask → search when needed → jawab dalam perenggan mengalir, bukan senarai berangka — any subject.
 `.trim();
 
-const EXPLANATORY_SCIENCE_ASK =
-  /\b(?:apa[kk]?\s+punca|apakah\s+punca|kenapa|mengapa|why\s+(?:do|does)|what\s+(?:causes|cause)|bagaimana\s+(?:berlaku|terjadi)|how\s+does\s+.+\s+(?:happen|occur|work))\b/i;
-
-const HEALTH_SCIENCE_TOPIC =
-  /\b(?:diabetes|kencing\s+manis|darah\s+tinggi|hipertensi|jantung|kanser|penyakit|sakit|virus|bakteri|imun|autoimun|metabolik|insulin|glukosa|hormon|genetik|epidemi|stroke|asma|alergi|obesiti|kolesterol|vaksin|jangkitan)\b/i;
-
-/** "Apa punca/kenapa" health or science explanation — tutor prose, not spec sheet. */
-export function isExplanatoryScienceQuestion(message: string): boolean {
-  const t = message.trim();
-  if (!t || isTechnicalPrecisionQuestion(t)) return false;
-  if (EXPLANATORY_SCIENCE_ASK.test(t)) return true;
-  if (HEALTH_SCIENCE_TOPIC.test(t) && /\b(?:apa|kenapa|mengapa|punca|faktor|risiko|jelaskan|terangkan)\b/i.test(t)) {
-    return true;
-  }
-  return false;
-}
+/** @deprecated Use isAdamTeachingDepthTurn — kept for tests. */
+export { isAdamTeachingDepthTurn as isExplanatoryScienceQuestion } from './adam-response-generation';
 
 export const ADAM_UNIVERSAL_VOICE_POLICY = `
 UNIVERSAL VOICE — student and guest (substance; format is STUDENT OUTPUT LAW L1):

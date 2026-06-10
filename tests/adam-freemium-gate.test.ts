@@ -45,6 +45,7 @@ describe('freemiumStatusPayload', () => {
       buyCreditGate:      false,
       upgradeComingSoon:  false,
       message:            null,
+      period:             'rolling',
     });
 
     expect(payload.mode).toBe('FREE');

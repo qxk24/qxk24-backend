@@ -86,23 +86,61 @@ const CONSTITUTIONAL_PRINCIPLE_REGEX = new RegExp(
 
 /** Alamtologi seven-principle leak — guards mirror §3 (unless student asked for framework). */
 export function paragraphIsConstitutionalFrameworkLeak(paragraph: string): boolean {
-  if (/\b(?:titik\s+pertemuan|Hukum\s+Peleraian|ritual\s+penyelarasan)\b/i.test(paragraph)) {
+  const t = paragraph.trim();
+  if (/\b(?:titik\s+pertemuan|Hukum\s+Peleraian|ritual\s+penyelarasan)\b/i.test(t)) {
     return true;
   }
-  if (/\bpeka\s+terhadap\s+MASA\b/i.test(paragraph)) return true;
-  return CONSTITUTIONAL_PRINCIPLE_REGEX.test(paragraph);
+  if (/\bpeka\s+terhadap\s+MASA\b/i.test(t)) return true;
+  if (/\bLeraian\s*\d/i.test(t)) return true;
+  if (/\bDalam\s+AMA\b/i.test(t)) return true;
+  if (/\bunsur\s+aktif\s*:/i.test(t) && /\bunsur\s+pasif\s*:/i.test(t)) return true;
+  if (/\bizwa\b/i.test(t) && /\b(?:berkat|mengikat|kehadiran|tenang|sabar)\b/i.test(t)) return true;
+  if (/ayat\s+kecil\s+dari\s+Al-?Quran/i.test(t)) return true;
+  if (/hikmah\s+yang\s+ditanam/i.test(t)) return true;
+  return CONSTITUTIONAL_PRINCIPLE_REGEX.test(t);
+}
+
+/** Dual-lane essay skeleton — "Secara zahir / syar'i" performance, not tutor prose. */
+export function paragraphIsDualLaneEssayLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (/Secara\s+zahir\s*\(/i.test(t)) return true;
+  if (/Secara\s+syar['']?i/i.test(t)) return true;
+  if (/Secara\s+maknawi/i.test(t)) return true;
+  if (/ilmu\s+konvensional\s*\)/i.test(t) && /Secara/i.test(t)) return true;
+  if (/A\s+Deeper\s+Truth/i.test(t)) return true;
+  if (/From\s+Science\s+and\b/i.test(t)) return true;
+  return false;
+}
+
+/** Strip dual-lane labels — keep scientific substance after the colon. */
+export function rewriteDualLaneEssayLabels(text: string): string {
+  return text
+    .split('\n')
+    .map((line) =>
+      line.replace(
+        /^\.?\s*Secara\s+(?:zahir\s*\([^)]*\)|syar['']?i(?:\s+dan\s+maknawi)?(?:\s*\([^)]*\))?|maknawi)\s*:?\s*/i,
+        '',
+      ),
+    )
+    .join('\n');
 }
 
 /** Faith sermon / doa ritual when user did not open the faith door. */
 export function paragraphIsUnsolicitedFaithSermon(paragraph: string): boolean {
-  if (/\bBismillah(?:irahmanirrahim)?\b/i.test(paragraph)) return true;
-  if (/\bYa\s+ALLAH\b/i.test(paragraph)) return true;
-  if (/\bALLAH\b/i.test(paragraph)) return true;
-  if (/\b(?:Dia yang Maha|mengingati Dia)\b/i.test(paragraph)) return true;
-  if (/\b(?:zikir|syaitan|bisikan)\b/i.test(paragraph)) return true;
-  if (/\bpenyerahan\s+tiga\s+waktu\b/i.test(paragraph)) return true;
-  if (/\bsecara\s+ruhani\b/i.test(paragraph)) return true;
-  if (/\bRuhani\b/i.test(paragraph)) return true;
+  const t = paragraph.trim();
+  if (/\bBismillah(?:irahmanirrahim)?\b/i.test(t)) return true;
+  if (/\bYa\s+ALLAH\b/i.test(t)) return true;
+  if (/\bALLAH\b/i.test(t)) return true;
+  if (/\bRasulullah\b/i.test(t)) return true;
+  if (/\b(?:hadis|hadith)\b/i.test(t)) return true;
+  if (/\(\s*HR\./i.test(t)) return true;
+  if (/sanad\s+hasan/i.test(t)) return true;
+  if (/Secara\s+syar['']?i/i.test(t)) return true;
+  if (/\b(?:Dia yang Maha|mengingati Dia)\b/i.test(t)) return true;
+  if (/\b(?:zikir|syaitan|bisikan)\b/i.test(t)) return true;
+  if (/\bpenyerahan\s+tiga\s+waktu\b/i.test(t)) return true;
+  if (/\bsecara\s+ruhani\b/i.test(t)) return true;
+  if (/\bRuhani\b/i.test(t)) return true;
   return false;
 }
 
@@ -134,6 +172,23 @@ export function paragraphIsTutorPerformanceLeak(paragraph: string): boolean {
   if (/^Terima kasih kerana berkongsi/i.test(t)) return true;
   if (/^Terima kasih kerana meminta/i.test(t)) return true;
   if (/terima kasih kerana bertanya/i.test(t)) return true;
+  if (/thank you for this important question/i.test(t)) return true;
+  if (/^Thank you for saying/i.test(t)) return true;
+  if (/That simple phrase carries weight/i.test(t)) return true;
+  if (/It['']?s not just curiosity/i.test(t)) return true;
+  if (/willingness to go deeper/i.test(t)) return true;
+  if (/opens the door to something vital/i.test(t)) return true;
+  if (/^So let['']?s go deeper/i.test(t)) return true;
+  if (/Quiet, ancient, elemental/i.test(t)) return true;
+  if (/Hold both life and danger/i.test(t)) return true;
+  if (/^What ["']?More["']? Means Here/i.test(t)) return true;
+  if (/^You['']?ve already heard the key/i.test(t)) return true;
+  if (/Not just \*what\* harms, but \*how\*/i.test(t)) return true;
+  if (/opens a doorway not just to science/i.test(t)) return true;
+  if (/honour the earth['']?s gifts/i.test(t)) return true;
+  if (/not to lecture,?\s*but to walk with you/i.test(t)) return true;
+  if (/I['']?m here\.?\s*not to lecture/i.test(t)) return true;
+  if (/step by thoughtful step/i.test(t)) return true;
   if (/soalan yang sangat penting/i.test(t)) return true;
   if (/menyentuh harapan/i.test(t) && /\b(?:kepercayaan|harapan|jiwa|hati)\b/i.test(t)) return true;
   if (/batas ilmu perubatan/i.test(t) && /terima kasih|sangat penting/i.test(t)) return true;
@@ -157,7 +212,22 @@ export function paragraphIsTutorPerformanceLeak(paragraph: string): boolean {
 /** Markdown bullet forest in conversational prose (not verified data tables). */
 export function paragraphIsMarkdownBulletForest(paragraph: string): boolean {
   const bullets = paragraph.split('\n').filter((line) => /^\s*[-•*]\s+/.test(line));
-  return bullets.length >= 3;
+  return bullets.length >= 2;
+}
+
+/** Rewrite dash bullets into flowing sentences inside a paragraph. */
+export function rewriteMarkdownBulletsToProse(text: string): string {
+  return text
+    .split('\n')
+    .map((line) => {
+      const m = line.match(/^\s*[-•*]\s+(.+)$/);
+      if (!m) return line;
+      const body = m[1].trim();
+      return body.endsWith('.') ? body : `${body}.`;
+    })
+    .join(' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 /** Numbered syllabus (1. 2. 3.) — textbook memo, not tutor prose. */
@@ -187,7 +257,53 @@ export function paragraphIsCoachingScriptClosing(paragraph: string): boolean {
   if (/bukan untuk memutuskan bagi anda/i.test(t)) return true;
   if (/berdiri teguh dengan ilmu/i.test(t)) return true;
   if (/agar anda berdiri teguh/i.test(t)) return true;
+  if (/Ada\s+aspek\s+mana.*ingin\s+anda\s+gali/i.test(t)) return true;
+  if (/Atau\s+mungkin,?\s*ada\s+satu\s+kenangan/i.test(t)) return true;
+  if (/Saya\s+di\s+sini\.?\s*duduk/i.test(t)) return true;
+  if (/mendengar,?\s*dan\s+bersama/i.test(t)) return true;
+  if (/^Would you like me to:/i.test(t)) return true;
+  if (/^Would you like me to\b/i.test(t)) return true;
+  if (/^Focus on one\b.*in more depth/i.test(t)) return true;
+  if (/^Explain how traditional systems/i.test(t)) return true;
+  if (/^Or explore how\b/i.test(t)) return true;
+  if (/^Just say the word/i.test(t)) return true;
+  if (/walk there together/i.test(t)) return true;
+  if (/we['']?ll walk there together/i.test(t)) return true;
   return false;
+}
+
+/** Convert "3. Mercury" outline lines to **Mercury** section labels. */
+export function rewriteNumberedOutlineToBoldLabels(text: string): string {
+  return text
+    .split('\n')
+    .map((line) => {
+      const m = line.match(/^(\s*)\d+[.)]\s+(.+)$/);
+      if (!m) return line;
+      return `${m[1]}**${m[2].trim()}**`;
+    })
+    .join('\n');
+}
+
+/** Capitalize opener and fix stray leading punctuation after label strip. */
+export function polishStudentOutputSurface(text: string, technicalOk = false): string {
+  let out = text.trim();
+  out = out.replace(/^[\s.]+/, '');
+  out = out.replace(/\*{3,}/g, '**');
+  if (!technicalOk) {
+    out = rewriteNumberedOutlineToBoldLabels(out);
+    out = out
+      .split(/\n{2,}/)
+      .map((para) => {
+        if (/^\s*[-•*]\s+/m.test(para)) return rewriteMarkdownBulletsToProse(para);
+        return para;
+      })
+      .join('\n\n');
+  }
+  out = out.replace(/\.\s+([a-z])/g, (_, c: string) => `. ${c.toUpperCase()}`);
+  if (out.length > 0) {
+    out = out.charAt(0).toUpperCase() + out.slice(1);
+  }
+  return out;
 }
 
 /**
@@ -208,6 +324,8 @@ export function paragraphIsFounderTeachingVoiceLeak(paragraph: string): boolean 
   if (/\bproses\s+lerai\b/i.test(t) && /\b(?:PL|PG)\b/i.test(t)) return true;
   if (/\bkeseimbangan\s+tubuh,\s*tenaga,\s*dan\s+amanah/i.test(t)) return true;
   if (/\b(?:SuNom|NAPADU-\d|CgP|qadari)\b/i.test(t)) return true;
+  if (/\bLeraian\s*\d/i.test(t)) return true;
+  if (/\bDalam\s+AMA\b/i.test(t)) return true;
   return false;
 }
 
@@ -225,6 +343,7 @@ export function paragraphShouldStripForUniversalVoice(
   options: { faithOk: boolean; alamtologiOk: boolean },
 ): boolean {
   if (paragraphIsEmojiOnlyOpener(paragraph)) return true;
+  if (paragraphIsDualLaneEssayLeak(paragraph)) return true;
   if (paragraphIsFounderTeachingVoiceLeak(paragraph)) return true;
   if (paragraphIsThreeTierDoorOffer(paragraph)) return false;
   if (!options.alamtologiOk && paragraphIsConstitutionalFrameworkLeak(paragraph)) return true;
@@ -301,22 +420,28 @@ export function paragraphIsEmojiPerformanceOpener(paragraph: string): boolean {
   return false;
 }
 
-/** Compact L1 for system prompt — runtime guards enforce the full law. */
-export const ADAM_STUDENT_OUTPUT_LAW_SURFACE = `
-STUDENT OUTPUT LAW (L1) — SURFACE
-CHARACTER and WARMTH govern voice. This block is surface hygiene only.
+/**
+ * Unified ADAM — same voice for students and founder chat (Founder decree).
+ * Hygiene only; never flatten warmth, Bismillah, narrative depth, or examples.
+ */
+export const ADAM_UNIFIED_SURFACE_HYGIENE = `
+UNIFIED ADAM SURFACE (student & guest — same person as Founder chat):
+You are the same ADAM — same character, warmth, depth, and prose rhythm as with P.alt Masa Bayu.
+Teach generously: multiple paragraphs, real examples, flowing BM Malaysia when they ask to learn.
 
-- Plain Bahasa Melayu Malaysia — warm tutor, not performance or essay skeleton.
-- No em dash (—); no markdown bullets/headers in conversational replies unless verified data table.
-- FORBIDDEN pronouns: ${FORBIDDEN_PRONOUN_LIST}. Use saya; address student by name when known.
-- Do not open student turns with Bismillah unless they opened the faith door.
-- NEVER := 1 VERIFIED, := 0 SUSPENDED, SuNom, or any constitutional notation in student-visible text.
-- No Founder Teaching-room voice (P.alt, AMA 124, PL/PG, coaching menus).
-- No framework billboard (MASA, TENAGA, Alamtologi labels) unless student opted into tier 2/3.
-- No emoji checklists (✅⚠️🩺), no "Saya akan kongsikan dengan jujur:" preambles.
-- No scripted openers ("Terima kasih kerana bertanya", "Pertama/Kedua" essays) or coaching closings.
-- Tier 1: conventional facts + web search when needed — complete answer first; Alamtologi bloodstream internal.
+HYGIENE ONLY (not voice suppression):
+- FORBIDDEN pronouns: ${FORBIDDEN_PRONOUN_LIST}. Use saya; address by name when known.
+- NEVER visible := VERIFIED/SUSPENDED, SuNom, AMA 124, PL/PG codes, or constitutional notation.
+- Never call anyone "P.alt" or paste Founder Teaching-room scripts verbatim.
+- No emoji checklists (✅⚠️🩺); no "Certainly!" / clinical memo tone.
+- Bismillahirahmanirrahim on substantive turns — same as Founder.
+- Em dashes and narrative depth are welcome when PROSE_DASH_LAW and CHARACTER govern.
+- Insight in plain words — avoid billboard labels ("Dalam lensa Alamtologi") unless tier 2/3 is open.
+- Quran/ayat when faith door is open or tier 3 — weave in plain prose, not blockquote tafsir.
 `.trim();
+
+/** @deprecated Use ADAM_UNIFIED_SURFACE_HYGIENE — kept for legacy imports. */
+export const ADAM_STUDENT_OUTPUT_LAW_SURFACE = ADAM_UNIFIED_SURFACE_HYGIENE;
 
 export const ADAM_STUDENT_OUTPUT_LAW = `
 STUDENT OUTPUT LAW (L1) — CANONICAL
@@ -379,8 +504,8 @@ If any other block conflicts, L1 wins. Re-read before sending.
 - Hello / light greeting: "Hello." / "Hi." / "Salam sejahtera." — optional name; no Bismillah; no lecture layers.
 - Flow like water: 2–5 short paragraphs; 2–4 complete sentences each; one idea per paragraph; read aloud naturally.
 - Life / emotion: acknowledge first, then plain insight — no tables, layer matrices, or sermon preludes.
-- Health / science (e.g. diabetes): WRONG — "Terima kasih kerana bertanya… soalan sangat penting… Pertama, saya ingin nyatakan dengan jujur:"
-  RIGHT — open with verified facts in flowing prose: "Diabetes jenis 1 dan jenis 2 berbeza pada punca dan rawatan. Setakat ini, perubatan moden…"
+- Explain / understand asks (any subject): WRONG — coaching prelude ("Terima kasih kerana bertanya… soalan sangat penting… Pertama, saya ingin nyatakan dengan jujur:")
+  RIGHT — open with verified facts in flowing prose, heard first if natural.
 - Substantive: Qawlan Sadida — verified knowledge, full depth when deserved, honest limits; tutor warmth like P.alt, not clinical memo.
 - Constitutional insight in plain prose only — no framework labels.
 - Three-tier doors: after tier 1 → offer tier 2 (Alamtologi); after tier 2 → offer tier 3 (Quran) — one question each, user chooses.
@@ -394,8 +519,7 @@ ${ADAM_CHAT_MATH_NOTATION}
 
 /** Short final reminder — appended last on student turns (replaces duplicate OUTPUT LOCK body). */
 export const ADAM_STUDENT_OUTPUT_FINAL_REMINDER = `
-FINAL CHECK — CHARACTER first, then L1:
-Does this reply sound like ADAM in adam-character.ts? Heard, understood, lighter, clearer — useful, real, a blessing.
-Then L1: pronouns, Bismillah, framework labels, emoji sermons, invented sources, scripted closings, Founder Teaching-room voice.
-If unsure, choose plain BM, honest limits, and tutor warmth without performance.
+FINAL CHECK — UNIFIED ADAM:
+Same person as Founder chat — warm, generous, real examples, flowing BM, Bismillah on substantive turns.
+Hygiene only: no kau/kamu, no := notation, no P.alt/AMA codes, no coaching menus, no invented [Source:].
 `.trim();

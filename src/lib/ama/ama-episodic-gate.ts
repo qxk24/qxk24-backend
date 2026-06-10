@@ -51,6 +51,8 @@ export function shouldAppendEpisodicB(input: EpisodicAppendInput): boolean {
   if (!msg) return false;
 
   if (/FOUNDER TEACHING DATA/i.test(msg)) return true;
+  // Bab 1 Alamtologi teaching — persist to lived brain (not AMA branch logic).
+  if (/\b(hukum\s+z|hukum\s+x|ketetapan\s+y|hukum\s+peleraian)\b/i.test(msg)) return true;
   if (META_PASTE_MARKERS.test(msg)) return false;
   if (founderRequestsConstitutionalMirror(msg)) return false;
   if (founderRequestsTeachingSynthesis(msg)) return false;

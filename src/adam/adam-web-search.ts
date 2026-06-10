@@ -13,15 +13,10 @@
 
 import { ENV } from '../config/environments';
 import { parseQuranAyahRefs } from '../quran/quran-ayah-parser';
-import {
-  isUserEntityCorrectionMessage,
-  resolveTechnicalPrecisionTurn,
-} from './adam-factual-grounding';
-import { isExplanatoryScienceQuestion, isLifeEmotionTurn } from './adam-universal-voice';
-import {
-  buildFounderWebSearchPrompt,
-  buildStudentWebSearchPrompt,
-} from './adam-web-search-prompts';
+import { isUserEntityCorrectionMessage } from './adam-factual-grounding';
+import { isAdamLightChatTurn } from './adam-response-generation';
+import { isTechnicalPrecisionQuestion } from './adam-universal-voice';
+import { buildFounderWebSearchPrompt } from './adam-web-search-prompts';
 
 export { ADAM_STUDENT_REPLY_PIPELINE } from './adam-search-first';
 
@@ -78,26 +73,8 @@ export function getAdamWebSearchPrompt(
   },
 ): string {
   if (!isFounder) {
-    const msg = options?.userMessage?.trim() ?? '';
-    const recent = options?.recentUserMessages ?? [];
-    const inline = !options?.searchPrefetched;
-
-    if (msg && resolveTechnicalPrecisionTurn(msg, recent).isActive) {
-      return buildStudentWebSearchPrompt('technical_precision');
-    }
-    if (msg && isUserEntityCorrectionMessage(msg)) {
-      return buildStudentWebSearchPrompt('entity_correction');
-    }
-    if (msg && isLifeEmotionTurn(msg)) {
-      return buildStudentWebSearchPrompt('life_substantive', { inline });
-    }
-    if (msg && isExplanatoryScienceQuestion(msg)) {
-      return buildStudentWebSearchPrompt('explanatory_science', { inline });
-    }
-    if (options?.searchPrefetched) {
-      return buildStudentWebSearchPrompt('prefetched');
-    }
-    return buildStudentWebSearchPrompt('agent_default');
+    // Founder-shaped agent search — model decides when to search; no mandatory prefetch voice.
+    return buildFounderWebSearchPrompt('default');
   }
 
   if (options?.founderTeachingSynthesis) {
@@ -140,9 +117,26 @@ export function getWebSearchGateReason(
     founderTeachingSynthesis?: boolean;
     /** Short reply continuing a technical thread (e.g. "850cc?", "Exclusive pula?"). */
     technicalFollowUp?: boolean;
+    /**
+     * Student chat — search only when specs must be verified (not every teaching ask).
+     * Skips ambient factual_question / inline search so replies stream sooner.
+     */
+    studentFounderParity?: boolean;
   },
 ): string | null {
   if (!adamWebSearchEnabled()) return null;
+
+  const text = message.trim();
+  if (!text) return null;
+
+  if (options?.studentFounderParity) {
+    if (EXPLICIT_WEB_SEARCH.test(text)) return 'explicit_search';
+    if (options?.technicalFollowUp) return 'technical_follow_up';
+    if (isTechnicalPrecisionQuestion(text)) return 'technical_precision';
+    if (isUserEntityCorrectionMessage(text)) return 'entity_correction';
+    if (GREETING_ONLY.test(text) || isAdamLightChatTurn(text)) return null;
+    return null;
+  }
 
   if (options?.founderTeachingSynthesis) {
     return options.hasTeachingUpload
@@ -153,9 +147,6 @@ export function getWebSearchGateReason(
   if (options?.isFounder && options?.hasTeachingUpload) {
     return 'founder_teaching_upload';
   }
-
-  const text = message.trim();
-  if (!text) return null;
 
   if (EXPLICIT_WEB_SEARCH.test(text)) return 'explicit_search';
 

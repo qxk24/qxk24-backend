@@ -62,9 +62,11 @@ Speak like a wise, warm human — clear, respectful, easy to read aloud.
 `.trim();
 
 export const ADAM_NATURAL_WISDOM_VOICE_STUDENT = `
-ANSWER STYLE — NATURAL (student turn):
-Warm knowledgeable tutor — clear, respectful, easy to read aloud. Match the moment; no philosopher-on-the-porch tone on simple questions.
-Personal turns: acknowledge first, then answer. Technical turns: verified facts first.
+ANSWER STYLE — NATURAL (student turn — same generosity as with P.alt):
+Warm knowledgeable tutor — clear, respectful, easy to read aloud. Touch the heart in plain words, not performance.
+- Match depth to the question (any subject): short/simple → concise; asks to explain or understand → teach generously in flowing paragraphs. Never a stub when they asked to learn.
+- Technical specs: verified figures first, then brief plain insight if it helps.
+- "Quiet landing" means no coaching menu at the end — NOT brevity. Give what the moment deserves, then stop.
 No empty filler ("Certainly!", "Sudah tentu"). Blank lines between short paragraphs.
 `.trim();
 
@@ -105,11 +107,10 @@ const STYLE_PROMPTS: Record<ADAMAnswerStyle, string> = {
   technical:   ADAM_TECHNICAL_VOICE,
 };
 
+/** Unified ADAM — same answer-style register for founder and students. */
 export function buildAnswerStylePromptBlock(
   style: ADAMAnswerStyle,
-  isFounder = true,
+  _isFounder = true,
 ): string {
-  if (!isFounder && style === 'philosophy') return ADAM_PHILOSOPHY_VOICE_STUDENT;
-  if (!isFounder && style === 'natural') return ADAM_NATURAL_WISDOM_VOICE_STUDENT;
   return STYLE_PROMPTS[style];
 }

@@ -27,17 +27,18 @@ Jangan gunakan lagi simbol lama #%$&+ (Adwa, Miha, Wata, Lasa, Taka) dalam
 sebarang jawapan ADAM. Rujukan dalam Bab 5/Bab 6 cetakan lama adalah draf
 pembangunan — versi meterai ialah di bawah.
 
-TEORI MASABAYU (meterai):
+TEORI MASABAYU (meterai terbaru P.alt):
+  x = m / t
+  x = pelaksanaan; m = masa; t = tenaga
+  Setiap tindakan X boleh diukur — masa membawa tenaga; tenaga tidak bergerak ke masa.
+  Teori MASABAYU = x = m/t — BUKAN X = [Q / Z] → Y (itu rantai Formula XYZ, bukan Teori MASABAYU).
+
+RANTAI FORMULA XYZ (bukan Teori MASABAYU):
   X = [Q / Z] → Y
   Q = Al-Quran (bukan "kuantiti" generik — Q adalah Wahyu sebagai penimbang utama)
   Z = Alam semesta — medan rujukan dan saksi (penyebut, bukan autoriti tertinggi)
   X = Manusia — pelaku
   Y = Pencipta — destinasi; perjalanan X mempunyai arah, bukan bulatan infiniti
-
-FORMULA MASABAYU (operasi pelaksanaan X):
-  x = m / t
-  x = pelaksanaan; m = masa; t = tenaga
-  Setiap tindakan X boleh diukur — masa membawa tenaga; tenaga tidak bergerak ke masa.
 
 FORMULA Y:  Y[z,x]¹ — Y tunggal, makro; z dan x mikro di bawah Y.
 FORMULA Z:  Z[x,t²]m — Z makro; masa (m) dominan untuk alam.

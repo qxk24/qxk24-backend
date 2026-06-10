@@ -14,11 +14,12 @@ describe('ADAM search-first flow', () => {
     expect(getStudentSearchPrefetchModel()).toBe(getFastModel());
   });
 
-  it('uses inline search by default — no blocking prefetch', () => {
+  it('never blocks on general factual_question — inline or agent search only', () => {
     expect(shouldStudentUseSearchFirstFlow(false, 'factual_question')).toBe(false);
     expect(shouldStudentUseSearchFirstFlow(true, 'factual_question')).toBe(false);
     expect(shouldStudentUseSearchFirstFlow(false, null)).toBe(false);
   });
+
 
   it('builds prefetch user prompt with recent context', () => {
     const prompt = buildSearchPrefetchUserPrompt('Exclusive pula?', ['Berapa tork varian Elite?']);

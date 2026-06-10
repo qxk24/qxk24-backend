@@ -19,6 +19,7 @@
  */
 
 import type { LlmMessage } from '../llm/llm-types';
+import { isAdamLightChatTurn } from './adam-response-generation';
 import { paragraphIsFounderTeachingVoiceLeak } from './adam-student-output-law';
 import { isTechnicalPrecisionQuestion, userOpenedFaithDoor } from './adam-universal-voice';
 
@@ -111,9 +112,10 @@ export function isTechnicalFollowUpMessage(
 ): boolean {
   const t = message.trim();
   if (!t || isTechnicalPrecisionQuestion(t)) return false;
+  if (isAdamLightChatTurn(t)) return false;
   if (!recentUserMessages.some((m) => isTechnicalPrecisionQuestion(m))) return false;
   if (TECHNICAL_FOLLOW_UP_CUE.test(t)) return true;
-  return t.length <= 48;
+  return t.length <= 48 && !isAdamLightChatTurn(t);
 }
 
 /** Resolve whether this turn is a technical precision turn (direct or follow-up). */

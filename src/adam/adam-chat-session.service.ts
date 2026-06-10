@@ -89,6 +89,62 @@ export async function founderSessionIdMostRecentlyActive(
   return recent?.sessionId ?? null;
 }
 
+/** Session that actually has founder messages — fallback when session rows drift from history. */
+export async function founderSessionIdWithLatestMessage(
+  founderId = FOUNDER_USER_ID,
+): Promise<string | null> {
+  const agg = await ADAMMessageModel.aggregate<{ _id: string }>([
+    { $match: { founderId, sessionType: 'founder' } },
+    { $group: { _id: '$sessionId', lastAt: { $max: '$createdAt' } } },
+    { $sort: { lastAt: -1 } },
+    { $limit: 1 },
+  ]);
+  return agg[0]?._id ?? null;
+}
+
+async function ensureFounderSessionRow(
+  sessionId: string,
+  founderId = FOUNDER_USER_ID,
+): Promise<void> {
+  const existing = await ADAMFounderSessionModel.findOne({
+    sessionId,
+    founderId,
+    sessionType: 'founder',
+  }).lean();
+  if (existing) {
+    await ADAMFounderSessionModel.updateOne(
+      { sessionId },
+      { active: true, lastActiveAt: new Date(), wakeAcknowledged: false },
+    );
+    return;
+  }
+  try {
+    await ADAMFounderSessionModel.create({
+      sessionId,
+      founderId,
+      sessionType: 'founder',
+      kernel: ENV.QXK24_KERNEL_VERSION,
+      era: ENV.QXK24_ERA,
+      active: true,
+      lastActiveAt: new Date(),
+    });
+  } catch {
+    await ADAMFounderSessionModel.updateOne(
+      { sessionId, founderId, sessionType: 'founder' },
+      { active: true, lastActiveAt: new Date(), wakeAcknowledged: false },
+    );
+  }
+}
+
+async function founderSessionHasMessages(
+  sessionId: string,
+  founderId = FOUNDER_USER_ID,
+): Promise<boolean> {
+  return Boolean(
+    await ADAMMessageModel.exists({ sessionId, founderId, sessionType: 'founder' }),
+  );
+}
+
 /** Reuse teaching thread with history — avoid spawning empty sessions after sleep/refresh. */
 export async function resolveFounderTeachingSession(
   founderId = FOUNDER_USER_ID,
@@ -108,14 +164,26 @@ export async function resolveFounderTeachingSession(
       );
       return doc.sessionId;
     }
+    if (await founderSessionHasMessages(preferred, founderId)) {
+      await ensureFounderSessionRow(preferred, founderId);
+      return preferred;
+    }
   }
 
   const recentId = await founderSessionIdMostRecentlyActive(founderId);
+  if (recentId && await founderSessionHasMessages(recentId, founderId)) {
+    await ensureFounderSessionRow(recentId, founderId);
+    return recentId;
+  }
+
+  const latestMsgId = await founderSessionIdWithLatestMessage(founderId);
+  if (latestMsgId) {
+    await ensureFounderSessionRow(latestMsgId, founderId);
+    return latestMsgId;
+  }
+
   if (recentId) {
-    await ADAMFounderSessionModel.updateOne(
-      { sessionId: recentId },
-      { active: true, lastActiveAt: new Date(), wakeAcknowledged: false },
-    );
+    await ensureFounderSessionRow(recentId, founderId);
     return recentId;
   }
 
@@ -132,11 +200,17 @@ export async function getOrCreateSession(
 
   if (sessionType === 'founder') {
     const recentId = await founderSessionIdMostRecentlyActive(userId);
+    if (recentId && await founderSessionHasMessages(recentId, userId)) {
+      await ensureFounderSessionRow(recentId, userId);
+      return recentId;
+    }
+    const latestMsgId = await founderSessionIdWithLatestMessage(userId);
+    if (latestMsgId) {
+      await ensureFounderSessionRow(latestMsgId, userId);
+      return latestMsgId;
+    }
     if (recentId) {
-      await ADAMFounderSessionModel.updateOne(
-        { sessionId: recentId },
-        { active: true, lastActiveAt: new Date() },
-      );
+      await ensureFounderSessionRow(recentId, userId);
       return recentId;
     }
     await closeInactiveFounderSessions(userId);
@@ -214,22 +288,33 @@ export async function ensureSession(
   userId = FOUNDER_USER_ID,
   sessionType: SessionType = 'founder',
 ): Promise<string> {
+  const trimmed = sessionId?.trim();
+  if (!trimmed) {
+    if (sessionType === 'group') return getOrCreateGroupSession();
+    return resolveFounderTeachingSession(userId);
+  }
+
   const existing = await ADAMFounderSessionModel.findOne({
-    sessionId,
+    sessionId: trimmed,
     sessionType,
     ...(sessionType === 'group' ? {} : { founderId: userId }),
   });
 
   if (existing) {
     await ADAMFounderSessionModel.updateOne(
-      { sessionId },
+      { sessionId: trimmed },
       { active: true, lastActiveAt: new Date() },
     );
-    return sessionId;
+    return trimmed;
+  }
+
+  if (sessionType === 'founder' && await founderSessionHasMessages(trimmed, userId)) {
+    await ensureFounderSessionRow(trimmed, userId);
+    return trimmed;
   }
 
   if (sessionType === 'group') return getOrCreateGroupSession();
-  return getOrCreateSession(userId, sessionType);
+  return resolveFounderTeachingSession(userId, trimmed);
 }
 
 export interface StoredADAMMessage {

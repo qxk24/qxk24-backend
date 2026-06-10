@@ -11,11 +11,11 @@ import {
 import { getWebSearchGateReason } from '../src/adam/adam-web-search';
 
 describe('ADAM universal voice output guard', () => {
-  it('strips Bismillah opener on ordinary questions', () => {
+  it('keeps Bismillah opener on substantive questions (unified ADAM)', () => {
     const raw =
       'Bismillahirahmanirrahim.\n\nHello. Anxiety often starts when the body stays on alert.';
     const out = sanitizeStudentOutputSync(raw, 'Why do I feel anxious?');
-    expect(out).not.toMatch(/Bismillah/i);
+    expect(out).toMatch(/Bismillah/i);
     expect(out).toContain('Anxiety often starts');
   });
 
@@ -53,8 +53,32 @@ describe('Life emotion turns — delivery overlay', () => {
     expect(isLifeEmotionTurn('Berapa tork Viva Elite?')).toBe(false);
   });
 
-  it('still runs search gate for life emotion substantive turns', () => {
+  it('founder still runs search gate for life emotion substantive turns', () => {
     expect(getWebSearchGateReason('Kenapa saya rasa cemas sebelum tidur?')).toBe('factual_question');
+  });
+
+  it('student skips search on teaching depth — answers from brain, faster TTFB', () => {
+    expect(
+      getWebSearchGateReason('Kenapa saya rasa cemas sebelum tidur?', { studentFounderParity: true }),
+    ).toBeNull();
+    expect(
+      getWebSearchGateReason('Kenapa langit kelihatan biru pada waktu petang?', { studentFounderParity: true }),
+    ).toBeNull();
+  });
+
+  it('student still searches for specs, corrections, and explicit ask', () => {
+    expect(
+      getWebSearchGateReason('Berapa km/l enjin 1.3?', { studentFounderParity: true }),
+    ).toBe('technical_precision');
+    expect(
+      getWebSearchGateReason('Anda salah sebut — ini Perodua Viva, bukan Proton', { studentFounderParity: true }),
+    ).toBe('entity_correction');
+    expect(
+      getWebSearchGateReason('Cuba search tentang Viva Elite', { studentFounderParity: true }),
+    ).toBe('explicit_search');
+    expect(
+      getWebSearchGateReason('850cc?', { studentFounderParity: true, technicalFollowUp: true }),
+    ).toBe('technical_follow_up');
   });
 });
 

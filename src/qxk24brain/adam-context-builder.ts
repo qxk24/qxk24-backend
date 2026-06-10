@@ -25,7 +25,7 @@ import {
   type WorkspaceRecord,
 } from '../adam/adam-workspace.service';
 import { FOUNDER_USER_ID } from '../adam/adam-student.types';
-import { getAdamMemoryConfig, getGuestTrialMemoryConfig } from '../config/adam-memory.config';
+import { getAdamMemoryConfig } from '../config/adam-memory.config';
 import { isGuestUserId } from '../freemium/adam-freemium-guest.service';
 import { buildMemoryHealthContextBlock } from './adam-health.service';
 import { buildConstitutionalAnchor } from './adam-anchor.service';
@@ -52,9 +52,29 @@ import {
 import { isAmaBrainV2Enabled } from '../lib/ama/ama-brain-integration.service';
 import { getContinuityBridgeRecord } from './adam-continuity.service';
 import {
-  buildTeachingRecordRecallBlock,
-  founderAsksTeachingRecall,
-} from './adam-teaching-record.service';
+  ALAMTOLOGI_BOOK_CANON,
+  buildBookCanonAck,
+  buildBookCanonContextBlock,
+  buildSealedChapterAnchorAck,
+  buildChapterRecallAck,
+  buildChapterRecallFrame,
+  buildChapterSearchQuery,
+  buildSealedChapterAnchor,
+  chapterTeachingSearchTerms,
+  mentionsAidilEngine,
+  needsBookAwareTeachingRecall,
+  needsBookCanonLock,
+  resolveBookChapter,
+  shouldSkipAidilStageDashboard,
+  resolveFormulaXyzChapterId,
+  buildCurriculumOverviewAck,
+  buildCurriculumOverviewSealedBlock,
+  buildFormulaXyzOutputLock,
+  buildChapterConstitutionalRecallBlock,
+  chapterHasConstitutionalBackbone,
+  isAlamtologiCurriculumOverviewQuery,
+} from '../adam/adam-book-aware-recall';
+import { buildTeachingRecordRecallBlock } from './adam-teaching-record.service';
 import { buildRelationalMemoryContextBlock } from './adam-thread-builder.service';
 import {
   readMoment,
@@ -88,7 +108,8 @@ import {
 } from './qxk24brain-student.engine';
 
 function founderNeedsDeepConstitutionalContext(message: string): boolean {
-  return /\b(stage|tahap|1\(7\)|vault|checkpoint|audit|transform|graph|knowledge graph|family|famili|makmur|islah|waqf|memory health|refleksi|reflection|perlembagaan|constitutional progress|aidil|dashboard)\b/i.test(
+  if (shouldSkipAidilStageDashboard(message)) return false;
+  return /\b(stage|tahap|1\(7\)|vault|checkpoint|audit|transform|graph|knowledge graph|family|famili|makmur|islah|waqf|memory health|refleksi|reflection|perlembagaan|constitutional progress|dashboard)\b/i.test(
     message,
   );
 }
@@ -106,6 +127,8 @@ export type BuildSmartContextOptions = {
   recallProbeMessage?: string;
   /** Founder TEACHING — strip constitutional priming from session history. */
   founderTeachingAbsorption?: boolean;
+  /** Student fast path — skip epistemic overlay and track summary (founder teaching parity). */
+  studentStreamlined?: boolean;
 };
 
 export async function buildSmartContext(
@@ -117,11 +140,10 @@ export async function buildSmartContext(
   options?: BuildSmartContextOptions,
 ): Promise<LlmMessage[]> {
   const isGuestTrial = isGuestUserId(participant.userId);
-  const config = isGuestTrial
-    ? getGuestTrialMemoryConfig()
-    : getAdamMemoryConfig(participant.role, Boolean(workspace), chatMode);
+  const config = getAdamMemoryConfig(participant.role, Boolean(workspace), chatMode);
   const messages: LlmMessage[] = [];
   const teachingAbsorption = options?.founderTeachingAbsorption === true;
+  const studentStreamlined = options?.studentStreamlined === true;
 
   messages.push({ role: 'user', content: getCorePrompt() });
   messages.push({ role: 'assistant', content: CORE_ABSORPTION_ACK });
@@ -132,7 +154,7 @@ export async function buildSmartContext(
     && !teachingAbsorption;
 
   const studentTrackPromise =
-    participant.role === 'student' && !workspace && !isGuestTrial
+    participant.role === 'student' && !workspace && !isGuestTrial && !studentStreamlined
       ? getStudentTrackSummary(participant.userId)
       : Promise.resolve('');
 
@@ -277,7 +299,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
   let longTermBlock = tiers.longTerm;
   const brainLoadedChars = longTermBlock.length;
 
-  const epistemic = teachingAbsorption || isGuestTrial
+  const epistemic = teachingAbsorption || studentStreamlined
     ? null
     : await buildEpistemicStatus(
       sessionId,
@@ -305,17 +327,72 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
     options?.recallProbeMessage?.trim()
     || (newMessage.length > 4096 ? newMessage.slice(0, 4096) : newMessage);
 
-  if (participant.role === 'founder' && founderAsksTeachingRecall(recallProbe)) {
-    const teachingRecall = await buildTeachingRecordRecallBlock(
-      FOUNDER_USER_ID,
-      recallProbe,
-    );
-    if (teachingRecall) {
-      messages.push({ role: 'user', content: teachingRecall });
+  if (needsBookCanonLock(recallProbe)) {
+    messages.push({ role: 'user', content: buildBookCanonContextBlock() });
+    messages.push({
+      role: 'assistant',
+      content: buildBookCanonAck(participant.role === 'founder'),
+    });
+  }
+
+  if (isAlamtologiCurriculumOverviewQuery(recallProbe)) {
+    messages.push({ role: 'user', content: buildCurriculumOverviewSealedBlock() });
+    messages.push({
+      role: 'assistant',
+      content: buildCurriculumOverviewAck(participant.role === 'founder'),
+    });
+  }
+
+  const bookChapter = resolveBookChapter(recallProbe);
+
+  if (needsBookAwareTeachingRecall(recallProbe)) {
+    const resolvedChapter = bookChapter ?? (mentionsAidilEngine(recallProbe) ? resolveBookChapter(recallProbe) : null);
+
+    const sealedAnchor = buildSealedChapterAnchor(resolvedChapter);
+    if (sealedAnchor) {
+      messages.push({ role: 'user', content: sealedAnchor });
       messages.push({
         role: 'assistant',
-        content:
-          'Bismillahirahmanirrahim. P.alt, I have absorbed my teaching records — episodic MASA. I will speak only from these episodes when I say I remember; I will not invent autobiography.',
+        content: buildSealedChapterAnchorAck(resolvedChapter, participant.role === 'founder'),
+      });
+    }
+
+    if (
+      resolvedChapter?.chapterId
+      && chapterHasConstitutionalBackbone(resolvedChapter.chapterId)
+    ) {
+      const backbone = buildChapterConstitutionalRecallBlock(resolvedChapter.chapterId);
+      if (backbone) {
+        const meteraiLabel = resolvedChapter.bookId === 'teori-alamin'
+          ? 'Teori ALAMIN'
+          : 'Formula XYZ';
+        messages.push({ role: 'user', content: backbone });
+        messages.push({
+          role: 'assistant',
+          content: participant.role === 'founder'
+            ? `Bismillahirahmanirahim. P.alt, saya pegang CONSTITUTIONAL BACKBONE ${resolvedChapter.chapterTitleBm} — meterai ${meteraiLabel}.`
+            : `Saya pegang meterai P.alt untuk ${resolvedChapter.chapterTitleBm}.`,
+        });
+      }
+    }
+
+    const searchTerms = chapterTeachingSearchTerms(resolvedChapter);
+    const searchQuery = buildChapterSearchQuery(recallProbe, resolvedChapter);
+    const teachingRecall = await buildTeachingRecordRecallBlock(
+      FOUNDER_USER_ID,
+      searchQuery,
+      searchTerms,
+      resolvedChapter?.chapterId,
+    );
+
+    if (teachingRecall) {
+      const framed = resolvedChapter
+        ? `${buildChapterRecallFrame(resolvedChapter)}\n\n${teachingRecall}`
+        : `${ALAMTOLOGI_BOOK_CANON}\n\n${teachingRecall}`;
+      messages.push({ role: 'user', content: framed });
+      messages.push({
+        role: 'assistant',
+        content: buildChapterRecallAck(resolvedChapter, participant.role === 'founder'),
       });
     }
   }
@@ -515,6 +592,21 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
       content: participant.role === 'student'
         ? STUDENT_NEUTRAL_CONTEXT_ACKS.quranCorpus
         : 'Bismillahirahmanirrahim. Verified ayat received — Rasm Uthmani with Pickthall English. I will quote ayat only from this corpus, without tafsir in brackets, and compare all other knowledge under Alamtologi with Quran as supreme (LAW_002).',
+    });
+  }
+
+  const recallForOutputLock = options?.recallProbeMessage?.trim() || newMessage;
+  const outputLockChapter = resolveFormulaXyzChapterId(recallForOutputLock);
+  if (
+    outputLockChapter
+    && chapterHasConstitutionalBackbone(outputLockChapter)
+  ) {
+    messages.push({ role: 'user', content: buildFormulaXyzOutputLock(outputLockChapter) });
+    messages.push({
+      role: 'assistant',
+      content: participant.role === 'founder'
+        ? `Bismillahirahmanirahim. P.alt, saya pegang OUTPUT LOCK — ${resolveBookChapter(recallForOutputLock)?.chapterTitleBm ?? 'Formula XYZ'}; bukan bab HISAL/AIDIL/SuNom dengan nombor sama.`
+        : `Saya pegang OUTPUT LOCK Formula XYZ untuk bab ini.`,
     });
   }
 

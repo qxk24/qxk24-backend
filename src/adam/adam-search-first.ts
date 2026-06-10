@@ -53,13 +53,21 @@ Do NOT answer the question in this phase.
 After search completes, reply with exactly: OK
 `.trim();
 
-/** Student factual turn — blocking prefetch before synthesis (off when inline search is on). */
+const BLOCKING_SEARCH_FIRST_REASONS = new Set([
+  'technical_precision',
+  'technical_follow_up',
+  'entity_correction',
+  'explicit_search',
+]);
+
+/** Blocking prefetch only when specs must be verified before synthesis — not general teaching asks. */
 export function shouldStudentUseSearchFirstFlow(
   isFounder: boolean,
   searchGateReason: string | null,
 ): boolean {
   if (ENV.ADAM_STUDENT_INLINE_SEARCH) return false;
-  return !isFounder && searchGateReason !== null;
+  if (isFounder || !searchGateReason) return false;
+  return BLOCKING_SEARCH_FIRST_REASONS.has(searchGateReason);
 }
 
 /** User block for the prefetch LLM call — includes short thread context when present. */

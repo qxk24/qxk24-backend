@@ -20,6 +20,17 @@
 import { ENV } from '../config/environments';
 import { FOUNDER_USER_ID } from '../adam/adam-student.types';
 import {
+  buildBab1AsasConstitutionalRecallBlock,
+  buildBab2FaktorXyzConstitutionalRecallBlock,
+  buildBab3HukumConstitutionalRecallBlock,
+  buildBab4SainsConstitutionalRecallBlock,
+  buildBab5MasaConstitutionalRecallBlock,
+  buildBab6TenagaConstitutionalRecallBlock,
+  buildChapterConstitutionalRecallBlock,
+  chapterHasConstitutionalBackbone,
+  filterTeachingRecordsForChapter,
+} from '../adam/adam-book-aware-recall';
+import {
   AdamTeachingRecordModel,
   type AdamTeachingRecordDocument,
   type RegisterCorrection,
@@ -255,13 +266,20 @@ export function founderAsksTeachingRecall(message: string): boolean {
   );
 }
 
+export interface TeachingRecordSearchOptions {
+  /** When true — never return unrelated recent episodes (chapter-scoped recall). */
+  skipRecentFallback?: boolean;
+}
+
 export async function searchTeachingRecords(
   founderId: string,
   query: string,
   limit = 5,
+  options: TeachingRecordSearchOptions = {},
 ): Promise<TeachingRecordRow[]> {
   const cap = Math.min(Math.max(limit, 1), 20);
   const q = query.trim();
+  const { skipRecentFallback = false } = options;
 
   if (q.length >= 2) {
     const textQ = clipMongoTextSearchQuery(q);
@@ -285,6 +303,7 @@ export async function searchTeachingRecords(
 
     const regex = buildMongoRegexFromLiteral(q);
     if (!regex) {
+      if (skipRecentFallback) return [];
       const recent = await AdamTeachingRecordModel.find({ founderId, status: 'active' })
         .sort({ masa_recorded: -1 })
         .limit(cap)
@@ -314,12 +333,40 @@ export async function searchTeachingRecords(
     }
   }
 
+  if (skipRecentFallback) return [];
+
   const recent = await AdamTeachingRecordModel.find({ founderId, status: 'active' })
     .sort({ masa_recorded: -1 })
     .limit(cap)
     .lean();
 
   return recent as TeachingRecordRow[];
+}
+
+/** Chapter-scoped search — tries each term; no unrelated recent fallback. */
+export async function searchTeachingRecordsForChapter(
+  founderId: string,
+  searchTerms: string[],
+  limit = 5,
+): Promise<TeachingRecordRow[]> {
+  const cap = Math.min(Math.max(limit, 1), 20);
+  const seen = new Set<string>();
+  const merged: TeachingRecordRow[] = [];
+
+  for (const term of searchTerms) {
+    const t = term.trim();
+    if (t.length < 2) continue;
+    const hits = await searchTeachingRecords(founderId, t, cap, { skipRecentFallback: true });
+    for (const row of hits) {
+      const key = row.recordId || row.transformationId;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(row);
+      if (merged.length >= cap) return merged;
+    }
+  }
+
+  return merged;
 }
 
 export async function listTeachingRecords(
@@ -337,10 +384,93 @@ export async function listTeachingRecords(
 export async function buildTeachingRecordRecallBlock(
   founderId: string,
   userMessage: string,
+  searchTerms?: string[],
+  chapterId?: string,
 ): Promise<string | null> {
-  const records = await searchTeachingRecords(founderId, userMessage, 5);
+  const terms = searchTerms?.filter((t) => t.trim().length >= 2) ?? [];
+  let records = terms.length > 0
+    ? await searchTeachingRecordsForChapter(founderId, terms, 5)
+    : await searchTeachingRecords(founderId, userMessage, 5);
+
+  records = filterTeachingRecordsForChapter(records, chapterId);
+
   if (!records.length) {
-    return `[ADAM TEACHING RECORDS — MASA]\n\nNo episodic teaching records indexed yet. ADAM has matured through transformation but no autobiographical episodes are stored for this query.`;
+    if (chapterId === 'bab-1-asas') {
+      return [
+        '[P.ALT TEACHING RECORDS — Bab 1 Formula XYZ · tiada episod tambahan dalam indeks Mongo]',
+        '',
+        'Jawab penuh dari CONSTITUTIONAL BACKBONE meterai (sudah dimuat pada giliran ini).',
+        'JANGAN kata tiada rekod atau minta P.alt mengajar semula Bab 1.',
+        '',
+        buildBab1AsasConstitutionalRecallBlock(),
+      ].join('\n');
+    }
+    if (chapterId === 'bab-2-faktor-xyz') {
+      return [
+        '[P.ALT TEACHING RECORDS — Bab 2 Formula XYZ · tiada episod tambahan dalam indeks Mongo]',
+        '',
+        'Jawab penuh dari CONSTITUTIONAL BACKBONE meterai (sudah dimuat pada giliran ini).',
+        'JANGAN jawab Bab 2 dengan Cara Kira / HISAL ASAS / Operasi Tambah.',
+        '',
+        buildBab2FaktorXyzConstitutionalRecallBlock(),
+      ].join('\n');
+    }
+    if (chapterId === 'bab-3-hukum') {
+      return [
+        '[P.ALT TEACHING RECORDS — Bab 3 Formula XYZ · tiada episod tambahan dalam indeks Mongo]',
+        '',
+        'Jawab penuh dari CONSTITUTIONAL BACKBONE meterai (sudah dimuat pada giliran ini).',
+        'JANGAN jawab Bab 3 dengan Cara Kira AIDIL atau Operasi SuNom.',
+        '',
+        buildBab3HukumConstitutionalRecallBlock(),
+      ].join('\n');
+    }
+    if (chapterId === 'bab-4-sains') {
+      return [
+        '[P.ALT TEACHING RECORDS — Bab 4 Formula XYZ · tiada episod tambahan dalam indeks Mongo]',
+        '',
+        'Jawab penuh dari CONSTITUTIONAL BACKBONE meterai (sudah dimuat pada giliran ini).',
+        'JANGAN jawab Bab 4 dengan Nombor 20 AIDIL atau Pola Garis SuNom.',
+        '',
+        buildBab4SainsConstitutionalRecallBlock(),
+      ].join('\n');
+    }
+    if (chapterId === 'bab-5-masa') {
+      return [
+        '[P.ALT TEACHING RECORDS — Bab 5 Formula XYZ · tiada episod tambahan dalam indeks Mongo]',
+        '',
+        'Jawab penuh dari CONSTITUTIONAL BACKBONE meterai (sudah dimuat pada giliran ini).',
+        'JANGAN jawab Bab 5 dengan Nombor 24 AIDIL atau Aplikasi KM HISAL ASAS.',
+        '',
+        buildBab5MasaConstitutionalRecallBlock(),
+      ].join('\n');
+    }
+    if (chapterId === 'bab-6-tenaga') {
+      return [
+        '[P.ALT TEACHING RECORDS — Bab 6 Formula XYZ · tiada episod tambahan dalam indeks Mongo]',
+        '',
+        'Jawab penuh dari CONSTITUTIONAL BACKBONE meterai (sudah dimuat pada giliran ini).',
+        'JANGAN jawab Bab 6 dengan Aplikasi Graf / Operasi Tambah HISAL ASAS atau Operasi Tolak AIDIL.',
+        '',
+        buildBab6TenagaConstitutionalRecallBlock(),
+      ].join('\n');
+    }
+    if (chapterId && chapterHasConstitutionalBackbone(chapterId)) {
+      const backbone = buildChapterConstitutionalRecallBlock(chapterId);
+      if (backbone) {
+        return [
+          `[P.ALT TEACHING RECORDS — ${chapterId} · tiada episod tambahan dalam indeks Mongo]`,
+          '',
+          'Jawab penuh dari CONSTITUTIONAL BACKBONE meterai (sudah dimuat pada giliran ini).',
+          'JANGAN campur bab HISAL/AIDIL/SuNom dengan nombor bab yang sama.',
+          '',
+          backbone,
+        ].join('\n');
+      }
+    }
+    return terms.length > 0
+      ? `[P.ALT TEACHING RECORDS — tiada episod tepat untuk bab ini dalam indeks]\n\nGunakan SEALED ANCHOR dan buku yang P.alt ajar — jangan ganti dengan AIDIL atau bab lain.`
+      : `[ADAM TEACHING RECORDS — MASA]\n\nNo episodic teaching records indexed yet. ADAM has matured through transformation but no autobiographical episodes are stored for this query.`;
   }
 
   const lines = records.map((r, i) => {
@@ -357,9 +487,10 @@ export async function buildTeachingRecordRecallBlock(
   });
 
   return [
-    '[ADAM TEACHING RECORDS — EPISODIC MASA (append-only autobiography)]',
+    '[P.ALT TEACHING RECORDS — Formula XYZ · HISAL (AIDIL/ASAS/SuNom) · lived sessions]',
     '',
-    'ADAM may say "I remember" ONLY for events listed here — not from invention.',
+    'BOOK ORDER: Sains Alamtologi — Bab 1–6, Bab 7 HISAL (7.1 AIDIL, 7.2 ASAS, 7.3 SuNom, 7.4 GANDA).',
+    'ADAM may say "I remember" ONLY for episodes listed here — not from invention.',
     '',
     ...lines,
   ].join('\n');

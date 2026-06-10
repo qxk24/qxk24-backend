@@ -22,9 +22,6 @@
 import { ENV } from './environments';
 import type { ADAMChatMode } from '../adam/adam.types';
 import { shouldEnableWebSearchForMessage } from '../adam/adam-web-search';
-import { isAdamSubstantiveTurn } from '../adam/adam-response-generation';
-import { isGuestUserId } from '../freemium/adam-freemium-guest.service';
-
 export type ModelTier = 'fast' | 'deep';
 
 export interface ModelRouterParticipant {
@@ -49,19 +46,6 @@ const DEEP_MESSAGE_PATTERNS = [
   /\b(quran|qur'an|hadith|founder|pengasas)\b/i,
   /\b(teach|teaching|ajar|mengajar|brain|otak)\b/i,
 ];
-
-/** Student substantive cues — Flow Like Water: sense depth, route to deep model */
-const STUDENT_DEPTH_SIGNALS = [
-  /\b(explain|describe|what is|what are|why|how|tell me|define|meaning)\b/i,
-  /\b(difference|compare|relationship|connection|between)\b/i,
-  /\b(jelaskan|huraikan|apakah|kenapa|bagaimana|maksud|cerita|terangkan)\b/i,
-  /\b(tafsir|fiqh|aqidah|quran|hadith|sunnah|sirah|imam|salat|zakat)\b/i,
-  /\b(alamtologi|aidil|adam|plas|constitutional|maqasid)\b/i,
-  /\b(science|biology|physics|chemistry|psychology|history|economy)\b/i,
-];
-
-/** Below founder ADAM_DEEP_MESSAGE_MIN_CHARS — short questions can still be substantive */
-const STUDENT_DEEP_MIN_CHARS = 80;
 
 export function getDeepModel(): string {
   return ENV.QWEN_MODEL_DEEP;
@@ -118,47 +102,8 @@ function resolveStudentModel(
   message: string,
   hasUploads: boolean,
 ): ResolvedAdamModel {
-  if (hasUploads) {
-    return { model: getDeepModel(), tier: 'deep', reason: 'student_uploads' };
-  }
-
-  const text = message.trim();
-
-  if (isAdamSubstantiveTurn(text) && text.length >= 24) {
-    return {
-      model:  getDeepModel(),
-      tier:   'deep',
-      reason: 'student_substantive',
-    };
-  }
-
-  if (DEEP_MODES.includes(mode)) {
-    return {
-      model:  getDeepModel(),
-      tier:   'deep',
-      reason: `mode_${mode.toLowerCase()}`,
-    };
-  }
-
-  const isSubstantive =
-    text.length >= STUDENT_DEEP_MIN_CHARS ||
-    STUDENT_DEPTH_SIGNALS.some((p) => p.test(text)) ||
-    mode === 'TEACHING' ||
-    mode === 'QUESTIONING';
-
-  if (isSubstantive) {
-    return {
-      model:  getDeepModel(),
-      tier:   'deep',
-      reason: 'student_substantive',
-    };
-  }
-
-  return {
-    model:  getFastModel(),
-    tier:   'fast',
-    reason: 'student_simple',
-  };
+  // Same router as founder — one ADAM, same speed/depth tradeoffs.
+  return resolveFounderModel(mode, message, hasUploads);
 }
 
 export function resolveAdamMaxTokens(
@@ -182,8 +127,7 @@ export function resolveQwenEnableThinking(
 ): boolean {
   if (!ENV.QWEN_ENABLE_THINKING) return false;
   if (tier === 'fast') return false;
-  // Students — first visible token sooner; synthesis max_tokens unchanged
-  if (options?.isStudent) return false;
+  // Unified ADAM — students on deep tier use thinking like founder (voice depth)
   // Teaching absorption — stream visible sooner; output tokens unchanged
   if (options?.founderTeachingAbsorption) return false;
   return DEEP_MODES.includes(mode);
@@ -210,10 +154,7 @@ export function resolveAdamChatModel(params: {
     };
   }
 
-  if (isGuestUserId(participant.userId)) {
-    return { model: getFastModel(), tier: 'fast', reason: 'guest_trial' };
-  }
-
+  // Guest trial — same model router as registered students (unified ADAM voice)
   return resolveStudentModel(mode, message, hasUploads);
 }
 

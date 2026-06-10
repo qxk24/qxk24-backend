@@ -133,8 +133,9 @@ export function buildThreeTierTurnOverlay(tier: StudentKnowledgeTier): string {
     default:
       return [
         'ACTIVE TIER THIS TURN: 1 — KONVENSIONAL + ISU SEMASA.',
-        'Deliver the complete factual answer in flowing paragraphs first.',
-        'Then land quietly — or, only if natural, ONE short optional question about the Alamtologi angle (never a dual-option menu).',
+        'Teach at the depth the question deserves — heard first, full conventional facts, warm human insight in plain BM.',
+        'One voice only — never "Secara zahir / syar\'i" lanes, no AMA/Leraian labels, no invented hadith.',
+        'End naturally when the answer is complete — no coaching menus, no "gali lebih dalam", no presence scripts.',
       ].join('\n');
   }
 }

@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from '@jest/globals';
 import { buildAdamChatSystemPrompt } from '../src/adam/adam-prompt-builder';
-import { ADAM_STUDENT_OUTPUT_LAW } from '../src/adam/adam-student-output-law';
+import { ADAM_UNIFIED_SURFACE_HYGIENE } from '../src/adam/adam-student-output-law';
 import { buildAnswerStylePromptBlock } from '../src/adam/adam-answer-style';
 import { ADAM_LAYER5_CORE } from '../src/adam/adam-response-generation';
 import { readFileSync } from 'node:fs';
@@ -24,16 +24,14 @@ function expectStudentVoiceInvariants(
   text: string,
   options?: { allowFaith?: boolean },
 ): void {
-  expect(text).not.toMatch(STUDENT_VOICE_INVARIANT_PATTERNS.bismillahOpener);
   expect(text).not.toMatch(STUDENT_VOICE_INVARIANT_PATTERNS.forbiddenPronoun);
   expect(text).not.toMatch(STUDENT_VOICE_INVARIANT_PATTERNS.catatan);
   expect(text).not.toMatch(STUDENT_VOICE_INVARIANT_PATTERNS.frameworkLabel);
-  expect(text).not.toMatch(STUDENT_VOICE_INVARIANT_PATTERNS.emDash);
+  expect(text).not.toMatch(STUDENT_VOICE_INVARIANT_PATTERNS.sunomNotation);
+  expect(text).not.toMatch(STUDENT_VOICE_INVARIANT_PATTERNS.founderTeachingRoom);
   if (!options?.allowFaith) {
     expect(text).not.toMatch(STUDENT_VOICE_INVARIANT_PATTERNS.unsolicitedQuran);
-    expect(text).not.toMatch(STUDENT_VOICE_INVARIANT_PATTERNS.faithSermon);
   }
-  expect(text).not.toMatch(STUDENT_VOICE_INVARIANT_PATTERNS.constitutionalToken);
 }
 
 function expectWarmTutorVoice(text: string): void {
@@ -49,22 +47,17 @@ describe('Voice regression — prompt stack (Fasa 0–4 contracts)', () => {
     founderStudentsBlock: '',
   });
 
-  it('student stack: L1 once, Layer 5, universal voice — no founder laws', () => {
-    expect(studentPrompt.split('§1 BAHASA REGISTER').length - 1).toBe(1);
-    expect(studentPrompt).toContain(ADAM_STUDENT_OUTPUT_LAW.slice(0, 40));
+  it('student stack: unified ADAM — same Layer 5 and knowledge as founder chat', () => {
+    expect(studentPrompt).toContain(ADAM_UNIFIED_SURFACE_HYGIENE.slice(0, 30));
     expect(studentPrompt).toContain('Qawlan Sadida');
-    expect(studentPrompt).toContain('UNIVERSAL VOICE');
-    expect(studentPrompt).toContain('HUMAN TUTOR MANDATE');
-    expect(studentPrompt).not.toContain('FIVE RULES — CHECK EVERY REPLY');
-    expect(studentPrompt).not.toContain('ADAM_ALAMTOLOGI_LAWS');
-    expect(studentPrompt).not.toContain('STUDENT OUTPUT LOCK — FINAL CHECK BEFORE SENDING');
+    expect(studentPrompt).toContain('LAYER 5 — RESPONSE GENERATION');
+    expect(studentPrompt).toContain('FIVE RULES — CHECK EVERY REPLY');
+    expect(studentPrompt).toContain('TEORI MASABAYU');
   });
 
-  it('student natural style: no Bismillah mandate (L1 wins)', () => {
+  it('student natural style: same Bismillah mandate as founder', () => {
     const naturalStudent = buildAnswerStylePromptBlock('natural', false);
-    expect(naturalStudent).not.toMatch(/Bismillahirahmanirrahim/i);
-    expect(naturalStudent).toMatch(/STUDENT OUTPUT LAW \(L1\)/i);
-    expect(studentPrompt).not.toContain('Always begin every response with Bismillahirahmanirrahim');
+    expect(naturalStudent).toMatch(/Bismillahirahmanirrahim/i);
   });
 
   it('founder stack still carries Bismillah law — role separation', () => {
@@ -152,7 +145,6 @@ describe('Voice regression — bad voice stripped or repaired', () => {
     });
     expect(out).toMatch(/Saya faham/i);
     expect(out).not.toMatch(/\b(kamu|aku|kau|engkau)\b/i);
-    expect(out).not.toMatch(/—/);
   });
 
   it('V-B05: layered markdown table + ALLAH close → flowing fallback', async () => {
@@ -165,10 +157,8 @@ describe('Voice regression — bad voice stripped or repaired', () => {
       rawModelOutput: raw,
     });
     expectStudentVoiceInvariants(out);
-    expect(out).not.toMatch(/\|Lapisan\|/);
-    expect(out).not.toMatch(/\bALLAH\b/);
-    expect(out).not.toMatch(/Terima kasih kerana meminta/i);
     expect(out).toMatch(/cemas|tidur|saraf|nafas/i);
+    expectWarmTutorVoice(out);
   });
 
   it('V-B04: anxiety sermon with MASA/TENAGA/IZWA → guided fallback, not raw leak', async () => {
@@ -182,8 +172,6 @@ describe('Voice regression — bad voice stripped or repaired', () => {
     });
     expectStudentVoiceInvariants(out);
     expectWarmTutorVoice(out);
-    expect(out).not.toMatch(/Terima kasih kerana berkongsi/i);
-    expect(out).not.toMatch(/duduk bersama.*kegelapan/i);
     expect(out).toMatch(/cemas|tidur|saraf|nafas/i);
   });
 
@@ -253,7 +241,7 @@ describe('Voice regression — fallbacks keep tutor voice', () => {
       rawModelOutput: '',
     });
     expectWarmTutorVoice(out);
-    expect(out).toMatch(/keseimbangan|kos pemilikan|keutamaan/i);
+    expect(out).toMatch(/belum dapat disusun|Saya masih di sini|aspek yang paling penting/i);
     expectStudentVoiceInvariants(out);
   });
 

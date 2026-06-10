@@ -49,14 +49,15 @@ export const ADAM_MEMORY_CONFIG = {
     ACTIVE_FAMILIES:    envInt('ADAM_FOUNDER_ACTIVE_FAMILIES', 20),
     CURRENT_MESSAGE_MIN_CHARS: 80_000,
   },
+  /** Same depth as Founder — one ADAM for all (Founder decree; env may still override). */
   STUDENT: {
-    MESSAGE_WINDOW:     envInt('ADAM_STUDENT_MESSAGE_WINDOW', 20),
-    BRAIN_CHARS:        envInt('ADAM_STUDENT_BRAIN_CHARS', 24_000),
-    MESSAGE_CHARS:      envInt('ADAM_STUDENT_MESSAGE_CHARS', 6_000),
-    ANCHOR_MAX_CHARS:   envInt('ADAM_STUDENT_ANCHOR_CHARS', 1_500),
-    COMPLETED_FAMILIES: envInt('ADAM_STUDENT_COMPLETED_FAMILIES', 5),
-    ACTIVE_FAMILIES:    envInt('ADAM_STUDENT_ACTIVE_FAMILIES', 10),
-    CURRENT_MESSAGE_MIN_CHARS: 48_000,
+    MESSAGE_WINDOW:     envInt('ADAM_STUDENT_MESSAGE_WINDOW', 30),
+    BRAIN_CHARS:        envInt('ADAM_STUDENT_BRAIN_CHARS', 48_000),
+    MESSAGE_CHARS:      envInt('ADAM_STUDENT_MESSAGE_CHARS', 8_000),
+    ANCHOR_MAX_CHARS:   envInt('ADAM_STUDENT_ANCHOR_CHARS', 2_000),
+    COMPLETED_FAMILIES: envInt('ADAM_STUDENT_COMPLETED_FAMILIES', 10),
+    ACTIVE_FAMILIES:    envInt('ADAM_STUDENT_ACTIVE_FAMILIES', 20),
+    CURRENT_MESSAGE_MIN_CHARS: 80_000,
   },
   WORKSPACE: {
     MESSAGE_WINDOW:     envInt('ADAM_WORKSPACE_MESSAGE_WINDOW', 20),
@@ -67,19 +68,19 @@ export const ADAM_MEMORY_CONFIG = {
     ACTIVE_FAMILIES:    envInt('ADAM_WORKSPACE_ACTIVE_FAMILIES', 10),
     CURRENT_MESSAGE_MIN_CHARS: 64_000,
   },
-  /** Guest trial — separate tier; does not alter STUDENT/FOUNDER sacred defaults. */
+  /** Guest trial — same memory depth as student (unified ADAM); freemium gate limits question count only. */
   GUEST_TRIAL: {
-    MESSAGE_WINDOW:     envInt('ADAM_GUEST_MESSAGE_WINDOW', 6),
-    BRAIN_CHARS:        envInt('ADAM_GUEST_BRAIN_CHARS', 8_000),
-    MESSAGE_CHARS:      envInt('ADAM_GUEST_MESSAGE_CHARS', 4_000),
-    ANCHOR_MAX_CHARS:   envInt('ADAM_GUEST_ANCHOR_CHARS', 1_200),
-    COMPLETED_FAMILIES: envInt('ADAM_GUEST_COMPLETED_FAMILIES', 2),
-    ACTIVE_FAMILIES:    envInt('ADAM_GUEST_ACTIVE_FAMILIES', 3),
-    CURRENT_MESSAGE_MIN_CHARS: 8_000,
+    MESSAGE_WINDOW:     envInt('ADAM_GUEST_MESSAGE_WINDOW', 30),
+    BRAIN_CHARS:        envInt('ADAM_GUEST_BRAIN_CHARS', 48_000),
+    MESSAGE_CHARS:      envInt('ADAM_GUEST_MESSAGE_CHARS', 8_000),
+    ANCHOR_MAX_CHARS:   envInt('ADAM_GUEST_ANCHOR_CHARS', 2_000),
+    COMPLETED_FAMILIES: envInt('ADAM_GUEST_COMPLETED_FAMILIES', 10),
+    ACTIVE_FAMILIES:    envInt('ADAM_GUEST_ACTIVE_FAMILIES', 20),
+    CURRENT_MESSAGE_MIN_CHARS: 80_000,
   },
 } as const satisfies Record<string, AdamMemoryTierConfig>;
 
-/** Lite memory for unregistered guest trial — 3 lifetime questions max. */
+/** Guest trial memory — full ADAM depth; lifetime question cap is freemium-only. */
 export function getGuestTrialMemoryConfig(): AdamMemoryTierConfig {
   return ADAM_MEMORY_CONFIG.GUEST_TRIAL;
 }

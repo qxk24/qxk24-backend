@@ -40,7 +40,7 @@ describe('three-tier knowledge architecture', () => {
     expect(out).toMatch(/sudut Alamtologi/i);
   });
 
-  it('student prompt stack includes three-tier architecture', () => {
+  it('student prompt stack includes active tier overlay', () => {
     const prompt = buildAdamChatSystemPrompt({
       mode:                 'TEACHING',
       isFounder:            false,
@@ -48,7 +48,7 @@ describe('three-tier knowledge architecture', () => {
       founderStudentsBlock: '',
       studentKnowledgeTier: 1,
     });
-    expect(prompt).toMatch(/THREE TIERS OF KNOWLEDGE/);
     expect(prompt).toMatch(/ACTIVE TIER THIS TURN: 1/);
+    expect(prompt).toMatch(/STUDENT MODE —/);
   });
 });

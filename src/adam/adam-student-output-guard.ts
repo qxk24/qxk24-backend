@@ -23,77 +23,38 @@ import { resolveTechnicalPrecisionTurn, sanitizeTechnicalPrecisionOutput } from 
 import {
   paragraphIsCoachingScriptClosing,
   paragraphIsFounderTeachingVoiceLeak,
-  paragraphIsOrdinalSyllabusLeak,
-  paragraphShouldStripForUniversalVoice,
+  polishStudentOutputSurface,
+  rewriteDualLaneEssayLabels,
   rewriteEmojiPerformanceOpeners,
-  rewriteOrdinalEssayOpeners,
   sanitizeStudentForbiddenPronouns,
   stripPlanTesterAddress,
   stripSunomNotation,
   studentForbiddenPronounAlternation,
 } from './adam-student-output-law';
 import { paragraphIsThreeTierDoorOffer } from './adam-three-tier-knowledge';
+import { isAdamLightChatTurn } from './adam-response-generation';
 import {
   isTechnicalPrecisionQuestion,
-  userAskedForAlamtologi,
-  userOpenedFaithDoor,
 } from './adam-universal-voice';
 
+/** Strip billboard framework labels on tier 1 — not ADAM's narrative voice. */
 const FRAMEWORK_LEAK =
   /\b(?:Dalam\s+lensa\s+Alamtologi|Dari\s+perspektif\s+Alamtologi|Alamtologi\s+menyatakan|framework\s+Alamtologi)\b/i;
 
-const BISMILLAH_OPENER = /^\s*Bismillah(?:irahmanirrahim)?\.?\s*\n?/i;
-
-const BISMILLAH_ONLY_PARAGRAPH = /^\s*Bismillah(?:irahmanirrahim)?\.?\s*$/i;
-
-const QURAN_LEAK =
-  /\b(?:Allah\s+(?:SWT\s+)?berfirman|Surah\s+[A-Za-z'-]+(?:\s+\d+:\d+)?|\(Surah[^)]+\))\b/i;
-
-function stripUniversalVoiceLeaks(text: string, userMessage: string): string {
-  const faithOk = userOpenedFaithDoor(userMessage);
-  const alamtologiOk = userAskedForAlamtologi(userMessage);
-
-  let out = text.replace(BISMILLAH_OPENER, '');
-
-  const paragraphs = out.split(/\n{2,}/);
-  out = paragraphs
-    .filter((para) => {
+function stripFrameworkBillboards(text: string, userMessage: string): string {
+  if (userMessage && /\b(?:alamtologi|peringkat\s+2|sudut\s+konstitusi)\b/i.test(userMessage)) {
+    return text;
+  }
+  return text
+    .split(/\n{2,}/)
+    .map((para) => {
       const trimmed = para.trim();
-      if (!trimmed) return false;
-      if (!faithOk && (QURAN_LEAK.test(trimmed) || BISMILLAH_ONLY_PARAGRAPH.test(trimmed))) {
-        return false;
-      }
-      if (
-        paragraphShouldStripForUniversalVoice(trimmed, { faithOk, alamtologiOk })
-      ) {
-        return false;
-      }
-      return true;
+      if (!trimmed || paragraphIsThreeTierDoorOffer(trimmed)) return para;
+      return para.replace(FRAMEWORK_LEAK, '');
     })
-    .join('\n\n');
-
-  if (!alamtologiOk) {
-    out = out
-      .split(/\n{2,}/)
-      .map((para) => {
-        const trimmed = para.trim();
-        if (!trimmed || paragraphIsThreeTierDoorOffer(trimmed)) return para;
-        let p = para.replace(FRAMEWORK_LEAK, '');
-        p = p.replace(/\bAlamtologi\b/gi, (match, offset, whole) => {
-          const before = whole.slice(Math.max(0, offset - 40), offset);
-          if (/what\s+is\s+$/i.test(before)) return match;
-          return '';
-        });
-        return p;
-      })
-      .join('\n\n');
-  }
-
-  if (!faithOk) {
-    out = out.replace(/\bBismillah(?:irahmanirrahim)?\.?/gi, '');
-  }
-
-  return out.replace(/\n{3,}/g, '\n\n').trim();
+    .join('\n\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 const SCRIPTED_CLOSINGS: RegExp[] = [
@@ -126,6 +87,15 @@ const SCRIPTED_CLOSINGS: RegExp[] = [
   /bukan\s+untuk\s+memutuskan\s+bagi\s+anda/i,
   /berdiri\s+teguh\s+dengan\s+ilmu/i,
   /agar\s+anda\s+berdiri\s+teguh/i,
+  /Ada\s+aspek\s+mana.*ingin\s+anda\s+gali/i,
+  /Atau\s+mungkin,?\s*ada\s+satu\s+kenangan/i,
+  /Saya\s+di\s+sini\.?\s*duduk/i,
+  /mendengar,?\s*dan\s+bersama/i,
+  /Would you like me to:/i,
+  /I['']?m here\.?\s*not to lecture/i,
+  /walk with you,?\s*step by thoughtful step/i,
+  /Just say the word/i,
+  /walk there together/i,
 ];
 
 const STUDENT_MATH_SLOT = '\x00STUDENT_MATH_';
@@ -194,43 +164,37 @@ function inlineQuranAyat(text: string): string {
     );
 }
 
-/** Sync format hygiene — no LLM, no TRAA surgery. */
+/** Sync hygiene only — unified ADAM voice must not be flattened post-stream. */
 export function sanitizeStudentOutputSync(
   text: string,
   userMessage = '',
   recentUserMessages: string[] = [],
 ): string {
   const { text: stashed, slots } = stashStudentMathBlocks(text);
+  const lightChat = isAdamLightChatTurn(userMessage);
 
   let out = stashed
-    .replace(/\s—\s/g, '. ')
-    .replace(/—/g, ', ')
     .replace(/^#{1,6}\s+(.+)$/gm, '$1')
     .replace(/^\[Source:[^\]]*\]\s*$/gim, '')
     .replace(/^---+$/gm, '')
-    .replace(/^>\s+/gm, '')
     .replace(/\bmemperkuat\b/gi, 'menguatkan')
-    .replace(/\bistirehat\b/gi, 'rehat')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1');
+    .replace(/\bistirehat\b/gi, 'rehat');
 
   out = restoreStudentMathBlocks(out, slots);
   out = inlineQuranAyat(out);
-  out = rewriteOrdinalEssayOpeners(out);
+  out = rewriteDualLaneEssayLabels(out);
   out = rewriteEmojiPerformanceOpeners(out);
   out = stripSunomNotation(out);
   out = stripPlanTesterAddress(out);
   out = sanitizeTechnicalPrecisionOutput(out, userMessage, recentUserMessages);
   out = sanitizeStudentForbiddenPronouns(out);
-  out = stripUniversalVoiceLeaks(out, userMessage);
-  out = stripSunomNotation(out);
-  out = stripPlanTesterAddress(out);
+  if (!lightChat) {
+    out = stripFrameworkBillboards(out, userMessage);
+  }
 
   const paragraphs = out.split(/\n{2,}/);
   const kept: string[] = [];
 
-  const faithOk = userOpenedFaithDoor(userMessage);
-  const alamtologiOk = userAskedForAlamtologi(userMessage);
   const technicalOk = resolveTechnicalPrecisionTurn(userMessage, recentUserMessages).isActive
     || isTechnicalPrecisionQuestion(userMessage.trim());
 
@@ -241,14 +205,12 @@ export function sanitizeStudentOutputSync(
     if (!paragraphIsThreeTierDoorOffer(trimmed)
       && SCRIPTED_CLOSINGS.some((re) => re.test(trimmed))) continue;
     if (paragraphIsCoachingScriptClosing(trimmed)) continue;
-    if (paragraphIsOrdinalSyllabusLeak(trimmed)) continue;
-    if (paragraphShouldStripForUniversalVoice(trimmed, { faithOk, alamtologiOk })) continue;
     if (/^\[Source:/i.test(trimmed)) continue;
     if (/^Maksudnya\s*:/i.test(trimmed)) continue;
     kept.push(trimmed);
   }
 
-  return kept.join('\n\n').trim();
+  return polishStudentOutputSurface(kept.join('\n\n').trim(), technicalOk);
 }
 
 /** Post-stream hook — sync sanitize only. Layer 5 governs voice at generation. */
@@ -267,4 +229,27 @@ export function applyStudentSurfaceOutputRepair(
   recentUserMessages: string[] = [],
 ): string {
   return sanitizeStudentOutputSync(text, studentMessage, recentUserMessages);
+}
+
+/** Min fraction of streamed chars guards must keep before replacing the live stream. */
+export const STUDENT_SURFACE_MIN_RETAIN_RATIO = 0.35;
+
+/**
+ * When sync guards strip too aggressively, keep the streamed prose — do not
+ * emit adam_stream_done replace or persist a gutted stub.
+ */
+export function resolveStudentStreamSurface(
+  rawModelStream: string,
+  surface: string,
+): { fullResponse: string; streamReplace: string | null } {
+  const raw = rawModelStream.trim();
+  const surf = surface.trim();
+  if (!surf || surf === raw) {
+    return { fullResponse: raw, streamReplace: null };
+  }
+  const rawLen = raw.length;
+  if (rawLen > 280 && surf.length / rawLen < STUDENT_SURFACE_MIN_RETAIN_RATIO) {
+    return { fullResponse: raw, streamReplace: null };
+  }
+  return { fullResponse: surf, streamReplace: surf };
 }

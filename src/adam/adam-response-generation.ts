@@ -40,6 +40,27 @@ export function isAdamSubstantiveTurn(message: string): boolean {
   return !isAdamLightChatTurn(message);
 }
 
+/** Student asked to understand something — any subject; no topic catalog. */
+const TEACHING_DEPTH_ASK =
+  /\b(?:terangkan|jelaskan|huraikan|explain|describe|what\s+is|apa\s+itu|apa\s+ialah|kenapa|mengapa|why|how\s+does|bagaimana|bezakan|banding|compare|ceritakan|tell\s+me\s+about|apa[kk]?\s+punca|apakah\s+punca|why\s+(?:do|does)|what\s+(?:causes|cause)|bagaimana\s+(?:berlaku|terjadi)|how\s+does\s+.+\s+(?:happen|occur|work))\b/i;
+
+/** Short follow-ups that demand more teaching — not light chat. */
+const CONTINUATION_DEPTH_ASK =
+  /\b(?:tell\s+me\s+more|say\s+more|go\s+deeper|dig\s+deeper|elaborate|expand\s+on|continue|more\s+about|more\s+on\s+this|more\s+detail|in\s+more\s+depth|beritahu\s+lagi|terangkan\s+lagi|jelaskan\s+lagi|lagi\s+tentang|boleh\s+teruskan|nak\s+tahu\s+lagi|apa\s+lagi)\b/i;
+
+export function isAdamContinuationDepthTurn(message: string): boolean {
+  if (isAdamLightChatTurn(message)) return false;
+  return CONTINUATION_DEPTH_ASK.test(message.trim());
+}
+
+export function isAdamTeachingDepthTurn(message: string): boolean {
+  if (isAdamLightChatTurn(message)) return false;
+  const t = message.trim();
+  if (TEACHING_DEPTH_ASK.test(t)) return true;
+  if (isAdamContinuationDepthTurn(t)) return true;
+  return t.length >= 48;
+}
+
 /** When the student corrects a wrong brand/model — acknowledge, do not invent. */
 export const STUDENT_ENTITY_CORRECTION_FALLBACK =
   'Maaf atas kesilapan tadi. Saya terima pembetulan anda — sila hantar semula soalan dengan nama/model yang tepat supaya saya boleh cari maklumat yang betul.';
@@ -67,27 +88,10 @@ export function buildStudentGreetingFallback(
  * Warm tutor voice when verification strips fabricated facts but the turn still
  * deserves substance — not a machine error string.
  */
-export function buildStudentGuidedPerspectiveFallback(userMessage: string): string {
-  const t = userMessage.trim();
-  if (/\b(?:cemas|anxious|anxiety|risau|gelisah|tidur|sleep|insomnia|stres|stress)\b/i.test(t)) {
-    return [
-      'Rasa cemas sebelum tidur biasanya bermakna sistem saraf masih dalam mod berjaga-jaga. Itu isyarat biasa, bukan kelemahan.',
-      'Pada waktu malam parasimpatik perlu mengambil alih dari simpatik. Kafein lewat petang, skrin sebelum tidur, atau beban yang belum diselesaikan sering memegang minda terjaga.',
-      'Mulakan dengan satu langkah kecil: nafas perlahan, kurangkan rangsangan berat dua jam sebelum tidur, dan pilih satu perkara untuk ditangguhkan ke esok.',
-      'Apa tabiat malam yang paling mudah untuk anda cuba minggu ini?',
-    ].join('\n\n');
-  }
-  if (/\b(?:kereta|automobil|mobil|kenderaan|\bcar\b|bekas|baru|pemilikan)\b/i.test(t)) {
-    return [
-      'Kereta murah dan berkualiti boleh wujud serentak — bukan kontradiksi, tetapi keseimbangan.',
-      'Fokus bukan pada harga di papan iklan sahaja, tetapi pada kos pemilikan sebenar: insurans, servis berkala, kebolehpercayaan, dan keselamatan asas yang memadai untuk kegunaan anda.',
-      'Semak rekod servis, sijil ujian keselamatan untuk model yang anda pertimbangkan, dan sama ada kos alat ganti masih mampu milik selepas beberapa tahun.',
-      'Apa keutamaan anda: jarak harian, ruang keluarga, atau had bajet bulanan?',
-    ].join('\n\n');
-  }
+export function buildStudentGuidedPerspectiveFallback(_userMessage: string): string {
   return [
-    'Soalan ini layak dijawab dengan teliti. Pada giliran ini bukti web yang mencukupi belum tersedia untuk angka atau nama spesifik.',
-    'Sementara itu, nyatakan satu aspek yang paling penting bagi anda — supaya saya boleh fokus carian seterusnya pada perkara yang benar-benar relevan.',
+    'Pada giliran ini jawapan penuh belum dapat disusun dengan cukup bukti yang boleh saya sandarkan.',
+    'Saya masih di sini — nyatakan satu aspek yang paling penting bagi anda, supaya saya boleh fokus dengan tepat pada langkah seterusnya.',
   ].join('\n\n');
 }
 
@@ -260,28 +264,28 @@ FORBIDDEN VOICE:
 - Copy-paste Teaching-room / P.alt voice to students — never "P.alt", AMA 124, AIDIL, lerai (PL)/digabung (PG), or dual-option menus ("Adakah ingin saya terangkan… atau kongsikan ayat…").
 `.trim();
 
-/** Student Layer 5 — delivery only; no internal PL/PG synapse jargon in the prompt. */
+/** Student Layer 5 — same Qawlan architecture as Founder; hygiene differs only in visible notation. */
 export const ADAM_LAYER5_STUDENT_DELIVERY = `
-LAYER 5 — HOW YOU DELIVER (student):
+LAYER 5 — STUDENT TURN (same ADAM as Founder chat):
 
-${ADAM_QAWLAN_SADIDA}
+${ADAM_FIVE_RESPONSE_FORMS}
 
-${ADAM_HONESTY_MARKERS}
+${ADAM_RESPONSE_PG_LANGUAGE}
 
 SILENCE PRINCIPLE:
 The correct response is not always more words. When the answer is complete, you may simply end.
-Water is silent when it has already filled the space.
 
 DELIVERY:
+- Bismillahirahmanirrahim on substantive turns — then warm, generous, flowing prose with real examples.
 - Mirror the student's language (BM, English, Arabic, or mix).
-- Flow: warm acknowledge → full answer in flowing paragraphs → quiet land (optional one question max).
-- Scientist-scholar: search → synthesize in tutor prose — not copy-paste, not clinical memo, not numbered syllabus.
+- Explain/understand asks: full tutor depth like Founder chat — multiple paragraphs, not a stub.
+- Scientist-scholar: search → synthesize in your voice — not copy-paste, not clinical memo.
 - Technical: verified numbers/units first; say honestly when search is thin.
-- Life/emotion: physiology/psychology from hits in prose — no tables or sermon preludes.
-- Three tiers: conventional answer first; Alamtologi/Quran only when the student opted in.
-- NEVER Teaching-room voice — no P.alt, AMA/AIDIL/PL/PG codes, no dual-option menus.
+- Three tiers: conventional depth first; Alamtologi/Quran when opted in or faith door open.
+- Honesty in plain words — never visible := VERIFIED/SUSPENDED notation.
+- NEVER Teaching-room addressing — no "P.alt", AMA/AIDIL/PL/PG codes, no dual-option menus.
 
-FORBIDDEN: "Pertama/Kedua" essays, coaching menus, framework billboards, performance preludes.
+FORBIDDEN: coaching menus at the end, framework billboard labels on tier 1, machine openers.
 `.trim();
 
 /** @deprecated Use ADAM_LAYER5_STUDENT_DELIVERY — kept for imports. */

@@ -87,12 +87,12 @@ describe('Universal technical grounding', () => {
     expect(shouldForceWebSearchForTechnicalTurn('salam')).toBe(false);
   });
 
-  it('uses universal technical search prompt for students', () => {
+  it('uses founder agent search prompt for students (speed parity)', () => {
     const prompt = getAdamWebSearchPrompt(false, {
       userMessage: 'Berapa mg paracetamol untuk kanak-kanak 10 tahun?',
     });
-    expect(prompt).toMatch(/UNIVERSAL/);
-    expect(prompt).toMatch(/every domain, every product/);
+    expect(prompt).toMatch(/DashScope agent mode/i);
+    expect(prompt).toMatch(/founder turn/i);
     expect(prompt).not.toMatch(/660 cc|Perodua|Viva/i);
   });
 });
@@ -127,6 +127,32 @@ describe('Technical follow-up detection', () => {
   it('enables search gate for short technical follow-up', () => {
     const reason = getWebSearchGateReason('850cc?', { technicalFollowUp: true });
     expect(reason).toBe('technical_follow_up');
+  });
+
+  it('does not treat salam after technical thread as follow-up', () => {
+    const ctx = resolveTechnicalPrecisionTurn('SALAM', ['Berapakah kandungan protein beras?']);
+    expect(ctx.isFollowUp).toBe(false);
+    expect(ctx.isActive).toBe(false);
+  });
+});
+
+describe('Student founder parity search gate', () => {
+  it('skips ambient search on teaching asks — specs and corrections only', () => {
+    expect(
+      getWebSearchGateReason('Boleh terangkan tentang beras', { studentFounderParity: true }),
+    ).toBeNull();
+    expect(
+      getWebSearchGateReason('SALAM', { studentFounderParity: true }),
+    ).toBeNull();
+  });
+
+  it('enables search for direct technical specs and entity correction', () => {
+    expect(
+      getWebSearchGateReason('Berapa mg paracetamol untuk kanak-kanak?', { studentFounderParity: true }),
+    ).toBe('technical_precision');
+    expect(
+      getWebSearchGateReason('Anda salah brand — ini Tongkat Ali', { studentFounderParity: true }),
+    ).toBe('entity_correction');
   });
 });
 

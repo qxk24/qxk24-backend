@@ -22,6 +22,13 @@ import type { AlamtologiBrainMasterDocument } from '../../qxk24brain/qxk24brain.
 import { smartTruncate } from '../../qxk24brain/adam-smart-truncate';
 import { routeAmaFlow } from './ama-flow.service';
 import { evaluateOassTrigger, resolveOassActivation } from './ama-oass-gate';
+import {
+  chapterNeedsFullBrainLoad,
+  filterBrainLaneForCurriculumOverview,
+  filterBrainLaneForFormulaXyzChapter,
+  shouldFilterBrainLanesForCurriculumOverview,
+  shouldFilterBrainLanesForFormulaXyzChapter,
+} from '../../adam/adam-book-aware-recall';
 import { AMA_LEVEL_ERA_1 } from './ama.types';
 import { MongoSegmentStore } from '../segment-store/segment-store';
 import { isAmaBrainV2Enabled, isAmaTamatOassEnabled } from './ama.config';
@@ -184,29 +191,43 @@ export function buildAmaLongTermMemoryBlock(
 ): string {
   const message = options.message?.trim() ?? '';
   const isFounder = options.isFounder ?? false;
+  const filterChapterId = shouldFilterBrainLanesForFormulaXyzChapter(message);
+  const filterCurriculumOverview = shouldFilterBrainLanesForCurriculumOverview(message);
 
-  const structuralRaw =
+  let structuralRaw =
     master.structuralLane?.trim()
     || master.unifiedUnderstanding?.trim()
     || '';
-  const episodicRaw = master.episodicLane?.trim() ?? '';
+  let episodicRaw = master.episodicLane?.trim() ?? '';
+
+  if (filterCurriculumOverview) {
+    structuralRaw = filterBrainLaneForCurriculumOverview(structuralRaw);
+    episodicRaw = filterBrainLaneForCurriculumOverview(episodicRaw);
+  } else if (filterChapterId) {
+    structuralRaw = filterBrainLaneForFormulaXyzChapter(structuralRaw, filterChapterId);
+    episodicRaw = filterBrainLaneForFormulaXyzChapter(episodicRaw, filterChapterId);
+  }
 
   let loadKr = true;
   let loadKn = false;
 
-  if (message) {
-    if (shouldLoadBothLanes(message)) {
-      loadKr = true;
-      loadKn = true;
+  // Students inherit P.alt's full Alamtologi brain (structural + lived teaching).
+  if (!isFounder) {
+    loadKr = Boolean(structuralRaw);
+    loadKn = Boolean(episodicRaw);
+  } else if (message) {
+    if (shouldLoadBothLanes(message) || chapterNeedsFullBrainLoad(message)) {
+      loadKr = Boolean(structuralRaw);
+      loadKn = Boolean(episodicRaw);
     } else if (shouldLoadKnOnly(message)) {
       loadKr = false;
-      loadKn = true;
+      loadKn = Boolean(episodicRaw);
     } else if (shouldLoadKrOnly(message)) {
-      loadKr = true;
+      loadKr = Boolean(structuralRaw);
       loadKn = false;
     } else {
-      loadKr = true;
-      loadKn = isFounder && evaluateOassTrigger(message).partialMatch;
+      loadKr = Boolean(structuralRaw);
+      loadKn = evaluateOassTrigger(message).partialMatch && Boolean(episodicRaw);
     }
   }
 
