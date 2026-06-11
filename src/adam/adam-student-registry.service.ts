@@ -30,8 +30,17 @@ import { ADAMMessageLedgerModel } from '../qxk24brain/adam-ledger.schema';
 import { isGoogleSignInEnabled } from './adam-google-auth.service';
 import { isStudentSelfRegisterEnabled } from './adam-platform-settings.service';
 import {
+  formatTutorProfileOneLiner,
+} from './adam-tutor-law';
+import { ensureQaTutorProfiles, getTutorProfilesByUserIds } from './adam-tutor-profile.service';
+import {
+  founderSubscriptionRosterSuffix,
+  getStudentSubscriptionSummariesForFounder,
+} from './adam-student-subscription-summary.service';
+import {
   FOUNDER_USER_ID,
   SEED_STUDENT_ACCOUNTS,
+  type AdamAccountLane,
   type StudentAccountRecord,
 } from './adam-student.types';
 
@@ -85,6 +94,7 @@ async function insertSeedAccount(
     active:         true,
     createdBy:      FOUNDER_USER_ID,
     passwordSource: 'env',
+    accountLane:    seed.accountLane === 'pelajar' ? 'pelajar' : 'umum',
   });
 }
 
@@ -219,21 +229,51 @@ async function markLegacyFounderPasswords(): Promise<number> {
 export async function refreshStudentCache(): Promise<void> {
   const docs = await ADAMStudentAccountModel.find({ active: true })
     .sort({ name: 1 })
-    .select({ userId: 1, name: 1 })
+    .select({ userId: 1, name: 1, accountLane: 1 })
     .lean();
 
-  activeAccounts = docs.map((d) => ({ userId: d.userId, name: d.name }));
+  activeAccounts = docs.map((d) => ({
+    userId:       d.userId,
+    name:         d.name,
+    accountLane:  d.accountLane === 'pelajar' ? 'pelajar' : 'umum',
+  }));
+}
+
+/** Founder-facing lane label — pelajar = school Tutor; umum = Alamtologi Learn. */
+export function founderStudentLaneLabel(lane?: AdamAccountLane): string {
+  if (lane === 'pelajar') {
+    return 'ADAM Tutor · conventional school/university (pelajar lane)';
+  }
+  return 'ADAM Learn · Alamtologi constitutional journey (umum lane)';
+}
+
+/** Existing accounts (ERA_1 testers, self-register, etc.) → ADAM Learn umum lane. */
+export async function backfillAccountLanesToUmum(): Promise<number> {
+  const result = await ADAMStudentAccountModel.updateMany(
+    { $or: [{ accountLane: { $exists: false } }, { accountLane: null }] },
+    { $set: { accountLane: 'umum' } },
+  );
+  return result.modifiedCount ?? 0;
+}
+
+export async function getAccountLane(userId: string): Promise<AdamAccountLane> {
+  const doc = await ADAMStudentAccountModel.findOne({ userId, active: true }).lean();
+  return doc?.accountLane === 'pelajar' ? 'pelajar' : 'umum';
 }
 
 export async function initStudentRegistry(): Promise<void> {
   await ensureSeeded();
   const legacyMarked = await markLegacyFounderPasswords();
+  const lanesBackfilled = await backfillAccountLanesToUmum();
   const added = await syncMissingSeedStudents();
   const passwordsResynced = await syncSeedStudentPasswords(false);
+  const qaProfiles = await ensureQaTutorProfiles();
   await refreshStudentCache();
   console.log(
     `[QXK24] Student registry ready — ${activeAccounts.length} active account(s)` +
+      (qaProfiles > 0 ? ` (${qaProfiles} QA tutor profile(s) seeded)` : '') +
       (legacyMarked > 0 ? ` (${legacyMarked} founder-managed passwords preserved)` : '') +
+      (lanesBackfilled > 0 ? ` (${lanesBackfilled} accounts → umum)` : '') +
       (added > 0 ? ` (${added} synced from env)` : '') +
       (passwordsResynced > 0 ? ` (${passwordsResynced} env passwords applied)` : '') +
       '.',
@@ -286,6 +326,7 @@ export interface FounderStudentRow {
   name:              string;
   email?:            string;
   active:            boolean;
+  accountLane:       AdamAccountLane;
   createdAt:         Date;
   passwordSource?:   'env' | 'founder' | 'self-register' | 'google' | 'self';
   passwordUpdatedAt?: Date;
@@ -294,7 +335,10 @@ export interface FounderStudentRow {
 export async function listStudentsForFounder(): Promise<FounderStudentRow[]> {
   const docs = await ADAMStudentAccountModel.find()
     .sort({ name: 1 })
-    .select({ userId: 1, name: 1, email: 1, active: 1, createdAt: 1, passwordSource: 1, passwordUpdatedAt: 1 })
+    .select({
+      userId: 1, name: 1, email: 1, active: 1, accountLane: 1,
+      createdAt: 1, passwordSource: 1, passwordUpdatedAt: 1,
+    })
     .lean();
 
   return docs.map((d) => ({
@@ -302,6 +346,7 @@ export async function listStudentsForFounder(): Promise<FounderStudentRow[]> {
     name:              d.name,
     email:             d.email,
     active:            d.active,
+    accountLane:       d.accountLane === 'pelajar' ? 'pelajar' : 'umum',
     createdAt:         d.createdAt,
     passwordSource:    d.passwordSource,
     passwordUpdatedAt: d.passwordUpdatedAt,
@@ -315,6 +360,7 @@ export async function createStudentAccount(params: {
   email?:       string;
   createdBy:    string;
   accountRole?: 'student' | 'guru';
+  accountLane?: AdamAccountLane;
 }): Promise<FounderStudentRow> {
   const name = params.name.trim();
   const preferred = (params.userId?.trim().toLowerCase() || slugStudentUserId(name));
@@ -329,6 +375,7 @@ export async function createStudentAccount(params: {
     active:            true,
     createdBy:         params.createdBy,
     accountRole:       params.accountRole === 'guru' ? 'guru' : 'student',
+    accountLane:       params.accountLane === 'pelajar' ? 'pelajar' : 'umum',
     passwordSource:    params.createdBy === 'self-register' ? 'self-register' : 'founder',
     passwordUpdatedAt: params.createdBy === 'self-register' ? undefined : new Date(),
   });
@@ -340,6 +387,7 @@ export async function createStudentAccount(params: {
     name:              doc.name,
     email:             doc.email,
     active:            doc.active,
+    accountLane:       doc.accountLane === 'pelajar' ? 'pelajar' : 'umum',
     createdAt:         doc.createdAt,
     passwordSource:    doc.passwordSource,
     passwordUpdatedAt: doc.passwordUpdatedAt,
@@ -354,6 +402,7 @@ export async function updateStudentAccount(
     password?:     string;
     active?:       boolean;
     accountRole?:  'student' | 'guru';
+    accountLane?: AdamAccountLane;
   },
 ): Promise<FounderStudentRow | null> {
   const doc = await ADAMStudentAccountModel.findOne({ userId });
@@ -373,6 +422,9 @@ export async function updateStudentAccount(
   if (patch.accountRole === 'guru' || patch.accountRole === 'student') {
     doc.accountRole = patch.accountRole;
   }
+  if (patch.accountLane === 'pelajar' || patch.accountLane === 'umum') {
+    doc.accountLane = patch.accountLane;
+  }
 
   await doc.save();
   await refreshStudentCache();
@@ -382,6 +434,7 @@ export async function updateStudentAccount(
     name:              doc.name,
     email:             doc.email,
     active:            doc.active,
+    accountLane:       doc.accountLane === 'pelajar' ? 'pelajar' : 'umum',
     createdAt:         doc.createdAt,
     passwordSource:    doc.passwordSource,
     passwordUpdatedAt: doc.passwordUpdatedAt,
@@ -446,6 +499,7 @@ export async function loginStudentWithGoogle(profile: {
       name:              doc.name,
       email:             doc.email,
       active:            doc.active,
+      accountLane:       doc.accountLane === 'pelajar' ? 'pelajar' : 'umum',
       createdAt:         doc.createdAt,
       passwordSource:    doc.passwordSource,
       passwordUpdatedAt: doc.passwordUpdatedAt,
@@ -475,6 +529,7 @@ export async function loginStudentWithGoogle(profile: {
     active:         true,
     createdBy:      'google',
     passwordSource: 'google',
+    accountLane:    'umum',
   });
 
   await refreshStudentCache();
@@ -484,6 +539,7 @@ export async function loginStudentWithGoogle(profile: {
     name:              doc.name,
     email:             doc.email,
     active:            doc.active,
+    accountLane:       'umum',
     createdAt:         doc.createdAt,
     passwordSource:    doc.passwordSource,
     passwordUpdatedAt: doc.passwordUpdatedAt,
@@ -523,17 +579,29 @@ export async function resetStudentPasswordWithToken(
 
 export { isStudentSelfRegisterEnabled } from './adam-platform-settings.service';
 
-export function buildFounderStudentsAwarenessBlock(): string {
-  const accounts = getStudentAccounts();
-  const names = accounts.map((s) => s.name).join(', ') || '(none yet)';
-  const ids = accounts.map((s) => s.userId).join(' | ') || '(none)';
-
+function composeFounderStudentsAwarenessBlock(
+  roster: string,
+  accountsCount: number,
+  ids: string,
+): string {
   return `
 FOUNDER STUDENT VISIBILITY:
-Alamtologi students (${accounts.length}) have their own private sessions and a shared group session with you.
-Active students: ${names}
+Registered students (${accountsCount}) — each has a package lane AND subscription tier(s):
+- pelajar = ADAM Tutor (conventional school/university subjects; zero-answer tutoring; NO Alamtologi weave in that lane)
+- umum = ADAM Learn (Alamtologi constitutional journey, group + private Learn chat)
+
+Learn billing tiers: Pencarian (free) · Pelajar · Profesional · Enterprise · Tester
+Tutor billing (pelajar lane): TUTOR subscription by school level, or QA bypass / open when billing not enforced
+
+Roster:
+${roster}
+
 When the Founder asks whether you have spoken with a student, whether they have communicated, or what they said — consult the [ALAMTOLOGI STUDENTS — ERA_1 ACTIVITY LOG] in your context.
-Never say you have not communicated if the activity log shows they have. Distinguish private chat vs group chat when relevant.
+If the Founder asks whether someone is Profesional, Pelajar, on free Pencarian, or ADAM Tutor — check Subscription lines in the roster and activity log (never guess).
+If the Founder asks whether someone is a school student / uses ADAM Tutor — check their lane in the roster and activity log (tutor sessions vs Learn sessions).
+For pelajar-lane students, also check Tutor profile lines (level, year, curriculum, country) in the activity log.
+Never say you have not communicated if the activity log shows they have. Distinguish private chat, tutor chat, and group chat when relevant.
+Do not describe pelajar-lane students only through HISAL/NAPADU/Alamtologi unless their Learn sessions show that activity.
 
 STUDENT MESSAGES TO YOU:
 Students may send you questions via ADAM (marked "Message from [name] via ADAM)" in this Teaching thread). Read and respond in Adab. The Consults tab lists the same items for tracking.
@@ -547,6 +615,37 @@ Tell the Founder you are conveying it. The tag is stripped from your visible rep
 `.trim();
 }
 
+export function buildFounderStudentsAwarenessBlock(): string {
+  const accounts = getStudentAccounts();
+  const roster = accounts.length
+    ? accounts.map((s) => `${s.name} (${s.userId}) — ${founderStudentLaneLabel(s.accountLane)}`).join('\n')
+    : '(none yet)';
+  const ids = accounts.map((s) => s.userId).join(' | ') || '(none)';
+  return composeFounderStudentsAwarenessBlock(roster, accounts.length, ids);
+}
+
+export async function buildFounderStudentsAwarenessBlockAsync(): Promise<string> {
+  const accounts = getStudentAccounts();
+  const userIds = accounts.map((s) => s.userId);
+  const [profiles, subscriptions] = await Promise.all([
+    getTutorProfilesByUserIds(userIds),
+    getStudentSubscriptionSummariesForFounder(userIds),
+  ]);
+
+  const roster = accounts.length
+    ? accounts.map((s) => {
+      const lane = founderStudentLaneLabel(s.accountLane);
+      const prof = formatTutorProfileOneLiner(profiles.get(s.userId));
+      const profSuffix = s.accountLane === 'pelajar' && prof ? ` · ${prof}` : '';
+      const sub = subscriptions.get(s.userId);
+      const subSuffix = sub ? founderSubscriptionRosterSuffix(sub, s.accountLane) : '';
+      return `${s.name} (${s.userId}) — ${lane}${subSuffix}${profSuffix}`;
+    }).join('\n')
+    : '(none yet)';
+  const ids = accounts.map((s) => s.userId).join(' | ') || '(none)';
+  return composeFounderStudentsAwarenessBlock(roster, accounts.length, ids);
+}
+
 export function studentRegisterRequiresCode(): boolean {
   return ENV.ADAM_STUDENT_REGISTER_CODE.trim().length > 0;
 }
@@ -557,6 +656,7 @@ export async function registerStudentSelf(params: {
   userId?:      string;
   email?:       string;
   registerCode?: string;
+  accountLane?: AdamAccountLane;
 }): Promise<FounderStudentRow> {
   if (!isStudentSelfRegisterEnabled()) {
     throw new Error('Registration is closed.');
@@ -576,10 +676,11 @@ export async function registerStudentSelf(params: {
   }
 
   return createStudentAccount({
-    name:      params.name.trim(),
-    userId:    params.userId?.trim().toLowerCase(),
-    email:     params.email?.trim(),
-    password:  params.password,
-    createdBy: 'self-register',
+    name:        params.name.trim(),
+    userId:      params.userId?.trim().toLowerCase(),
+    email:       params.email?.trim(),
+    password:    params.password,
+    createdBy:   'self-register',
+    accountLane: params.accountLane,
   });
 }

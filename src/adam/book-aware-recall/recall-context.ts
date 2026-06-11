@@ -16,6 +16,11 @@
  */
 
 import { founderAsksTeachingRecall } from '../../qxk24brain/adam-teaching-record.service';
+import {
+  founderAsksPersonalBiography,
+  founderAsksDrAminullahContext,
+  recordLooksLikeFounderCanonicalBiography,
+} from '../adam-knowledge-prompts';
 import { FORMULA_XYZ_BOOK_ID } from '../../llm-pipeline/formula-xyz-syllabus';
 import {
   ALAMTOLOGI_BOOK_CANON,
@@ -37,6 +42,10 @@ export function filterTeachingRecordsForChapter<T extends {
   principle: string;
 }>(records: T[], chapterId: string | null | undefined): T[] {
   if (!chapterId) return records;
+
+  if (chapterId.startsWith('alamin')) {
+    return records.filter((row) => !recordLooksLikeFounderCanonicalBiography(row));
+  }
 
   if (chapterId === 'bab-1-asas') {
     return records.filter((row) => {
@@ -105,6 +114,8 @@ export function chapterTeachingSearchTerms(match: BookChapterMatch | null): stri
 }
 
 export function needsBookAwareTeachingRecall(message: string): boolean {
+  if (founderAsksPersonalBiography(message)) return false;
+  if (founderAsksDrAminullahContext(message)) return true;
   if (founderAsksTeachingRecall(message)) return true;
   if (isAlamtologiCurriculumOverviewQuery(message)) return true;
   if (mentionsAidilEngine(message)) return true;

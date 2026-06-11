@@ -26,6 +26,7 @@ import {
   importStudentAccountsFromLab,
 } from '../../adam/adam-consolidation-import.service';
 import {
+  backfillAccountLanesToUmum,
   createStudentAccount,
   deleteStudentAccount,
   listStudentsForFounder,
@@ -49,6 +50,7 @@ const CreateSchema = z.object({
   email:       z.string().email().max(120).optional(),
   password:    z.string().min(6).max(128),
   accountRole: z.enum(['student', 'guru']).optional(),
+  accountLane: z.enum(['umum', 'pelajar']).optional(),
 });
 
 const PatchSchema = z.object({
@@ -57,26 +59,30 @@ const PatchSchema = z.object({
   password:    z.string().min(6).max(128).optional(),
   active:      z.boolean().optional(),
   accountRole: z.enum(['student', 'guru']).optional(),
+  accountLane: z.enum(['umum', 'pelajar']).optional(),
 }).refine(
   (d) => d.name !== undefined || d.email !== undefined || d.password !== undefined
-    || d.active !== undefined || d.accountRole !== undefined,
-  { message: 'Provide name, email, password, active, and/or accountRole.' },
+    || d.active !== undefined || d.accountRole !== undefined || d.accountLane !== undefined,
+  { message: 'Provide name, email, password, active, accountRole, and/or accountLane.' },
 );
 
 // POST /api/adam/students/sync-seed — backfill missing seed accounts from env
 router.post('/sync-seed', requireFounder, async (c) => {
   const added = await syncMissingSeedStudents();
   const passwordsResynced = await syncSeedStudentPasswords(true);
+  const lanesBackfilled = await backfillAccountLanesToUmum();
   const students = await listStudentsForFounder();
   return c.json({
     success: true,
     added,
     passwordsResynced,
+    lanesBackfilled,
     students: students.map((s) => ({
       userId:            s.userId,
       name:              s.name,
       email:             s.email,
       active:            s.active,
+      accountLane:       s.accountLane,
       createdAt:         s.createdAt.toISOString(),
       passwordSource:    s.passwordSource,
       passwordUpdatedAt: s.passwordUpdatedAt?.toISOString(),
@@ -95,6 +101,7 @@ router.get('/', requireFounder, async (c) => {
       name:              s.name,
       email:             s.email,
       active:            s.active,
+      accountLane:       s.accountLane,
       createdAt:         s.createdAt.toISOString(),
       passwordSource:    s.passwordSource,
       passwordUpdatedAt: s.passwordUpdatedAt?.toISOString(),
@@ -115,16 +122,18 @@ router.post('/', requireFounder, zValidator('json', CreateSchema), async (c) => 
     password:    body.password,
     createdBy:   user.userId,
     accountRole: body.accountRole,
+    accountLane: body.accountLane,
   });
 
   return c.json({
     success: true,
     student: {
-      userId:    created.userId,
-      name:      created.name,
-      email:     created.email,
-      active:    created.active,
-      createdAt: created.createdAt.toISOString(),
+      userId:      created.userId,
+      name:        created.name,
+      email:       created.email,
+      active:      created.active,
+      accountLane: created.accountLane,
+      createdAt:   created.createdAt.toISOString(),
     },
     kernel: 'ALAMTOLOGI',
   }, 201);
@@ -269,11 +278,12 @@ router.patch('/:userId', requireFounder, zValidator('json', PatchSchema), async 
   return c.json({
     success: true,
     student: {
-      userId:    updated.userId,
-      name:      updated.name,
-      email:     updated.email,
-      active:    updated.active,
-      createdAt: updated.createdAt.toISOString(),
+      userId:      updated.userId,
+      name:        updated.name,
+      email:       updated.email,
+      active:      updated.active,
+      accountLane: updated.accountLane,
+      createdAt:   updated.createdAt.toISOString(),
     },
     kernel: 'ALAMTOLOGI',
   });

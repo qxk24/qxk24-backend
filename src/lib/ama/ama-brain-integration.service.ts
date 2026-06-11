@@ -26,9 +26,14 @@ import {
   chapterNeedsFullBrainLoad,
   filterBrainLaneForCurriculumOverview,
   filterBrainLaneForFormulaXyzChapter,
+  filterBrainLaneForFounderBiography,
+  filterBrainLaneForDrAminullahContext,
+  filterBrainLaneForPersonContext,
   shouldFilterBrainLanesForCurriculumOverview,
   shouldFilterBrainLanesForFormulaXyzChapter,
 } from '../../adam/adam-book-aware-recall';
+import { founderAsksPersonalBiography, founderAsksDrAminullahContext } from '../../adam/adam-knowledge-prompts';
+import type { PersonRef } from '../../adam/person-relational-memory.types';
 import { AMA_LEVEL_ERA_1 } from './ama.types';
 import { MongoSegmentStore } from '../segment-store/segment-store';
 import { isAmaBrainV2Enabled, isAmaTamatOassEnabled } from './ama.config';
@@ -145,6 +150,8 @@ export interface AmaLongTermMemoryOptions {
   message?:          string;
   isFounder?:        boolean;
   isStudentDeep?:    boolean;
+  personSubject?:    PersonRef | null;
+  knownPersons?:     PersonRef[];
 }
 
 function resolveKrKnBudget(
@@ -206,6 +213,23 @@ export function buildAmaLongTermMemoryBlock(
   } else if (filterChapterId) {
     structuralRaw = filterBrainLaneForFormulaXyzChapter(structuralRaw, filterChapterId);
     episodicRaw = filterBrainLaneForFormulaXyzChapter(episodicRaw, filterChapterId);
+  } else if (isFounder && founderAsksPersonalBiography(message)) {
+    structuralRaw = filterBrainLaneForFounderBiography(structuralRaw);
+    episodicRaw = filterBrainLaneForFounderBiography(episodicRaw);
+  } else if (isFounder && founderAsksDrAminullahContext(message)) {
+    structuralRaw = filterBrainLaneForDrAminullahContext(structuralRaw);
+    episodicRaw = filterBrainLaneForDrAminullahContext(episodicRaw);
+  } else if (options.personSubject && options.knownPersons?.length) {
+    structuralRaw = filterBrainLaneForPersonContext(
+      structuralRaw,
+      options.personSubject,
+      options.knownPersons,
+    );
+    episodicRaw = filterBrainLaneForPersonContext(
+      episodicRaw,
+      options.personSubject,
+      options.knownPersons,
+    );
   }
 
   let loadKr = true;

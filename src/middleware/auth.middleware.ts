@@ -20,13 +20,14 @@ import { verify } from 'jsonwebtoken';
 import { ENV } from '../config/environments';
 
 export interface QXK24TokenPayload {
-  userId:    string;
-  role:      string;
-  name?:     string;
-  isFounder?: boolean;
-  appSource?: string;
-  iat?:      number;
-  exp?:      number;
+  userId:       string;
+  role:         string;
+  name?:        string;
+  isFounder?:   boolean;
+  accountLane?: 'umum' | 'pelajar';
+  appSource?:   string;
+  iat?:         number;
+  exp?:          number;
 }
 
 export function getTokenUser(c: Context): QXK24TokenPayload | null {

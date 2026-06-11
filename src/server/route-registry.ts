@@ -39,6 +39,7 @@ import adamBuilderRoutes from '../agent/adam-builder.routes';
 import adamMacBridgeRoutes from '../agent/adam-mac-bridge.routes';
 import adamBlogRoutes from '../routes/adam/adam-blog.routes';
 import adamTesterRoutes from '../routes/adam/adam-tester.routes';
+import adamExportRoutes from '../routes/adam/adam-export.routes';
 import teachingBridgeRoutes from '../teaching-bridge/teaching-bridge.routes';
 import llmPipelineRoutes from '../llm-pipeline/llm-pipeline.routes';
 import { ENV } from '../config/environments';
@@ -115,6 +116,7 @@ export function registerRoutes(app: Hono): void {
   app.route('/api/constitutional', constitutionalRoutes);
   app.route('/api/adam/auth',          adamAuthRoutes);
   app.route('/api/adam/chat',          adamChatRoutes);
+  app.route('/api/adam/export',        adamExportRoutes);
   app.route('/api/adam/upload',        adamUploadRoutes);
   app.route('/api/adam/knowledge',     adamKnowledgeRoutes);
   app.route('/api/adam/brain',         qxk24BrainRoutes);

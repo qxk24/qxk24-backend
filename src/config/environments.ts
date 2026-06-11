@@ -246,9 +246,9 @@ export const ENV = {
   STRIPE_PRICE_ID_PELAJAR_MONTHLY:     optional('STRIPE_PRICE_ID_PELAJAR_MONTHLY', ''),
   /** Premium (Pelajar) annual — optional legacy MYR Price ID */
   STRIPE_PRICE_ID_PELAJAR_ANNUAL:      optional('STRIPE_PRICE_ID_PELAJAR_ANNUAL', ''),
-  /** Profesional monthly — optional legacy MYR Price ID */
+  /** Profesional + ADAM Consultant — RM 450/month MYR (paste Stripe price_… ID) */
   STRIPE_PRICE_ID_PROFESIONAL_MONTHLY: optional('STRIPE_PRICE_ID_PROFESIONAL_MONTHLY', ''),
-  /** Profesional annual — optional legacy MYR Price ID */
+  /** Profesional annual — RM 4500/year MYR */
   STRIPE_PRICE_ID_PROFESIONAL_ANNUAL:  optional('STRIPE_PRICE_ID_PROFESIONAL_ANNUAL', ''),
 
   /** ADAMGuru Layer 2 — MYR monthly (create in Stripe → paste price_… IDs) */
@@ -256,6 +256,16 @@ export const ENV = {
   STRIPE_PRICE_ID_GURU_PROFESSIONAL_MONTHLY: optional('STRIPE_PRICE_ID_GURU_PROFESSIONAL_MONTHLY', ''),
   STRIPE_PRICE_ID_GURU_INSTITUTION_MONTHLY:  optional('STRIPE_PRICE_ID_GURU_INSTITUTION_MONTHLY', ''),
   STRIPE_PRICE_ID_GURU_STUDENT_KELAS_MONTHLY: optional('STRIPE_PRICE_ID_GURU_STUDENT_KELAS_MONTHLY', ''),
+  /** ADAM Tutor — school level monthly (Stripe price_… IDs) */
+  STRIPE_PRICE_ID_TUTOR_PRIMARY_MONTHLY:    optional('STRIPE_PRICE_ID_TUTOR_PRIMARY_MONTHLY', ''),
+  STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY:  optional('STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY', ''),
+  STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY: optional('STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY', ''),
+  /** Legacy — maps to secondary if STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY unset */
+  STRIPE_PRICE_ID_TUTOR_MONTHLY: optional('STRIPE_PRICE_ID_TUTOR_MONTHLY', ''),
+  /** When false, tutor chat works without paid sub (lab / pre-Stripe). Production: true when Stripe live. */
+  ADAM_TUTOR_BILLING_REQUIRED: optional('ADAM_TUTOR_BILLING_REQUIRED', 'false') === 'true',
+  /** When geo headers are missing — default PPP region (production: MY). */
+  ADAM_DEFAULT_PRICING_REGION: optional('ADAM_DEFAULT_PRICING_REGION', 'MY'),
 
   /** @deprecated Legacy — not used; Stripe is sole gateway */
   RAZORPAY_KEY_ID:              optional('RAZORPAY_KEY_ID', ''),

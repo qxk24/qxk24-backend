@@ -146,7 +146,9 @@ export async function streamADAMChat(
   );
 
   const workspace =
-    participant.role === 'student' && !isGroup
+    participant.role === 'student'
+    && participant.sessionType === 'student'
+    && !isGroup
       ? await getWorkspaceBySession(resolvedSessionId)
       : null;
 

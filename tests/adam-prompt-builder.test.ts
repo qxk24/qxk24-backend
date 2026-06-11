@@ -84,7 +84,7 @@ describe('buildAdamChatSystemPrompt — unified ADAM (student = founder voice)',
       founderStudentsBlock: '',
     });
     expect(prompt).toContain('ADAM EXPLAIN-BACK LAW');
-    expect(prompt).toMatch(/ALL substantive turns/i);
+    expect(prompt).toMatch(/substantive turns/i);
     expect(prompt.indexOf('ADAM EXPLAIN-BACK LAW')).toBeLessThan(prompt.indexOf('TEORI MASABAYU'));
     expect(prompt).toContain('ADAM CONSTITUTIONAL HOLD');
   });

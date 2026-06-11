@@ -22,6 +22,7 @@ import { z } from 'zod';
 import { ENV } from '../../config/environments';
 import { getFounderPassword, verifyFounderPassword } from '../../config/founder-auth';
 import { requireFounder } from '../../middleware/auth.middleware';
+import { getAccountLane } from '../../adam/adam-student-registry.service';
 import { ADAMFounderSessionModel } from '../../adam/adam.schema';
 import {
   resolveFounderTeachingSession,
@@ -159,12 +160,13 @@ router.post('/verify', async (c) => {
 
   try {
     const decoded = verify(bearer, ENV.JWT_SECRET) as {
-      userId?:  string;
-      name?:   string;
-      kernel?: string;
-      era?:    string;
-      role?:   string;
-      isFounder?: boolean;
+      userId?:      string;
+      name?:        string;
+      kernel?:      string;
+      era?:         string;
+      role?:        string;
+      isFounder?:   boolean;
+      accountLane?: 'umum' | 'pelajar';
     };
 
     const isFounder = decoded.role === 'founder' || decoded.isFounder === true;
@@ -175,6 +177,14 @@ router.post('/verify', async (c) => {
       return c.json({ success: false, valid: false }, 401);
     }
 
+    const accountLane = isFounder
+      ? undefined
+      : decoded.accountLane === 'pelajar' || decoded.accountLane === 'umum'
+        ? decoded.accountLane
+        : decoded.userId
+          ? await getAccountLane(decoded.userId)
+          : 'umum';
+
     return c.json({
       success: true,
       valid:   true,
@@ -182,6 +192,7 @@ router.post('/verify', async (c) => {
       userId:  decoded.userId,
       name:    decoded.name ?? (isFounder ? 'Masa Bayu' : decoded.userId),
       founder: isFounder ? (decoded.name ?? 'Masa Bayu') : undefined,
+      accountLane,
       kernel:  decoded.kernel ?? ENV.QXK24_KERNEL_VERSION,
       era:     decoded.era ?? ENV.QXK24_ERA,
     });

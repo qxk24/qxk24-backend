@@ -260,6 +260,186 @@ export async function getOrCreateSession(
   return session.sessionId;
 }
 
+export interface ChatSessionListItem {
+  sessionId:     string;
+  title:         string;
+  lastActiveAt:  string;
+  messageCount:  number;
+}
+
+const SESSION_TITLE_MAX = 72;
+
+/** First-line title for recents sidebar (ChatGPT-style). */
+export function deriveSessionTitleFromMessage(content: string): string {
+  const line = content
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(/[.!?\n]/)[0]
+    ?.trim() ?? '';
+  if (!line) return 'New chat';
+  return line.length > SESSION_TITLE_MAX
+    ? `${line.slice(0, SESSION_TITLE_MAX - 1)}…`
+    : line;
+}
+
+async function firstUserMessagePreview(sessionId: string): Promise<string | null> {
+  const doc = await ADAMMessageModel.findOne({
+    sessionId,
+    role: { $in: ['student', 'founder'] },
+  })
+    .sort({ createdAt: 1 })
+    .select({ content: 1 })
+    .lean();
+  const text = doc?.content?.trim();
+  return text ? deriveSessionTitleFromMessage(text) : null;
+}
+
+async function resolveSessionListTitle(
+  sessionId: string,
+  storedTitle?: string | null,
+): Promise<string> {
+  if (storedTitle?.trim()) return storedTitle.trim();
+  return (await firstUserMessagePreview(sessionId)) ?? 'New chat';
+}
+
+export async function setSessionTitleIfEmpty(
+  sessionId: string,
+  content: string,
+  role: 'founder' | 'student' | 'guru' | 'adam',
+): Promise<void> {
+  if (role !== 'student' && role !== 'founder') return;
+  const title = deriveSessionTitleFromMessage(content);
+  if (title === 'New chat') return;
+  await ADAMFounderSessionModel.updateOne(
+    { sessionId, $or: [{ title: { $exists: false } }, { title: null }, { title: '' }] },
+    { $set: { title } },
+  );
+}
+
+/** Always spawn a fresh thread — for "New chat". */
+export async function createNewChatSession(
+  userId: string,
+  sessionType: SessionType = 'student',
+): Promise<string> {
+  if (sessionType === 'group') {
+    throw new Error('Group session cannot be created per user.');
+  }
+  const sessionId = `K24s-${sessionType}-${userId}-${Date.now()}`;
+  await ADAMFounderSessionModel.create({
+    sessionId,
+    founderId:    userId,
+    sessionType,
+    kernel:       ENV.QXK24_KERNEL_VERSION,
+    era:          ENV.QXK24_ERA,
+    active:       true,
+    lastActiveAt: new Date(),
+    messageCount: 0,
+  });
+  if (sessionType === 'founder') {
+    void incrementSessionCounts(userId).catch((err) =>
+      console.error('[ADAM Holdings] Session count increment failed:', err),
+    );
+  }
+  return sessionId;
+}
+
+/** Most recent private thread with history, else create one. */
+export async function resolveTutorChatSession(userId: string): Promise<string> {
+  const recent = await ADAMFounderSessionModel.findOne({
+    founderId:    userId,
+    sessionType:  'tutor',
+    messageCount: { $gt: 0 },
+  })
+    .sort({ lastActiveAt: -1 })
+    .lean();
+  if (recent?.sessionId) {
+    await ADAMFounderSessionModel.updateOne(
+      { sessionId: recent.sessionId },
+      { lastActiveAt: new Date(), active: true },
+    );
+    return recent.sessionId;
+  }
+  return getOrCreateSession(userId, 'tutor');
+}
+
+export async function resolveStudentChatSession(userId: string): Promise<string> {
+  const recent = await ADAMFounderSessionModel.findOne({
+    founderId:    userId,
+    sessionType:  'student',
+    messageCount: { $gt: 0 },
+  })
+    .sort({ lastActiveAt: -1 })
+    .lean();
+  if (recent?.sessionId) {
+    await ADAMFounderSessionModel.updateOne(
+      { sessionId: recent.sessionId },
+      { lastActiveAt: new Date(), active: true },
+    );
+    return recent.sessionId;
+  }
+  return getOrCreateSession(userId, 'student');
+}
+
+export async function renameUserChatSession(
+  userId: string,
+  sessionId: string,
+  sessionType: SessionType,
+  title: string,
+): Promise<boolean> {
+  await assertCanClearSessionChat(sessionId, userId, { isFounder: false });
+  const trimmed = title.trim();
+  if (!trimmed) throw new Error('Title is required.');
+  const safeTitle = trimmed.length > SESSION_TITLE_MAX
+    ? `${trimmed.slice(0, SESSION_TITLE_MAX - 1)}…`
+    : trimmed;
+  const result = await ADAMFounderSessionModel.updateOne(
+    { sessionId, founderId: userId, sessionType },
+    { $set: { title: safeTitle } },
+  );
+  return result.matchedCount > 0;
+}
+
+export async function deleteUserChatSession(
+  userId: string,
+  sessionId: string,
+  sessionType: SessionType,
+): Promise<boolean> {
+  await assertCanClearSessionChat(sessionId, userId, { isFounder: false });
+  await clearSessionChatHistory(sessionId);
+  const result = await ADAMFounderSessionModel.deleteOne({
+    sessionId,
+    founderId: userId,
+    sessionType,
+  });
+  return result.deletedCount > 0;
+}
+
+export async function listUserChatSessions(
+  userId: string,
+  sessionType: SessionType,
+  limit = 30,
+): Promise<ChatSessionListItem[]> {
+  const docs = await ADAMFounderSessionModel.find({
+    founderId:    userId,
+    sessionType,
+    messageCount: { $gt: 0 },
+  })
+    .sort({ lastActiveAt: -1 })
+    .limit(limit)
+    .lean();
+
+  const items: ChatSessionListItem[] = [];
+  for (const doc of docs) {
+    items.push({
+      sessionId:    doc.sessionId,
+      title:        await resolveSessionListTitle(doc.sessionId, doc.title),
+      lastActiveAt: doc.lastActiveAt.toISOString(),
+      messageCount: doc.messageCount ?? 0,
+    });
+  }
+  return items;
+}
+
 export async function getOrCreateGroupSession(): Promise<string> {
   let session = await ADAMFounderSessionModel.findOne({
     sessionId: GROUP_SESSION_ID,
@@ -431,6 +611,8 @@ export async function saveMessage(
     { $inc: { messageCount: 1 }, lastActiveAt: new Date() },
   );
 
+  void setSessionTitleIfEmpty(sessionId, safeContent, role).catch(() => {});
+
   void refreshSessionDigestIfNeeded(sessionId, ownerId).catch(() => {});
 
   return doc._id.toString();
@@ -465,10 +647,12 @@ export async function getChatSession(sessionId: string): Promise<ADAMChatSession
     ? messages[messages.length - 1].mode
     : 'TEACHING';
 
+  const title = await resolveSessionListTitle(session.sessionId, session.title);
+
   return {
     id:           session.sessionId,
     mode:         lastMode,
-    title:        `Founder session ${session.sessionId}`,
+    title,
     messages,
     startedAt:    session.createdAt,
     lastActiveAt: session.lastActiveAt,
@@ -479,17 +663,15 @@ export async function getChatSession(sessionId: string): Promise<ADAMChatSession
 export async function listChatSessions(
   _mode?: ADAMChatMode,
   limit = 20,
+  founderId = FOUNDER_USER_ID,
 ): Promise<ADAMChatSession[]> {
-  const docs = await ADAMFounderSessionModel
-    .find({ active: true })
-    .sort({ lastActiveAt: -1 })
-    .limit(limit)
-    .lean();
-
+  const items = await listUserChatSessions(founderId, 'founder', limit);
   const sessions: ADAMChatSession[] = [];
-  for (const doc of docs) {
-    const session = await getChatSession(doc.sessionId);
-    if (session) sessions.push(session);
+  for (const item of items) {
+    const session = await getChatSession(item.sessionId);
+    if (session) {
+      sessions.push({ ...session, title: item.title });
+    }
   }
   return sessions;
 }
@@ -524,7 +706,7 @@ export async function assertCanClearSessionChat(
       if (!opts.isFounder) throw new Error('Session access denied.');
       return;
     }
-    if (session.sessionType === 'student') {
+    if (session.sessionType === 'student' || session.sessionType === 'tutor') {
       if (opts.isFounder || session.founderId === userId) return;
       throw new Error('Session access denied.');
     }
@@ -575,6 +757,7 @@ export async function verifyADAMMessage(
 export async function createChatSession(
   _mode: ADAMChatMode,
   _title: string,
+  userId = FOUNDER_USER_ID,
 ): Promise<string> {
-  return getOrCreateSession('masa-bayu');
+  return createNewChatSession(userId, 'founder');
 }

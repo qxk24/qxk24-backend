@@ -42,12 +42,13 @@ export async function verifyStudentPassword(userId: string, password: string): P
 export function issueAdamToken(user: AdamAuthUser): string {
   return sign(
     {
-      userId:    user.userId,
-      role:      user.role,
-      isFounder: user.isFounder,
-      name:      user.name,
-      kernel:    ENV.QXK24_KERNEL_VERSION,
-      era:       ENV.QXK24_ERA,
+      userId:      user.userId,
+      role:        user.role,
+      isFounder:   user.isFounder,
+      name:        user.name,
+      accountLane: user.accountLane,
+      kernel:      ENV.QXK24_KERNEL_VERSION,
+      era:         ENV.QXK24_ERA,
     },
     ENV.JWT_SECRET,
     { expiresIn: '30d' },

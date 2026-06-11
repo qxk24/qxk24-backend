@@ -22,6 +22,9 @@ import {
   type SubscriptionAccess,
 } from '../subscriptions/subscription-access.service';
 import { ENV } from '../config/environments';
+import { resolveTutorSubscriptionAccess } from '../adam/adam-tutor-subscription.service';
+
+export const TUTOR_SUBSCRIPTION_ACCESS_KEY = 'tutorSubscriptionAccess';
 
 export const SUBSCRIPTION_ACCESS_KEY = 'subscriptionAccess';
 
@@ -81,4 +84,33 @@ export async function attachSubscriptionAccess(
 export function subscriptionUpgradeUrl(): string {
   const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
   return `${base}/plans`;
+}
+
+/** ADAM Tutor lane — requires active TUTOR subscription when billing is enforced. */
+export async function requireTutorSubscription(
+  c: Context,
+  next: Next,
+): Promise<Response | void> {
+  const user = getTokenUser(c);
+
+  if (!user || isFounderPayload(user)) {
+    await next();
+    return;
+  }
+
+  const access = await resolveTutorSubscriptionAccess(user.userId);
+  c.set(TUTOR_SUBSCRIPTION_ACCESS_KEY, access);
+
+  if (!access.canChat) {
+    return c.json({
+      success:    false,
+      error:      access.message ?? 'ADAM Tutor subscription required.',
+      code:       access.code ?? 'TUTOR_SUBSCRIPTION_REQUIRED',
+      upgradeUrl: access.upgradeUrl,
+      monthlyMYR: access.monthlyMYR,
+      kernel:     'ALAMTOLOGI',
+    }, 402);
+  }
+
+  await next();
 }

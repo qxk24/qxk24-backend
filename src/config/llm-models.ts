@@ -28,11 +28,12 @@ export interface ModelRouterParticipant {
   userId:      string;
   userName:    string;
   role:        'founder' | 'student' | 'guru';
-  sessionType: 'founder' | 'student' | 'group' | 'guru';
+  sessionType: 'founder' | 'student' | 'group' | 'guru' | 'tutor';
 }
 
 const DEEP_MODES: ADAMChatMode[] = [
   'TEACHING',
+  'TUTOR',
   'CONSTITUTIONAL',
   'AUDIT',
   'JOURNAL_GEN',
@@ -73,7 +74,7 @@ function resolveFounderModel(
   const text = message.trim();
   const len = text.length;
 
-  if (hasUploads || mode === 'JOURNAL_GEN' || mode === 'TEACHING') {
+  if (hasUploads || mode === 'JOURNAL_GEN' || mode === 'TEACHING' || mode === 'TUTOR') {
     // NEVER CHANGE THE SETTING — founder teaching requires deep model (voice quality)
     return { model: getDeepModel(), tier: 'deep', reason: 'founder_deep' };
   }
@@ -148,11 +149,21 @@ export function resolveAdamChatModel(params: {
     return resolveFounderModel(mode, message, hasUploads);
   }
 
-  if (participant.sessionType === 'group' || participant.sessionType === 'guru') {
+  if (
+    participant.sessionType === 'group'
+    || participant.sessionType === 'guru'
+    || participant.sessionType === 'tutor'
+  ) {
+    const reason =
+      participant.sessionType === 'guru'
+        ? 'guru_kelas'
+        : participant.sessionType === 'tutor'
+          ? 'adam_tutor'
+          : 'group_session';
     return {
       model:  getDeepModel(),
       tier:   'deep',
-      reason: participant.sessionType === 'guru' ? 'guru_kelas' : 'group_session',
+      reason,
     };
   }
 

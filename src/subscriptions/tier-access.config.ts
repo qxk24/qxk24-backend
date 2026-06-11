@@ -20,6 +20,7 @@ import {
   ITierAccess,
   SupportedRegion,
   PaymentProvider,
+  type TutorSubscriptionLevel,
 } from './subscription.schema';
 
 // ─── Tier Access Definitions ─────────────────────────────────────────────────
@@ -105,6 +106,22 @@ export const TIER_ACCESS: Record<SubscriptionTier, ITierAccess> = {
     supportLevel:       'email',
     maxUsers:           1,
   },
+
+  [SubscriptionTier.TUTOR]: {
+    memoryLevel:        'basic',
+    episodicRecords:    true,
+    relationalArc:      false,
+    continuityBridge:   true,
+    presenceLayer:      true,
+    unresolvedHoldings: false,
+    apiAccess:          false,
+    apiCallsPerMonth:   0,
+    publishingRights:   false,
+    customWorkspace:    false,
+    whiteLabel:         false,
+    supportLevel:       'email',
+    maxUsers:           1,
+  },
 };
 
 // ─── Pelajar PPP Pricing ─────────────────────────────────────────────────────
@@ -141,10 +158,10 @@ export const PELAJAR_PRICING: IRegionalPrice[] = [
 ];
 
 // ─── Profesional PPP Pricing ─────────────────────────────────────────────────
-// RM 299/month is the base.
+// RM 450/month MY — includes ADAM Consultant (all professional fields).
 
 export const PROFESIONAL_PRICING: IRegionalPrice[] = [
-  { region: SupportedRegion.MY,    currency: 'MYR', monthly: 299,     annual: 2990,    provider: PaymentProvider.STRIPE, extensionFee: 0 },
+  { region: SupportedRegion.MY,    currency: 'MYR', monthly: 450,     annual: 4500,    provider: PaymentProvider.STRIPE, extensionFee: 0 },
   { region: SupportedRegion.SG,    currency: 'SGD', monthly: 88,      annual: 880,     provider: PaymentProvider.STRIPE,   extensionFee: 0 },
   { region: SupportedRegion.ID,    currency: 'IDR', monthly: 950000,  annual: 9500000, provider: PaymentProvider.STRIPE,   extensionFee: 0 },
   { region: SupportedRegion.PH,    currency: 'PHP', monthly: 1950,    annual: 19500,   provider: PaymentProvider.STRIPE,   extensionFee: 0 },
@@ -165,9 +182,9 @@ export const PROFESIONAL_PRICING: IRegionalPrice[] = [
 ];
 
 // ─── Studio Pro PPP Pricing ──────────────────────────────────────────────────
-// RM 399/month — between Profesional (299) and Enterprise (from 2000).
+// Scaled above Profesional MY (was RM 399 when Profesional was RM 299).
 
-const STUDIO_FACTOR = 399 / 299;
+const STUDIO_FACTOR = 600 / 450;
 
 export const STUDIO_PRICING: IRegionalPrice[] = PROFESIONAL_PRICING.map((p) => ({
   ...p,
@@ -321,6 +338,64 @@ export const ENTERPRISE_PRICING: IEnterpriseTier[] = [
     },
   },
 ];
+
+// ─── ADAM Tutor — MYR by school level (all subjects per band) ────────────────
+
+export const TUTOR_MONTHLY_MYR_BY_LEVEL: Record<TutorSubscriptionLevel, number> = {
+  primary:    49.9,
+  secondary:  89.9,
+  university: 129.9,
+};
+
+/** @deprecated Use getTutorPricing('secondary').monthly */
+export const TUTOR_MONTHLY_MYR = TUTOR_MONTHLY_MYR_BY_LEVEL.secondary;
+
+export const TUTOR_LEVEL_LABELS: Record<TutorSubscriptionLevel, string> = {
+  primary:    'Primary School',
+  secondary:  'Secondary School',
+  university: 'College & University',
+};
+
+export function normalizeTutorSubscriptionLevel(
+  raw?: string | null,
+): TutorSubscriptionLevel {
+  if (raw === 'primary' || raw === 'university') return raw;
+  return 'secondary';
+}
+
+export function getTutorPricing(
+  level?: TutorSubscriptionLevel | string | null,
+): IRegionalPrice {
+  const band = normalizeTutorSubscriptionLevel(level);
+  const monthly = TUTOR_MONTHLY_MYR_BY_LEVEL[band];
+  return {
+    region:       SupportedRegion.MY,
+    currency:     'MYR',
+    monthly,
+    annual:       Math.round(monthly * 10),
+    provider:     PaymentProvider.STRIPE,
+    extensionFee: 0,
+  };
+}
+
+export function listTutorLevelPricing(): Array<{
+  level:          TutorSubscriptionLevel;
+  label:          string;
+  monthlyAmount:  number;
+  annualAmount:   number;
+  currency:       string;
+}> {
+  return (Object.keys(TUTOR_MONTHLY_MYR_BY_LEVEL) as TutorSubscriptionLevel[]).map((level) => {
+    const p = getTutorPricing(level);
+    return {
+      level,
+      label:         TUTOR_LEVEL_LABELS[level],
+      monthlyAmount: p.monthly,
+      annualAmount:  p.annual,
+      currency:      p.currency,
+    };
+  });
+}
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────
 

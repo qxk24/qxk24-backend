@@ -30,9 +30,12 @@ import {
   getPelajarPricing,
   getProfesionalPricing,
   getStudioPricing,
+  getTutorPricing,
+  listTutorLevelPricing,
   ENTERPRISE_PRICING,
   TIER_ACCESS,
 } from './tier-access.config';
+import type { TutorSubscriptionLevel } from './subscription.schema';
 import {
   SubscriptionModel,
   SubscriptionTier,
@@ -129,7 +132,7 @@ router.get('/pricing', (c) => {
         monthlyAmount: profesional.monthly,
         annualAmount:  profesional.annual,
         currency:      profesional.currency,
-        description:   'Full relational memory, API, publishing — plus Builder mode when you ship code.',
+        description:   'ADAM Consultant (all fields) + full memory, API, publishing, and Builder when you ship code.',
         savingsNote:   '2 months free with annual billing.',
         comingSoon:    !paymentWired,
         rollingLimit:  ENV.ADAM_FREEMIUM_ENABLED ? profesionalRollingLimit() : undefined,
@@ -142,6 +145,15 @@ router.get('/pricing', (c) => {
         currency:      studio.currency,
         description:   'Unlimited builder sessions — inquiry while checkout is finalised.',
         savingsNote:   '2 months free with annual billing.',
+      },
+      tutor: {
+        label:         'ADAM Tutor',
+        monthlyAmount: getTutorPricing('secondary').monthly,
+        annualAmount:  getTutorPricing('secondary').annual,
+        currency:      getTutorPricing('secondary').currency,
+        description:   'All academic subjects — priced by school level.',
+        comingSoon:    !paymentWired,
+        levels:        listTutorLevelPricing(),
       },
       enterprise: {
         label: 'Enterprise',
@@ -159,14 +171,30 @@ router.get('/pricing', (c) => {
 });
 
 router.post('/create', requireAdamUser, async (c) => {
-  const body = await c.req.json() as { tier?: SubscriptionTier; billingCycle?: BillingCycle };
+  const body = await c.req.json() as {
+    tier?:         SubscriptionTier;
+    billingCycle?: BillingCycle;
+    tutorLevel?:   TutorSubscriptionLevel;
+  };
 
   if (!body.tier || !body.billingCycle) {
     return c.json({ error: 'tier and billingCycle are required.' }, 400);
   }
 
+  if (body.tier === SubscriptionTier.TUTOR && !body.tutorLevel) {
+    return c.json({
+      error: 'tutorLevel is required for ADAM Tutor (primary, secondary, or university).',
+    }, 400);
+  }
+
   if (body.tier === SubscriptionTier.PENCARIAN) {
     return c.json({ error: 'Pencarian is a founder waqf — no payment required.' }, 400);
+  }
+
+  if (body.tier === SubscriptionTier.PELAJAR) {
+    return c.json({
+      error: 'Premium Pelajar is not open for new subscriptions. Use free Pencarian with credit top-ups, Student, or Profesional.',
+    }, 403);
   }
 
   const stripe = getStripeGatewayStatus();
@@ -186,6 +214,7 @@ router.post('/create', requireAdamUser, async (c) => {
       tier:         body.tier,
       billingCycle: body.billingCycle,
       headers:      c.req.raw.headers,
+      tutorLevel:   body.tutorLevel,
     });
     return c.json(result);
   } catch (err) {
@@ -318,7 +347,7 @@ router.post('/enterprise-inquiry', requireAdamUser, async (c) => {
 
   return c.json({
     received: true,
-    message:  'Terima kasih. Pengasas akan menghubungi kamu secara peribadi.',
+    message:  'Thank you. The Founder will contact you personally.',
   });
 });
 

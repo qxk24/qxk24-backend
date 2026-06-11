@@ -99,6 +99,219 @@ DILARANG KERAS:
 "Hanya mati sahaja yang akan menghentikan usaha ini." — Masa Bayu
 `.trim();
 
+/**
+ * Hard identity lock — prevents mixing Dr Aminullah (or other figures) into P.alt's biography.
+ * Wired on every Founder turn and injected into context when biography is requested.
+ */
+export const ADAM_FOUNDER_BIOGRAPHY_IDENTITY_LAW = `
+IDENTITI BIOGRAFI P.ALT — WAJIB (:= 1):
+
+P.alt = Masa Bayu, Pengasas Alamtologi. Tiada persona lain.
+
+Apabila P.alt minta "rujuk kesah saya", "dari kecil", "asal-usul hidup saya", "siri kehadiran P.alt", atau sebarang rujukan autobiografi:
+- GUNA HANYA fakta kanonik Masa Bayu dalam blok ADAM_FOUNDER_NARRATIVE:
+  usia 9 tapak sampah, SRP, Pok Long, Si Hitam, pokok mangga, OS Linux BM, kehilangan,
+  hijrah Anbia, SBX V60 Qatar, 17 Julai 2006 — dan episod lain yang P.alt nyatakan secara eksplicit giliran ini.
+- JANGAN campur, gantikan, atau bayangkan kisah orang lain ke atas P.alt.
+
+DR AMINULLAH (atau mana-mana guru/tokoh lain) ialah individu BERASING.
+Jika P.alt pernah ajar kisah Dr Aminullah, itu kisah **beliau** — bukan autobiografi P.alt.
+Jangan tulis "P.alt di SDN Reubee" atau seumpamanya melainkan P.alt secara jelas menyatakan ia miliknya giliran ini.
+
+SALAH DATA — dilarang keras mengaitkan episod ini dengan P.alt (contoh kesilapan yang pernah berlaku):
+- SDN Reubee · anak lima tahun duduk diam tanpa buku
+- SMP · berdiri bawah matahari jam 10 pagi
+- Pesantren MUDI · duduk berjam-jam tanpa kitab Arab
+- KLIA2 · membaca ayat Al-Quran di depan penumpang
+
+Alamtologi boleh memetakan NA/PA/DU/NAPADU/ABA — tetapi HANYA pada episod kanonik P.alt:
+tapak sampah (9), batu atap (13), SRP/rayuan, Pok Long, Si Hitam, pokok mangga, kehilangan,
+Anbia, SBX V60, 17 Julai 2006. JANGAN petakan NA/PA/DU/ABA ke SDN Reubee, SMP, MUDI, atau KLIA2.
+
+JANGAN tulis "dari tapak sampah ke KLIA2" atau gabungan arc yang memasukkan KLIA2/MUDI/Reubee/SMP
+ke dalam hidup P.alt — itu arc Dr Aminullah / Teori ALAMIN, bukan P.alt.
+
+Jika tiada fakta kanonik mencukupi — katakan jujur (CONSTITUTIONAL MEMORY LAW) dan minta P.alt membantu;
+jangan reka sekolah, lokasi, atau episod.
+`.trim();
+
+export const FOUNDER_BIOGRAPHY_QUERY_PATTERN =
+  /\b(kesah|kisah|cerita|biografi|asal[\-\s]?usul|dari\s+kecil|zaman\s+kecil|kanak[\-\s]?kanak|masa\s+kecil|hidup\s+(?:saya|p\.?alt)|perjalanan\s+(?:hidup|saya)|jejak\s+(?:hidup|langkah)|siri\s+kehadiran|akar\s+hidup|rujuk\s+(?:kesah|kisah)\s+(?:saya|p\.?alt)|ritme\s+(?:hidup|kehadiran|yang\s+masih)|dari\s+awal\s+hingga\s+kin[iy]|bekas\s+kehadiran\s+yang\s+masih)\b/i;
+
+export const ADAM_FOUNDER_BIOGRAPHY_OUTPUT_LOCK = `
+FOUNDER BIOGRAPHY OUTPUT LOCK — giliran ini (WAJIB sebelum hantar):
+
+DILARANG KERAS dalam jawapan — termasuk metafora, ritme, NA/PA/DU/ABA, atau penutup:
+SDN Reubee · SMP · Pesantren MUDI · KLIA2 · Dr Aminullah · STAI Al-Aziziyah
+· anak lima tahun duduk diam tanpa buku · matahari jam 10 pagi · Quran di depan penumpang
+· "dari tapak sampah ke KLIA2" · senarai Reubee→SMP→MUDI→KLIA2 sebagai arc P.alt
+
+Jika ingin NA/PA/DU/ABA — hanya episod kanonik: tapak sampah (9), batu atap (13), SRP, Pok Long,
+Si Hitam, pokok mangga, kehilangan, Anbia, Qatar/SBX V60, 17 Julai 2006.
+
+Penutup sah: nafas kehadiran kanonik — bukan lokasi ALAMIN prolog.
+`.trim();
+
+export const DR_AMINULLAH_QUERY_PATTERN =
+  /\b(?:dr\.?\s*)?aminullah\b|\bprolog\s+alamin\b|\bkisah\s+aminullah\b|\bperjalanan\s+(?:pendidikan\s+)?aminullah\b|\bmusafir\s+alam\b|\bpakar\s+alamtologi\s+aminullah\b|\bpencapaian\s+menemukan\s+alamin\b|\bteori\s+alamin\b[^.\n]{0,48}\bprolog\b/i;
+
+/** P.alt autobiography turn — excludes explicit Dr Aminullah / ALAMIN prolog questions. */
+export function founderAsksDrAminullahContext(message: string): boolean {
+  const m = message.trim();
+  if (!m) return false;
+
+  const aboutPalt =
+    /\b(?:kesah|kisah|cerita|biografi|hidup|perjalanan)\s+(?:saya|p\.?alt)\b/i.test(m)
+    || /\b(?:saya|p\.?alt)\b[^.\n]{0,48}\b(?:dari\s+kecil|zaman\s+kecil|ritme\s+hidup)\b/i.test(m);
+
+  if (aboutPalt && !/\b(?:dr\.?\s*)?aminullah\b/i.test(m)) return false;
+
+  if (DR_AMINULLAH_QUERY_PATTERN.test(m)) return true;
+
+  return /\b(?:sdn\s+reubee|pesantren\s+mudi|klia\s*2)\b/i.test(m) && !aboutPalt;
+}
+
+export function founderAsksPersonalBiography(message: string): boolean {
+  if (founderAsksDrAminullahContext(message)) return false;
+  return FOUNDER_BIOGRAPHY_QUERY_PATTERN.test(message.trim());
+}
+
+export const ADAM_DR_AMINULLAH_NARRATIVE = `
+TENTANG DR AMINULLAH DAN PROLOG TEORI ALAMIN:
+
+Ini bukan skrip untuk dibaca semula — pemahaman Prolog Komunikasi Alamtologi ALAMIN.
+Dr Aminullah bukan P.alt Masa Bayu. Beliau figura dalam Prolog ALAMIN yang P.alt ajar.
+
+FAKTA KANONIK PROLOG (Dr Aminullah):
+
+- SDN Reubee: kanak-kanak lima tahun duduk diam tanpa buku, tanpa guru formal — kehadiran NA pertama.
+- SMP: berdiri di bawah matahari (sekitar jam 10 pagi) — ujian kadar, sabar, niat, bekas (PA).
+- Pesantren MUDI: duduk berjam-jam tanpa kitab Arab, hafazan dan disiplin — penyatuan niat dan hasil (DU).
+- KLIA2: membaca ayat-ayat Al-Quran di hadapan penumpang — medium kehadiran, dimensi ALAMIN (ABA).
+- Pencapaian Menemukan ALAMIN — Musafir Alam; pakar yang membawa konsep komunikasi X+Z(Y) dalam Prolog.
+- Pertemuan dengan P.alt Masa Bayu (Pengasas) melalui perjalanan Alamtologi / ICNS — bukan menggantikan biografi P.alt.
+
+Prolog tamat pada Pencapaian Menemukan ALAMIN — formula X+Z(Y)→gHp · X–Z(0)→gCp — sebelum Bab 1 ALAMIN.
+
+CARA BERCERITA: suara qalbu, prosa P.alt; episod Dr Aminullah sah untuk Prolog ALAMIN sahaja.
+
+DILARANG: campur tapak sampah, SRP, Pok Long, Si Hitam, pokok mangga, OS Linux BM, Anbia, SBX V60,
+17 Julai 2006 ke kisah Dr Aminullah — itu episod P.alt Masa Bayu.
+`.trim();
+
+export const ADAM_DR_AMINULLAH_IDENTITY_LAW = `
+IDENTITI DR AMINULLAH / PROLOG ALAMIN — WAJIB (:= 1):
+
+Apabila P.alt tanya tentang Dr Aminullah, Prolog ALAMIN, Teori ALAMIN prolog, atau episod Reubee/MUDI/KLIA2:
+- GUNA HANYA fakta kanonik Prolog dalam ADAM_DR_AMINULLAH_NARRATIVE + [P.ALT TEACHING RECORDS] alamin-prolog.
+- Dr Aminullah ≠ P.alt Masa Bayu. Jangan tulis "P.alt di SDN Reubee" kecuali P.alt nyatakan giliran ini.
+
+JANGAN campur autobiografi P.alt (tapak sampah, SRP, Pok Long, Si Hitam, mangga, Qatar, 17 Julai 2006)
+ke dalam jawapan tentang Dr Aminullah.
+
+NA/PA/DU/ABA untuk Dr Aminullah — hanya episod Prolog: Reubee, SMP, MUDI, KLIA2, Pencapaian Menemukan ALAMIN.
+
+Jika tiada fakta mencukupi — katakan jujur; jangan reka atau pinjam episod P.alt.
+`.trim();
+
+export const ADAM_DR_AMINULLAH_OUTPUT_LOCK = `
+DR AMINULLAH / PROLOG ALAMIN OUTPUT LOCK — giliran ini:
+
+WAJIB rujuk episod Prolog kanonik Dr Aminullah:
+SDN Reubee · SMP · Pesantren MUDI · KLIA2 · Pencapaian Menemukan ALAMIN · Musafir Alam.
+
+DILARANG KERAS dalam jawapan Dr Aminullah:
+tapak sampah · batu atap (13) · SRP/rayuan · Pok Long · Si Hitam · pokok mangga · OS Linux BM
+· kehilangan segalanya · bumi Anbia · SBX V60 · Sheikh Hamad · Tun Abdullah · 17 Julai 2006 · ALAMTOLOGI dinamakan
+
+JANGAN tulis "dari tapak sampah ke …" untuk Dr Aminullah.
+Arc Dr Aminullah: Reubee → SMP → MUDI → KLIA2 → Menemukan ALAMIN (Prolog).
+`.trim();
+
+export function buildDrAminullahContextBlock(): string {
+  return [
+    '[DR AMINULLAH · PROLOG TEORI ALAMIN — identity lock]',
+    '',
+    ADAM_DR_AMINULLAH_NARRATIVE,
+    '',
+    ADAM_DR_AMINULLAH_IDENTITY_LAW,
+    '',
+    ADAM_DR_AMINULLAH_OUTPUT_LOCK,
+  ].join('\n');
+}
+
+export function buildFounderBiographyContextBlock(): string {
+  return [
+    '[P.ALT CANONICAL BIOGRAPHY — identity lock]',
+    '',
+    ADAM_FOUNDER_NARRATIVE,
+    '',
+    ADAM_FOUNDER_BIOGRAPHY_IDENTITY_LAW,
+    '',
+    ADAM_FOUNDER_BIOGRAPHY_OUTPUT_LOCK,
+  ].join('\n');
+}
+
+/** Episodes about Dr Aminullah / ALAMIN prolog — not P.alt autobiography unless explicitly requested. */
+export const THIRD_PARTY_BIOGRAPHY_MARKERS: RegExp[] = [
+  /\bdr\.?\s*aminullah\b/i,
+  /\baminullah\b/i,
+  /\bsdn\s+reubee\b/i,
+  /\bSMP\b/i,
+  /\bpesantren\s+mudi\b/i,
+  /\bmudi\b[^.\n]{0,48}\bpesantren\b/i,
+  /\bklia\s*2\b/i,
+  /\bstai\s+al[\-\s]?aziziyah\b/i,
+  /\bpakar\s+alamtologi\s+aminullah\b/i,
+  /\bprolog\s+alamin\b/i,
+  /\bteori\s+alamin\b[^.\n]{0,48}\bprolog\b/i,
+];
+
+export function textLooksLikeThirdPartyBiography(text: string): boolean {
+  return THIRD_PARTY_BIOGRAPHY_MARKERS.some((re) => re.test(text));
+}
+
+export function recordLooksLikeThirdPartyBiography(row: {
+  teachingIntent: string;
+  episodeSummary: string;
+  family: string;
+  principle: string;
+}): boolean {
+  const blob = `${row.teachingIntent} ${row.episodeSummary} ${row.family} ${row.principle}`;
+  return textLooksLikeThirdPartyBiography(blob);
+}
+
+/** Episodes from P.alt canonical life — not Dr Aminullah prolog. */
+export const FOUNDER_CANONICAL_BIOGRAPHY_MARKERS: RegExp[] = [
+  /\btapak\s+(?:pembuangan\s+)?sampah\b/i,
+  /\bbatu\s+atap\b/i,
+  /\bgagal\s+srp\b/i,
+  /\bpok\s+long\b/i,
+  /\bsi\s+hitam\b/i,
+  /\bpokok\s+mangga\b/i,
+  /\bos\s+linux\b/i,
+  /\bbumi\s+anbia\b/i,
+  /\bsbx\s+v60\b/i,
+  /\b17\s+julai\s+2006\b/i,
+  /\bsheikh\s+hamad\b/i,
+  /\btun\s+abdullah\b/i,
+  /\bteori\s+masabayu\b/i,
+];
+
+export function textLooksLikeFounderCanonicalBiography(text: string): boolean {
+  return FOUNDER_CANONICAL_BIOGRAPHY_MARKERS.some((re) => re.test(text));
+}
+
+export function recordLooksLikeFounderCanonicalBiography(row: {
+  teachingIntent: string;
+  episodeSummary: string;
+  family: string;
+  principle: string;
+}): boolean {
+  const blob = `${row.teachingIntent} ${row.episodeSummary} ${row.family} ${row.principle}`;
+  return textLooksLikeFounderCanonicalBiography(blob);
+}
+
 export const ADAM_ALAMTOLOGI_LAWS = `
 HUKUM ALAMTOLOGI — DIFAHAMI, BUKAN DILAFALKAN:
 

@@ -130,7 +130,8 @@ export type ADAMChatMode =
   | 'AUDIT'
   | 'CONSTITUTIONAL'
   | 'JOURNAL_GEN'
-  | 'BUILDER';
+  | 'BUILDER'
+  | 'TUTOR';
 
 /** Voice register for a single reply — not operational mode (TEACHING, BUILDER, …). */
 export type ADAMAnswerStyle = 'natural' | 'philosophy' | 'formal' | 'technical';

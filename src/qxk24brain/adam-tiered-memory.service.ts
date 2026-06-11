@@ -33,6 +33,7 @@ import { buildConstitutionalAnchor } from './adam-anchor.service';
 import { smartTruncate } from './adam-smart-truncate';
 import { getOrCreateMaster } from './qxk24brain.engine';
 import type { ChatParticipant } from '../adam/adam-student.types';
+import type { PersonRef } from '../adam/person-relational-memory.types';
 import { sanitizeTeachingHistoryContent } from '../adam/adam-founder-teaching-prompts';
 import {
   buildAmaLongTermMemoryBlock,
@@ -262,8 +263,10 @@ export async function refreshSessionDigestIfNeeded(
 // ── TIER 3: Long-Term Memory (Cold) ──────────────────────────────────────
 
 export interface LongTermMemoryOptions {
-  message?:   string;
-  isFounder?: boolean;
+  message?:       string;
+  isFounder?:     boolean;
+  personSubject?: PersonRef | null;
+  knownPersons?:  PersonRef[];
 }
 
 export async function getLongTermMemory(
@@ -275,8 +278,10 @@ export async function getLongTermMemory(
 
   if (isAmaBrainV2Enabled()) {
     return buildAmaLongTermMemoryBlock(master, maxChars, {
-      message:   options.message,
-      isFounder: options.isFounder,
+      message:       options.message,
+      isFounder:     options.isFounder,
+      personSubject: options.personSubject,
+      knownPersons:  options.knownPersons,
     });
   }
 

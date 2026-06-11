@@ -47,7 +47,16 @@ export {
   clearSessionChatHistory,
   verifyADAMMessage,
   createChatSession,
+  createNewChatSession,
+  listUserChatSessions,
+  renameUserChatSession,
+  deleteUserChatSession,
+  resolveStudentChatSession,
+  resolveTutorChatSession,
+  deriveSessionTitleFromMessage,
 } from './adam-chat-session.service';
+
+export type { ChatSessionListItem } from './adam-chat-session.service';
 
 export type { StoredADAMMessage } from './adam-chat-session.service';
 

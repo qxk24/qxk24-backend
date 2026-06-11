@@ -27,7 +27,7 @@ import { buildMacBridgeContextBlock } from '../agent/mac-bridge-context';
 import { prependCoreToSystem } from '../qxk24brain/adam-core';
 import { buildAdamChatSystemPrompt } from './adam-system-prompts';
 import { resolveStudentKnowledgeTier } from './adam-three-tier-knowledge';
-import { buildFounderStudentsAwarenessBlock } from './adam-student-registry.service';
+import { buildFounderStudentsAwarenessBlockAsync } from './adam-student-registry.service';
 import { enrichSystemPromptForJournalGen } from './adam-chat-stream-journal-turn';
 import type { JournalGenContext } from './adam-chat-stream.types';
 import type { AdamChatTurnShell } from './adam-chat-stream.types';
@@ -73,6 +73,8 @@ export async function buildTurnPromptAndSearchGate(input: {
     testerSystemPrefix,
   } = turnContext;
 
+  const isTutorLane = mode === 'TUTOR';
+
   const workspacePrompt = workspace
     ? `\n[AIDIL WORKSPACE: "${workspace.title}" — separate family. Do NOT mix with other books or the student's general chat.]`
     : '';
@@ -99,40 +101,44 @@ export async function buildTurnPromptAndSearchGate(input: {
   const enableWebSearch = Boolean(webSearchGateReason);
   const studentSearchFirst =
     !isFounder && shouldStudentUseSearchFirstFlow(false, webSearchGateReason);
-  const studentKnowledgeTier = !isFounder
+  const studentKnowledgeTier = !isFounder && !isTutorLane
     ? resolveStudentKnowledgeTier(messageForAdam, recentUserTurns)
     : undefined;
 
-  let systemPrompt = prependCoreToSystem(
-    buildAdamChatSystemPrompt({
-      mode,
-      answerStyle:          options.answerStyle,
-      isFounder,
-      participantName:      shell.participant.userName,
-      userMessage:          messageForAdam,
-      workspacePrompt,
-      founderStudentsBlock: buildFounderStudentsAwarenessBlock(),
-      studentContinuityBridge,
-      founderTeachingAbsorption,
-      founderTeachingSynthesis,
-      amaTamatBlock,
-      studentKnowledgeTier,
-      webSearchPrompt:      webSearchEnabledThisTurn && founderTeachingSynthesis
+  const builtPrompt = buildAdamChatSystemPrompt({
+    mode,
+    answerStyle:          options.answerStyle,
+    isFounder,
+    participantName:      shell.participant.userName,
+    userMessage:          messageForAdam,
+    workspacePrompt:      isTutorLane ? undefined : workspacePrompt,
+    founderStudentsBlock: isFounder
+      ? await buildFounderStudentsAwarenessBlockAsync()
+      : '',
+    studentContinuityBridge: isTutorLane ? undefined : studentContinuityBridge,
+    founderTeachingAbsorption,
+    founderTeachingSynthesis,
+    amaTamatBlock:        isTutorLane ? undefined : amaTamatBlock,
+    studentKnowledgeTier,
+    tutorProfile:         isTutorLane ? options.tutorProfile : undefined,
+    webSearchPrompt:      webSearchEnabledThisTurn && founderTeachingSynthesis
+      ? getAdamWebSearchPrompt(isFounder, {
+        founderTeachingSynthesis: true,
+        userMessage: messageForAdam,
+        recentUserMessages: recentUserTurns,
+      })
+      : webSearchEnabledThisTurn
         ? getAdamWebSearchPrompt(isFounder, {
-          founderTeachingSynthesis: true,
           userMessage: messageForAdam,
           recentUserMessages: recentUserTurns,
+          searchPrefetched: studentSearchFirst,
         })
-        : webSearchEnabledThisTurn
-          ? getAdamWebSearchPrompt(isFounder, {
-            userMessage: messageForAdam,
-            recentUserMessages: recentUserTurns,
-            searchPrefetched: studentSearchFirst,
-          })
-          : undefined,
-    }),
-    founderTeachingLearnerTurn,
-  );
+        : undefined,
+  });
+
+  let systemPrompt = isTutorLane
+    ? builtPrompt
+    : prependCoreToSystem(builtPrompt, founderTeachingLearnerTurn);
 
   if (macBridgeBlock) {
     systemPrompt = `${systemPrompt}\n\n${macBridgeBlock}`;

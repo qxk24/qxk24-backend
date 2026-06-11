@@ -20,6 +20,11 @@
 import { ENV } from '../config/environments';
 import { FOUNDER_USER_ID } from '../adam/adam-student.types';
 import {
+  founderAsksPersonalBiography,
+  recordLooksLikeFounderCanonicalBiography,
+  recordLooksLikeThirdPartyBiography,
+} from '../adam/adam-knowledge-prompts';
+import {
   buildBab1AsasConstitutionalRecallBlock,
   buildBab2FaktorXyzConstitutionalRecallBlock,
   buildBab3HukumConstitutionalRecallBlock,
@@ -261,7 +266,7 @@ export async function recordTeachingTransformation(
 }
 
 export function founderAsksTeachingRecall(message: string): boolean {
-  return /\b(remember|recall|ingat|ingatkan|do you remember|what did we discuss|what did i teach|when you first|when i first|autobiograph|cerita|kisah|bila kita|sesi itu|teaching record|rekod pembelajaran)\b/i.test(
+  return /\b(remember|recall|ingat|ingatkan|do you remember|what did we discuss|what did i teach|when you first|when i first|bila kita|sesi itu|teaching record|rekod pembelajaran|rekod\s+pengajaran)\b/i.test(
     message,
   );
 }
@@ -387,12 +392,21 @@ export async function buildTeachingRecordRecallBlock(
   searchTerms?: string[],
   chapterId?: string,
 ): Promise<string | null> {
+  if (founderAsksPersonalBiography(userMessage)) {
+    return null;
+  }
+
   const terms = searchTerms?.filter((t) => t.trim().length >= 2) ?? [];
   let records = terms.length > 0
     ? await searchTeachingRecordsForChapter(founderId, terms, 5)
-    : await searchTeachingRecords(founderId, userMessage, 5);
+    : await searchTeachingRecords(founderId, userMessage, 5, { skipRecentFallback: true });
 
   records = filterTeachingRecordsForChapter(records, chapterId);
+  if (!chapterId?.startsWith('alamin')) {
+    records = records.filter((row) => !recordLooksLikeThirdPartyBiography(row));
+  } else {
+    records = records.filter((row) => !recordLooksLikeFounderCanonicalBiography(row));
+  }
 
   if (!records.length) {
     if (chapterId === 'bab-1-asas') {

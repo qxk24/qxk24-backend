@@ -16,6 +16,9 @@
  */
 
 import { resolveFormulaXyzChapterId } from './chapter-queries';
+import { textLooksLikeThirdPartyBiography, textLooksLikeFounderCanonicalBiography } from '../adam-knowledge-prompts';
+import type { PersonRef } from '../person-relational-memory.types';
+import { chunkMentionsOtherKnownPerson, chunkMentionsPerson } from '../person-relational-memory.identity';
 
 const AIDIL_BAB1_BRAIN_NOISE: RegExp[] = [
   /\bpengenalan\s+aidil\b/i,
@@ -242,4 +245,47 @@ const FORMULA_XYZ_OUTPUT_LOCKS: Partial<Record<string, string>> = {
 
 export function buildFormulaXyzOutputLock(chapterId: string): string {
   return FORMULA_XYZ_OUTPUT_LOCKS[chapterId] ?? FORMULA_XYZ_OUTPUT_LOCKS['bab-1-asas']!;
+}
+
+/** Strip Dr Aminullah / ALAMIN prolog chunks from Kr/Kn when P.alt asks his own biography. */
+export function filterBrainLaneForFounderBiography(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return trimmed;
+
+  const chunks = trimmed.split(/\n{2,}/).map((c) => c.trim()).filter(Boolean);
+  const kept = chunks.filter((chunk) => !textLooksLikeThirdPartyBiography(chunk));
+  return kept.join('\n\n');
+}
+
+/** Strip P.alt canonical life chunks from Kr/Kn when Dr Aminullah / Prolog ALAMIN is the subject. */
+export function filterBrainLaneForDrAminullahContext(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return trimmed;
+
+  const chunks = trimmed.split(/\n{2,}/).map((c) => c.trim()).filter(Boolean);
+  const kept = chunks.filter((chunk) => {
+    if (!textLooksLikeFounderCanonicalBiography(chunk)) return true;
+    return /\baminullah\b/i.test(chunk);
+  });
+  return kept.join('\n\n');
+}
+
+/** Strip other persons' episodes from Kr/Kn when a specific person is the subject. */
+export function filterBrainLaneForPersonContext(
+  text: string,
+  subject: PersonRef,
+  knownPersons: PersonRef[],
+): string {
+  const trimmed = text.trim();
+  if (!trimmed) return trimmed;
+
+  const chunks = trimmed.split(/\n{2,}/).map((c) => c.trim()).filter(Boolean);
+  const kept = chunks.filter((chunk) => {
+    if (chunkMentionsPerson(chunk, subject)) return true;
+    if (chunkMentionsOtherKnownPerson(chunk, subject, knownPersons)) return false;
+    if (textLooksLikeFounderCanonicalBiography(chunk)) return false;
+    if (textLooksLikeThirdPartyBiography(chunk)) return false;
+    return true;
+  });
+  return kept.join('\n\n');
 }

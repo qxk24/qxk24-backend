@@ -29,7 +29,10 @@ import {
   TIER_ACCESS,
   getPelajarPricing,
   getProfesionalPricing,
+  getTutorPricing,
+  normalizeTutorSubscriptionLevel,
 } from './tier-access.config';
+import type { TutorSubscriptionLevel } from './subscription.schema';
 import { detectRegionFromHeaders } from './region-detector.service';
 import { ENV } from '../config/environments';
 import {
@@ -41,6 +44,8 @@ export interface CreateSubscriptionInput {
   tier:         SubscriptionTier;
   billingCycle: BillingCycle;
   headers:      Headers;
+  /** Required for TUTOR — primary / secondary / university pricing band */
+  tutorLevel?:  TutorSubscriptionLevel | string | null;
 }
 
 export interface SubscriptionCreationResult {
@@ -61,11 +66,17 @@ export async function routeSubscriptionCreation(
   const region   = detectRegionFromHeaders(input.headers);
   const provider = PaymentProvider.STRIPE;
 
+  if (input.tier === SubscriptionTier.PELAJAR) {
+    throw new Error(
+      'Premium Pelajar is not open for new subscriptions. Use Pencarian with credit top-ups, Student, or Profesional.',
+    );
+  }
+
   switch (input.tier) {
-    case SubscriptionTier.PELAJAR:
-      return createPelajarSubscription(input, region, provider);
     case SubscriptionTier.PROFESIONAL:
       return createProfesionalSubscription(input, region, provider);
+    case SubscriptionTier.TUTOR:
+      return createTutorSubscription(input, provider);
     case SubscriptionTier.ENTERPRISE:
       return createEnterprisePendingSubscription(input, region);
     default:
@@ -94,6 +105,44 @@ async function createPelajarSubscription(
     amountPerCycle:  amount,
     provider,
     access:          TIER_ACCESS[SubscriptionTier.PELAJAR],
+    isFounderFunded: false,
+  });
+
+  const checkoutUrl = await createProviderCheckout(sub, amount, pricing.currency, provider);
+
+  return {
+    subscriptionId: sub._id.toString(),
+    checkoutUrl,
+    provider,
+    currency: pricing.currency,
+    amount,
+  };
+}
+
+async function createTutorSubscription(
+  input:    CreateSubscriptionInput,
+  provider: PaymentProvider,
+): Promise<SubscriptionCreationResult> {
+  if (input.billingCycle !== BillingCycle.MONTHLY) {
+    throw new Error('ADAM Tutor is monthly billing only.');
+  }
+
+  const tutorLevel = normalizeTutorSubscriptionLevel(input.tutorLevel);
+  const pricing = getTutorPricing(tutorLevel);
+  const amount  = pricing.monthly;
+
+  const sub = await saveSubscription({
+    userId:          input.userId,
+    founderId:       FOUNDER_SUBSCRIPTION_ID,
+    tier:            SubscriptionTier.TUTOR,
+    tutorLevel,
+    status:          SubscriptionStatus.PENDING,
+    billingCycle:    BillingCycle.MONTHLY,
+    region:          SupportedRegion.MY,
+    currency:        pricing.currency,
+    amountPerCycle:  amount,
+    provider,
+    access:          TIER_ACCESS[SubscriptionTier.TUTOR],
     isFounderFunded: false,
   });
 

@@ -19,6 +19,7 @@ import {
   streamADAMChat,
   getChatSession,
   listChatSessions,
+  createNewChatSession,
   getOrCreateSession,
   resolveFounderTeachingSession,
   ensureSession,
@@ -216,11 +217,27 @@ router.get('/history/:sessionId', requireFounder, async (c) => {
 
 // ─── GET /api/adam/chat/sessions — List Sessions ──────────────
 
+router.post('/sessions', requireFounder, async (c) => {
+  const user = getTokenUser(c);
+  const founderId = user?.userId ?? 'masa-bayu';
+  const sessionId = await createNewChatSession(founderId, 'founder');
+  return c.json({
+    success:   true,
+    kernel:    'ALAMTOLOGI',
+    version:   ENV.QXK24_KERNEL_VERSION,
+    era:       ENV.QXK24_ERA,
+    data:      { sessionId },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 router.get('/sessions', requireFounder, async (c) => {
   const mode  = c.req.query('mode') as any;
-  const limit = parseInt(c.req.query('limit') ?? '20');
+  const limit = parseInt(c.req.query('limit') ?? '20', 10);
+  const user = getTokenUser(c);
+  const founderId = user?.userId ?? 'masa-bayu';
 
-  const sessions = await listChatSessions(mode, limit);
+  const sessions = await listChatSessions(mode, limit, founderId);
 
   const response: ADAMApiResponse<{ sessions: ADAMChatSession[]; count: number }> = {
     success:   true,

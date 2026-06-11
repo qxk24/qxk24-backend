@@ -26,8 +26,13 @@ import {
   BillingCycle,
   PaymentProvider,
   ISubscription,
+  type TutorSubscriptionLevel,
 } from './subscription.schema';
 import { convertPencarianToPelajar } from './pencarian-tracker.service';
+import {
+  TUTOR_LEVEL_LABELS,
+  normalizeTutorSubscriptionLevel,
+} from './tier-access.config';
 import { notifySubscriptionActivated } from './subscription-welcome-mail.service';
 import { ENV } from '../config/environments';
 import { toStripeUnitAmount, stripeSecondsToDate, validDateOrNull, computeBillingPeriodEnd, stripeResourceId } from './stripe-currency';
@@ -101,7 +106,25 @@ async function stripeGet<T>(path: string): Promise<T> {
   return data;
 }
 
-export function getStripePriceId(tier: SubscriptionTier, cycle: BillingCycle): string {
+function tutorStripePriceId(level: TutorSubscriptionLevel): string {
+  const band = normalizeTutorSubscriptionLevel(level);
+  const byLevel: Record<TutorSubscriptionLevel, string> = {
+    primary:    ENV.STRIPE_PRICE_ID_TUTOR_PRIMARY_MONTHLY,
+    secondary:  ENV.STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY || ENV.STRIPE_PRICE_ID_TUTOR_MONTHLY,
+    university: ENV.STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY,
+  };
+  return byLevel[band] ?? '';
+}
+
+export function getStripePriceId(
+  tier: SubscriptionTier,
+  cycle: BillingCycle,
+  tutorLevel?: TutorSubscriptionLevel | string | null,
+): string {
+  if (tier === SubscriptionTier.TUTOR && cycle === BillingCycle.MONTHLY) {
+    return tutorStripePriceId(normalizeTutorSubscriptionLevel(tutorLevel));
+  }
+
   const map: Partial<Record<string, string>> = {
     [`${SubscriptionTier.PELAJAR}_${BillingCycle.MONTHLY}`]:     ENV.STRIPE_PRICE_ID_PELAJAR_MONTHLY,
     [`${SubscriptionTier.PELAJAR}_${BillingCycle.ANNUAL}`]:      ENV.STRIPE_PRICE_ID_PELAJAR_ANNUAL,
@@ -111,12 +134,18 @@ export function getStripePriceId(tier: SubscriptionTier, cycle: BillingCycle): s
   return map[`${tier}_${cycle}`] ?? '';
 }
 
+function resolveStripePriceId(sub: ISubscription): string {
+  return getStripePriceId(sub.tier, sub.billingCycle, sub.tutorLevel);
+}
+
 function tierCheckoutLabel(tier: SubscriptionTier): string {
   switch (tier) {
     case SubscriptionTier.PELAJAR:
       return 'ADAM Premium';
     case SubscriptionTier.PROFESIONAL:
-      return 'ADAM Profesional';
+      return 'ADAM Profesional + Consultant';
+    case SubscriptionTier.TUTOR:
+      return 'ADAM Tutor';
     default:
       return 'ADAM Subscription';
   }
@@ -138,6 +167,16 @@ function buildRegionalLineItemParams(sub: ISubscription): Record<string, string>
   const interval = recurringInterval(sub.billingCycle);
   const label = tierCheckoutLabel(sub.tier);
   const cycleLabel = interval === 'year' ? 'Annual' : 'Monthly';
+  let description = `${label} — ${cycleLabel} subscription`;
+  if (sub.tier === SubscriptionTier.TUTOR) {
+    const level = normalizeTutorSubscriptionLevel(sub.tutorLevel);
+    const bandLabel = TUTOR_LEVEL_LABELS[level];
+    const monthly = sub.amountPerCycle ?? 0;
+    description = `ADAM Tutor (${bandLabel}) — all subjects, RM ${monthly.toFixed(2)}/month`;
+  } else if (sub.tier === SubscriptionTier.PROFESIONAL) {
+    const monthly = sub.amountPerCycle ?? 0;
+    description = `ADAM Consultant (all fields) + full memory & API — RM ${monthly.toFixed(2)}/month`;
+  }
 
   return {
     'line_items[0][quantity]':                              '1',
@@ -146,7 +185,7 @@ function buildRegionalLineItemParams(sub: ISubscription): Record<string, string>
     'line_items[0][price_data][recurring][interval]':        interval,
     'line_items[0][price_data][recurring][interval_count]':  '1',
     'line_items[0][price_data][product_data][name]':         label,
-    'line_items[0][price_data][product_data][description]': `${label} — ${cycleLabel} subscription`,
+    'line_items[0][price_data][product_data][description]': description,
   };
 }
 
@@ -192,7 +231,13 @@ export async function createStripeCheckoutSession(
   assertStripeReady();
 
   const mongoId = sub._id?.toString() ?? '';
-  const lineItem = buildRegionalLineItemParams(sub);
+  const stripePriceId = resolveStripePriceId(sub);
+  const lineItem = stripePriceId
+    ? {
+      'line_items[0][price]':    stripePriceId,
+      'line_items[0][quantity]': '1',
+    }
+    : buildRegionalLineItemParams(sub);
 
   const params: Record<string, string> = {
     mode:                                 'subscription',
@@ -205,10 +250,15 @@ export async function createStripeCheckoutSession(
     'metadata[region]':                   sub.region ?? '',
     'metadata[currency]':                 sub.currency ?? '',
     'metadata[amountPerCycle]':           String(sub.amountPerCycle ?? 0),
+    ...(sub.tier === SubscriptionTier.TUTOR && sub.tutorLevel
+      ? { 'metadata[tutorLevel]': sub.tutorLevel }
+      : {}),
     'subscription_data[metadata][subscriptionId]': mongoId,
     'subscription_data[metadata][userId]':         sub.userId,
     'subscription_data[metadata][region]':         sub.region ?? '',
-    success_url:                          `${appUrl()}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+    success_url:                          sub.tier === SubscriptionTier.TUTOR
+      ? `${appUrl()}/subscription/success?session_id={CHECKOUT_SESSION_ID}&product=tutor`
+      : `${appUrl()}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:                           `${appUrl()}/subscription/cancelled`,
     client_reference_id:                  mongoId,
     billing_address_collection:           'auto',

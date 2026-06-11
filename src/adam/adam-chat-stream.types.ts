@@ -17,6 +17,7 @@
 
 import type { ADAMAnswerStyle, ADAMChatMode, SSEEventType } from './adam.types';
 import type { ChatParticipant } from './adam-student.types';
+import type { AdamTutorProfile } from './adam-tutor-law';
 import type { LlmMessage } from '../llm/llm-types';
 import type { UniversityKnowledgeTopic } from './adam-university-knowledge';
 import type { JournalSectionId } from './adam-journal-section.types';
@@ -30,6 +31,8 @@ export interface StreamADAMChatOptions {
   forceBuilder?:      boolean;
   clientBuilderMode?: boolean;
   builderEvaluate?:   boolean;
+  /** ADAM Tutor lane — level, curriculum, year */
+  tutorProfile?:      AdamTutorProfile;
 }
 
 export type AdamStreamOnceFn = (

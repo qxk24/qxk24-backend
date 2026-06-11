@@ -23,6 +23,8 @@ export enum SubscriptionTier {
   PROFESIONAL = 'PROFESIONAL',
   ENTERPRISE  = 'ENTERPRISE',
   TESTER      = 'TESTER',
+  /** ADAM Tutor — Layer 1 pelajar lane, all subjects, MYR flat rate */
+  TUTOR       = 'TUTOR',
 }
 
 export enum BillingCycle {
@@ -72,6 +74,9 @@ export enum SupportedRegion {
   EU    = 'EU',
   OTHER = 'OTHER',
 }
+
+/** ADAM Tutor — school level determines monthly MYR (Layer 1 pelajar lane). */
+export type TutorSubscriptionLevel = 'primary' | 'secondary' | 'university';
 
 export enum PencarianStage {
   KNOW    = 'KNOW',
@@ -126,6 +131,8 @@ export interface ISubscription extends Document {
   userId:             string;
   founderId:          string;
   tier:               SubscriptionTier;
+  /** Set when tier is TUTOR — primary / secondary / university pricing band */
+  tutorLevel:         TutorSubscriptionLevel | null;
   status:             SubscriptionStatus;
   billingCycle:       BillingCycle;
   region:             SupportedRegion;
@@ -196,6 +203,7 @@ const SubscriptionSchema = new Schema<ISubscription>(
     userId:             { type: String, required: true, index: true },
     founderId:          { type: String, required: true },
     tier:               { type: String, enum: Object.values(SubscriptionTier), required: true },
+    tutorLevel:         { type: String, enum: ['primary', 'secondary', 'university'], default: null },
     status:             { type: String, enum: Object.values(SubscriptionStatus), default: SubscriptionStatus.ACTIVE },
     billingCycle:       { type: String, enum: Object.values(BillingCycle), required: true },
     region:             { type: String, enum: Object.values(SupportedRegion), default: SupportedRegion.OTHER },

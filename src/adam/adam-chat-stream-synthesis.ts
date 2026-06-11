@@ -41,6 +41,10 @@ import {
   repairAdamStreamOutput,
 } from './adam-chat-stream-llm';
 import { isAdamLightChatTurn } from './adam-response-generation';
+import {
+  enforceTutorReplyGuards,
+  isAdamTutorMode,
+} from './adam-tutor-law';
 import type { WorkspaceRecord } from './adam-workspace.service';
 
 export async function executeAdamSynthesisTurn(input: {
@@ -210,6 +214,20 @@ export async function executeAdamSynthesisTurn(input: {
   );
 
   if (fullResponse?.trim()) {
+    if (isAdamTutorMode(mode)) {
+      const scrubbed = enforceTutorReplyGuards(
+        fullResponse,
+        shell.options.tutorProfile,
+      );
+      if (scrubbed !== fullResponse) {
+        fullResponse = scrubbed;
+        onEvent('adam_stream_done', JSON.stringify({
+          sessionId: resolvedSessionId,
+          replace:   true,
+          response:  fullResponse,
+        }));
+      }
+    }
     fullResponse = sanitizeAdamProseDashBridges(fullResponse);
   }
 

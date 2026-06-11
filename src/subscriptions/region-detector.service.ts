@@ -15,6 +15,7 @@
  * ============================================================
  */
 
+import { ENV } from '../config/environments';
 import { SupportedRegion } from './subscription.schema';
 
 const COUNTRY_TO_REGION: Record<string, SupportedRegion> = {
@@ -81,6 +82,10 @@ export function detectRegionFromHeaders(headers: Headers, userRegion?: string | 
   if (lang.includes('ar'))    return SupportedRegion.AE;
   if (lang.includes('en-GB')) return SupportedRegion.GB;
   if (lang.includes('en-US')) return SupportedRegion.US;
+
+  const fallback = (ENV.ADAM_DEFAULT_PRICING_REGION ?? 'MY').toUpperCase();
+  const mappedFallback = mapCountry(fallback);
+  if (mappedFallback) return mappedFallback;
 
   return SupportedRegion.OTHER;
 }

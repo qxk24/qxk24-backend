@@ -21,6 +21,15 @@ import {
   GROUP_SESSION_ID,
 } from '../adam/adam-student.types';
 import { getStudentAccounts } from '../adam/adam-student.service';
+import { founderStudentLaneLabel } from '../adam/adam-student-registry.service';
+import {
+  getTutorProfilesByUserIds,
+  tutorProfileFounderLine,
+} from '../adam/adam-tutor-profile.service';
+import {
+  founderSubscriptionLinesForStudent,
+  getStudentSubscriptionSummariesForFounder,
+} from '../adam/adam-student-subscription-summary.service';
 import { getUserWorkspaces } from '../adam/adam-workspace.service';
 import { getOrCreateMaster } from './qxk24brain.engine';
 import { prependCoreToSystem } from './adam-core';
@@ -32,7 +41,7 @@ function scoreStudentTrack(track: StudentTrack): number {
   return (track.masteredTopics?.length ?? 0) * 10 + (track.constitutionalLevel ?? 1);
 }
 
-function findBestStudentTrack(
+export function findBestStudentTrack(
   tracks: StudentTrack[],
   studentId: string,
 ): StudentTrack | null {
@@ -396,15 +405,24 @@ export async function loadStudentsEraContext(): Promise<string> {
   const lines: string[] = [
     '[ALAMTOLOGI STUDENTS — ERA_1 ACTIVITY LOG]',
     'The Founder may ask who has spoken with you. Use this log — it reflects actual messages in the system.',
-    'Each student may have a general chat plus separate book/workspace sessions — all are counted here.',
+    'Each student may have ADAM Learn chat (sessionType student), ADAM Tutor chat (sessionType tutor), plus book/workspace sessions.',
+    'Lane pelajar = school Tutor; lane umum = Alamtologi Learn — see lane line under each student.',
     '',
   ];
 
-  for (const student of getStudentAccounts()) {
+  const accounts = getStudentAccounts();
+  const userIds = accounts.map((s) => s.userId);
+  const [tutorProfiles, subscriptionSummaries] = await Promise.all([
+    getTutorProfilesByUserIds(accounts.filter((s) => s.accountLane === 'pelajar').map((s) => s.userId)),
+    getStudentSubscriptionSummariesForFounder(userIds),
+  ]);
+
+  for (const student of accounts) {
+    const lane = student.accountLane === 'pelajar' ? 'pelajar' : 'umum';
     const [sessions, workspaces, track] = await Promise.all([
       ADAMFounderSessionModel.find({
         founderId:   student.userId,
-        sessionType: 'student',
+        sessionType: { $in: ['student', 'tutor'] },
         active:      true,
       })
         .sort({ lastActiveAt: -1 })
@@ -420,9 +438,24 @@ export async function loadStudentsEraContext(): Promise<string> {
       ]),
     ];
 
+    const tutorProfile = lane === 'pelajar' ? tutorProfiles.get(student.userId) ?? null : null;
+
     lines.push(`## ${student.name} (${student.userId})`);
+    lines.push(`Lane: ${founderStudentLaneLabel(lane)}`);
+
+    const subSummary = subscriptionSummaries.get(student.userId);
+    if (subSummary) {
+      for (const subLine of founderSubscriptionLinesForStudent(subSummary, lane)) {
+        lines.push(subLine);
+      }
+    }
+
+    if (lane === 'pelajar') {
+      lines.push(tutorProfileFounderLine(tutorProfile));
+    }
 
     if (sessionIds.length === 0) {
+      lines.push(lane === 'pelajar' ? 'ADAM Tutor chat: NO MESSAGES YET' : 'ADAM Learn chat: NO MESSAGES YET');
       lines.push('Private chat: NO MESSAGES YET');
       if (track?.understanding) {
         lines.push(`Brain track note: ${messageSnippet(track.understanding, 400)}`);
@@ -447,11 +480,24 @@ export async function loadStudentsEraContext(): Promise<string> {
 
     recent.reverse();
 
+    const tutorSessionIds = new Set(
+      sessions.filter((s) => s.sessionType === 'tutor').map((s) => s.sessionId),
+    );
+    const learnSessionIds = new Set(
+      sessions.filter((s) => s.sessionType === 'student').map((s) => s.sessionId),
+    );
+
     lines.push(
       studentMsgCount > 0
-        ? `Private + books: HAS COMMUNICATED — ${studentMsgCount} student message(s), ${totalCount} total across ${sessionIds.length} session(s)`
+        ? `Private + tutor + books: HAS COMMUNICATED — ${studentMsgCount} student message(s), ${totalCount} total across ${sessionIds.length} session(s)`
         : 'Sessions exist but no student messages yet',
     );
+    if (tutorSessionIds.size > 0) {
+      lines.push(`ADAM Tutor sessions: ${tutorSessionIds.size}`);
+    }
+    if (learnSessionIds.size > 0) {
+      lines.push(`ADAM Learn sessions: ${learnSessionIds.size}`);
+    }
 
     if (workspaces.length > 0) {
       lines.push('Books / workspaces:');
@@ -469,20 +515,28 @@ export async function loadStudentsEraContext(): Promise<string> {
       }
     }
 
+    const sessionTypeById = new Map(
+      sessions.map((s) => [s.sessionId, s.sessionType as string]),
+    );
+
     if (recent.length > 0) {
       lines.push('Recent exchange (all sessions):');
       for (const m of recent) {
         const ws = workspaces.find((w) => w.sessionId === m.sessionId);
+        const st = sessionTypeById.get(m.sessionId);
+        const laneTag = st === 'tutor' ? ' [Tutor]' : st === 'student' ? ' [Learn]' : '';
         const bookTag = ws ? ` [${ws.title}]` : m.sessionId.includes('WS-') ? ' [book]' : '';
         const who =
           m.role === 'adam'
             ? 'ADAM'
             : m.speakerName || student.name;
-        lines.push(`- ${who}${bookTag}: ${messageSnippet(m.content)}`);
+        lines.push(`- ${who}${laneTag}${bookTag}: ${messageSnippet(m.content)}`);
       }
     }
 
-    if (track?.understanding) {
+    if (track?.relationalSummary?.trim()) {
+      lines.push(`Person relational memory: ${messageSnippet(track.relationalSummary, 500)}`);
+    } else if (track?.understanding) {
       lines.push(`Brain track: ${messageSnippet(track.understanding, 500)}`);
     }
     lines.push('');

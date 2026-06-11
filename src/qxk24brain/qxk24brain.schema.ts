@@ -177,6 +177,12 @@ export interface StudentTrack {
   lastSessionSummary?:  string;
   /** Growth narrative from last session close (C1) */
   relationshipArc?:     string;
+  /** Person Relational Memory — distilled how ADAM knows this person */
+  relationalSummary?:   string;
+  /** Facts sealed to this person only (identity isolation) */
+  identityAnchors?:     string[];
+  /** Last message contact timestamp */
+  lastContactAt?:       Date;
 }
 
 export interface BrainSessionContext {
@@ -267,6 +273,9 @@ const AlamtologiBrainMasterSchema = new Schema<AlamtologiBrainMasterDocument>({
     zpdReadiness:        { type: Boolean, default: false },
     lastSessionSummary:  { type: String, default: '' },
     relationshipArc:     { type: String, default: '' },
+    relationalSummary:   { type: String, default: '' },
+    identityAnchors:     { type: [String], default: [] },
+    lastContactAt:       { type: Date },
   }],
   sessionContext: {
     currentSessionId: String,

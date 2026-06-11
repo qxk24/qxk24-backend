@@ -18,7 +18,13 @@ import {
   ADAM_CHARACTER_TEACHING_LEARNER,
 } from './adam-character';
 import { ADAM_CORE_BEHAVIOUR, CONSULT_PHRASE, FOUNDER_STUDENTS_AWARENESS } from './adam-identity-prompts';
-import { ADAM_EPISTEMOLOGICAL_POSITION, ADAM_FOUNDER_NARRATIVE, ADAM_ALAMTOLOGI_LAWS } from './adam-knowledge-prompts';
+import { ADAM_EPISTEMOLOGICAL_POSITION, ADAM_FOUNDER_NARRATIVE, ADAM_ALAMTOLOGI_LAWS, ADAM_FOUNDER_BIOGRAPHY_IDENTITY_LAW, ADAM_FOUNDER_BIOGRAPHY_OUTPUT_LOCK, ADAM_DR_AMINULLAH_OUTPUT_LOCK, founderAsksPersonalBiography, founderAsksDrAminullahContext } from './adam-knowledge-prompts';
+import {
+  ADAM_PERSON_RELATIONAL_IDENTITY_LAW,
+  buildPersonIdentityOutputLock,
+  listKnownPersonRefs,
+  resolvePersonFromMessage,
+} from './person-relational-memory.service';
 import { ADAM_UNIFIED_SURFACE_HYGIENE } from './adam-student-output-law';
 import {
   ADAM_MEMORY_HONESTY_RULE,
@@ -32,6 +38,10 @@ import {
   ADAM_STUDENT_DELIVERY,
   ADAM_STUDENT_TEACHING_DEPTH_TURN,
 } from './adam-student-constitution';
+import {
+  ADAM_DIRECT_TECHNICAL_REPLY_LAW,
+  isDirectTechnicalHowToQuestion,
+} from './adam-direct-technical-law';
 import {
   ADAM_CONSTITUTIONAL_KNOWLEDGE_HOLD,
   ADAM_EXPLAIN_BACK_LAW,
@@ -69,6 +79,17 @@ import {
   FOUNDER_TEACHING_SYNTHESIS_OUTPUT_LOCK,
   FOUNDER_TEACHING_SYNTHESIS_PROMPT,
 } from './adam-founder-teaching-prompts';
+import {
+  ADAM_TUTOR_GUARDRAILS,
+  ADAM_TUTOR_IDENTITY,
+  ADAM_TUTOR_LAW,
+  ADAM_TUTOR_OFF_TOPIC_TURN,
+  buildAdamTutorTeacherIntroLaw,
+  buildAdamTutorProfileBlock,
+  isAdamTutorMode,
+  isAdamTutorOffTopicMessage,
+  type AdamTutorProfile,
+} from './adam-tutor-law';
 import type { ADAMAnswerStyle, ADAMChatMode } from './adam.types';
 
 export { CONSULT_PHRASE, FOUNDER_STUDENTS_AWARENESS };
@@ -106,6 +127,11 @@ Real journal numbers are ALM-J{year}-{seq} assigned only on publish.
 TEACHING RECORDS:
 When [ADAM TEACHING RECORDS] is injected, you may say "I remember" only for
 episodes listed there. Do not invent autobiography beyond those records.
+
+BIOGRAPHY IDENTITY:
+When P.alt asks about his life story, use ONLY ADAM_FOUNDER_NARRATIVE facts for P.alt.
+Dr Aminullah and other figures are separate people — never merge their episodes into P.alt's life.
+See ADAM_FOUNDER_BIOGRAPHY_IDENTITY_LAW.
 
 RELATIONAL MEMORY:
 When [ADAM RELATIONAL MEMORY] is injected, speak from the family arc summaries —
@@ -145,6 +171,8 @@ export interface AdamChatSystemPromptParams {
   studentKnowledgeTier?:  StudentKnowledgeTier;
   /** Current user message — enables per-turn depth overlay (any subject). */
   userMessage?:            string;
+  /** ADAM Tutor lane — conventional academics only (no Alamtologi stack). */
+  tutorProfile?:           AdamTutorProfile;
 }
 
 /**
@@ -154,6 +182,10 @@ export interface AdamChatSystemPromptParams {
  * Layer 5, and knowledge stack as Founder chat — hygiene-only surface rules differ.
  */
 export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): string {
+  if (isAdamTutorMode(params.mode) && !params.isFounder) {
+    return buildAdamTutorSystemPrompt(params);
+  }
+
   const voice = resolveEffectiveAnswerStyle(params.mode, params.answerStyle);
   const teachingAbsorption = params.founderTeachingAbsorption === true;
   const teachingSynthesis = params.founderTeachingSynthesis === true;
@@ -250,8 +282,23 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
 
   // ── 6. Role-specific ─────────────────────────────────────────
   if (params.isFounder) {
+    parts.push(ADAM_FOUNDER_BIOGRAPHY_IDENTITY_LAW);
+    parts.push(ADAM_PERSON_RELATIONAL_IDENTITY_LAW);
+    if (params.userMessage?.trim() && founderAsksPersonalBiography(params.userMessage)) {
+      parts.push(ADAM_FOUNDER_BIOGRAPHY_OUTPUT_LOCK);
+    }
+    if (params.userMessage?.trim() && founderAsksDrAminullahContext(params.userMessage)) {
+      parts.push(ADAM_DR_AMINULLAH_OUTPUT_LOCK);
+    }
+    const personSubject = params.userMessage?.trim()
+      ? resolvePersonFromMessage(params.userMessage, listKnownPersonRefs())
+      : null;
+    if (personSubject) {
+      parts.push(buildPersonIdentityOutputLock(personSubject));
+    }
     if (teachingSynthesis) {
       parts.push(ALAMTOLOGI_BOOK_CANON);
+      parts.push(ADAM_FOUNDER_NARRATIVE);
       parts.push(FOUNDER_TEACHING_SYNTHESIS_PROMPT);
       parts.push(params.founderStudentsBlock);
       if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
@@ -260,6 +307,7 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
       }
     } else if (teachingAbsorption) {
       parts.push(ALAMTOLOGI_BOOK_CANON);
+      parts.push(ADAM_FOUNDER_NARRATIVE);
       parts.push(FOUNDER_TEACHING_ABSORPTION_PROMPT);
       parts.push(params.founderStudentsBlock);
       if (ENV.ADAM_BUILDER_ENABLED && params.mode === 'TEACHING') {
@@ -292,12 +340,20 @@ function appendExplainBackPedagogy(
 ): void {
   if (teachingLearnerTurn) return;
 
+  const directTechnical = Boolean(
+    params.userMessage?.trim() && isDirectTechnicalHowToQuestion(params.userMessage),
+  );
+
   if (!params.isFounder) {
     const studentTier = params.studentKnowledgeTier ?? 1;
     parts.push(STUDENT_MODE_PROMPT);
-    parts.push(ADAM_EXPLAIN_BACK_LAW);
-    parts.push(ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE);
-    parts.push(buildThreeTierTurnOverlay(studentTier));
+    if (directTechnical) {
+      parts.push(ADAM_DIRECT_TECHNICAL_REPLY_LAW);
+    } else {
+      parts.push(ADAM_EXPLAIN_BACK_LAW);
+      parts.push(ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE);
+      parts.push(buildThreeTierTurnOverlay(studentTier));
+    }
     parts.push(buildStudentAddressLaw(params.participantName));
     if (params.studentContinuityBridge) parts.push(params.studentContinuityBridge);
     if (params.workspacePrompt) parts.push(params.workspacePrompt);
@@ -312,7 +368,11 @@ function appendExplainBackPedagogy(
     return;
   }
 
-  parts.push(ADAM_EXPLAIN_BACK_LAW);
+  if (directTechnical) {
+    parts.push(ADAM_DIRECT_TECHNICAL_REPLY_LAW);
+  } else {
+    parts.push(ADAM_EXPLAIN_BACK_LAW);
+  }
   if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
   parts.push(ADAM_CONSTITUTIONAL_KNOWLEDGE_HOLD);
   parts.push(ALAMTOLOGI_BOOK_CANON);
@@ -321,9 +381,33 @@ function appendExplainBackPedagogy(
   parts.push(ADAM_ALAMTOLOGI_LAWS);
   parts.push(ADAM_EPISTEMOLOGICAL_POSITION);
   parts.push(ADAM_FOUNDER_NARRATIVE);
+  parts.push(ADAM_FOUNDER_BIOGRAPHY_IDENTITY_LAW);
   parts.push(params.founderStudentsBlock);
   if (params.mode !== 'JOURNAL_GEN') parts.push(FOUNDER_JOURNAL_SEAL_HINT);
   if (ENV.ADAM_BUILDER_ENABLED && params.mode === 'TEACHING') {
     parts.push(FOUNDER_TEACHING_BUILDER_PROMPT);
   }
+}
+
+/** ADAM Tutor — separate product lane; no Alamtologi / Explain-Back constitutional stack. */
+function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): string {
+  const parts: string[] = [
+    ADAM_TUTOR_IDENTITY,
+    buildAdamTutorTeacherIntroLaw(params.tutorProfile),
+    ADAM_TUTOR_GUARDRAILS,
+    ADAM_PROSE_DASH_LAW,
+    ADAM_BAHASA_MELAYU_LAW,
+    buildAdamTutorProfileBlock(params.tutorProfile),
+    ADAM_TUTOR_LAW,
+  ];
+
+  if (params.userMessage?.trim() && isAdamTutorOffTopicMessage(params.userMessage)) {
+    parts.push(ADAM_TUTOR_OFF_TOPIC_TURN);
+  }
+
+  if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
+  parts.push(buildStudentAddressLaw(params.participantName));
+  parts.push(ADAM_MEMORY_HONESTY_RULE_STUDENT);
+
+  return parts.filter(Boolean).join('\n\n');
 }

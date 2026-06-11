@@ -19,8 +19,13 @@ import { withSseKeepalive } from '../../adam/adam-sse-keepalive';
 import { getTokenUser, requireStudent, requireStudentOrGuru } from '../../middleware/auth.middleware';
 import {
   requireActiveSubscription,
+  requireTutorSubscription,
   getSubscriptionAccess,
 } from '../../middleware/subscription-guard.middleware';
+import {
+  isTutorBillingEnforced,
+  resolveTutorSubscriptionAccess,
+} from '../../adam/adam-tutor-subscription.service';
 import {
   runPencarianPreCheck,
   streamPencarianClosingTurn,
@@ -56,6 +61,12 @@ import {
 import {
   streamADAMChat,
   getOrCreateSession,
+  createNewChatSession,
+  listUserChatSessions,
+  renameUserChatSession,
+  deleteUserChatSession,
+  resolveStudentChatSession,
+  resolveTutorChatSession,
   loadMessageHistory,
   deleteFounderMessage,
   assertCanClearSessionChat,
@@ -77,7 +88,12 @@ import {
   slugStudentUserId,
   studentRegisterRequiresCode,
   getAccountRole,
+  getAccountLane,
 } from '../../adam/adam-student-registry.service';
+import {
+  guardPelajarLane,
+  guardUmumLane,
+} from '../../adam/adam-account-lane-guard';
 import {
   authenticateGoogleIdToken,
   isGoogleSignInEnabled,
@@ -91,6 +107,10 @@ import {
 } from '../../adam/adam-password-reset.service';
 import { assertStudentOwnsSession } from '../../adam/adam-workspace.service';
 import { buildStudentPulse } from '../../adam/adam-student-pulse.service';
+import {
+  getTutorProfile,
+  saveTutorProfile,
+} from '../../adam/adam-tutor-profile.service';
 
 const router = new Hono();
 
@@ -111,6 +131,7 @@ const RegisterSchema = z.object({
   email:        z.string().email().max(120).optional(),
   password:     z.string().min(6).max(128),
   registerCode: z.string().max(64).optional(),
+  accountLane:  z.enum(['umum', 'pelajar']).optional(),
 });
 
 const GoogleSchema = z.object({
@@ -135,9 +156,35 @@ const ChangePasswordSchema = z.object({
 const ChatSchema = z.object({
   sessionId:    z.string().optional(),
   message:      z.string().max(100_000).optional(),
-  mode:         z.enum(['TEACHING', 'QUESTIONING', 'AUDIT', 'CONSTITUTIONAL', 'JOURNAL_GEN']).default('QUESTIONING'),
+  mode:         z.enum(['TEACHING', 'QUESTIONING', 'AUDIT', 'CONSTITUTIONAL', 'JOURNAL_GEN', 'TUTOR']).default('QUESTIONING'),
   answerStyle:  z.enum(['natural', 'philosophy', 'formal', 'technical']).optional(),
   uploadIds:    z.array(z.string().min(1)).max(5).optional(),
+}).refine(
+  (d) => (d.message?.trim()?.length ?? 0) > 0 || (d.uploadIds?.length ?? 0) > 0,
+  { message: 'Provide a message and/or at least one attached file (uploadIds).' },
+);
+
+const TutorProfileSchema = z.object({
+  level:      z.enum(['primary', 'secondary', 'university']),
+  curriculum: z.enum([
+    'national', 'international', 'us', 'uk', 'other',
+    'kpm', 'cambridge', 'mixed', // legacy clients
+  ]),
+  language:   z.enum([
+    'english', 'malay', 'arabic', 'mandarin', 'tamil',
+    'indonesian', 'spanish', 'french', 'other',
+  ]).optional(),
+  yearLabel:   z.string().max(64).optional(),
+  countryCode: z.string().length(2).regex(/^[A-Z]{2}$/).optional(),
+  localeNote:  z.string().max(120).optional(),
+});
+
+const TutorChatSchema = z.object({
+  sessionId:     z.string().optional(),
+  message:       z.string().max(100_000).optional(),
+  answerStyle:   z.enum(['natural', 'philosophy', 'formal', 'technical']).optional(),
+  uploadIds:     z.array(z.string().min(1)).max(5).optional(),
+  tutorProfile:  TutorProfileSchema.optional(),
 }).refine(
   (d) => (d.message?.trim()?.length ?? 0) > 0 || (d.uploadIds?.length ?? 0) > 0,
   { message: 'Provide a message and/or at least one attached file (uploadIds).' },
@@ -292,13 +339,15 @@ router.post('/register', zValidator('json', RegisterSchema), async (c) => {
       userId:       body.userId ?? slugStudentUserId(body.name),
       email:        body.email,
       registerCode: body.registerCode,
+      accountLane:  body.accountLane,
     });
 
     const token = issueAdamToken({
-      userId:    created.userId,
-      role:      'student',
-      name:      created.name,
-      isFounder: false,
+      userId:       created.userId,
+      role:         'student',
+      name:         created.name,
+      isFounder:    false,
+      accountLane:  created.accountLane,
     });
 
     return c.json({
@@ -306,10 +355,11 @@ router.post('/register', zValidator('json', RegisterSchema), async (c) => {
       kernel:  'ALAMTOLOGI',
       data: {
         token,
-        userId:    created.userId,
-        name:      created.name,
-        role:      'student',
-        expiresIn: '30d',
+        userId:      created.userId,
+        name:        created.name,
+        role:        'student',
+        accountLane: created.accountLane,
+        expiresIn:   '30d',
       },
       timestamp: new Date().toISOString(),
     }, 201);
@@ -327,21 +377,24 @@ router.post('/google', zValidator('json', GoogleSchema), async (c) => {
   try {
     const account = await authenticateGoogleIdToken(idToken);
     const accountRole = await getAccountRole(account.userId);
+    const accountLane = await getAccountLane(account.userId);
     const token = issueAdamToken({
-      userId:    account.userId,
-      role:      accountRole,
-      name:      account.name,
-      isFounder: false,
+      userId:       account.userId,
+      role:         accountRole,
+      name:         account.name,
+      isFounder:    false,
+      accountLane,
     });
     return c.json({
       success: true,
       kernel:  'ALAMTOLOGI',
       data: {
         token,
-        userId:    account.userId,
-        name:      account.name,
-        role:      accountRole,
-        expiresIn: '30d',
+        userId:      account.userId,
+        name:        account.name,
+        role:        accountRole,
+        accountLane,
+        expiresIn:   '30d',
       },
       timestamp: new Date().toISOString(),
     });
@@ -416,11 +469,13 @@ router.post('/login', zValidator('json', LoginSchema), async (c) => {
   }
 
   const accountRole = await getAccountRole(account.userId);
+  const accountLane = await getAccountLane(account.userId);
   const token = issueAdamToken({
-    userId:    account.userId,
-    role:      accountRole,
-    name:      account.name,
-    isFounder: false,
+    userId:       account.userId,
+    role:         accountRole,
+    name:         account.name,
+    isFounder:    false,
+    accountLane,
   });
 
   return c.json({
@@ -428,10 +483,11 @@ router.post('/login', zValidator('json', LoginSchema), async (c) => {
     kernel:  'ALAMTOLOGI',
     data: {
       token,
-      role:      accountRole,
-      userId:    account.userId,
-      name:      account.name,
-      expiresIn: '30d',
+      role:        accountRole,
+      userId:      account.userId,
+      name:        account.name,
+      accountLane,
+      expiresIn:   '30d',
     },
     timestamp: new Date().toISOString(),
   });
@@ -446,10 +502,22 @@ router.get('/accounts', (c) => {
   });
 });
 
-// GET /api/adam/student/session
+// GET /api/adam/student/session — optional ?sessionId= for recents sidebar
 router.get('/session', requireStudent, async (c) => {
+  const laneBlock = await guardUmumLane(c);
+  if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
-  const sessionId = await getOrCreateSession(user.userId, 'student');
+  const preferred = c.req.query('sessionId')?.trim();
+  let sessionId: string;
+  if (preferred) {
+    const allowed = await assertStudentOwnsSession(user.userId, preferred);
+    if (!allowed) {
+      return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+    }
+    sessionId = preferred;
+  } else {
+    sessionId = await resolveStudentChatSession(user.userId);
+  }
   return c.json({
     success: true,
     sessionId,
@@ -460,14 +528,84 @@ router.get('/session', requireStudent, async (c) => {
   });
 });
 
+// GET /api/adam/student/chat/sessions — ChatGPT-style recents
+router.get('/chat/sessions', requireStudent, async (c) => {
+  const laneBlock = await guardUmumLane(c);
+  if (laneBlock) return laneBlock;
+  const user = getTokenUser(c)!;
+  const rawLimit = parseInt(c.req.query('limit') ?? '30', 10);
+  const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 30;
+  const sessions = await listUserChatSessions(user.userId, 'student', limit);
+  return c.json({
+    success: true,
+    sessions,
+    count:   sessions.length,
+    kernel:  'ALAMTOLOGI',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// POST /api/adam/student/chat/sessions — new chat thread
+router.post('/chat/sessions', requireStudent, async (c) => {
+  const laneBlock = await guardUmumLane(c);
+  if (laneBlock) return laneBlock;
+  const user = getTokenUser(c)!;
+  const sessionId = await createNewChatSession(user.userId, 'student');
+  return c.json({
+    success: true,
+    sessionId,
+    kernel:  'ALAMTOLOGI',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+const SessionTitleSchema = z.object({
+  title: z.string().min(1).max(72),
+});
+
+// PATCH /api/adam/student/chat/sessions/:sessionId — rename thread
+router.patch('/chat/sessions/:sessionId', requireStudent, zValidator('json', SessionTitleSchema), async (c) => {
+  const laneBlock = await guardUmumLane(c);
+  if (laneBlock) return laneBlock;
+  const user = getTokenUser(c)!;
+  const sessionId = c.req.param('sessionId') ?? '';
+  const { title } = c.req.valid('json');
+  try {
+    const ok = await renameUserChatSession(user.userId, sessionId, 'student', title);
+    if (!ok) return c.json({ success: false, error: 'Session not found.' }, 404);
+    return c.json({ success: true, sessionId, title: title.trim() });
+  } catch (err) {
+    return c.json({ success: false, error: (err as Error).message }, 403);
+  }
+});
+
+// DELETE /api/adam/student/chat/sessions/:sessionId — remove thread
+router.delete('/chat/sessions/:sessionId', requireStudent, async (c) => {
+  const laneBlock = await guardUmumLane(c);
+  if (laneBlock) return laneBlock;
+  const user = getTokenUser(c)!;
+  const sessionId = c.req.param('sessionId') ?? '';
+  try {
+    const ok = await deleteUserChatSession(user.userId, sessionId, 'student');
+    if (!ok) return c.json({ success: false, error: 'Session not found.' }, 404);
+    return c.json({ success: true, sessionId });
+  } catch (err) {
+    return c.json({ success: false, error: (err as Error).message }, 403);
+  }
+});
+
 // GET /api/adam/student/group/session
 router.get('/group/session', requireStudent, async (c) => {
+  const laneBlock = await guardUmumLane(c);
+  if (laneBlock) return laneBlock;
   const sessionId = await getOrCreateGroupSession();
   return c.json({ success: true, sessionId, kernel: 'ALAMTOLOGI' });
 });
 
-// POST /api/adam/student/chat — private 1:1
+// POST /api/adam/student/chat — private 1:1 (umum / ADAM Learn)
 router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json', ChatSchema), async (c) => {
+  const laneBlock = await guardUmumLane(c);
+  if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const body = c.req.valid('json');
   const access = getSubscriptionAccess(c);
@@ -593,6 +731,8 @@ router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json
 
 // POST /api/adam/student/group/chat
 router.post('/group/chat', requireStudent, requireActiveSubscription, zValidator('json', ChatSchema), async (c) => {
+  const laneBlock = await guardUmumLane(c);
+  if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const body = c.req.valid('json');
   const sessionId = await getOrCreateGroupSession();
@@ -645,6 +785,8 @@ router.post('/group/chat', requireStudent, requireActiveSubscription, zValidator
 
 // GET /api/adam/student/chat/history/:sessionId
 router.get('/chat/history/:sessionId', requireStudent, async (c) => {
+  const laneBlock = await guardUmumLane(c);
+  if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const sessionId = c.req.param('sessionId') ?? '';
   const allowed = await assertStudentOwnsSession(user.userId, sessionId);
@@ -661,6 +803,8 @@ router.get('/chat/history/:sessionId', requireStudent, async (c) => {
 
 // DELETE /api/adam/student/chat/history/:sessionId — clear private chat
 router.delete('/chat/history/:sessionId', requireStudent, async (c) => {
+  const laneBlock = await guardUmumLane(c);
+  if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const sessionId = c.req.param('sessionId') ?? '';
   if (!sessionId) {
@@ -689,6 +833,229 @@ router.get('/group/history', requireStudent, async (c) => {
   const sessionId = await getOrCreateGroupSession();
   const messages = await loadMessageHistory(sessionId, 100);
   return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
+});
+
+// ─── ADAM Tutor (conventional academics — separate lane) ───────
+
+router.get('/tutor/profile', requireStudent, async (c) => {
+  const laneBlock = await guardPelajarLane(c);
+  if (laneBlock) return laneBlock;
+  const user = getTokenUser(c)!;
+  const profile = await getTutorProfile(user.userId);
+  return c.json({
+    success: true,
+    profile,
+    kernel: 'ALAMTOLOGI',
+  });
+});
+
+router.put('/tutor/profile', requireStudent, zValidator('json', TutorProfileSchema), async (c) => {
+  const laneBlock = await guardPelajarLane(c);
+  if (laneBlock) return laneBlock;
+  const user = getTokenUser(c)!;
+  const body = c.req.valid('json');
+  const profile = await saveTutorProfile(user.userId, body);
+  return c.json({
+    success: true,
+    profile,
+    kernel: 'ALAMTOLOGI',
+  });
+});
+
+router.get('/tutor/subscription', requireStudent, async (c) => {
+  const laneBlock = await guardPelajarLane(c);
+  if (laneBlock) return laneBlock;
+  const user = getTokenUser(c)!;
+  const tutorLevel = c.req.query('tutorLevel')?.trim() || undefined;
+  const access = await resolveTutorSubscriptionAccess(user.userId, tutorLevel);
+  return c.json({
+    success:         true,
+    billingEnforced: isTutorBillingEnforced(),
+    ...access,
+    kernel:          'ALAMTOLOGI',
+  });
+});
+
+router.get('/tutor/session', requireStudent, requireTutorSubscription, async (c) => {
+  const laneBlock = await guardPelajarLane(c);
+  if (laneBlock) return laneBlock;
+  const user = getTokenUser(c)!;
+  const preferred = c.req.query('sessionId')?.trim();
+  let sessionId: string;
+  if (preferred) {
+    const allowed = await assertStudentOwnsSession(user.userId, preferred);
+    if (!allowed) {
+      return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+    }
+    sessionId = preferred;
+  } else {
+    sessionId = await resolveTutorChatSession(user.userId);
+  }
+  return c.json({
+    success: true,
+    sessionId,
+    userId:  user.userId,
+    name:    user.name,
+    kernel:  'ALAMTOLOGI',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+router.get('/tutor/chat/sessions', requireStudent, requireTutorSubscription, async (c) => {
+  const laneBlock = await guardPelajarLane(c);
+  if (laneBlock) return laneBlock;
+  const user = getTokenUser(c)!;
+  const rawLimit = parseInt(c.req.query('limit') ?? '30', 10);
+  const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 30;
+  const sessions = await listUserChatSessions(user.userId, 'tutor', limit);
+  return c.json({
+    success: true,
+    sessions,
+    count:   sessions.length,
+    kernel:  'ALAMTOLOGI',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+router.patch('/tutor/chat/sessions/:sessionId', requireStudent, requireTutorSubscription, zValidator('json', SessionTitleSchema), async (c) => {
+  const user = getTokenUser(c)!;
+  const sessionId = c.req.param('sessionId') ?? '';
+  const { title } = c.req.valid('json');
+  try {
+    const ok = await renameUserChatSession(user.userId, sessionId, 'tutor', title);
+    if (!ok) return c.json({ success: false, error: 'Session not found.' }, 404);
+    return c.json({ success: true, sessionId, title: title.trim() });
+  } catch (err) {
+    return c.json({ success: false, error: (err as Error).message }, 403);
+  }
+});
+
+router.delete('/tutor/chat/sessions/:sessionId', requireStudent, requireTutorSubscription, async (c) => {
+  const user = getTokenUser(c)!;
+  const sessionId = c.req.param('sessionId') ?? '';
+  try {
+    const ok = await deleteUserChatSession(user.userId, sessionId, 'tutor');
+    if (!ok) return c.json({ success: false, error: 'Session not found.' }, 404);
+    return c.json({ success: true, sessionId });
+  } catch (err) {
+    return c.json({ success: false, error: (err as Error).message }, 403);
+  }
+});
+
+router.post('/tutor/chat/sessions', requireStudent, requireTutorSubscription, async (c) => {
+  const laneBlock = await guardPelajarLane(c);
+  if (laneBlock) return laneBlock;
+  const user = getTokenUser(c)!;
+  const sessionId = await createNewChatSession(user.userId, 'tutor');
+  return c.json({
+    success: true,
+    sessionId,
+    kernel:  'ALAMTOLOGI',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+router.get('/tutor/chat/history/:sessionId', requireStudent, requireTutorSubscription, async (c) => {
+  const laneBlock = await guardPelajarLane(c);
+  if (laneBlock) return laneBlock;
+  const user = getTokenUser(c)!;
+  const sessionId = c.req.param('sessionId') ?? '';
+  const allowed = await assertStudentOwnsSession(user.userId, sessionId);
+  if (!allowed) {
+    return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+  }
+  const rawLimit = parseInt(c.req.query('limit') ?? '100', 10);
+  const limit = Number.isFinite(rawLimit)
+    ? Math.min(100, Math.max(1, rawLimit))
+    : 100;
+  const messages = await loadMessageHistory(sessionId, limit);
+  return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
+});
+
+// DELETE /api/adam/student/tutor/chat/history/:sessionId — clear tutor chat
+router.delete('/tutor/chat/history/:sessionId', requireStudent, requireTutorSubscription, async (c) => {
+  const laneBlock = await guardPelajarLane(c);
+  if (laneBlock) return laneBlock;
+  const user = getTokenUser(c)!;
+  const sessionId = c.req.param('sessionId') ?? '';
+  if (!sessionId) {
+    return c.json({ success: false, error: 'sessionId required.', kernel: 'ALAMTOLOGI' }, 400);
+  }
+
+  try {
+    await assertCanClearSessionChat(sessionId, user.userId, { isFounder: false });
+    const deletedCount = await clearSessionChatHistory(sessionId);
+    return c.json({
+      success:      true,
+      sessionId,
+      deletedCount,
+      kernel:       'ALAMTOLOGI',
+      timestamp:    new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Could not clear chat.';
+    const status = msg.includes('denied') || msg.includes('cannot') ? 403 : 400;
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, status);
+  }
+});
+
+router.post('/tutor/chat', requireStudent, requireTutorSubscription, zValidator('json', TutorChatSchema), async (c) => {
+  const laneBlock = await guardPelajarLane(c);
+  if (laneBlock) return laneBlock;
+  const user = getTokenUser(c)!;
+  const body = c.req.valid('json');
+
+  let sessionId = body.sessionId;
+  if (!sessionId) sessionId = await resolveTutorChatSession(user.userId);
+
+  const message = body.message?.trim() ?? '';
+
+  c.header('Content-Type', 'text/event-stream');
+  c.header('Cache-Control', 'no-cache');
+  c.header('Connection', 'keep-alive');
+
+  return stream(c, async (s) => {
+    try {
+      if (message) {
+        const layerGate = await runLayerGatePreCheck({
+          userId:    user.userId,
+          message,
+          mode:      'TUTOR',
+          isFounder: false,
+          userName:  user.name ?? user.userId,
+        });
+        if (!layerGate.allowed) {
+          await streamLayerGateBlockedTurn(s, sessionId!, layerGate);
+          return;
+        }
+      }
+
+      if (body.tutorProfile) {
+        await saveTutorProfile(user.userId, body.tutorProfile);
+      }
+
+      await withSseKeepalive(s, () =>
+        streamADAMChat(
+          sessionId!,
+          message,
+          'TUTOR',
+          async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
+          body.uploadIds ?? [],
+          {
+            userId:      user.userId,
+            userName:    user.name ?? user.userId,
+            role:        'student',
+            sessionType: 'tutor',
+          },
+          { answerStyle: body.answerStyle, tutorProfile: body.tutorProfile },
+        ),
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'ADAM stream failed';
+      await s.write(`event: adam_error\ndata: ${JSON.stringify({ error: msg })}\n\n`);
+    }
+    await s.write('event: adam_done\ndata: {}\n\n');
+  });
 });
 
 // DELETE /api/adam/student/chat/messages/:messageId

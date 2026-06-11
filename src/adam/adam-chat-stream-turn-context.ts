@@ -123,6 +123,7 @@ export async function fetchAdamTurnContext(input: {
   const contextStarted = Date.now();
   const needContinuityBridge = !isFounder
     && !isGuestTrial
+    && mode !== 'TUTOR'
     && studentContinuityNeedsFullBridge(messageForAdam);
   const needTamat = isAmaBrainV2Enabled()
     && isFounder
