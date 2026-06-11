@@ -20,12 +20,15 @@ export enum AdamServerId {
   JURNAL = 'JURNAL',
   BUKU   = 'BUKU',
   KOD    = 'KOD',
+  GURU   = 'GURU',
 }
 
 export enum AdamServerTier {
   STARTER      = 'STARTER',
   PROFESSIONAL = 'PROFESSIONAL',
   INSTITUTION  = 'INSTITUTION',
+  /** GURU only — student kelas pass (invited channels, no full Premium desk). */
+  STUDENT_KELAS = 'STUDENT_KELAS',
 }
 
 export type LayerGateBlockReason =

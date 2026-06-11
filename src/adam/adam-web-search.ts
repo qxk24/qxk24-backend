@@ -14,7 +14,7 @@
 import { ENV } from '../config/environments';
 import { parseQuranAyahRefs } from '../quran/quran-ayah-parser';
 import { isUserEntityCorrectionMessage } from './adam-factual-grounding';
-import { isAdamLightChatTurn } from './adam-response-generation';
+import { isAdamLightChatTurn, isAdamSubstantiveTurn } from './adam-response-generation';
 import { isTechnicalPrecisionQuestion } from './adam-universal-voice';
 import { buildFounderWebSearchPrompt } from './adam-web-search-prompts';
 
@@ -118,8 +118,8 @@ export function getWebSearchGateReason(
     /** Short reply continuing a technical thread (e.g. "850cc?", "Exclusive pula?"). */
     technicalFollowUp?: boolean;
     /**
-     * Student chat — search only when specs must be verified (not every teaching ask).
-     * Skips ambient factual_question / inline search so replies stream sooner.
+     * Student chat — search for technical specs AND substantive turns needing
+     * conventional theory / scientific grounding (Explain-Back Phase 1B).
      */
     studentFounderParity?: boolean;
   },
@@ -135,6 +135,8 @@ export function getWebSearchGateReason(
     if (isTechnicalPrecisionQuestion(text)) return 'technical_precision';
     if (isUserEntityCorrectionMessage(text)) return 'entity_correction';
     if (GREETING_ONLY.test(text) || isAdamLightChatTurn(text)) return null;
+    if (PURE_REFLECTION.test(text)) return null;
+    if (isAdamSubstantiveTurn(text)) return 'substantive_conventional';
     return null;
   }
 

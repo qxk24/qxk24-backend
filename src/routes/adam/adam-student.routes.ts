@@ -16,7 +16,7 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { ENV } from '../../config/environments';
 import { withSseKeepalive } from '../../adam/adam-sse-keepalive';
-import { getTokenUser, requireStudent } from '../../middleware/auth.middleware';
+import { getTokenUser, requireStudent, requireStudentOrGuru } from '../../middleware/auth.middleware';
 import {
   requireActiveSubscription,
   getSubscriptionAccess,
@@ -76,6 +76,7 @@ import {
   registerStudentSelf,
   slugStudentUserId,
   studentRegisterRequiresCode,
+  getAccountRole,
 } from '../../adam/adam-student-registry.service';
 import {
   authenticateGoogleIdToken,
@@ -143,7 +144,7 @@ const ChatSchema = z.object({
 );
 
 // GET /api/adam/student/pulse — learning command board aggregate
-router.get('/pulse', requireStudent, async (c) => {
+router.get('/pulse', requireStudentOrGuru, async (c) => {
   const user = getTokenUser(c)!;
   const pulse = await buildStudentPulse(
     user.userId,
@@ -325,9 +326,10 @@ router.post('/google', zValidator('json', GoogleSchema), async (c) => {
   const { idToken } = c.req.valid('json');
   try {
     const account = await authenticateGoogleIdToken(idToken);
+    const accountRole = await getAccountRole(account.userId);
     const token = issueAdamToken({
       userId:    account.userId,
-      role:      'student',
+      role:      accountRole,
       name:      account.name,
       isFounder: false,
     });
@@ -338,7 +340,7 @@ router.post('/google', zValidator('json', GoogleSchema), async (c) => {
         token,
         userId:    account.userId,
         name:      account.name,
-        role:      'student',
+        role:      accountRole,
         expiresIn: '30d',
       },
       timestamp: new Date().toISOString(),
@@ -413,9 +415,10 @@ router.post('/login', zValidator('json', LoginSchema), async (c) => {
     return c.json({ success: false, error: 'Access denied.', kernel: 'ALAMTOLOGI' }, 401);
   }
 
+  const accountRole = await getAccountRole(account.userId);
   const token = issueAdamToken({
     userId:    account.userId,
-    role:      'student',
+    role:      accountRole,
     name:      account.name,
     isFounder: false,
   });
@@ -425,9 +428,9 @@ router.post('/login', zValidator('json', LoginSchema), async (c) => {
     kernel:  'ALAMTOLOGI',
     data: {
       token,
-      userId:   account.userId,
-      name:     account.name,
-      role:     'student',
+      role:      accountRole,
+      userId:    account.userId,
+      name:      account.name,
       expiresIn: '30d',
     },
     timestamp: new Date().toISOString(),

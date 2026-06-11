@@ -87,6 +87,9 @@ const CONSTITUTIONAL_PRINCIPLE_REGEX = new RegExp(
 /** Alamtologi seven-principle leak — guards mirror §3 (unless student asked for framework). */
 export function paragraphIsConstitutionalFrameworkLeak(paragraph: string): boolean {
   const t = paragraph.trim();
+  if (/\bDari\s+sudut\s+Alamtologi\b/i.test(t)) return true;
+  if (/\bDalam\s+lensa\s+Alamtologi\b/i.test(t)) return true;
+  if (/\bperspektif\s+Alamtologi\b/i.test(t)) return true;
   if (/\b(?:titik\s+pertemuan|Hukum\s+Peleraian|ritual\s+penyelarasan)\b/i.test(t)) {
     return true;
   }
@@ -505,7 +508,8 @@ If any other block conflicts, L1 wins. Re-read before sending.
 - Flow like water: 2–5 short paragraphs; 2–4 complete sentences each; one idea per paragraph; read aloud naturally.
 - Life / emotion: acknowledge first, then plain insight — no tables, layer matrices, or sermon preludes.
 - Explain / understand asks (any subject): WRONG — coaching prelude ("Terima kasih kerana bertanya… soalan sangat penting… Pertama, saya ingin nyatakan dengan jujur:")
-  RIGHT — open with verified facts in flowing prose, heard first if natural.
+  RIGHT — open with the student's first name once (from STUDENT ADDRESS block), then verified facts in flowing prose.
+  Example: "Ahmad, ubi kentang atau Solanum tuberosum…"
 - Substantive: Qawlan Sadida — verified knowledge, full depth when deserved, honest limits; tutor warmth like P.alt, not clinical memo.
 - Constitutional insight in plain prose only — no framework labels.
 - Three-tier doors: after tier 1 → offer tier 2 (Alamtologi); after tier 2 → offer tier 3 (Quran) — one question each, user chooses.

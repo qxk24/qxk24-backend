@@ -251,6 +251,12 @@ export const ENV = {
   /** Profesional annual — optional legacy MYR Price ID */
   STRIPE_PRICE_ID_PROFESIONAL_ANNUAL:  optional('STRIPE_PRICE_ID_PROFESIONAL_ANNUAL', ''),
 
+  /** ADAMGuru Layer 2 — MYR monthly (create in Stripe → paste price_… IDs) */
+  STRIPE_PRICE_ID_GURU_STARTER_MONTHLY:      optional('STRIPE_PRICE_ID_GURU_STARTER_MONTHLY', ''),
+  STRIPE_PRICE_ID_GURU_PROFESSIONAL_MONTHLY: optional('STRIPE_PRICE_ID_GURU_PROFESSIONAL_MONTHLY', ''),
+  STRIPE_PRICE_ID_GURU_INSTITUTION_MONTHLY:  optional('STRIPE_PRICE_ID_GURU_INSTITUTION_MONTHLY', ''),
+  STRIPE_PRICE_ID_GURU_STUDENT_KELAS_MONTHLY: optional('STRIPE_PRICE_ID_GURU_STUDENT_KELAS_MONTHLY', ''),
+
   /** @deprecated Legacy — not used; Stripe is sole gateway */
   RAZORPAY_KEY_ID:              optional('RAZORPAY_KEY_ID', ''),
   RAZORPAY_KEY_SECRET:          optional('RAZORPAY_KEY_SECRET', ''),

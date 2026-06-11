@@ -23,7 +23,10 @@ import {
   getUserServerStatuses,
   isLayer2Open,
 } from '../../adam-servers/adam-server-access.service';
-import { AdamServerId } from '../../adam-servers/adam-server.types';
+import { createAdamServerCheckoutSession } from '../../adam-servers/adam-server-stripe.service';
+import { listAdamGuruStripeCatalogForDashboard } from '../../adam-servers/adam-server-stripe.config';
+import { AdamServerId, AdamServerTier } from '../../adam-servers/adam-server.types';
+import { getStripeGatewayStatus } from '../../subscriptions/stripe-gateway.service';
 import { ENV } from '../../config/environments';
 import { guestLifetimeLimit } from '../../freemium/adam-freemium-guest.service';
 import { freeRollingLimit, rollingWindowHours } from '../../freemium/adam-freemium-rolling.service';
@@ -58,9 +61,23 @@ router.get('/pricing', (c) => {
       servers:     ADAM_SERVER_CATALOG,
     },
     checkout: {
-      wired:      false,
-      comingSoon: true,
+      wired:      getStripeGatewayStatus().configured,
+      comingSoon: !getStripeGatewayStatus().configured,
+      guru:       listAdamGuruStripeCatalogForDashboard(),
     },
+  });
+});
+
+// GET /api/adam/servers/stripe-catalog — ADAMGuru prices to create in Stripe Dashboard
+router.get('/stripe-catalog', (c) => {
+  const stripe = getStripeGatewayStatus();
+  return c.json({
+    success: true,
+    currency: 'MYR',
+    interval: 'month',
+    stripe,
+    prices: listAdamGuruStripeCatalogForDashboard(),
+    docs:     'alm-backend/docs/STRIPE_ADAMGURU_PRICES.md',
   });
 });
 
@@ -83,8 +100,9 @@ router.get('/status', requireAdamUser, async (c) => {
   });
 });
 
-// POST /api/adam/servers/subscribe — stub until Stripe wired
+// POST /api/adam/servers/subscribe — Stripe Checkout (ADAMGuru wired)
 router.post('/subscribe', requireAdamUser, async (c) => {
+  const user = getTokenUser(c)!;
   const body = await c.req.json().catch(() => ({})) as {
     serverId?: string;
     tier?:     string;
@@ -101,18 +119,51 @@ router.post('/subscribe', requireAdamUser, async (c) => {
 
   const serverId = body.serverId?.toUpperCase();
   if (!serverId || !Object.values(AdamServerId).includes(serverId as AdamServerId)) {
-    return c.json({ success: false, error: 'serverId must be JURNAL, BUKU, or KOD.' }, 400);
+    return c.json({ success: false, error: 'serverId must be JURNAL, BUKU, KOD, or GURU.' }, 400);
   }
 
-  return c.json({
-    success:    false,
-    error:      'Server checkout is being finalised.',
-    code:       'CHECKOUT_COMING_SOON',
-    serverId,
-    tier:       body.tier ?? 'STARTER',
-    plansUrl:   '/plans',
-    comingSoon: true,
-  }, 503);
+  if (serverId !== AdamServerId.GURU) {
+    return c.json({
+      success:    false,
+      error:      'Stripe checkout for this server is coming soon. ADAMGuru is available first.',
+      code:       'CHECKOUT_COMING_SOON',
+      serverId,
+      plansUrl:   '/pricing/packages',
+      comingSoon: true,
+    }, 503);
+  }
+
+  const tierRaw = (body.tier ?? 'STARTER').toUpperCase();
+  const allowedTiers = [
+    AdamServerTier.STARTER,
+    AdamServerTier.PROFESSIONAL,
+    AdamServerTier.INSTITUTION,
+    AdamServerTier.STUDENT_KELAS,
+  ];
+  if (!allowedTiers.includes(tierRaw as AdamServerTier)) {
+    return c.json({
+      success: false,
+      error:   'tier must be STARTER, PROFESSIONAL, INSTITUTION, or STUDENT_KELAS.',
+    }, 400);
+  }
+
+  try {
+    const checkout = await createAdamServerCheckoutSession({
+      userId:   user.userId ?? '',
+      serverId: AdamServerId.GURU,
+      tier:     tierRaw as AdamServerTier,
+    });
+    return c.json({
+      success:     true,
+      serverId,
+      tier:        tierRaw,
+      checkoutUrl: checkout.checkoutUrl,
+      sessionId:   checkout.sessionId,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Checkout failed.';
+    return c.json({ success: false, error: msg, code: 'STRIPE_CHECKOUT_FAILED' }, 503);
+  }
 });
 
 export default router;

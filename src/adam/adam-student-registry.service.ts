@@ -275,6 +275,12 @@ export async function verifyStudentPassword(userId: string, password: string): P
   return bcrypt.compare(password, doc.passwordHash);
 }
 
+/** ADAMGuru — account role from Mongo (not in-memory cache). */
+export async function getAccountRole(userId: string): Promise<'student' | 'guru'> {
+  const doc = await ADAMStudentAccountModel.findOne({ userId, active: true }).lean();
+  return doc?.accountRole === 'guru' ? 'guru' : 'student';
+}
+
 export interface FounderStudentRow {
   userId:            string;
   name:              string;
@@ -303,11 +309,12 @@ export async function listStudentsForFounder(): Promise<FounderStudentRow[]> {
 }
 
 export async function createStudentAccount(params: {
-  name:      string;
-  password:  string;
-  userId?:   string;
-  email?:    string;
-  createdBy: string;
+  name:         string;
+  password:     string;
+  userId?:      string;
+  email?:       string;
+  createdBy:    string;
+  accountRole?: 'student' | 'guru';
 }): Promise<FounderStudentRow> {
   const name = params.name.trim();
   const preferred = (params.userId?.trim().toLowerCase() || slugStudentUserId(name));
@@ -321,6 +328,7 @@ export async function createStudentAccount(params: {
     passwordHash:      await bcrypt.hash(params.password, BCRYPT_ROUNDS),
     active:            true,
     createdBy:         params.createdBy,
+    accountRole:       params.accountRole === 'guru' ? 'guru' : 'student',
     passwordSource:    params.createdBy === 'self-register' ? 'self-register' : 'founder',
     passwordUpdatedAt: params.createdBy === 'self-register' ? undefined : new Date(),
   });
@@ -340,7 +348,13 @@ export async function createStudentAccount(params: {
 
 export async function updateStudentAccount(
   userId: string,
-  patch: { name?: string; email?: string; password?: string; active?: boolean },
+  patch: {
+    name?:         string;
+    email?:        string;
+    password?:     string;
+    active?:       boolean;
+    accountRole?:  'student' | 'guru';
+  },
 ): Promise<FounderStudentRow | null> {
   const doc = await ADAMStudentAccountModel.findOne({ userId });
   if (!doc) return null;
@@ -356,6 +370,9 @@ export async function updateStudentAccount(
     doc.passwordUpdatedAt = new Date();
   }
   if (typeof patch.active === 'boolean') doc.active = patch.active;
+  if (patch.accountRole === 'guru' || patch.accountRole === 'student') {
+    doc.accountRole = patch.accountRole;
+  }
 
   await doc.save();
   await refreshStudentCache();

@@ -169,15 +169,16 @@ router.post('/verify', async (c) => {
 
     const isFounder = decoded.role === 'founder' || decoded.isFounder === true;
     const isStudent = decoded.role === 'student';
+    const isGuru = decoded.role === 'guru';
 
-    if (!isFounder && !isStudent) {
+    if (!isFounder && !isStudent && !isGuru) {
       return c.json({ success: false, valid: false }, 401);
     }
 
     return c.json({
       success: true,
       valid:   true,
-      role:    isFounder ? (decoded.role ?? 'founder') : decoded.role,
+      role:    isFounder ? (decoded.role ?? 'founder') : (decoded.role ?? 'student'),
       userId:  decoded.userId,
       name:    decoded.name ?? (isFounder ? 'Masa Bayu' : decoded.userId),
       founder: isFounder ? (decoded.name ?? 'Masa Bayu') : undefined,

@@ -74,3 +74,33 @@ TEACHING DEPTH (this turn): same generosity as Founder chat — multiple paragra
 export const ADAM_STUDENT_CONTINUATION_DEPTH_TURN = `
 CONTINUATION (this turn): go deeper on the same topic — new layers, examples, and verified detail; build on what was already said without repeating the opener.
 `.trim();
+
+/** First token for natural address — "Ahmad" from "Ahmad bin Ali" or "ahmad-ali". */
+export function studentDisplayFirstName(fullName: string): string {
+  const raw = fullName.trim();
+  if (!raw) return '';
+  const word = raw.replace(/-/g, ' ').split(/\s+/).filter(Boolean)[0] ?? raw;
+  if (!word) return '';
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+/**
+ * Mandatory per-turn block — ADAM must name the student once on substantive replies.
+ * Replaces the weak one-line "Pelajar semasa: …" buried in the stack.
+ */
+export function buildStudentAddressLaw(participantName: string): string {
+  const full = participantName.trim();
+  const first = studentDisplayFirstName(full) || full || 'pelajar';
+  return `
+STUDENT ADDRESS (wajib / mandatory this turn):
+The person speaking now: ${full || 'pelajar'} · call them: ${first}
+
+- Substantive answer (explain, science, health, faith, homework): say "${first}" ONCE naturally —
+  right after Bismillah or in the first sentence of the opening paragraph.
+  Examples: "${first}, ubi kentang ini…" · "Mari kita teliti, ${first}…" · "${first}, soalan ini menyentuh…"
+- Salam / thanks only: brief warmth with optional "${first}" — no lecture.
+- FORBIDDEN: kau, kamu, engkau. Use ${first} or neutral phrasing ("Soalan ini…").
+- Do NOT repeat the name every paragraph — once per reply is enough.
+- Shared kelas: name the student who asked (from [Name]: prefix) so the class knows who you answer.
+`.trim();
+}

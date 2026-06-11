@@ -44,20 +44,23 @@ const UserIdSchema = z
   .regex(/^[a-z0-9-]+$/, 'Login id: lowercase letters, numbers, hyphens only.');
 
 const CreateSchema = z.object({
-  name:     z.string().min(1).max(80),
-  userId:   UserIdSchema.optional(),
-  email:    z.string().email().max(120).optional(),
-  password: z.string().min(6).max(128),
+  name:        z.string().min(1).max(80),
+  userId:      UserIdSchema.optional(),
+  email:       z.string().email().max(120).optional(),
+  password:    z.string().min(6).max(128),
+  accountRole: z.enum(['student', 'guru']).optional(),
 });
 
 const PatchSchema = z.object({
-  name:     z.string().min(1).max(80).optional(),
-  email:    z.string().email().max(120).optional().or(z.literal('')),
-  password: z.string().min(6).max(128).optional(),
-  active:   z.boolean().optional(),
+  name:        z.string().min(1).max(80).optional(),
+  email:       z.string().email().max(120).optional().or(z.literal('')),
+  password:    z.string().min(6).max(128).optional(),
+  active:      z.boolean().optional(),
+  accountRole: z.enum(['student', 'guru']).optional(),
 }).refine(
-  (d) => d.name !== undefined || d.email !== undefined || d.password !== undefined || d.active !== undefined,
-  { message: 'Provide name, email, password, and/or active.' },
+  (d) => d.name !== undefined || d.email !== undefined || d.password !== undefined
+    || d.active !== undefined || d.accountRole !== undefined,
+  { message: 'Provide name, email, password, active, and/or accountRole.' },
 );
 
 // POST /api/adam/students/sync-seed — backfill missing seed accounts from env
@@ -106,11 +109,12 @@ router.post('/', requireFounder, zValidator('json', CreateSchema), async (c) => 
   const body = c.req.valid('json');
 
   const created = await createStudentAccount({
-    name:      body.name,
-    userId:    body.userId ?? slugStudentUserId(body.name),
-    email:     body.email,
-    password:  body.password,
-    createdBy: user.userId,
+    name:        body.name,
+    userId:      body.userId ?? slugStudentUserId(body.name),
+    email:       body.email,
+    password:    body.password,
+    createdBy:   user.userId,
+    accountRole: body.accountRole,
   });
 
   return c.json({

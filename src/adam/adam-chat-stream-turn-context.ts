@@ -40,6 +40,7 @@ import {
   generateK24Address,
   saveMessage,
 } from './adam-chat-session.service';
+import { isAdamLightChatTurn } from './adam-response-generation';
 import type { ADAMChatMode, SSEEventType } from './adam.types';
 import type { AdamChatTurnShell } from './adam-chat-stream.types';
 import { loadTesterSystemPrefix } from './adam-chat-stream-tester-prefix';
@@ -177,7 +178,7 @@ export async function fetchAdamTurnContext(input: {
       {
         recallProbeMessage: normalizedMessage,
         founderTeachingAbsorption: founderTeachingLearnerTurn,
-        studentStreamlined: false,
+        studentStreamlined: !isFounder && isAdamLightChatTurn(normalizedMessage),
       },
     ),
     needContinuityBridge

@@ -137,10 +137,10 @@ describe('Technical follow-up detection', () => {
 });
 
 describe('Student founder parity search gate', () => {
-  it('skips ambient search on teaching asks — specs and corrections only', () => {
+  it('enables substantive_conventional search on teaching asks — skips salam only', () => {
     expect(
       getWebSearchGateReason('Boleh terangkan tentang beras', { studentFounderParity: true }),
-    ).toBeNull();
+    ).toBe('substantive_conventional');
     expect(
       getWebSearchGateReason('SALAM', { studentFounderParity: true }),
     ).toBeNull();

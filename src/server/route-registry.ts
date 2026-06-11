@@ -27,6 +27,7 @@ import adamUploadRoutes from '../routes/adam/adam-upload.routes';
 import adamKnowledgeRoutes from '../routes/adam/adam-knowledge.routes';
 import { qxk24BrainRoutes } from '../qxk24brain/qxk24brain.routes';
 import adamStudentRoutes from '../routes/adam/adam-student.routes';
+import adamGuruRoutes from '../routes/adam/adam-guru.routes';
 import adamPublicRoutes from '../routes/adam/adam-public.routes';
 import adamServerRoutes from '../routes/adam/adam-server.routes';
 import adamStudentsRoutes from '../routes/adam/adam-students.routes';
@@ -123,6 +124,7 @@ export function registerRoutes(app: Hono): void {
   app.route('/api/adam/public',        adamPublicRoutes);
   app.route('/api/adam/servers',       adamServerRoutes);
   app.route('/api/adam/student',       adamStudentRoutes);
+  app.route('/api/adam/guru',          adamGuruRoutes);
   app.route('/api/adam/students',      adamStudentsRoutes);
   app.route('/api/adam/consults',      adamConsultRoutes);
   app.route('/api/adam/founder',       adamFounderRoutes);

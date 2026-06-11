@@ -122,7 +122,7 @@ export interface JudgmentCriteria {
 }
 
 // ─── Chat Types ───────────────────────────────────────────────
-export type ADAMChatRole = 'founder' | 'student' | 'adam';
+export type ADAMChatRole = 'founder' | 'student' | 'guru' | 'adam';
 
 export type ADAMChatMode =
   | 'TEACHING'
@@ -429,6 +429,8 @@ export type SSEEventType =
   | 'adam_search_unavailable'
   | 'adam_judgment'
   | 'adam_complete'
+  | 'adam_guru_sleep'
+  | 'adam_guru_wake'
   | 'adam_waqf'
   | 'adam_error'
   | 'builder';

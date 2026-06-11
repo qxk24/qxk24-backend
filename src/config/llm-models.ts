@@ -27,8 +27,8 @@ export type ModelTier = 'fast' | 'deep';
 export interface ModelRouterParticipant {
   userId:      string;
   userName:    string;
-  role:        'founder' | 'student';
-  sessionType: 'founder' | 'student' | 'group';
+  role:        'founder' | 'student' | 'guru';
+  sessionType: 'founder' | 'student' | 'group' | 'guru';
 }
 
 const DEEP_MODES: ADAMChatMode[] = [
@@ -123,10 +123,12 @@ export function resolveAdamMaxTokens(
 export function resolveQwenEnableThinking(
   tier: ModelTier,
   mode: ADAMChatMode,
-  options?: { founderTeachingAbsorption?: boolean; isStudent?: boolean },
+  options?: { founderTeachingAbsorption?: boolean; isStudent?: boolean; lightChat?: boolean },
 ): boolean {
   if (!ENV.QWEN_ENABLE_THINKING) return false;
   if (tier === 'fast') return false;
+  // Salam / thanks — answer streams immediately (no silent thinking phase)
+  if (options?.lightChat) return false;
   // Unified ADAM — students on deep tier use thinking like founder (voice depth)
   // Teaching absorption — stream visible sooner; output tokens unchanged
   if (options?.founderTeachingAbsorption) return false;
@@ -146,11 +148,11 @@ export function resolveAdamChatModel(params: {
     return resolveFounderModel(mode, message, hasUploads);
   }
 
-  if (participant.sessionType === 'group') {
+  if (participant.sessionType === 'group' || participant.sessionType === 'guru') {
     return {
       model:  getDeepModel(),
       tier:   'deep',
-      reason: 'group_session',
+      reason: participant.sessionType === 'guru' ? 'guru_kelas' : 'group_session',
     };
   }
 

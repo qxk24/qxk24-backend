@@ -44,7 +44,7 @@ import type {
 /** Mongoose rejects null/undefined/blank — never persist an empty chat row. */
 function requirePersistedContent(
   content: string | undefined | null,
-  role: 'founder' | 'student' | 'adam',
+  role: 'founder' | 'student' | 'guru' | 'adam',
 ): string {
   const trimmed = (content ?? '').trim();
   if (trimmed.length > 0) return trimmed;
@@ -58,6 +58,9 @@ function requirePersistedContent(
   }
   if (role === 'founder') {
     return 'P.alt shared teaching material.';
+  }
+  if (role === 'guru') {
+    return '(guru teaching)';
   }
   return '(message)';
 }
@@ -324,7 +327,7 @@ export interface StoredADAMMessage {
   speakerId:     string;
   speakerName:   string;
   sessionType:   SessionType;
-  role:          'founder' | 'student' | 'adam';
+  role:          'founder' | 'student' | 'guru' | 'adam';
   content:       string;
   mode:          string;
   judgment:      string | null;
@@ -373,7 +376,7 @@ export async function loadMessageHistory(
 
 export async function saveMessage(
   sessionId: string,
-  role: 'founder' | 'student' | 'adam',
+  role: 'founder' | 'student' | 'guru' | 'adam',
   content: string,
   mode: ADAMChatMode = 'TEACHING',
   judgment?: string,

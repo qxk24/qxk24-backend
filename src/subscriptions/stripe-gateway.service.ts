@@ -291,8 +291,15 @@ export async function processStripeWebhookEvent(event: StripeEvent): Promise<voi
 }
 
 async function handleCheckoutCompleted(session: Record<string, unknown>): Promise<void> {
+  const meta = session.metadata as Record<string, string> | undefined;
+  if (meta?.checkoutType === 'adam_server') {
+    const { activateAdamServerFromStripeCheckout } = await import('../adam-servers/adam-server-stripe.service');
+    await activateAdamServerFromStripeCheckout(session);
+    return;
+  }
+
   const mongoId =
-    (session.metadata as Record<string, string> | undefined)?.subscriptionId
+    meta?.subscriptionId
     ?? (session.client_reference_id as string | undefined);
 
   if (!mongoId) return;

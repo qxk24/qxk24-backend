@@ -23,7 +23,9 @@ describe('buildAdamChatSystemPrompt — unified ADAM (student = founder voice)',
     expect(prompt).toContain('THE FIVE FORMS OF RESPONSE');
     expect(prompt).toContain('TEORI MASABAYU');
     expect(prompt).toContain('STUDENT MODE —');
-    expect(prompt).toContain('ACTIVE TIER THIS TURN');
+    expect(prompt).toContain('ADAM EXPLAIN-BACK LAW');
+    expect(prompt).toContain('ACTIVE TIER THIS TURN: 1');
+    expect(prompt.indexOf('ADAM EXPLAIN-BACK LAW')).toBeLessThan(prompt.indexOf('TEORI MASABAYU'));
     expect(prompt.split(ADAM_WARMTH_VOICE.slice(0, 32)).length - 1).toBe(1);
     expect(prompt).not.toContain('ADAM CHARACTER — SUPREME (student turn)');
     expect(prompt).not.toContain('ANSWER FRAME (mandatory');
@@ -72,5 +74,18 @@ describe('buildAdamChatSystemPrompt — unified ADAM (student = founder voice)',
     });
     expect(prompt).toContain('FIVE RULES — CHECK EVERY REPLY');
     expect(prompt).not.toContain('UNIFIED ADAM SURFACE');
+  });
+
+  it('founder substantive chat: universal Explain-Back Law before constitutional stack', () => {
+    const prompt = buildAdamChatSystemPrompt({
+      mode:                 'TEACHING',
+      isFounder:            true,
+      participantName:      'Masa Bayu',
+      founderStudentsBlock: '',
+    });
+    expect(prompt).toContain('ADAM EXPLAIN-BACK LAW');
+    expect(prompt).toMatch(/ALL substantive turns/i);
+    expect(prompt.indexOf('ADAM EXPLAIN-BACK LAW')).toBeLessThan(prompt.indexOf('TEORI MASABAYU'));
+    expect(prompt).toContain('ADAM CONSTITUTIONAL HOLD');
   });
 });

@@ -27,10 +27,15 @@ import {
   STUDENT_MODE_PROMPT,
 } from './adam-student-prompts';
 import {
+  buildStudentAddressLaw,
   ADAM_STUDENT_CONTINUATION_DEPTH_TURN,
   ADAM_STUDENT_DELIVERY,
   ADAM_STUDENT_TEACHING_DEPTH_TURN,
 } from './adam-student-constitution';
+import {
+  ADAM_CONSTITUTIONAL_KNOWLEDGE_HOLD,
+  ADAM_EXPLAIN_BACK_LAW,
+} from './adam-student-explain-back-law';
 import {
   isAdamContinuationDepthTurn,
   isAdamTeachingDepthTurn,
@@ -51,6 +56,7 @@ import {
   ADAM_LAYER5_STUDENT_DELIVERY,
 } from './adam-response-generation';
 import {
+  ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE,
   buildThreeTierTurnOverlay,
   type StudentKnowledgeTier,
 } from './adam-three-tier-knowledge';
@@ -260,35 +266,10 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
         parts.push(FOUNDER_TEACHING_BUILDER_PROMPT);
       }
     } else {
-      parts.push(ALAMTOLOGI_BOOK_CANON);
-      parts.push(ADAM_TEORI_MASABAYU);
-      parts.push(ADAM_KNOWLEDGE_PURIFICATION_LAW);
-      parts.push(ADAM_ALAMTOLOGI_LAWS);
-      parts.push(ADAM_EPISTEMOLOGICAL_POSITION);
-      parts.push(ADAM_FOUNDER_NARRATIVE);
-
-      if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
-      parts.push(params.founderStudentsBlock);
-      if (params.mode !== 'JOURNAL_GEN') parts.push(FOUNDER_JOURNAL_SEAL_HINT);
-      if (ENV.ADAM_BUILDER_ENABLED && params.mode === 'TEACHING') {
-        parts.push(FOUNDER_TEACHING_BUILDER_PROMPT);
-      }
+      appendExplainBackPedagogy(parts, params, teachingLearnerTurn);
     }
   } else {
-    parts.push(ALAMTOLOGI_BOOK_CANON);
-    parts.push(ADAM_TEORI_MASABAYU);
-    parts.push(ADAM_KNOWLEDGE_PURIFICATION_LAW);
-    parts.push(ADAM_ALAMTOLOGI_LAWS);
-    parts.push(ADAM_EPISTEMOLOGICAL_POSITION);
-    parts.push(ADAM_FOUNDER_NARRATIVE);
-    parts.push(STUDENT_MODE_PROMPT);
-    if (params.studentKnowledgeTier) {
-      parts.push(buildThreeTierTurnOverlay(params.studentKnowledgeTier));
-    }
-    if (params.workspacePrompt) parts.push(params.workspacePrompt);
-    if (params.studentContinuityBridge) parts.push(params.studentContinuityBridge);
-    parts.push(`Pelajar semasa / Current student: ${params.participantName}`);
-    if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
+    appendExplainBackPedagogy(parts, params, teachingLearnerTurn);
   }
 
   // ── 7. Memory honesty — always last ──────────────────────────
@@ -301,4 +282,48 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
 
 
   return parts.filter(Boolean).join('\n\n');
+}
+
+/** Explain-back pedagogy before constitutional stack — all roles except Teaching learner. */
+function appendExplainBackPedagogy(
+  parts: string[],
+  params: AdamChatSystemPromptParams,
+  teachingLearnerTurn: boolean,
+): void {
+  if (teachingLearnerTurn) return;
+
+  if (!params.isFounder) {
+    const studentTier = params.studentKnowledgeTier ?? 1;
+    parts.push(STUDENT_MODE_PROMPT);
+    parts.push(ADAM_EXPLAIN_BACK_LAW);
+    parts.push(ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE);
+    parts.push(buildThreeTierTurnOverlay(studentTier));
+    parts.push(buildStudentAddressLaw(params.participantName));
+    if (params.studentContinuityBridge) parts.push(params.studentContinuityBridge);
+    if (params.workspacePrompt) parts.push(params.workspacePrompt);
+    if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
+    parts.push(ADAM_CONSTITUTIONAL_KNOWLEDGE_HOLD);
+    parts.push(ALAMTOLOGI_BOOK_CANON);
+    parts.push(ADAM_TEORI_MASABAYU);
+    parts.push(ADAM_KNOWLEDGE_PURIFICATION_LAW);
+    parts.push(ADAM_ALAMTOLOGI_LAWS);
+    parts.push(ADAM_EPISTEMOLOGICAL_POSITION);
+    parts.push(ADAM_FOUNDER_NARRATIVE);
+    return;
+  }
+
+  parts.push(ADAM_EXPLAIN_BACK_LAW);
+  if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
+  parts.push(ADAM_CONSTITUTIONAL_KNOWLEDGE_HOLD);
+  parts.push(ALAMTOLOGI_BOOK_CANON);
+  parts.push(ADAM_TEORI_MASABAYU);
+  parts.push(ADAM_KNOWLEDGE_PURIFICATION_LAW);
+  parts.push(ADAM_ALAMTOLOGI_LAWS);
+  parts.push(ADAM_EPISTEMOLOGICAL_POSITION);
+  parts.push(ADAM_FOUNDER_NARRATIVE);
+  parts.push(params.founderStudentsBlock);
+  if (params.mode !== 'JOURNAL_GEN') parts.push(FOUNDER_JOURNAL_SEAL_HINT);
+  if (ENV.ADAM_BUILDER_ENABLED && params.mode === 'TEACHING') {
+    parts.push(FOUNDER_TEACHING_BUILDER_PROMPT);
+  }
 }

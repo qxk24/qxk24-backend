@@ -43,6 +43,11 @@ export function isStudentPayload(user: QXK24TokenPayload | null): boolean {
   return user.role === 'student' && !user.isFounder;
 }
 
+export function isGuruPayload(user: QXK24TokenPayload | null): boolean {
+  if (!user) return false;
+  return user.role === 'guru' && !user.isFounder;
+}
+
 // ── Standard JWT Auth ─────────────────────────────────────
 export async function requireAuth(
   c: Context,
@@ -129,7 +134,7 @@ export async function requireAdamUser(
 
   try {
     const decoded = verify(token, ENV.JWT_SECRET) as QXK24TokenPayload;
-    if (decoded.role !== 'founder' && decoded.role !== 'student') {
+    if (decoded.role !== 'founder' && decoded.role !== 'student' && decoded.role !== 'guru') {
       return c.json({
         success: false,
         error:   'ADAM access required.',
@@ -144,6 +149,29 @@ export async function requireAdamUser(
       error:   'Invalid or expired token.',
       kernel:  'ALAMTOLOGI',
     }, 401);
+  }
+}
+
+// ── ADAMGuru (teacher account) ─────────────────────────────
+export async function requireGuru(
+  c: Context,
+  next: Next,
+): Promise<Response | void> {
+  const authHeader = c.req.header('Authorization');
+
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({ success: false, error: 'Authorization required.', kernel: 'ALAMTOLOGI' }, 401);
+  }
+
+  try {
+    const decoded = verify(authHeader.split(' ')[1], ENV.JWT_SECRET) as QXK24TokenPayload;
+    if (decoded.role !== 'guru' || decoded.isFounder) {
+      return c.json({ success: false, error: 'Guru access required.', kernel: 'ALAMTOLOGI' }, 403);
+    }
+    c.set('qxk24User', decoded);
+    await next();
+  } catch {
+    return c.json({ success: false, error: 'Invalid or expired token.', kernel: 'ALAMTOLOGI' }, 401);
   }
 }
 
@@ -162,6 +190,32 @@ export async function requireStudent(
     const decoded = verify(authHeader.split(' ')[1], ENV.JWT_SECRET) as QXK24TokenPayload;
     if (decoded.role !== 'student' || decoded.isFounder) {
       return c.json({ success: false, error: 'Student access required.', kernel: 'ALAMTOLOGI' }, 403);
+    }
+    c.set('qxk24User', decoded);
+    await next();
+  } catch {
+    return c.json({ success: false, error: 'Invalid or expired token.', kernel: 'ALAMTOLOGI' }, 401);
+  }
+}
+
+/** Student or ADAMGuru teacher — learning desk + kelas */
+export async function requireStudentOrGuru(
+  c: Context,
+  next: Next,
+): Promise<Response | void> {
+  const authHeader = c.req.header('Authorization');
+
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({ success: false, error: 'Authorization required.', kernel: 'ALAMTOLOGI' }, 401);
+  }
+
+  try {
+    const decoded = verify(authHeader.split(' ')[1], ENV.JWT_SECRET) as QXK24TokenPayload;
+    if (decoded.isFounder) {
+      return c.json({ success: false, error: 'Student or guru access required.', kernel: 'ALAMTOLOGI' }, 403);
+    }
+    if (decoded.role !== 'student' && decoded.role !== 'guru') {
+      return c.json({ success: false, error: 'Student or guru access required.', kernel: 'ALAMTOLOGI' }, 403);
     }
     c.set('qxk24User', decoded);
     await next();

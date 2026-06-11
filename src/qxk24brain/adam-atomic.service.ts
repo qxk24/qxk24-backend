@@ -40,7 +40,7 @@ function generateMessageId(): string {
 export async function atomicSaveMessage(
   sessionId:  string,
   founderId:  string,
-  role:       'founder' | 'student' | 'adam',
+  role:       'founder' | 'student' | 'guru' | 'adam',
   content:    string,
   mode:       string = 'TEACHING',
   metadata:   AtomicMessageMetadata = {},

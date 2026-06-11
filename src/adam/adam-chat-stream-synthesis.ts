@@ -40,6 +40,7 @@ import {
   createAdamLlmStreamOnce,
   repairAdamStreamOutput,
 } from './adam-chat-stream-llm';
+import { isAdamLightChatTurn } from './adam-response-generation';
 import type { WorkspaceRecord } from './adam-workspace.service';
 
 export async function executeAdamSynthesisTurn(input: {
@@ -98,12 +99,14 @@ export async function executeAdamSynthesisTurn(input: {
 
   const llmMessages = toLlmMessages(contextMessages);
   const maxTokens = resolveAdamMaxTokens(modelChoice.tier, isFounder, mode);
+  const lightChat = isAdamLightChatTurn(userMessage);
   const enableThinking = resolveQwenEnableThinking(
     modelChoice.tier,
     mode,
     {
       founderTeachingAbsorption: founderTeachingLearnerTurn,
       isStudent:                 !isFounder,
+      lightChat,
     },
   );
 

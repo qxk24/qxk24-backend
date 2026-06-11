@@ -29,6 +29,13 @@ export interface AdamServerTierPrice {
   targetAudience: string;
 }
 
+export interface AdamServerStudentAddon {
+  label:          string;
+  monthlyMYR:     number;
+  limitSummary:   string;
+  targetAudience: string;
+}
+
 export interface AdamServerCatalogEntry {
   id:           AdamServerId;
   slug:         string;
@@ -38,6 +45,8 @@ export interface AdamServerCatalogEntry {
   roiMinimum:   string;
   previewNote:  string;
   tiers:        AdamServerTierPrice[];
+  /** Optional student-side add-on (e.g. ADAMGuru kelas pass). */
+  studentAddon?: AdamServerStudentAddon;
 }
 
 export const ADAM_SERVER_CATALOG: AdamServerCatalogEntry[] = [
@@ -136,6 +145,44 @@ export const ADAM_SERVER_CATALOG: AdamServerCatalogEntry[] = [
         targetAudience: 'Agensi, enterprise teknologi',
       },
     ],
+  },
+  {
+    id:          AdamServerId.GURU,
+    slug:        'guru',
+    name:        'ADAM Guru',
+    tagline:     'Teachers train ADAM; students learn — one channel per subject',
+    marketValue: 'RM 200 – RM 800 / month vs traditional LMS classroom platforms',
+    roiMinimum:  '8×',
+    previewNote: 'Register as guru, open subject channels, teach ADAM (A+B=C), invite students. ADAM sleep = silent listening, not offline.',
+    tiers: [
+      {
+        tier:           AdamServerTier.STARTER,
+        label:          'Guru',
+        monthlyMYR:     59,
+        limitSummary:   '1 subject channel · 20 students · invite & shared class chat',
+        targetAudience: 'Solo tutors, ustaz, lecturers',
+      },
+      {
+        tier:           AdamServerTier.PROFESSIONAL,
+        label:          'Guru Pro',
+        monthlyMYR:     129,
+        limitSummary:   '5 subject channels · 80 students · ADAM sleep & teach mode',
+        targetAudience: 'Multi-subject teachers, tuition centres',
+      },
+      {
+        tier:           AdamServerTier.INSTITUTION,
+        label:          'Campus',
+        monthlyMYR:     399,
+        limitSummary:   'Unlimited channels · 300 students · 5 guru accounts',
+        targetAudience: 'Madrasah, faculties, schools',
+      },
+    ],
+    studentAddon: {
+      label:          'Class Pass (student)',
+      monthlyMYR:     15,
+      limitSummary:   'Access invited guru channels — no full private ADAM desk',
+      targetAudience: 'Students without Premium; or included in guru seat quota',
+    },
   },
 ];
 

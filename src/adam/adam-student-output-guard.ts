@@ -37,7 +37,7 @@ import {
   isTechnicalPrecisionQuestion,
 } from './adam-universal-voice';
 
-/** Strip billboard framework labels on tier 1 — not ADAM's narrative voice. */
+/** Strip billboard framework labels on tier 1 — inline only, never drop paragraphs. */
 const FRAMEWORK_LEAK =
   /\b(?:Dalam\s+lensa\s+Alamtologi|Dari\s+perspektif\s+Alamtologi|Alamtologi\s+menyatakan|framework\s+Alamtologi)\b/i;
 
@@ -164,7 +164,7 @@ function inlineQuranAyat(text: string): string {
     );
 }
 
-/** Sync hygiene only — unified ADAM voice must not be flattened post-stream. */
+/** Sync hygiene only — ADAM voice must not be gutted post-stream. */
 export function sanitizeStudentOutputSync(
   text: string,
   userMessage = '',

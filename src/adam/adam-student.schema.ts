@@ -28,6 +28,8 @@ export interface ADAMStudentAccountDocument extends Document {
   /** env = seeded from STUDENT_PASSWORDS; founder = P.alt reset; self-register = student signup */
   passwordSource?: 'env' | 'founder' | 'self-register' | 'google' | 'self';
   passwordUpdatedAt?: Date;
+  /** ADAMGuru — guru may create kelas and teach ADAM; default student */
+  accountRole?: 'student' | 'guru';
   createdAt:      Date;
   updatedAt:      Date;
 }
@@ -43,6 +45,7 @@ const ADAMStudentAccountSchema = new Schema<ADAMStudentAccountDocument>(
     createdBy:      { type: String, required: true },
     passwordSource: { type: String, enum: ['env', 'founder', 'self-register', 'google', 'self'] },
     passwordUpdatedAt: { type: Date },
+    accountRole: { type: String, enum: ['student', 'guru'], default: 'student', index: true },
   },
   { timestamps: true },
 );

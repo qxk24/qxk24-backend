@@ -69,6 +69,16 @@ export const ADAM_MEMORY_CONFIG = {
     CURRENT_MESSAGE_MIN_CHARS: 64_000,
   },
   /** Guest trial — same memory depth as student (unified ADAM); freemium gate limits question count only. */
+  /** ADAMGuru kelas — small lane brain; fast load at scale */
+  GURU_KELAS: {
+    MESSAGE_WINDOW:     envInt('ADAM_GURU_MESSAGE_WINDOW', 20),
+    BRAIN_CHARS:        envInt('ADAM_GURU_BRAIN_CHARS', 8_000),
+    MESSAGE_CHARS:      envInt('ADAM_GURU_MESSAGE_CHARS', 4_000),
+    ANCHOR_MAX_CHARS:   envInt('ADAM_GURU_ANCHOR_CHARS', 1_000),
+    COMPLETED_FAMILIES: envInt('ADAM_GURU_COMPLETED_FAMILIES', 3),
+    ACTIVE_FAMILIES:    envInt('ADAM_GURU_ACTIVE_FAMILIES', 5),
+    CURRENT_MESSAGE_MIN_CHARS: 16_000,
+  },
   GUEST_TRIAL: {
     MESSAGE_WINDOW:     envInt('ADAM_GUEST_MESSAGE_WINDOW', 30),
     BRAIN_CHARS:        envInt('ADAM_GUEST_BRAIN_CHARS', 48_000),
@@ -86,7 +96,7 @@ export function getGuestTrialMemoryConfig(): AdamMemoryTierConfig {
 }
 
 export function getAdamMemoryConfig(
-  role: 'founder' | 'student',
+  role: 'founder' | 'student' | 'guru',
   isWorkspace: boolean,
   chatMode?: string,
 ): AdamMemoryTierConfig {
@@ -94,7 +104,9 @@ export function getAdamMemoryConfig(
     ? ADAM_MEMORY_CONFIG.WORKSPACE
     : role === 'founder'
       ? ADAM_MEMORY_CONFIG.FOUNDER
-      : ADAM_MEMORY_CONFIG.STUDENT;
+      : role === 'guru'
+        ? ADAM_MEMORY_CONFIG.GURU_KELAS
+        : ADAM_MEMORY_CONFIG.STUDENT;
 
   /** Optional cost-saving caps — off by default so lab matches production memory depth.
    *  NEVER CHANGE THE SETTING: do not enable lite caps in code; only via ADAM_LAB_MEMORY_LITE=true

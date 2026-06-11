@@ -57,13 +57,16 @@ describe('Life emotion turns — delivery overlay', () => {
     expect(getWebSearchGateReason('Kenapa saya rasa cemas sebelum tidur?')).toBe('factual_question');
   });
 
-  it('student skips search on teaching depth — answers from brain, faster TTFB', () => {
+  it('student searches on substantive turns — Phase 1B conventional grounding', () => {
     expect(
       getWebSearchGateReason('Kenapa saya rasa cemas sebelum tidur?', { studentFounderParity: true }),
-    ).toBeNull();
+    ).toBe('substantive_conventional');
+    expect(
+      getWebSearchGateReason('Apa itu komunikasi?', { studentFounderParity: true }),
+    ).toBe('substantive_conventional');
     expect(
       getWebSearchGateReason('Kenapa langit kelihatan biru pada waktu petang?', { studentFounderParity: true }),
-    ).toBeNull();
+    ).toBe('substantive_conventional');
   });
 
   it('student still searches for specs, corrections, and explicit ask', () => {

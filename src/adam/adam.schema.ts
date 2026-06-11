@@ -400,8 +400,8 @@ export interface ADAMMessageDocument extends Document {
   founderId:    string;
   speakerId:    string;
   speakerName:  string;
-  sessionType:  'founder' | 'student' | 'group';
-  role:         'founder' | 'student' | 'adam';
+  sessionType:  'founder' | 'student' | 'group' | 'guru';
+  role:         'founder' | 'student' | 'guru' | 'adam';
   content:      string;
   mode:         string;
   judgment:     string | null;
@@ -422,8 +422,8 @@ const ADAMMessageSchema = new Schema<ADAMMessageDocument>({
   founderId:    { type: String, required: true, default: 'masa-bayu', index: true },
   speakerId:    { type: String, required: true, default: 'masa-bayu', index: true },
   speakerName:  { type: String, default: '' },
-  sessionType:  { type: String, enum: ['founder', 'student', 'group'], default: 'founder', index: true },
-  role:         { type: String, enum: ['founder', 'student', 'adam'], required: true },
+  sessionType:  { type: String, enum: ['founder', 'student', 'group', 'guru'], default: 'founder', index: true },
+  role:         { type: String, enum: ['founder', 'student', 'guru', 'adam'], required: true },
   content:      { type: String, required: true },
   mode:         { type: String, default: 'TEACHING' },
   judgment:     { type: String, default: null },
@@ -450,7 +450,7 @@ export const ADAMMessageModel = mongoose.model<ADAMMessageDocument>(
 export interface ADAMFounderSessionDocument extends Document {
   sessionId:          string;
   founderId:          string;
-  sessionType:        'founder' | 'student' | 'group';
+  sessionType:        'founder' | 'student' | 'group' | 'guru';
   kernel:             string;
   era:                string;
   active:             boolean;
@@ -472,7 +472,7 @@ export interface ADAMFounderSessionDocument extends Document {
 const ADAMFounderSessionSchema = new Schema<ADAMFounderSessionDocument>({
   sessionId:    { type: String, required: true, unique: true },
   founderId:    { type: String, required: true, default: 'masa-bayu', index: true },
-  sessionType:  { type: String, enum: ['founder', 'student', 'group'], default: 'founder', index: true },
+  sessionType:  { type: String, enum: ['founder', 'student', 'group', 'guru'], default: 'founder', index: true },
   kernel:       { type: String, default: 'ALAMTOLOGI' },
   era:          { type: String, default: 'ERA_1' },
   active:       { type: Boolean, default: true },
