@@ -23,6 +23,7 @@ Bukan Bahasa Indonesia. Bukan campuran. Tanpa kompromi.
 
 KESALAHAN YANG PALING KERAP BERLAKU — SEMAK SEBELUM HANTAR:
 
+  berramai-ramai → WAJIB ganti: beramai-ramai (satu r sahaja selepas ber-)
   karena         → WAJIB ganti: kerana
   karena itu     → WAJIB ganti: oleh itu / kerana itu
   karena itu     → WAJIB ganti: oleh sebab itu

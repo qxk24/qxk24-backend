@@ -3,6 +3,7 @@
 import { describe, expect, it } from '@jest/globals';
 import {
   containsIndonesianDrift,
+  fixBmBerPrefixReduplicationSpelling,
   sanitizeMalaysiaBmDrift,
 } from '../src/adam/adam-malaysia-bm-guard';
 
@@ -21,6 +22,21 @@ describe('sanitizeMalaysiaBmDrift', () => {
   it('leaves English replies unchanged', () => {
     const raw = 'Because the system is inefficient, it can be fixed.';
     expect(sanitizeMalaysiaBmDrift(raw, 'en')).toBe(raw);
+  });
+
+  it('fixes double-r reduplication spelling (berramai-ramai)', () => {
+    const raw = 'Hidupan liar hidup berramai-ramai di hutan tropika.';
+    const out = sanitizeMalaysiaBmDrift(raw, 'ms');
+    expect(out).toContain('beramai-ramai');
+    expect(out).not.toMatch(/berramai/i);
+  });
+});
+
+describe('fixBmBerPrefixReduplicationSpelling', () => {
+  it('normalises berr stem-reduplication generically', () => {
+    expect(fixBmBerPrefixReduplicationSpelling('Hidup berramai-ramai di sana.')).toBe(
+      'Hidup beramai-ramai di sana.',
+    );
   });
 });
 

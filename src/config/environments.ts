@@ -234,6 +234,10 @@ export const ENV = {
   QURAN_CORPUS_ENABLED: optional('QURAN_CORPUS_ENABLED', 'true') === 'true',
   QURAN_CORPUS_PATH:      optional('QURAN_CORPUS_PATH', ''),
 
+  /** Curated BM Malaysia lexicon — on-demand prompt injection + post-stream guard */
+  BM_LEXICON_ENABLED: optional('BM_LEXICON_ENABLED', 'true') === 'true',
+  BM_LEXICON_PATH:      optional('BM_LEXICON_PATH', ''),
+
   // ─── Subscriptions & Payments (optional until provider keys are set) ───
   /** Stripe — sole payment gateway (Founder policy) */
   STRIPE_SECRET_KEY:        optional('STRIPE_SECRET_KEY', ''),

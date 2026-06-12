@@ -33,6 +33,8 @@ import {
   resolvePersonContextSubject,
 } from '../adam/person-relational-memory.service';
 import type { LlmMessage } from '../llm/llm-types';
+import { isMalayReplyLocale } from '../adam/adam-malaysia-bm-guard';
+import { buildBmLexiconPromptBlock } from '../malay-malaysia/bm-lexicon-context';
 import { buildQuranCorpusPromptBlock } from '../quran/quran-context';
 import type { ChatParticipant } from '../adam/adam-student.types';
 import {
@@ -647,6 +649,19 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
         ? STUDENT_NEUTRAL_CONTEXT_ACKS.quranCorpus
         : 'Bismillahirahmanirrahim. Verified ayat received — Rasm Uthmani with Pickthall English. I will quote ayat only from this corpus, without tafsir in brackets, and compare all other knowledge under Alamtologi with Quran as supreme (LAW_002).',
     });
+  }
+
+  if (isMalayReplyLocale(mirrorResult.detectedLocale)) {
+    const bmLexiconBlock = buildBmLexiconPromptBlock(newMessage, recentUserText);
+    if (bmLexiconBlock) {
+      messages.push({ role: 'user', content: bmLexiconBlock });
+      messages.push({
+        role: 'assistant',
+        content: participant.role === 'student'
+          ? STUDENT_NEUTRAL_CONTEXT_ACKS.bmLexicon
+          : 'Baik — saya pegang leksikon BM Malaysia untuk giliran ini; jawapan dalam ejaan DBP, bukan Indonesia.',
+      });
+    }
   }
 
   const recallForOutputLock = options?.recallProbeMessage?.trim() || newMessage;

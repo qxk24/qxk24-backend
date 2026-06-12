@@ -199,4 +199,6 @@ export const STUDENT_NEUTRAL_CONTEXT_ACKS = {
   language: 'I will reply in the language set for this turn.',
   quranCorpus:
     'Verified ayat received. I will quote only from this corpus, without tafsir in brackets.',
+  bmLexicon:
+    'BM Malaysia lexicon received. I will use DBP-aligned forms only — not Indonesian drift.',
 } as const;

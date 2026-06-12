@@ -50,6 +50,8 @@ import {
   runLayerGatePreCheck,
   streamLayerGateBlockedTurn,
 } from '../../adam-servers/adam-layer-gate.service';
+import { runSiteHelperChat } from '../../adam/adam-site-helper.service';
+import { checkSiteHelperRateLimit } from '../../adam/adam-site-helper-rate-limit';
 
 const router = new Hono();
 
@@ -203,6 +205,53 @@ router.post('/chat', zValidator('json', PublicChatSchema), async (c) => {
       await s.write(`event: adam_error\ndata: ${JSON.stringify({ error: msg })}\n\n`);
     }
     await s.write('event: adam_done\ndata: {}\n\n');
+  });
+});
+
+const SiteHelperSchema = z.object({
+  message: z.string().min(1).max(2_000),
+  history: z.array(z.object({
+    role:    z.enum(['user', 'assistant']),
+    content: z.string().min(1).max(1_200),
+  })).max(8).optional(),
+});
+
+// POST /api/adam/public/site-helper — marketing FAQ (no auth)
+router.post('/site-helper', zValidator('json', SiteHelperSchema), async (c) => {
+  const ip =
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
+    ?? c.req.header('x-real-ip')
+    ?? 'unknown';
+
+  const limit = checkSiteHelperRateLimit(ip);
+  if (!limit.allowed) {
+    return c.json({
+      success: false,
+      error:   'Too many requests. Please try again later.',
+      kernel:  'ALAMTOLOGI',
+    }, 429);
+  }
+
+  const body = c.req.valid('json');
+  try {
+    const { reply } = await runSiteHelperChat({
+      message: body.message,
+      history: body.history,
+    });
+    return c.json({ success: true, reply, kernel: 'Alamtologi' });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Site helper failed.';
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+  }
+});
+
+// GET /api/adam/public/site-helper/greeting
+router.get('/site-helper/greeting', (c) => {
+  return c.json({
+    success: true,
+    greeting:
+      'Hello — I\'m ADAM, your guide on alamtologi.com. Ask me about ADAM, Alamtologi, registration, or our plans. For full teaching chat, register free and open ADAM at alamtologi.com/adam/chat.',
+    kernel: 'Alamtologi',
   });
 });
 
