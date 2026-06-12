@@ -16,6 +16,7 @@
  */
 
 import { ENV } from '../config/environments';
+import { MALAYSIA_BM_LANGUAGE_DIRECTIVE } from './adam-malaysia-bm-guard';
 
 export type SupportedLocale =
   | 'ms'
@@ -60,7 +61,12 @@ function configuredDefaultLocale(): SupportedLocale {
 }
 
 function malayReplyInstruction(): string {
-  return 'Reply entirely in Bahasa Melayu. Keep "hikmah", "ALLAH", "Bismillahirahmanirrahim" in their original form. Do not default to English.';
+  return [
+    'Reply entirely in Bahasa Melayu Malaysia (DBP standard) — NOT Bahasa Indonesia.',
+    'Do not use Indonesian words (karena, bisa, udah, butuh, banget, gimana, teknis, efektif, etc.).',
+    'Keep "hikmah", "ALLAH", "Bismillahirahmanirrahim" in their original form.',
+    'Do not default to English.',
+  ].join(' ');
 }
 
 function englishReplyInstruction(): string {
@@ -139,7 +145,7 @@ export function detectLanguage(message: string, recentUserText = ''): LanguageMi
       confidence:       0.90,
       isMixed:          true,
       dominantScript:   'latin',
-      replyInstruction: 'Reply in natural Malay-English code-switching. Mirror the founder\'s style: Malay for emotional/philosophical content, English for technical content. Keep "hikmah", "ALLAH", "Bismillah" in Malay always.',
+      replyInstruction: 'Reply in natural Malay-English code-switching (Malaysia BM only — never Indonesian). Mirror the founder\'s style: Malaysian Malay for emotional/philosophical content, English for technical content. Keep "hikmah", "ALLAH", "Bismillah" in Malay always.',
     };
   }
 
@@ -196,7 +202,10 @@ export function detectLanguage(message: string, recentUserText = ''): LanguageMi
 export function buildLanguageMirrorBlock(result: LanguageMirrorResult): string {
   const malayForce =
     result.detectedLocale === 'ms' || result.detectedLocale === 'mixed-ms-en'
-      ? 'Do NOT default to English because the system prompt is in English. Your spoken reply must follow the detected language.'
+      ? [
+          'Do NOT default to English because the system prompt is in English. Your spoken reply must follow the detected language.',
+          MALAYSIA_BM_LANGUAGE_DIRECTIVE,
+        ].join('\n')
       : '';
 
   return `

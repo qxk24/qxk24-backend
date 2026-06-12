@@ -20,7 +20,6 @@ import {
   getChatSession,
   listChatSessions,
   createNewChatSession,
-  getOrCreateSession,
   resolveFounderTeachingSession,
   ensureSession,
   loadMessageHistory,
@@ -28,8 +27,10 @@ import {
   assertCanClearSessionChat,
   clearSessionChatHistory,
   verifyADAMMessage,
+  renameUserChatSession,
+  deleteUserChatSession,
 } from '../../adam/adam-chat.service';
-import { requireAuth, requireFounder, getTokenUser } from '../../middleware/auth.middleware';
+import { requireFounder, getTokenUser } from '../../middleware/auth.middleware';
 import type {
   ADAMApiResponse,
   ADAMChatSession,
@@ -249,6 +250,58 @@ router.get('/sessions', requireFounder, async (c) => {
   };
 
   return c.json(response);
+});
+
+const SessionTitleSchema = z.object({
+  title: z.string().min(1).max(72),
+});
+
+// ─── PATCH /api/adam/chat/sessions/:sessionId — Rename thread ──
+
+router.patch('/sessions/:sessionId', requireFounder, zValidator('json', SessionTitleSchema), async (c) => {
+  const user = getTokenUser(c);
+  const founderId = user?.userId ?? 'masa-bayu';
+  const sessionId = c.req.param('sessionId') ?? '';
+  const { title } = c.req.valid('json');
+  try {
+    const ok = await renameUserChatSession(founderId, sessionId, 'founder', title, { isFounder: true });
+    if (!ok) return c.json({ success: false, error: 'Session not found.', kernel: 'ALAMTOLOGI' }, 404);
+    return c.json({
+      success:   true,
+      sessionId,
+      title:     title.trim(),
+      kernel:    'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Could not rename chat.';
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 403);
+  }
+});
+
+// ─── DELETE /api/adam/chat/sessions/:sessionId — Remove thread ──
+
+router.delete('/sessions/:sessionId', requireFounder, async (c) => {
+  const user = getTokenUser(c);
+  const founderId = user?.userId ?? 'masa-bayu';
+  const sessionId = c.req.param('sessionId') ?? '';
+  if (!sessionId) {
+    return c.json({ success: false, error: 'sessionId required.', kernel: 'ALAMTOLOGI' }, 400);
+  }
+  try {
+    const ok = await deleteUserChatSession(founderId, sessionId, 'founder', { isFounder: true });
+    if (!ok) return c.json({ success: false, error: 'Session not found.', kernel: 'ALAMTOLOGI' }, 404);
+    return c.json({
+      success:   true,
+      sessionId,
+      kernel:    'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Could not delete chat.';
+    const status = msg.includes('denied') || msg.includes('cannot') ? 403 : 400;
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, status);
+  }
 });
 
 // ─── DELETE /api/adam/chat/messages/:messageId — Remove founder message ──

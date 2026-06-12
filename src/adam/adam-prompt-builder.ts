@@ -87,6 +87,7 @@ import {
   ADAM_TUTOR_OFF_TOPIC_TURN,
   buildAdamTutorTeacherIntroLaw,
   buildAdamTutorProfileBlock,
+  buildTutorStudentAddressLaw,
   isAdamTutorMode,
   isAdamTutorOffTopicMessage,
   type AdamTutorProfile,
@@ -422,7 +423,7 @@ function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): string 
   }
 
   if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
-  parts.push(buildStudentAddressLaw(params.participantName));
+  parts.push(buildTutorStudentAddressLaw(params.participantName));
   parts.push(ADAM_MEMORY_HONESTY_RULE_STUDENT);
 
   return parts.filter(Boolean).join('\n\n');

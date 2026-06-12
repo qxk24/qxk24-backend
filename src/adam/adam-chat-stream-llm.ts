@@ -23,6 +23,10 @@ import {
   isAdamLightChatTurn,
 } from './adam-response-generation';
 import {
+  buildTutorGreetingFallback,
+  isAdamTutorMode,
+} from './adam-tutor-law';
+import {
   applyStudentSurfaceOutputRepair,
   resolveStudentStreamSurface,
 } from './adam-student-output-guard';
@@ -175,7 +179,15 @@ export async function repairAdamStreamOutput(input: {
     fullResponse = repairFormulaXyzStreamOutput(fullResponse, userMessage);
   }
 
-  if (!isFounder) {
+  if (!isFounder && isAdamTutorMode(mode)) {
+    if (!fullResponse?.trim() && isAdamLightChatTurn(userMessage)) {
+      fullResponse = buildTutorGreetingFallback(
+        userMessage,
+        participant.userName,
+        shell.options.tutorProfile,
+      );
+    }
+  } else if (!isFounder) {
     const syncStarted = Date.now();
     let surface = applyStudentSurfaceOutputRepair(
       fullResponse,

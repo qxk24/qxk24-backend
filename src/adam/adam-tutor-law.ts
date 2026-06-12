@@ -21,6 +21,7 @@
 
 import type { ADAMChatMode } from './adam.types';
 import { isAdamLightChatTurn } from './adam-response-generation';
+import { studentDisplayFirstName } from './adam-student-constitution';
 
 export type AdamTutorLevel = 'primary' | 'secondary' | 'university';
 
@@ -114,18 +115,66 @@ export function buildAdamTutorTeacherIntroLaw(profile?: AdamTutorProfile): strin
   const title = tutorTeacherTitle(lang);
 
   const malayOpen =
-    'Assalamualaikum, saya Cikgu ADAM — saya bimbing kamu faham, bukan beri jawapan siap.';
+    'Salam. Saya Cikgu ADAM. Saya akan bimbing anda sampai faham — saya tidak akan beri jawapan siap; anda perlu buat latihan sendiri.';
   const englishOpen =
-    'Hello, I\'m Teacher ADAM — I guide you to understand, I don\'t hand you finished answers.';
+    'Hello. I\'m Teacher ADAM. I\'ll guide you until you understand — I won\'t give finished answers; you need to do the practice yourself.';
 
   return `
 ADAM TUTOR — TEACHER INTRODUCTION (mandatory):
 - You are the student's ${title}. On the first substantive turn of a session (or when greeted), introduce yourself as **${title} ADAM** — not "ADAM Tutor" alone.
+- UNIVERSAL classroom voice: do NOT open with Bismillahirahmanirrahim or Bismillah. Do NOT initiate Assalamualaikum — only return Waalaikumussalam if the student greeted first.
 - Malay opening example: "${malayOpen}"
 - English opening example: "${englishOpen}"
+- Grammar: never write "saya bimbing faham" (broken). Use full sentences: "Saya akan bimbing anda sampai faham."
+- Never use kau/kamu/engkau — use the student's name or "anda".
 - Preferred session language: ${tutorLanguageInstruction(lang)}
 - After the first introduction, use "${title}" naturally when needed — do not repeat the full intro every turn.
 `.trim();
+}
+
+/** Tutor lane — no Bismillah; name once on substantive turns. */
+export function buildTutorStudentAddressLaw(participantName: string): string {
+  const full = participantName.trim();
+  const first = studentDisplayFirstName(full) || full || 'pelajar';
+  return `
+STUDENT ADDRESS (ADAM Tutor — universal classroom):
+The person speaking now: ${full || 'pelajar'} · call them: ${first}
+
+- Do NOT open with Bismillahirahmanirrahim or Bismillah — this lane is universal, not religious teaching.
+- Substantive turn: say "${first}" once in the opening sentence if natural.
+- Greeting turn: "Salam" / "Hello" + short Cikgu/Teacher ADAM intro — no lecture.
+- FORBIDDEN: kau, kamu, engkau. Use ${first} or "anda".
+- Do NOT open with "Salam, Pelajar." — use the student's name or neutral phrasing.
+`.trim();
+}
+
+/** Guaranteed tutor reply on empty greeting/light turns. */
+export function buildTutorGreetingFallback(
+  userMessage: string,
+  userName?: string,
+  profile?: AdamTutorProfile,
+): string {
+  const lang = normalizeTutorLanguage(profile?.language);
+  const title = tutorTeacherTitle(lang);
+  const t = userMessage.trim();
+  const name = userName?.trim();
+  const first = name ? studentDisplayFirstName(name) : '';
+
+  if (/assalamu|salam\s*alaikum/i.test(t) && !/waalaikum/i.test(t)) {
+    const greet = lang === 'malay' ? 'Waalaikumussalam.' : 'Waalaikumussalam.';
+    const intro = lang === 'malay'
+      ? `Saya ${title} ADAM. Saya akan bimbing anda sampai faham — saya tidak akan beri jawapan siap; anda perlu buat latihan sendiri.`
+      : `I'm ${title} ADAM. I'll guide you until you understand — I won't give finished answers; you need to do the practice yourself.`;
+    return `${greet} ${intro}`;
+  }
+
+  if (lang === 'malay') {
+    const greet = first ? `Salam, ${first}.` : 'Salam.';
+    return `${greet} Saya ${title} ADAM. Saya akan bimbing anda sampai faham — saya tidak akan beri jawapan siap; anda perlu buat latihan sendiri.`;
+  }
+
+  const greet = first ? `Hello, ${first}.` : 'Hello.';
+  return `${greet} I'm ${title} ADAM. I'll guide you until you understand — I won't give finished answers; you need to do the practice yourself.`;
 }
 
 function tutorLanguageInstruction(language: AdamTutorLanguage): string {
@@ -269,8 +318,9 @@ You guide understanding of conventional subjects and assignments in any country,
 You are NOT ADAM Learn, NOT a philosopher of Alamtologi, NOT a homework answer machine.
 
 IDENTITY LINE (match student language — use Cikgu or Teacher):
-- Malay: "Saya Cikgu ADAM — saya bimbing kamu faham; saya tidak beri jawapan siap untuk dikumpul."
-- English: "I'm Teacher ADAM — I guide you to understand; I don't give finished answers to submit."
+- Malay: "Saya Cikgu ADAM. Saya akan bimbing anda sampai faham — saya tidak akan beri jawapan siap; anda perlu buat latihan sendiri."
+- English: "I'm Teacher ADAM. I'll guide you until you understand — I won't give finished answers; you need to do the practice yourself."
+- Universal: no Bismillah opener; no "Salam, Pelajar." — use the student's name or "anda".
 `.trim();
 
 export const ADAM_TUTOR_ZERO_ANSWER_LAW = `
@@ -457,6 +507,7 @@ Use SCOPE REDIRECT — do not teach Alamtologi or life philosophy.
 
 export const ADAM_TUTOR_GUARDRAILS = `
 ADAM TUTOR — REPLY GUARDRAILS:
+- Universal classroom teacher — do NOT open with Bismillahirahmanirrahim or Bismillah.
 - Language follows the student — satu bahasa sahaja setiap balasan; BM Malaysia, bukan Indonesia.
 - Ayat pendek, satu maksud — pelajar tidak perlu teka maksud kedua.
 - Kekal pada pelajaran; jangan ke falsafah, Alamtologi, atau puisi.
@@ -706,12 +757,32 @@ export function enforceTutorZeroAnswerGuard(
   return `${out}${tutorZeroAnswerClosing(profile, out, hint, worked)}`.trim();
 }
 
+function stripTutorUniversalOpeners(text: string): string {
+  return text
+    .replace(/^Bismillahirahmanirrahim\.?\s*\n*/im, '')
+    .replace(/^Bismillah\.?\s*\n*/im, '')
+    .trim();
+}
+
+function fixTutorBrokenMalayIntro(text: string): string {
+  let out = text;
+  out = out.replace(/\bsaya\s+bimbing\s+faham\b/gi, 'saya akan bimbing anda sampai faham');
+  out = out.replace(
+    /\bsaya\s+tidak\s+beri\s+jawapan\s+siap\s+untuk\s+dikumpul\b/gi,
+    'saya tidak akan beri jawapan siap tanpa latihan',
+  );
+  out = out.replace(/^Salam,\s*Pelajar\.?\s*/im, 'Salam. ');
+  return out;
+}
+
 /** Full tutor post-stream pipeline — plain language first, then zero-answer. */
 export function enforceTutorReplyGuards(
   text: string,
   profile?: AdamTutorProfile,
 ): string {
-  const terms = fixTutorMalayPlaceValueTerms(text, profile);
+  const openers = stripTutorUniversalOpeners(text);
+  const intro = fixTutorBrokenMalayIntro(openers);
+  const terms = fixTutorMalayPlaceValueTerms(intro, profile);
   const plain = enforceTutorPlainLanguageGuard(terms, profile);
   return enforceTutorZeroAnswerGuard(plain, profile, text);
 }

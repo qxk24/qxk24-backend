@@ -385,8 +385,9 @@ export async function renameUserChatSession(
   sessionId: string,
   sessionType: SessionType,
   title: string,
+  opts: { isFounder?: boolean } = {},
 ): Promise<boolean> {
-  await assertCanClearSessionChat(sessionId, userId, { isFounder: false });
+  await assertCanClearSessionChat(sessionId, userId, { isFounder: opts.isFounder === true });
   const trimmed = title.trim();
   if (!trimmed) throw new Error('Title is required.');
   const safeTitle = trimmed.length > SESSION_TITLE_MAX
@@ -403,8 +404,9 @@ export async function deleteUserChatSession(
   userId: string,
   sessionId: string,
   sessionType: SessionType,
+  opts: { isFounder?: boolean } = {},
 ): Promise<boolean> {
-  await assertCanClearSessionChat(sessionId, userId, { isFounder: false });
+  await assertCanClearSessionChat(sessionId, userId, { isFounder: opts.isFounder === true });
   await clearSessionChatHistory(sessionId);
   const result = await ADAMFounderSessionModel.deleteOne({
     sessionId,

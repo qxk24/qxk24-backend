@@ -23,6 +23,11 @@ import {
   localeToLabel,
   type SupportedLocale,
 } from './adam-language-mirror.service';
+import {
+  containsIndonesianDrift,
+  isMalayReplyLocale,
+  sanitizeMalaysiaBmDrift,
+} from './adam-malaysia-bm-guard';
 
 const EAST_ASIAN_SCRIPT =
   /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
@@ -91,7 +96,7 @@ export function buildQwenLanguageLock(options?: QwenLanguageLockOptions): string
   const lang = ENV.ADAM_DEFAULT_LANGUAGE.trim().toLowerCase();
   const malayDefault = lang === 'malay' || lang === 'ms' || lang === 'bm';
   const defaultLine = malayDefault
-    ? 'Constitutional default: When the user\'s language is ambiguous, or they use Latin script without clear English-only phrasing, reply in Bahasa Melayu — not English.'
+    ? 'Constitutional default: When the user\'s language is ambiguous, or they use Latin script without clear English-only phrasing, reply in Bahasa Melayu Malaysia (DBP) — not English, not Bahasa Indonesia.'
     : `Constitutional default: When the user's language is unclear, reply in ${envFallbackLabel()}.`;
 
   return `
@@ -99,8 +104,8 @@ export function buildQwenLanguageLock(options?: QwenLanguageLockOptions): string
 You are ADAM (Qwen engine).
 Your response language must EXACTLY mirror the detected language of the user's message.
 If the user writes in English → reply in English only.
-If the user writes in Bahasa Melayu → reply in Bahasa Melayu only.
-If the user writes in mixed Malay-English → reply in mixed Malay-English only.
+If the user writes in Bahasa Melayu → reply in Bahasa Melayu Malaysia only (DBP — never Indonesian words like karena, bisa, udah, butuh).
+If the user writes in mixed Malay-English → reply in mixed Malay-English only (Malaysian Malay, not Indonesian).
 ${defaultLine}
 The long English system instructions below describe your identity — they do NOT set your reply language.
 NEVER output Chinese characters (汉字) unless the user's message is written in Chinese.
@@ -212,6 +217,7 @@ export function getScriptLeakGuardDirective(): string {
     'Do not leak Chinese/Japanese/Korean characters into Malay, English, Arabic, or other replies unless the speaker used that script.',
     'When you mean "means" in Malay, write bermaksud — not 意味着.',
     'When you mean "some kind of" in Malay, write sesuatu or sesuatu jenis — not 某种.',
+    'In Bahasa Melayu Malaysia, never use Indonesian forms: karena→kerana, bisa→boleh, udah→sudah, butuh→perlu, teknis→teknikal.',
   ];
 
   if (isQwenProvider()) {
@@ -253,6 +259,13 @@ export function sanitizeEastAsianScriptLeaks(
   let out = applyMalayLeakLexicon(text);
   if (containsEastAsianScript(out)) {
     out = stripEastAsianScriptRuns(out);
+  }
+  if (isMalayReplyLocale(expectedLocale)) {
+    const bmCleaned = sanitizeMalaysiaBmDrift(out, expectedLocale);
+    if (bmCleaned !== out && containsIndonesianDrift(out)) {
+      console.log('[adam:language-guard] sanitized Indonesian drift in Malay reply');
+    }
+    out = bmCleaned;
   }
   return out;
 }
