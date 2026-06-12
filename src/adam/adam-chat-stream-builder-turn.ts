@@ -151,6 +151,8 @@ export async function handleAdamBuilderTurn(shell: AdamChatTurnShell): Promise<b
         activation.intent === 'none' ? 'write_code' : activation.intent,
         resolvedSessionId,
         options.founderToken,
+        participant.userId,
+        isFounder,
         abortController.signal,
       )) {
         if (event.type === 'heartbeat') continue;

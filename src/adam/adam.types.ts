@@ -131,7 +131,9 @@ export type ADAMChatMode =
   | 'CONSTITUTIONAL'
   | 'JOURNAL_GEN'
   | 'BUILDER'
-  | 'TUTOR';
+  | 'TUTOR'
+  /** R&D Eksklusif — Industry research partner (paid subscription) */
+  | 'RESEARCH';
 
 /** Voice register for a single reply — not operational mode (TEACHING, BUILDER, …). */
 export type ADAMAnswerStyle = 'natural' | 'philosophy' | 'formal' | 'technical';

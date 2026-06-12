@@ -75,4 +75,16 @@ describe('founder biography identity', () => {
     expect(needsBookAwareTeachingRecall('Adam, rujuk kisah Dr Aminullah dalam Prolog ALAMIN')).toBe(true);
     expect(needsBookAwareTeachingRecall('Adam kena rujuk kesah saya dari kecil')).toBe(false);
   });
+
+  it('applies episode attribution lock on synthesis turns not Dr Aminullah', async () => {
+    const {
+      ADAM_FOUNDER_EPISODE_ATTRIBUTION_OUTPUT_LOCK,
+      founderTurnExcludesPrologEpisodes,
+    } = await import('../src/adam/adam-knowledge-prompts');
+    const synthesisMsg = 'Adam, rumuskan Formula Penyelesaian dari Bab 1 hingga Bab 6 dengan contoh nyata kehidupan P.alt';
+    expect(founderTurnExcludesPrologEpisodes(synthesisMsg)).toBe(true);
+    expect(ADAM_FOUNDER_EPISODE_ATTRIBUTION_OUTPUT_LOCK).toContain('MUDI');
+    expect(ADAM_FOUNDER_EPISODE_ATTRIBUTION_OUTPUT_LOCK).toContain('KLIA2');
+    expect(founderTurnExcludesPrologEpisodes('Rujuk kisah Dr Aminullah prolog ALAMIN')).toBe(false);
+  });
 });

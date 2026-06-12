@@ -29,6 +29,7 @@ import { getAidilStageDashboard } from '../qxk24brain/adam-stage-dashboard.servi
 import { AlamtologiBrainLogModel } from '../qxk24brain/qxk24brain.schema';
 import { ENV } from '../config/environments';
 import { buildFounderRevenueInsights, type FounderRevenueInsights } from '../subscriptions/subscription-revenue-insights.service';
+import { getMacBridgeDashboardSettings } from './adam-mac-bridge-settings.service';
 import { getStudentRegistrationSettings } from './adam-platform-settings.service';
 import { getDatasetStats, type LlmPipelineStats } from '../llm-pipeline/training-example-generator';
 import { getTesterMonitorStats } from '../tester/alm-tester.service';
@@ -81,6 +82,13 @@ export interface FounderPulsePayload {
   };
   registration: {
     open: boolean;
+  };
+  macBridge: {
+    serverEnabled: boolean;
+    open:          boolean;
+    connected:     boolean;
+    machineName?:  string;
+    toolCount:     number;
   };
   llmPipeline: LlmPipelineStats;
   messages24h: number;
@@ -241,6 +249,7 @@ export async function buildFounderPulse(): Promise<FounderPulsePayload> {
     },
     testers: testerStats,
     registration: getStudentRegistrationSettings(),
+    macBridge:    await getMacBridgeDashboardSettings(FOUNDER_ID, true),
     llmPipeline: llmPipeline ?? {
       total: 0,
       usedInTraining: 0,

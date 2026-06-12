@@ -44,6 +44,10 @@ import {
   streamLayerGateBlockedTurn,
 } from '../../adam-servers/adam-layer-gate.service';
 import { attachSubscriptionAccess } from '../../middleware/subscription-guard.middleware';
+import {
+  getMacBridgeDashboardSettings,
+  setMacBridgeRoutingForUser,
+} from '../../adam/adam-mac-bridge-settings.service';
 import { detectRegionFromHeaders } from '../../subscriptions/region-detector.service';
 import {
   CREDIT_PACK_ID,
@@ -203,6 +207,42 @@ router.get('/pulse', requireStudentOrGuru, async (c) => {
     kernel:  'ALAMTOLOGI',
   });
 });
+
+const MacBridgeToggleSchema = z.object({
+  open: z.boolean(),
+});
+
+// GET /api/adam/student/mac-bridge — Profesional+ local file bridge status
+router.get('/mac-bridge', requireStudentOrGuru, async (c) => {
+  const user = getTokenUser(c)!;
+  return c.json({
+    success: true,
+    ...await getMacBridgeDashboardSettings(user.userId, false),
+    kernel: 'ALAMTOLOGI',
+  });
+});
+
+// PATCH /api/adam/student/mac-bridge — open/close bridge routing (Profesional+)
+router.patch(
+  '/mac-bridge',
+  requireStudentOrGuru,
+  zValidator('json', MacBridgeToggleSchema),
+  async (c) => {
+    const user = getTokenUser(c)!;
+    const { open } = c.req.valid('json');
+    try {
+      const result = await setMacBridgeRoutingForUser(user.userId, false, open, user.userId);
+      return c.json({
+        success: true,
+        ...await getMacBridgeDashboardSettings(user.userId, false),
+        open:   result.open,
+        kernel: 'ALAMTOLOGI',
+      });
+    } catch (err) {
+      return c.json({ success: false, error: (err as Error).message }, 400);
+    }
+  },
+);
 
 // GET /api/adam/student/auth-config — public auth capabilities
 router.get('/auth-config', (c) => {

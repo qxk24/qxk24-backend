@@ -24,6 +24,7 @@ import { extractRecentUserTurns, resolveTechnicalPrecisionTurn } from './adam-fa
 import { shouldStudentUseSearchFirstFlow } from './adam-search-first';
 import { buildQwenLanguageLock } from './adam-language-guard';
 import { buildMacBridgeContextBlock } from '../agent/mac-bridge-context';
+import { userHasMacBridgeTier } from './adam-mac-bridge-access.service';
 import { prependCoreToSystem } from '../qxk24brain/adam-core';
 import { buildAdamChatSystemPrompt } from './adam-system-prompts';
 import { resolveStudentKnowledgeTier } from './adam-three-tier-knowledge';
@@ -33,6 +34,7 @@ import type { JournalGenContext } from './adam-chat-stream.types';
 import type { AdamChatTurnShell } from './adam-chat-stream.types';
 import type { AdamTurnContextFetch, FounderTeachingFlags } from './adam-chat-stream-turn-context';
 import type { WorkspaceRecord } from './adam-workspace.service';
+import { buildRdIndustryContextBlock } from '../rd-industry/rd-industry-research-prompt';
 
 export interface TurnPromptAndSearchGate {
   systemPrompt: string;
@@ -74,12 +76,17 @@ export async function buildTurnPromptAndSearchGate(input: {
   } = turnContext;
 
   const isTutorLane = mode === 'TUTOR';
+  const isResearchLane = mode === 'RESEARCH';
 
   const workspacePrompt = workspace
     ? `\n[AIDIL WORKSPACE: "${workspace.title}" — separate family. Do NOT mix with other books or the student's general chat.]`
     : '';
 
-  const macBridgeBlock = isFounder ? buildMacBridgeContextBlock() : '';
+  const macBridgeEligible = isFounder
+    || await userHasMacBridgeTier(shell.participant.userId);
+  const macBridgeBlock = macBridgeEligible
+    ? await buildMacBridgeContextBlock(shell.participant.userId, isFounder)
+    : '';
   const recentUserTurns = extractRecentUserTurns(contextMessages);
   const precisionTurn = resolveTechnicalPrecisionTurn(messageForAdam, recentUserTurns);
   const webSearchEnabledThisTurn = adamWebSearchEnabled() && !founderTeachingAbsorption;
@@ -101,9 +108,9 @@ export async function buildTurnPromptAndSearchGate(input: {
   const enableWebSearch = Boolean(webSearchGateReason);
   const studentSearchFirst =
     !isFounder && shouldStudentUseSearchFirstFlow(false, webSearchGateReason);
-  const studentKnowledgeTier = !isFounder && !isTutorLane
+  const studentKnowledgeTier = !isFounder && !isTutorLane && !isResearchLane
     ? resolveStudentKnowledgeTier(messageForAdam, recentUserTurns)
-    : undefined;
+    : isResearchLane ? 2 as const : undefined;
 
   const builtPrompt = buildAdamChatSystemPrompt({
     mode,
@@ -142,6 +149,15 @@ export async function buildTurnPromptAndSearchGate(input: {
 
   if (macBridgeBlock) {
     systemPrompt = `${systemPrompt}\n\n${macBridgeBlock}`;
+  }
+  if (isResearchLane && options.rdIndustryContext) {
+    const ctx = options.rdIndustryContext;
+    systemPrompt = `${systemPrompt}\n\n${buildRdIndustryContextBlock({
+      projectFocus:   ctx.projectFocus,
+      deliverable:    ctx.deliverable,
+      packId:         ctx.packId,
+      technicalDocId: ctx.technicalDocId,
+    })}`;
   }
   if (testerSystemPrefix) {
     systemPrompt = `${testerSystemPrefix}\n\n${systemPrompt}`;

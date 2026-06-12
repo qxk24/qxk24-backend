@@ -116,6 +116,8 @@ export async function* runBuilderChatSession(
   intent: BuildIntent,
   chatSessionId: string,
   founderToken: string,
+  bridgeUserId: string,
+  bridgeIsFounder: boolean,
   signal?: AbortSignal,
 ): AsyncGenerator<BuilderChatEvent> {
   const builderSessionId = builderSessionIdForChat(chatSessionId);
@@ -134,6 +136,8 @@ export async function* runBuilderChatSession(
     userMessage,
     builderSessionId,
     founderToken,
+    bridgeUserId,
+    bridgeIsFounder,
     signal,
   );
 

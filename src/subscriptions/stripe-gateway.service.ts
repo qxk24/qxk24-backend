@@ -347,6 +347,11 @@ async function handleCheckoutCompleted(session: Record<string, unknown>): Promis
     await activateAdamServerFromStripeCheckout(session);
     return;
   }
+  if (meta?.checkoutType === 'rd_applied') {
+    const { activateRdFromStripeCheckout } = await import('../rd-applied/rd-stripe.service');
+    await activateRdFromStripeCheckout(session);
+    return;
+  }
 
   const mongoId =
     meta?.subscriptionId

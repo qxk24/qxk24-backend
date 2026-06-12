@@ -18,7 +18,8 @@
 import { Hono } from 'hono';
 import type { Context, Next } from 'hono';
 import { ENV } from '../config/environments';
-import { requireFounder } from '../middleware/auth.middleware';
+import { canUseMacBridge } from '../adam/adam-mac-bridge-access.service';
+import { getTokenUser, requireAuth } from '../middleware/auth.middleware';
 import {
   completeMacBridgeJob,
   getMacBridgeStatus,
@@ -29,23 +30,39 @@ import {
 
 const router = new Hono();
 
-async function requireMacBridgeEnabled(c: Context, next: Next): Promise<Response | void> {
+async function requireMacBridgeServerEnabled(c: Context, next: Next): Promise<Response | void> {
   if (!ENV.ADAM_MAC_BRIDGE_ENABLED) {
     return c.json({ error: 'ADAM Mac bridge is not enabled on this server.' }, 403);
   }
   await next();
 }
 
-router.use('*', requireFounder, requireMacBridgeEnabled);
+async function requireMacBridgeParticipant(c: Context, next: Next): Promise<Response | void> {
+  const user = getTokenUser(c);
+  if (!user) {
+    return c.json({ error: 'Authorization required.' }, 401);
+  }
+  if (!(await canUseMacBridge(user))) {
+    return c.json({ error: 'Mac bridge requires Founder or Profesional access.' }, 403);
+  }
+  await next();
+}
 
-router.get('/status', (c) => c.json(getMacBridgeStatus()));
+router.use('*', requireAuth, requireMacBridgeServerEnabled, requireMacBridgeParticipant);
+
+router.get('/status', (c) => {
+  const user = getTokenUser(c)!;
+  return c.json(getMacBridgeStatus(user.userId));
+});
 
 router.post('/heartbeat', (c) => {
-  heartbeatMacBridge();
+  const user = getTokenUser(c)!;
+  heartbeatMacBridge(user.userId);
   return c.json({ ok: true });
 });
 
 router.post('/register', async (c) => {
+  const user = getTokenUser(c)!;
   const body = await c.req.json<{
     machineName?: string;
     macRoot?:     string;
@@ -57,8 +74,8 @@ router.post('/register', async (c) => {
     }>;
   }>();
 
-  const reg = registerMacBridge({
-    machineName: body.machineName?.trim() || 'MacBook',
+  const reg = registerMacBridge(user.userId, {
+    machineName: body.machineName?.trim() || 'local-computer',
     macRoot:     body.macRoot?.trim() || '',
     qxk24Root:   body.qxk24Root?.trim() || '',
     tools:       Array.isArray(body.tools) ? body.tools : [],
@@ -68,7 +85,8 @@ router.post('/register', async (c) => {
 });
 
 router.get('/poll', async (c) => {
-  const job = await waitForMacBridgeJob();
+  const user = getTokenUser(c)!;
+  const job = await waitForMacBridgeJob(user.userId);
   if (!job) {
     return c.json({ job: null });
   }
@@ -76,6 +94,7 @@ router.get('/poll', async (c) => {
 });
 
 router.post('/result', async (c) => {
+  const user = getTokenUser(c)!;
   const body = await c.req.json<{
     callId?:     string;
     resultText?: string;
@@ -88,6 +107,7 @@ router.post('/result', async (c) => {
   }
 
   const ok = completeMacBridgeJob(
+    user.userId,
     callId,
     body.resultText ?? '',
     body.isError === true,

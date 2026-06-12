@@ -18,6 +18,7 @@
 import type { ADAMAnswerStyle, ADAMChatMode, SSEEventType } from './adam.types';
 import type { ChatParticipant } from './adam-student.types';
 import type { AdamTutorProfile } from './adam-tutor-law';
+import type { RdIndustryDeliverableType } from '../rd-industry/rd-industry.types';
 import type { LlmMessage } from '../llm/llm-types';
 import type { UniversityKnowledgeTopic } from './adam-university-knowledge';
 import type { JournalSectionId } from './adam-journal-section.types';
@@ -33,6 +34,14 @@ export interface StreamADAMChatOptions {
   builderEvaluate?:   boolean;
   /** ADAM Tutor lane — level, curriculum, year */
   tutorProfile?:      AdamTutorProfile;
+  /** R&D Industry — project context for RESEARCH mode */
+  rdIndustryContext?: {
+    projectId:      string;
+    projectFocus:   string;
+    deliverable:    RdIndustryDeliverableType;
+    packId:         string | null;
+    technicalDocId: string | null;
+  };
 }
 
 export type AdamStreamOnceFn = (

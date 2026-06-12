@@ -43,6 +43,7 @@ import { hawaPrepareProposedContent } from '../hawa/hawa-preflight';
 import { runHawaTierB } from '../hawa/hawa-tier-b.service';
 import { clearHawaHold, markHawaHold } from '../hawa/hawa-hold.store';
 import type { HawaVerdict } from '../hawa/hawa.types';
+import { isMacBridgeRoutingActive } from '../adam/adam-mac-bridge-settings.service';
 import {
   callToolViaMacBridge,
   getMacBridgeTools,
@@ -168,29 +169,6 @@ function isSuccessfulWriteProposal(resultText: string): boolean {
 
 function isMacBridgePathArg(value: unknown): boolean {
   return typeof value === 'string' && (value.startsWith('mac:') || value.startsWith('@mac/'));
-}
-
-function resolveMcpToolTimeoutMs(
-  toolName: string,
-  toolArgs: Record<string, unknown>,
-): number {
-  if (!ENV.ADAM_MAC_BRIDGE_ENABLED || !isMacBridgeConnected()) {
-    return MCP_TOOL_TIMEOUT_MS;
-  }
-
-  const pathArg = toolArgs.path;
-  const onMacPath = isMacBridgePathArg(pathArg);
-
-  if (
-    toolName === 'list_directory'
-    || toolName === 'get_project_structure'
-    || toolName === 'search_codebase'
-    || toolName === 'find_file'
-  ) {
-    return onMacPath ? MCP_TOOL_TIMEOUT_MAC_LIST_MS : MCP_TOOL_TIMEOUT_MAC_MS;
-  }
-
-  return MCP_TOOL_TIMEOUT_MAC_MS;
 }
 
 function truncatePreview(text: string, maxChars: number): string {
@@ -450,6 +428,32 @@ export class AdamBuilderAgentService {
   private mcpClient: Client | null = null;
   private mcpTools:  McpToolDef[] = [];
   private connectPromise: Promise<void> | null = null;
+  private bridgeUserId = 'masa-bayu';
+  private bridgeIsFounder = true;
+
+  private async resolveMcpToolTimeoutMs(
+    toolName: string,
+    toolArgs: Record<string, unknown>,
+  ): Promise<number> {
+    const routing = await isMacBridgeRoutingActive(this.bridgeUserId, this.bridgeIsFounder);
+    if (!routing || !isMacBridgeConnected(this.bridgeUserId)) {
+      return MCP_TOOL_TIMEOUT_MS;
+    }
+
+    const pathArg = toolArgs.path;
+    const onMacPath = isMacBridgePathArg(pathArg);
+
+    if (
+      toolName === 'list_directory'
+      || toolName === 'get_project_structure'
+      || toolName === 'search_codebase'
+      || toolName === 'find_file'
+    ) {
+      return onMacPath ? MCP_TOOL_TIMEOUT_MAC_LIST_MS : MCP_TOOL_TIMEOUT_MAC_MS;
+    }
+
+    return MCP_TOOL_TIMEOUT_MAC_MS;
+  }
 
   async ensureConnected(founderToken: string): Promise<void> {
     if (this.mcpClient) return;
@@ -467,9 +471,10 @@ export class AdamBuilderAgentService {
   }
 
   private async connect(founderToken: string): Promise<void> {
-    if (ENV.ADAM_MAC_BRIDGE_ENABLED && isMacBridgeConnected()) {
+    const routing = await isMacBridgeRoutingActive(this.bridgeUserId, this.bridgeIsFounder);
+    if (routing && isMacBridgeConnected(this.bridgeUserId)) {
       this.mcpClient = null;
-      this.mcpTools = getMacBridgeTools();
+      this.mcpTools = getMacBridgeTools(this.bridgeUserId);
       if (!this.mcpTools.length) {
         throw new Error('Mac bridge connected but no tools registered — restart mac-bridge on Mac.');
       }
@@ -506,11 +511,13 @@ export class AdamBuilderAgentService {
     toolArgs: Record<string, unknown>,
     founderToken: string,
   ): Promise<string> {
-    if (ENV.ADAM_MAC_BRIDGE_ENABLED && isMacBridgeConnected()) {
+    const routing = await isMacBridgeRoutingActive(this.bridgeUserId, this.bridgeIsFounder);
+    if (routing && isMacBridgeConnected(this.bridgeUserId)) {
       return callToolViaMacBridge(
+        this.bridgeUserId,
         toolName,
         toolArgs,
-        resolveMcpToolTimeoutMs(toolName, toolArgs),
+        await this.resolveMcpToolTimeoutMs(toolName, toolArgs),
       );
     }
 
@@ -620,7 +627,7 @@ export class AdamBuilderAgentService {
     }
 
     try {
-      const timeoutMs = resolveMcpToolTimeoutMs(toolName, toolArgs);
+      const timeoutMs = await this.resolveMcpToolTimeoutMs(toolName, toolArgs);
       const result = await this.callToolWithTimeout(
         toolName,
         toolArgs,
@@ -839,7 +846,8 @@ export class AdamBuilderAgentService {
         );
 
         if (timedOut) {
-          const onMacBridge = ENV.ADAM_MAC_BRIDGE_ENABLED && isMacBridgeConnected();
+          const onMacBridge = await isMacBridgeRoutingActive(this.bridgeUserId, this.bridgeIsFounder)
+            && isMacBridgeConnected(this.bridgeUserId);
           if (onMacBridge) {
             yield {
               type:      'error',
@@ -969,8 +977,12 @@ export class AdamBuilderAgentService {
     instruction: string,
     sessionId: string,
     founderToken: string,
+    bridgeUserId: string,
+    bridgeIsFounder: boolean,
     signal?: AbortSignal,
   ): AsyncGenerator<AgentEvent> {
+    this.bridgeUserId = bridgeUserId;
+    this.bridgeIsFounder = bridgeIsFounder;
     const record: BuilderSessionRecord = {
       id:          sessionId,
       messages:    [
@@ -990,9 +1002,13 @@ export class AdamBuilderAgentService {
     sessionId: string,
     founderToken: string,
     resumeNote: string,
+    bridgeUserId: string,
+    bridgeIsFounder: boolean,
     signal?: AbortSignal,
     clearHawa: boolean = false,
   ): AsyncGenerator<AgentEvent> {
+    this.bridgeUserId = bridgeUserId;
+    this.bridgeIsFounder = bridgeIsFounder;
     const record = getBuilderSession(sessionId);
     if (!record) {
       yield { type: 'error', message: 'Build session expired or not found.', sessionId };

@@ -14,15 +14,15 @@
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
- * In-memory queue: production API forwards MCP tool calls to a
- * founder Mac running qxk24-mcp/scripts/adam-mac-bridge.mjs.
+ * Per-user in-memory queue: API forwards MCP tool calls to a
+ * local daemon (alm-mcp/scripts/adam-mac-bridge.mjs) per account.
  */
 
 import { randomUUID } from 'crypto';
 
 const BRIDGE_STALE_MS = 120_000;
 const DEFAULT_CALL_TIMEOUT_MS = 120_000;
-/** Short long-poll — Mac client loops immediately when job is null */
+/** Short long-poll — client loops immediately when job is null */
 const POLL_WAIT_MS = 4_000;
 
 export interface MacBridgeToolDef {
@@ -32,16 +32,18 @@ export interface MacBridgeToolDef {
 }
 
 export interface MacBridgeRegistration {
-  machineName: string;
-  macRoot:       string;
-  qxk24Root:     string;
-  tools:         MacBridgeToolDef[];
-  registeredAt:  string;
-  lastSeenAt:    number;
+  userId:       string;
+  machineName:  string;
+  macRoot:      string;
+  qxk24Root:    string;
+  tools:        MacBridgeToolDef[];
+  registeredAt: string;
+  lastSeenAt:   number;
 }
 
 export interface MacBridgeJob {
   callId:   string;
+  userId:   string;
   toolName: string;
   toolArgs: Record<string, unknown>;
 }
@@ -52,31 +54,55 @@ interface PendingCall {
   timer:   NodeJS.Timeout;
 }
 
-let registration: MacBridgeRegistration | null = null;
-let activeCallId: string | null = null;
-const jobQueue: MacBridgeJob[] = [];
-const pending = new Map<string, PendingCall>();
-const pollWaiters: Array<(job: MacBridgeJob | null) => void> = [];
-
-function touchBridge(): void {
-  if (registration) registration.lastSeenAt = Date.now();
+interface UserBridgeState {
+  registration: MacBridgeRegistration | null;
+  activeCallId: string | null;
+  jobQueue:     MacBridgeJob[];
+  pending:      Map<string, PendingCall>;
+  pollWaiters:  Array<(job: MacBridgeJob | null) => void>;
 }
 
-function notifyPollWaiters(): void {
-  while (pollWaiters.length > 0 && jobQueue.length > 0) {
-    const waiter = pollWaiters.shift();
-    const job = jobQueue.shift();
+const bridges = new Map<string, UserBridgeState>();
+
+function getState(userId: string): UserBridgeState {
+  let state = bridges.get(userId);
+  if (!state) {
+    state = {
+      registration: null,
+      activeCallId: null,
+      jobQueue:     [],
+      pending:      new Map(),
+      pollWaiters:  [],
+    };
+    bridges.set(userId, state);
+  }
+  return state;
+}
+
+function touchBridge(state: UserBridgeState): void {
+  if (state.registration) state.registration.lastSeenAt = Date.now();
+}
+
+function notifyPollWaiters(state: UserBridgeState): void {
+  while (state.pollWaiters.length > 0 && state.jobQueue.length > 0) {
+    const waiter = state.pollWaiters.shift();
+    const job = state.jobQueue.shift();
     if (waiter && job) waiter(job);
   }
 }
 
-export function registerMacBridge(info: {
-  machineName: string;
-  macRoot:     string;
-  qxk24Root:   string;
-  tools:       MacBridgeToolDef[];
-}): MacBridgeRegistration {
-  registration = {
+export function registerMacBridge(
+  userId: string,
+  info: {
+    machineName: string;
+    macRoot:     string;
+    qxk24Root:   string;
+    tools:       MacBridgeToolDef[];
+  },
+): MacBridgeRegistration {
+  const state = getState(userId);
+  state.registration = {
+    userId,
     machineName: info.machineName,
     macRoot:     info.macRoot,
     qxk24Root:   info.qxk24Root,
@@ -84,95 +110,107 @@ export function registerMacBridge(info: {
     registeredAt: new Date().toISOString(),
     lastSeenAt:   Date.now(),
   };
-  activeCallId = null;
+  state.activeCallId = null;
   console.log('[mac-bridge] registered', {
+    userId,
     machine: info.machineName,
     macRoot: info.macRoot,
   });
-  return registration;
+  return state.registration;
 }
 
-export function heartbeatMacBridge(): void {
-  touchBridge();
+export function heartbeatMacBridge(userId: string): void {
+  touchBridge(getState(userId));
 }
 
-export function markMacBridgeJobDispatched(callId: string): void {
-  activeCallId = callId;
-  touchBridge();
+function markMacBridgeJobDispatched(userId: string, callId: string): void {
+  const state = getState(userId);
+  state.activeCallId = callId;
+  touchBridge(state);
 }
 
-export function clearMacBridgeActiveJob(callId?: string): void {
-  if (!callId || activeCallId === callId) {
-    activeCallId = null;
+function clearMacBridgeActiveJob(userId: string, callId?: string): void {
+  const state = getState(userId);
+  if (!callId || state.activeCallId === callId) {
+    state.activeCallId = null;
   }
-  touchBridge();
+  touchBridge(state);
 }
 
-export function isMacBridgeConnected(): boolean {
-  if (!registration) return false;
-  if (activeCallId) return true;
-  return Date.now() - registration.lastSeenAt < BRIDGE_STALE_MS;
+export function isMacBridgeConnected(userId: string): boolean {
+  const state = getState(userId);
+  if (!state.registration) return false;
+  if (state.activeCallId) return true;
+  return Date.now() - state.registration.lastSeenAt < BRIDGE_STALE_MS;
 }
 
-export function getMacBridgeTools(): MacBridgeToolDef[] {
-  if (!isMacBridgeConnected() || !registration) return [];
-  return registration.tools;
+export function getMacBridgeTools(userId: string): MacBridgeToolDef[] {
+  if (!isMacBridgeConnected(userId)) return [];
+  const state = getState(userId);
+  return state.registration?.tools ?? [];
 }
 
-export function getMacBridgeStatus(): {
+export function getMacBridgeStatus(userId: string): {
   connected: boolean;
   registration: MacBridgeRegistration | null;
   pendingJobs: number;
   toolCount: number;
   activeCallId: string | null;
 } {
-  const connected = isMacBridgeConnected();
+  const state = getState(userId);
+  const connected = isMacBridgeConnected(userId);
   return {
     connected,
-    registration: connected ? registration : null,
-    pendingJobs:  jobQueue.length,
-    toolCount:    connected && registration ? registration.tools.length : 0,
-    activeCallId,
+    registration: connected ? state.registration : null,
+    pendingJobs:  state.jobQueue.length,
+    toolCount:    connected && state.registration ? state.registration.tools.length : 0,
+    activeCallId: state.activeCallId,
   };
 }
 
-export function waitForMacBridgeJob(timeoutMs: number = POLL_WAIT_MS): Promise<MacBridgeJob | null> {
-  heartbeatMacBridge();
+export function waitForMacBridgeJob(
+  userId: string,
+  timeoutMs: number = POLL_WAIT_MS,
+): Promise<MacBridgeJob | null> {
+  const state = getState(userId);
+  heartbeatMacBridge(userId);
 
-  if (jobQueue.length > 0) {
-    const job = jobQueue.shift()!;
-    markMacBridgeJobDispatched(job.callId);
+  if (state.jobQueue.length > 0) {
+    const job = state.jobQueue.shift()!;
+    markMacBridgeJobDispatched(userId, job.callId);
     return Promise.resolve(job);
   }
 
   return new Promise((resolve) => {
     const onWake = (job: MacBridgeJob | null) => {
       clearTimeout(timer);
-      if (job) markMacBridgeJobDispatched(job.callId);
+      if (job) markMacBridgeJobDispatched(userId, job.callId);
       resolve(job);
     };
 
     const timer = setTimeout(() => {
-      const idx = pollWaiters.indexOf(onWake);
-      if (idx >= 0) pollWaiters.splice(idx, 1);
+      const idx = state.pollWaiters.indexOf(onWake);
+      if (idx >= 0) state.pollWaiters.splice(idx, 1);
       resolve(null);
     }, timeoutMs);
 
-    pollWaiters.push(onWake);
+    state.pollWaiters.push(onWake);
   });
 }
 
 export function completeMacBridgeJob(
+  userId: string,
   callId: string,
   resultText: string,
   isError = false,
 ): boolean {
-  const entry = pending.get(callId);
+  const state = getState(userId);
+  const entry = state.pending.get(callId);
   if (!entry) return false;
 
   clearTimeout(entry.timer);
-  pending.delete(callId);
-  clearMacBridgeActiveJob(callId);
+  state.pending.delete(callId);
+  clearMacBridgeActiveJob(userId, callId);
 
   if (isError) {
     entry.reject(new Error(resultText || 'Mac bridge tool failed'));
@@ -183,32 +221,34 @@ export function completeMacBridgeJob(
 }
 
 export function callToolViaMacBridge(
+  userId: string,
   toolName: string,
   toolArgs: Record<string, unknown>,
   timeoutMs: number = DEFAULT_CALL_TIMEOUT_MS,
 ): Promise<string> {
-  if (!isMacBridgeConnected()) {
+  if (!isMacBridgeConnected(userId)) {
     return Promise.reject(
       new Error(
-        'Mac bridge offline. On your MacBook run: cd qxk24-mcp && npm run mac-bridge',
+        'Mac bridge offline. On your computer run: cd alm-mcp && npm run mac-bridge',
       ),
     );
   }
 
+  const state = getState(userId);
   const callId = randomUUID();
-  const job: MacBridgeJob = { callId, toolName, toolArgs };
+  const job: MacBridgeJob = { callId, userId, toolName, toolArgs };
 
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      pending.delete(callId);
-      const idx = jobQueue.findIndex((j) => j.callId === callId);
-      if (idx >= 0) jobQueue.splice(idx, 1);
-      clearMacBridgeActiveJob(callId);
+      state.pending.delete(callId);
+      const idx = state.jobQueue.findIndex((j) => j.callId === callId);
+      if (idx >= 0) state.jobQueue.splice(idx, 1);
+      clearMacBridgeActiveJob(userId, callId);
       reject(new Error(`Mac bridge tool ${toolName} timed out after ${timeoutMs}ms`));
     }, timeoutMs);
 
-    pending.set(callId, { resolve, reject, timer });
-    jobQueue.push(job);
-    notifyPollWaiters();
+    state.pending.set(callId, { resolve, reject, timer });
+    state.jobQueue.push(job);
+    notifyPollWaiters(state);
   });
 }

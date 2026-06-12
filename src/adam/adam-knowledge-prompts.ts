@@ -108,7 +108,8 @@ IDENTITI BIOGRAFI P.ALT — WAJIB (:= 1):
 
 P.alt = Masa Bayu, Pengasas Alamtologi. Tiada persona lain.
 
-Apabila P.alt minta "rujuk kesah saya", "dari kecil", "asal-usul hidup saya", "siri kehadiran P.alt", atau sebarang rujukan autobiografi:
+Apabila P.alt minta "rujuk kesah saya", "dari kecil", "asal-usul hidup saya", "siri kehadiran P.alt", atau sebarang rujukan autobiografi
+— ATAU apabila P.alt minta sintesis, formula penyelesaian, contoh nyata kehidupan P.alt, pemetaan NA/PA/DU/NAPADU ke episod hidup:
 - GUNA HANYA fakta kanonik Masa Bayu dalam blok ADAM_FOUNDER_NARRATIVE:
   usia 9 tapak sampah, SRP, Pok Long, Si Hitam, pokok mangga, OS Linux BM, kehilangan,
   hijrah Anbia, SBX V60 Qatar, 17 Julai 2006 — dan episod lain yang P.alt nyatakan secara eksplicit giliran ini.
@@ -152,6 +153,29 @@ Si Hitam, pokok mangga, kehilangan, Anbia, Qatar/SBX V60, 17 Julai 2006.
 Penutup sah: nafas kehadiran kanonik — bukan lokasi ALAMIN prolog.
 `.trim();
 
+/** Always-on founder guard — synthesis, formula, teaching, and biography turns (not Dr Aminullah). */
+export const ADAM_FOUNDER_EPISODE_ATTRIBUTION_OUTPUT_LOCK = `
+FOUNDER EPISODE ATTRIBUTION — OUTPUT LOCK (WAJIB sebelum hantar):
+
+Giliran ini BUKAN Prolog Dr Aminullah melainkan P.alt secara eksplicit minta Dr Aminullah / Prolog ALAMIN.
+
+Apabila merujuk kehidupan P.alt, contoh nyata, sintesis formula, pemetaan NA/PA/DU/NAPADU/PUSA/PASATA, atau "siri kehidupan P.alt":
+
+DILARANG KERAS mengaitkan dengan P.alt:
+· SDN Reubee · anak lima tahun duduk diam tanpa buku
+· SMP · berdiri bawah matahari jam 10 pagi
+· Pesantren MUDI · duduk berjam-jam tanpa kitab Arab
+· KLIA2 · membaca ayat Al-Quran di depan penumpang
+· "seperti anak di Reubee" / PASATA melalui Reubee untuk P.alt
+· Pemetaan tapak sampah→…→MUDI→PA→KLIA2→DU sebagai arc P.alt
+· "dari tapak sampah ke KLIA2" · Reubee→SMP→MUDI→KLIA2 sebagai hidup P.alt
+
+P.alt SAHAJA (contoh hidup / NA·PA·DU): tapak sampah (9), batu atap (13), SRP/rayuan, Pok Long, Si Hitam,
+pokok mangga, OS Linux BM, kehilangan, Anbia, SBX V60, 17 Julai 2006.
+
+Prolog Dr Aminullah (Reubee→SMP→MUDI→KLIA2) — hanya bila soalan giliran ini tentang Dr Aminullah / Teori ALAMIN prolog.
+`.trim();
+
 export const DR_AMINULLAH_QUERY_PATTERN =
   /\b(?:dr\.?\s*)?aminullah\b|\bprolog\s+alamin\b|\bkisah\s+aminullah\b|\bperjalanan\s+(?:pendidikan\s+)?aminullah\b|\bmusafir\s+alam\b|\bpakar\s+alamtologi\s+aminullah\b|\bpencapaian\s+menemukan\s+alamin\b|\bteori\s+alamin\b[^.\n]{0,48}\bprolog\b/i;
 
@@ -174,6 +198,11 @@ export function founderAsksDrAminullahContext(message: string): boolean {
 export function founderAsksPersonalBiography(message: string): boolean {
   if (founderAsksDrAminullahContext(message)) return false;
   return FOUNDER_BIOGRAPHY_QUERY_PATTERN.test(message.trim());
+}
+
+/** Default founder turns — block prolog episodes attributed to P.alt (synthesis, formula, biography). */
+export function founderTurnExcludesPrologEpisodes(message: string): boolean {
+  return !founderAsksDrAminullahContext(message);
 }
 
 export const ADAM_DR_AMINULLAH_NARRATIVE = `

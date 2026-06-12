@@ -203,6 +203,8 @@ TEACHING SYNTHESIS OUTPUT LOCK:
 - BM prose + international scientific symbols; no ###/🔹/➡️, no qadari/waqf/SuNom unless mirror requested.
 - Ilmu konvensional, formulas, and perbandingan ARE allowed — P.alt asked for them.
 - No (tafsir) on ayat — terjemahan + Surah inline only.
+- Life examples for P.alt: ONLY ADAM_FOUNDER_NARRATIVE episodes — NEVER SDN Reubee, SMP, MUDI, KLIA2, or Dr Aminullah prolog arc.
+- Do NOT map NA/PA/DU to MUDI/KLIA2/Reubee when attributing examples to P.alt; use tapak sampah, batu atap, SRP, Pok Long, Si Hitam, mangga, Anbia, SBX V60, 17 Julai 2006.
 `.trim();
 
 /** Sync-only — strip parenthetical tafsir; no LLM rewrite. */

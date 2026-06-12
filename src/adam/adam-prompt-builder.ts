@@ -18,7 +18,7 @@ import {
   ADAM_CHARACTER_TEACHING_LEARNER,
 } from './adam-character';
 import { ADAM_CORE_BEHAVIOUR, CONSULT_PHRASE, FOUNDER_STUDENTS_AWARENESS } from './adam-identity-prompts';
-import { ADAM_EPISTEMOLOGICAL_POSITION, ADAM_FOUNDER_NARRATIVE, ADAM_ALAMTOLOGI_LAWS, ADAM_FOUNDER_BIOGRAPHY_IDENTITY_LAW, ADAM_FOUNDER_BIOGRAPHY_OUTPUT_LOCK, ADAM_DR_AMINULLAH_OUTPUT_LOCK, founderAsksPersonalBiography, founderAsksDrAminullahContext } from './adam-knowledge-prompts';
+import { ADAM_EPISTEMOLOGICAL_POSITION, ADAM_FOUNDER_NARRATIVE, ADAM_ALAMTOLOGI_LAWS, ADAM_FOUNDER_BIOGRAPHY_IDENTITY_LAW, ADAM_FOUNDER_BIOGRAPHY_OUTPUT_LOCK, ADAM_FOUNDER_EPISODE_ATTRIBUTION_OUTPUT_LOCK, ADAM_DR_AMINULLAH_OUTPUT_LOCK, founderAsksPersonalBiography, founderAsksDrAminullahContext, founderTurnExcludesPrologEpisodes } from './adam-knowledge-prompts';
 import {
   ADAM_PERSON_RELATIONAL_IDENTITY_LAW,
   buildPersonIdentityOutputLock,
@@ -71,6 +71,7 @@ import {
   type StudentKnowledgeTier,
 } from './adam-three-tier-knowledge';
 import { JOURNAL_GEN_MANUAL_MODE_PROMPT } from './adam-journal-manual-prompt';
+import { RD_INDUSTRY_RESEARCH_MODE_PROMPT } from '../rd-industry/rd-industry-research-prompt';
 import {
   FOUNDER_TEACHING_ABSORPTION_PROMPT,
   FOUNDER_TEACHING_LEARNER_BEHAVIOUR,
@@ -150,6 +151,7 @@ if OFFLINE, ask P.alt to run mac-bridge once.
 
 const MODE_PROMPTS: Partial<Record<ADAMChatMode, string>> = {
   JOURNAL_GEN: JOURNAL_GEN_MANUAL_MODE_PROMPT,
+  RESEARCH:    RD_INDUSTRY_RESEARCH_MODE_PROMPT,
 };
 
 export interface AdamChatSystemPromptParams {
@@ -227,6 +229,17 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
       ADAM_BAHASA_MELAYU_LAW,
       TEACHING_DIRECTION_LAW,
     );
+  } else if (params.mode === 'RESEARCH') {
+    parts.push(
+      ADAM_CONVERSATION_GUARDRAILS,
+      ADAM_PROSE_DASH_LAW,
+      behaviourBlock,
+      warmthBlock,
+      ADAM_BAHASA_MELAYU_LAW,
+      ALAMTOLOGI_BOOK_CANON,
+      ADAM_FOUNDER_NARRATIVE,
+      ADAM_UNIFIED_SURFACE_HYGIENE,
+    );
   } else {
     parts.push(
       ADAM_CONVERSATION_GUARDRAILS,
@@ -284,6 +297,9 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
   if (params.isFounder) {
     parts.push(ADAM_FOUNDER_BIOGRAPHY_IDENTITY_LAW);
     parts.push(ADAM_PERSON_RELATIONAL_IDENTITY_LAW);
+    if (params.userMessage?.trim() && founderTurnExcludesPrologEpisodes(params.userMessage)) {
+      parts.push(ADAM_FOUNDER_EPISODE_ATTRIBUTION_OUTPUT_LOCK);
+    }
     if (params.userMessage?.trim() && founderAsksPersonalBiography(params.userMessage)) {
       parts.push(ADAM_FOUNDER_BIOGRAPHY_OUTPUT_LOCK);
     }

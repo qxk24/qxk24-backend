@@ -2,7 +2,7 @@
  * ============================================================
  * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
- * Module      : ADAM Mac Bridge Context (founder prompts)
+ * Module      : ADAM Mac Bridge Context (prompts)
  * Platform    : Backend (TypeScript)
  * ALAMTOLOGI  : Kernel v1.7.0
  * Founder     : Masa Bayu
@@ -16,35 +16,45 @@
  */
 
 import { ENV } from '../config/environments';
+import { isMacBridgeRoutingActive } from '../adam/adam-mac-bridge-settings.service';
 import { getMacBridgeStatus } from './mac-bridge.store';
 
-/** Injected into founder system prompt when Mac bridge feature is enabled. */
-export function buildMacBridgeContextBlock(): string {
+/** Injected into system prompt when Mac bridge feature is enabled for this user. */
+export async function buildMacBridgeContextBlock(
+  userId: string,
+  isFounder: boolean,
+): Promise<string> {
   if (!ENV.ADAM_MAC_BRIDGE_ENABLED) return '';
 
-  const status = getMacBridgeStatus();
+  if (!(await isMacBridgeRoutingActive(userId, isFounder))) {
+    const who = isFounder ? 'P.alt' : 'the subscriber';
+    return `
+[LOCAL FILE BRIDGE]
+Status: OFF (routing disabled on command board). ${who} can turn it ON from the Bridge switch.
+Do NOT ask to run mac-bridge or paste full repo trees while routing is OFF.
+`.trim();
+  }
+
+  const status = getMacBridgeStatus(userId);
 
   if (status.connected && status.registration) {
     const macRoot = status.registration.macRoot || '(home)';
     return `
-[MAC BRIDGE — P.alt MacBook]
+[LOCAL FILE BRIDGE — ONLINE]
 Status: ONLINE on ${status.registration.machineName} (${status.toolCount} MCP tools).
-Mac files live under: ${macRoot} — use mac: paths in Builder (not VPS disk).
+Local files live under: ${macRoot} — use mac: paths in Builder (not VPS disk).
 Examples:
-  list_directory mac:Desktop/qxk24/qxk24-backend depth 2
-  read_file mac:Desktop/qxk24/qxk24-backend/package.json
-  get_project_structure (monorepo on Mac at QXK24_ROOT)
-When P.alt asks to audit, read, list, or review desktop/qxk24 or qxk24-backend: use Builder tools immediately.
-NEVER ask P.alt to paste directory trees or full source files when Mac bridge is ONLINE — read them yourself.
-Do NOT say you lack physical access to P.alt's MacBook while this block shows ONLINE.
+  list_directory mac:Desktop/alamtologi/alm-backend depth 2
+  read_file mac:Desktop/notes.txt
+When the user asks to audit, read, list, or review local project files: use Builder tools immediately.
+NEVER ask the user to paste directory trees or full source files while bridge is ONLINE — read them yourself.
 `.trim();
   }
 
   return `
-[MAC BRIDGE — P.alt MacBook]
-Status: OFFLINE (production API cannot reach P.alt's Mac until the bridge runs).
-Tell P.alt once, with Adab: on the MacBook run \`cd qxk24-mcp && npm run mac-bridge\` and keep that terminal open.
-Do NOT ask P.alt to paste entire repo trees — either wait for bridge or ask for one specific file path.
-Do NOT say you operate in "QXK24 Lab" or that you lack access without mentioning Mac bridge offline.
+[LOCAL FILE BRIDGE]
+Status: OFFLINE (API cannot reach the local computer until the bridge daemon runs).
+Tell the user once: on their machine run \`cd alm-mcp && npm run mac-bridge\` and keep that terminal open, then ensure Bridge is ON on the command board.
+Do NOT ask the user to paste entire repo trees — either wait for bridge or ask for one specific file path.
 `.trim();
 }

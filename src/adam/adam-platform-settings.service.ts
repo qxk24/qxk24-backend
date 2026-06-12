@@ -22,6 +22,7 @@ import {
 } from './adam-platform-settings.schema';
 
 let studentSelfRegisterOpen = false;
+let macBridgeRoutingOpen = false;
 let settingsLoaded = false;
 
 export async function initPlatformSettings(): Promise<void> {
@@ -30,10 +31,13 @@ export async function initPlatformSettings(): Promise<void> {
     await ADAMPlatformSettingsModel.create({
       key: PLATFORM_SETTINGS_KEY,
       studentSelfRegisterOpen: false,
+      macBridgeRoutingOpen:    false,
     });
     studentSelfRegisterOpen = false;
+    macBridgeRoutingOpen = false;
   } else {
     studentSelfRegisterOpen = existing.studentSelfRegisterOpen;
+    macBridgeRoutingOpen = existing.macBridgeRoutingOpen === true;
   }
   settingsLoaded = true;
 }
@@ -65,4 +69,25 @@ export async function setStudentSelfRegisterOpen(
     { upsert: true, setDefaultsOnInsert: true },
   );
   return { open: studentSelfRegisterOpen };
+}
+
+export function isFounderMacBridgeRoutingOpen(): boolean {
+  return macBridgeRoutingOpen;
+}
+
+export async function setMacBridgeRoutingOpen(
+  open: boolean,
+  updatedBy: string,
+): Promise<{ open: boolean }> {
+  if (!ENV.ADAM_MAC_BRIDGE_ENABLED) {
+    throw new Error('Mac bridge is not enabled on this server (ADAM_MAC_BRIDGE_ENABLED).');
+  }
+  macBridgeRoutingOpen = open;
+  settingsLoaded = true;
+  await ADAMPlatformSettingsModel.findOneAndUpdate(
+    { key: PLATFORM_SETTINGS_KEY },
+    { macBridgeRoutingOpen: open, updatedBy },
+    { upsert: true, setDefaultsOnInsert: true },
+  );
+  return { open: macBridgeRoutingOpen };
 }

@@ -20,6 +20,7 @@ import { listConsultsForStudent } from './adam-consult.service';
 import { listJournalsForStudent, listPublishedJournals } from './adam-journal.service';
 import { getUserWorkspaces, type WorkspaceRecord } from './adam-workspace.service';
 import { ENV } from '../config/environments';
+import { getMacBridgeDashboardSettings } from './adam-mac-bridge-settings.service';
 
 export interface StudentActivityItem {
   id:        string;
@@ -90,6 +91,14 @@ export interface StudentPulsePayload {
     createdAt:      string;
   }>;
   activity: StudentActivityItem[];
+  macBridge: {
+    serverEnabled: boolean;
+    eligible:      boolean;
+    open:          boolean;
+    connected:     boolean;
+    machineName?:  string;
+    toolCount:     number;
+  };
 }
 
 function snippet(text: string, max = 120): string {
@@ -216,5 +225,6 @@ export async function buildStudentPulse(
       createdAt:      new Date(c.createdAt).toISOString(),
     })),
     activity: activity.slice(0, 30),
+    macBridge: await getMacBridgeDashboardSettings(userId, false),
   };
 }

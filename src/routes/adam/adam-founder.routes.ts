@@ -24,10 +24,13 @@ import {
   getStudentRegistrationSettings,
   setStudentSelfRegisterOpen,
 } from '../../adam/adam-platform-settings.service';
-
+import {
+  getMacBridgeDashboardSettings,
+  setMacBridgeRoutingForUser,
+} from '../../adam/adam-mac-bridge-settings.service';
 const router = new Hono();
 
-const RegistrationSchema = z.object({
+const ToggleSchema = z.object({
   open: z.boolean(),
 });
 
@@ -51,7 +54,7 @@ router.get('/registration', requireFounder, (c) => {
 });
 
 /** PATCH /api/adam/founder/registration — open/close public student signup */
-router.patch('/registration', requireFounder, zValidator('json', RegistrationSchema), async (c) => {
+router.patch('/registration', requireFounder, zValidator('json', ToggleSchema), async (c) => {
   const user = getTokenUser(c)!;
   const { open } = c.req.valid('json');
   const result = await setStudentSelfRegisterOpen(open, user.userId);
@@ -60,6 +63,33 @@ router.patch('/registration', requireFounder, zValidator('json', RegistrationSch
     open:    result.open,
     kernel:  'ALAMTOLOGI',
   });
+});
+
+/** GET /api/adam/founder/mac-bridge — bridge routing toggle + daemon status */
+router.get('/mac-bridge', requireFounder, async (c) => {
+  const user = getTokenUser(c)!;
+  return c.json({
+    success: true,
+    ...await getMacBridgeDashboardSettings(user.userId, true),
+    kernel: 'ALAMTOLOGI',
+  });
+});
+
+/** PATCH /api/adam/founder/mac-bridge — open/close Mac bridge routing */
+router.patch('/mac-bridge', requireFounder, zValidator('json', ToggleSchema), async (c) => {
+  const user = getTokenUser(c)!;
+  const { open } = c.req.valid('json');
+  try {
+    const result = await setMacBridgeRoutingForUser(user.userId, true, open, user.userId);
+    return c.json({
+      success: true,
+      ...await getMacBridgeDashboardSettings(user.userId, true),
+      open:   result.open,
+      kernel: 'ALAMTOLOGI',
+    });
+  } catch (err) {
+    return c.json({ success: false, error: (err as Error).message }, 400);
+  }
 });
 
 export default router;

@@ -42,6 +42,8 @@ export interface ADAMStudentAccountDocument extends Document {
     localeNote?: string;
   };
   tutorProfileUpdatedAt?: Date;
+  /** Profesional+ — route ADAM Builder tools through local bridge daemon */
+  macBridgeRoutingOpen?: boolean;
   createdAt:      Date;
   updatedAt:      Date;
 }
@@ -68,6 +70,7 @@ const ADAMStudentAccountSchema = new Schema<ADAMStudentAccountDocument>(
       localeNote:  { type: String },
     },
     tutorProfileUpdatedAt: { type: Date },
+    macBridgeRoutingOpen:  { type: Boolean, default: false },
   },
   { timestamps: true },
 );

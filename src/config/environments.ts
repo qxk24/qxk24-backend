@@ -262,6 +262,15 @@ export const ENV = {
   STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY: optional('STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY', ''),
   /** Legacy — maps to secondary if STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY unset */
   STRIPE_PRICE_ID_TUTOR_MONTHLY: optional('STRIPE_PRICE_ID_TUTOR_MONTHLY', ''),
+  /** R&D Eksklusif & Applied Science — annual USD (docs/STRIPE_RD_APPLIED_PRICES.md) */
+  STRIPE_PRICE_ID_RD_IND_SOLO_ANNUAL:        optional('STRIPE_PRICE_ID_RD_IND_SOLO_ANNUAL', ''),
+  STRIPE_PRICE_ID_RD_GRAD_SOLO_ANNUAL:       optional('STRIPE_PRICE_ID_RD_GRAD_SOLO_ANNUAL', ''),
+  STRIPE_PRICE_ID_RD_GRAD_EDU_ANNUAL:        optional('STRIPE_PRICE_ID_RD_GRAD_EDU_ANNUAL', ''),
+  STRIPE_PRICE_ID_RD_LAB_5_ANNUAL:           optional('STRIPE_PRICE_ID_RD_LAB_5_ANNUAL', ''),
+  STRIPE_PRICE_ID_AS_IND_SOLO_ANNUAL:        optional('STRIPE_PRICE_ID_AS_IND_SOLO_ANNUAL', ''),
+  STRIPE_PRICE_ID_AS_LAB_5_ANNUAL:           optional('STRIPE_PRICE_ID_AS_LAB_5_ANNUAL', ''),
+  STRIPE_PRICE_ID_BUNDLE_IND_AS_SOLO_ANNUAL: optional('STRIPE_PRICE_ID_BUNDLE_IND_AS_SOLO_ANNUAL', ''),
+  STRIPE_PRICE_ID_BUNDLE_IND_AS_LAB_ANNUAL:  optional('STRIPE_PRICE_ID_BUNDLE_IND_AS_LAB_ANNUAL', ''),
   /** When false, tutor chat works without paid sub (lab / pre-Stripe). Production: true when Stripe live. */
   ADAM_TUTOR_BILLING_REQUIRED: optional('ADAM_TUTOR_BILLING_REQUIRED', 'false') === 'true',
   /** When geo headers are missing — default PPP region (production: MY). */
@@ -338,7 +347,7 @@ export const ENV = {
   /** When true, block student turns if gateway prescan is unreachable */
   ADAM_GATEWAY_PLAS_FAIL_CLOSED: optional('ADAM_GATEWAY_PLAS_FAIL_CLOSED', 'false') === 'true',
 
-  /** Route Builder MCP through founder Mac (qxk24-mcp mac-bridge daemon) */
+  /** Device Bridge — route Builder MCP through subscriber local daemon (alm-mcp mac-bridge) */
   ADAM_MAC_BRIDGE_ENABLED: optional('ADAM_MAC_BRIDGE_ENABLED', 'false') === 'true',
 
   // Derived

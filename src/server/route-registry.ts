@@ -35,6 +35,8 @@ import adamConsultRoutes from '../routes/adam/adam-consult.routes';
 import adamFounderRoutes from '../routes/adam/adam-founder.routes';
 import adamWorkspaceRoutes from '../routes/adam/adam-workspace.routes';
 import subscriptionRoutes from '../subscriptions/subscription.routes';
+import rdAppliedRoutes from '../routes/rd/rd-applied.routes';
+import rdIndustryRoutes from '../routes/rd/rd-industry.routes';
 import adamBuilderRoutes from '../agent/adam-builder.routes';
 import adamMacBridgeRoutes from '../agent/adam-mac-bridge.routes';
 import adamBlogRoutes from '../routes/adam/adam-blog.routes';
@@ -138,6 +140,8 @@ export function registerRoutes(app: Hono): void {
   app.route('/api/adam/succession',    adamSuccessionRoutes);
   app.route('/api/workspaces',         adamWorkspaceRoutes);
   app.route('/api/subscriptions',    subscriptionRoutes);
+  app.route('/api/rd',               rdAppliedRoutes);
+  app.route('/api/rd/industry',      rdIndustryRoutes);
   app.route('/api/adam/agent',       adamBuilderRoutes);
   app.route('/api/adam/mac-bridge',  adamMacBridgeRoutes);
 
@@ -177,5 +181,7 @@ export function registerRoutes(app: Hono): void {
   console.log('  *    /api/adam/succession');
   console.log('  *    /api/workspaces');
   console.log('  *    /api/subscriptions');
+  console.log('  *    /api/rd (R&D & Applied Science checkout)');
+  console.log('  *    /api/rd/industry (R&D Industry project + research chat)');
   console.log('  *    /api/adam/agent (lab · founder · Qwen builder)');
 }

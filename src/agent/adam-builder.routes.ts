@@ -77,6 +77,7 @@ router.post('/build', async (c) => {
   }
 
   const token = founderToken(c);
+  const user = getTokenUser(c)!;
   const abortController = createBuilderAbortController(sessionId);
 
   c.header('Content-Type', 'text/event-stream');
@@ -90,6 +91,8 @@ router.post('/build', async (c) => {
           instruction,
           sessionId,
           token,
+          user.userId,
+          true,
           abortController.signal,
         );
         await streamAgentEvents(s, generator);
@@ -117,6 +120,7 @@ router.post('/resume-hawa', async (c) => {
   }
 
   const token = founderToken(c);
+  const user = getTokenUser(c)!;
   const note = body.note?.trim()
     ?? 'Founder overrides HAWA hold. ADAM may continue with corrections applied.';
 
@@ -133,6 +137,8 @@ router.post('/resume-hawa', async (c) => {
           sessionId,
           token,
           note,
+          user.userId,
+          true,
           abortController.signal,
           true,
         );
@@ -153,6 +159,7 @@ router.post('/continue', async (c) => {
   if (!sessionId) return c.json({ error: 'sessionId is required.' }, 400);
 
   const token = founderToken(c);
+  const user = getTokenUser(c)!;
   const note = body.note?.trim()
     ?? 'Founder approved the write. Continue with check_typescript and remaining build steps.';
 
@@ -169,6 +176,8 @@ router.post('/continue', async (c) => {
           sessionId,
           token,
           note,
+          user.userId,
+          true,
           abortController.signal,
         );
         await streamAgentEvents(s, generator);

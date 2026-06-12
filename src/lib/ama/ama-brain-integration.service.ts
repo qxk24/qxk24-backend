@@ -230,6 +230,9 @@ export function buildAmaLongTermMemoryBlock(
       options.personSubject,
       options.knownPersons,
     );
+  } else if (isFounder && !founderAsksDrAminullahContext(message)) {
+    structuralRaw = filterBrainLaneForFounderBiography(structuralRaw);
+    episodicRaw = filterBrainLaneForFounderBiography(episodicRaw);
   }
 
   let loadKr = true;

@@ -20,6 +20,8 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface ADAMPlatformSettingsDocument extends Document {
   key:                    string;
   studentSelfRegisterOpen: boolean;
+  /** Founder dashboard — route Builder MCP through local Mac bridge daemon */
+  macBridgeRoutingOpen:   boolean;
   updatedBy?:             string;
   updatedAt:              Date;
 }
@@ -28,6 +30,7 @@ const ADAMPlatformSettingsSchema = new Schema<ADAMPlatformSettingsDocument>(
   {
     key: { type: String, required: true, unique: true, index: true },
     studentSelfRegisterOpen: { type: Boolean, default: false },
+    macBridgeRoutingOpen:    { type: Boolean, default: false },
     updatedBy: { type: String },
   },
   {

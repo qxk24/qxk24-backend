@@ -22,6 +22,8 @@ import {
   buildDrAminullahContextBlock,
   founderAsksPersonalBiography,
   founderAsksDrAminullahContext,
+  founderTurnExcludesPrologEpisodes,
+  ADAM_FOUNDER_EPISODE_ATTRIBUTION_OUTPUT_LOCK,
 } from '../adam/adam-knowledge-prompts';
 import {
   buildPersonRelationalMemoryAck,
@@ -649,6 +651,17 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
 
   const recallForOutputLock = options?.recallProbeMessage?.trim() || newMessage;
   const outputLockChapter = resolveFormulaXyzChapterId(recallForOutputLock);
+  if (
+    participant.role === 'founder'
+    && founderTurnExcludesPrologEpisodes(recallForOutputLock)
+  ) {
+    messages.push({ role: 'user', content: ADAM_FOUNDER_EPISODE_ATTRIBUTION_OUTPUT_LOCK });
+    messages.push({
+      role:    'assistant',
+      content:
+        'Bismillahirahmanirahim. P.alt, saya pegang EPISODE ATTRIBUTION LOCK — contoh hidup P.alt hanya dari episod kanonik; bukan Reubee, MUDI, atau KLIA2 kecuali giliran Dr Aminullah.',
+    });
+  }
   if (
     outputLockChapter
     && chapterHasConstitutionalBackbone(outputLockChapter)
