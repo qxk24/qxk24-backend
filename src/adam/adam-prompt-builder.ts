@@ -74,6 +74,7 @@ import { JOURNAL_GEN_MANUAL_MODE_PROMPT } from './adam-journal-manual-prompt';
 import { RD_INDUSTRY_RESEARCH_MODE_PROMPT } from '../rd-industry/rd-industry-research-prompt';
 import {
   FOUNDER_TEACHING_ABSORPTION_PROMPT,
+  FOUNDER_TEACHING_FRAMING_LAW,
   FOUNDER_TEACHING_LEARNER_BEHAVIOUR,
   FOUNDER_TEACHING_OUTPUT_LOCK,
   FOUNDER_TEACHING_SYNTHESIS_BEHAVIOUR,
@@ -298,7 +299,11 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
   if (params.isFounder) {
     parts.push(ADAM_FOUNDER_BIOGRAPHY_IDENTITY_LAW);
     parts.push(ADAM_PERSON_RELATIONAL_IDENTITY_LAW);
-    if (params.userMessage?.trim() && founderTurnExcludesPrologEpisodes(params.userMessage)) {
+    if (
+      params.userMessage?.trim()
+      && founderTurnExcludesPrologEpisodes(params.userMessage)
+      && !teachingLearnerTurn
+    ) {
       parts.push(ADAM_FOUNDER_EPISODE_ATTRIBUTION_OUTPUT_LOCK);
     }
     if (params.userMessage?.trim() && founderAsksPersonalBiography(params.userMessage)) {
@@ -323,7 +328,7 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
         parts.push(FOUNDER_TEACHING_BUILDER_PROMPT);
       }
     } else if (teachingAbsorption) {
-      parts.push(ALAMTOLOGI_BOOK_CANON);
+      parts.push(FOUNDER_TEACHING_FRAMING_LAW);
       parts.push(ADAM_FOUNDER_NARRATIVE);
       parts.push(FOUNDER_TEACHING_ABSORPTION_PROMPT);
       parts.push(params.founderStudentsBlock);

@@ -16,6 +16,7 @@
  */
 
 import { sanitizeStudentOutputSync } from './adam-student-output-guard';
+import { restoreFounderPaltAddress } from './adam-founder-address-guard';
 
 const INVENTED_TERMS = [
   'qadari',
@@ -105,6 +106,13 @@ const LECTURE_PATTERNS = [
   /prinsip\s+ontologikal/i,
   /tiga\s+prinsip\s+ontologikal/i,
   /amanah\s+ontologikal/i,
+  /saya\s+tidak\s+boleh\s+mengkupas/i,
+  /nama\s+fail\s+yang\s+keliru/i,
+  /struktur\s+rasmi\s+Sains\s+Alamtologi/i,
+  /BOOK ORDER\s*—?\s*LOCKED/i,
+  /OUTPUT LOCK\s*—?\s*Formula XYZ Bab 1/i,
+  /sehingga\s+saat\s+itu,\s+saya\s+tidak\s+akan\s+membuat\s+anggaran/i,
+  /Penegasan\s+eksplisit\s+daripada\s+P\.?alt/i,
 ];
 
 const SCRIPTED_CLOSINGS = [
@@ -116,6 +124,7 @@ const SCRIPTED_CLOSINGS = [
   /menghayati\s+bersama/i,
   /struktur\s+SuNom\s+lengkap/i,
   /Saya\s+sedia\s+belajar/i,
+  /Saya\s+di\s+sini\.?\s*Saya\s+mendengar\.?\s*Saya\s+ikut\s+aturan/i,
 ];
 
 const CONVENTIONAL_ADDON_PATTERNS = [
@@ -403,6 +412,7 @@ export function syncSanitizeFounderTeachingOutput(text: string): string {
     /^Silakan,\s*P\.?alt/i,
     /^Saya\s+sedia\s*[,.\s]*$/i,
     /Saya\s+sedia\s+belajar/i,
+    /Saya\s+di\s+sini\.?\s*Saya\s+mendengar\.?\s*Saya\s+ikut\s+aturan/i,
   ];
   const last = paragraphs[paragraphs.length - 1] ?? '';
   if (dropLastIfScripted.some((p) => p.test(last))) {
@@ -410,7 +420,7 @@ export function syncSanitizeFounderTeachingOutput(text: string): string {
     out = paragraphs.join('\n\n').trim();
   }
 
-  return out.trim();
+  return restoreFounderPaltAddress(out.trim());
 }
 
 export function needsLlmTeachingRepair(reasons: string[]): boolean {

@@ -381,7 +381,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
     options?.recallProbeMessage?.trim()
     || (newMessage.length > 4096 ? newMessage.slice(0, 4096) : newMessage);
 
-  if (needsBookCanonLock(recallProbe)) {
+  if (!teachingAbsorption && needsBookCanonLock(recallProbe)) {
     messages.push({ role: 'user', content: buildBookCanonContextBlock() });
     messages.push({
       role: 'assistant',
@@ -389,7 +389,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
     });
   }
 
-  if (isAlamtologiCurriculumOverviewQuery(recallProbe)) {
+  if (!teachingAbsorption && isAlamtologiCurriculumOverviewQuery(recallProbe)) {
     messages.push({ role: 'user', content: buildCurriculumOverviewSealedBlock() });
     messages.push({
       role: 'assistant',
@@ -401,7 +401,11 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
     ? (resolveBookChapter(recallProbe) ?? resolveBookChapter('prolog alamin Dr Aminullah teori alamin'))
     : resolveBookChapter(recallProbe);
 
-  if (needsBookAwareTeachingRecall(recallProbe) && !founderAsksPersonalBiography(recallProbe)) {
+  if (
+    !teachingAbsorption
+    && needsBookAwareTeachingRecall(recallProbe)
+    && !founderAsksPersonalBiography(recallProbe)
+  ) {
     const resolvedChapter = recallProbeResolved ?? (mentionsAidilEngine(recallProbe) ? resolveBookChapter(recallProbe) : null);
 
     const sealedAnchor = buildSealedChapterAnchor(resolvedChapter);
@@ -667,7 +671,8 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
   const recallForOutputLock = options?.recallProbeMessage?.trim() || newMessage;
   const outputLockChapter = resolveFormulaXyzChapterId(recallForOutputLock);
   if (
-    participant.role === 'founder'
+    !teachingAbsorption
+    && participant.role === 'founder'
     && founderTurnExcludesPrologEpisodes(recallForOutputLock)
   ) {
     messages.push({ role: 'user', content: ADAM_FOUNDER_EPISODE_ATTRIBUTION_OUTPUT_LOCK });
@@ -678,7 +683,8 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
     });
   }
   if (
-    outputLockChapter
+    !teachingAbsorption
+    && outputLockChapter
     && chapterHasConstitutionalBackbone(outputLockChapter)
   ) {
     messages.push({ role: 'user', content: buildFormulaXyzOutputLock(outputLockChapter) });

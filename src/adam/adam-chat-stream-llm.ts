@@ -33,6 +33,7 @@ import {
 import {
   sanitizeFounderTeachingQuranFormat,
 } from './adam-founder-teaching-prompts';
+import { restoreFounderPaltAddress } from './adam-founder-address-guard';
 import {
   detectFounderTeachingOutputLeak,
   repairFounderTeachingOutputLeak,
@@ -177,6 +178,7 @@ export async function repairAdamStreamOutput(input: {
 
   if (isFounder) {
     fullResponse = repairFormulaXyzStreamOutput(fullResponse, userMessage);
+    fullResponse = restoreFounderPaltAddress(fullResponse);
   }
 
   if (!isFounder && isAdamTutorMode(mode)) {
