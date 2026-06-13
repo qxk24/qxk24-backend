@@ -4,7 +4,7 @@
  * ============================================================
  * Module      : ADAM Student Routes
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
@@ -81,7 +81,7 @@ import {
   getStudentAccount,
   getStudentAccounts,
   issueAdamToken,
-  resolveStudentLoginUserId,
+  resolveStudentLoginUserIdAsync,
   verifyStudentPassword,
 } from '../../adam/adam-student.service';
 import {
@@ -485,7 +485,7 @@ router.post('/change-password', requireStudent, zValidator('json', ChangePasswor
 // POST /api/adam/student/login
 router.post('/login', zValidator('json', LoginSchema), async (c) => {
   const { username, password } = c.req.valid('json');
-  const userId = resolveStudentLoginUserId(username);
+  const userId = await resolveStudentLoginUserIdAsync(username);
 
   if (!userId) {
     console.warn('[adam:student-login] unknown login id', { username: username.trim().slice(0, 40) });

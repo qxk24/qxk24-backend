@@ -4,7 +4,7 @@
  * ============================================================
  * Module      : ADAM Student Auth Service
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
@@ -33,7 +33,7 @@ export function getStudentAccount(userId: string) {
   return getRegistryAccount(userId);
 }
 
-export { resolveStudentLoginUserId } from './adam-student-registry.service';
+export { resolveStudentLoginUserId, resolveStudentLoginUserIdAsync } from './adam-student-registry.service';
 
 export async function verifyStudentPassword(userId: string, password: string): Promise<boolean> {
   return verifyRegistryPassword(userId, password);

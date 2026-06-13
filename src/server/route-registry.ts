@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : Route Registry
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -41,6 +41,8 @@ import adamBuilderRoutes from '../agent/adam-builder.routes';
 import adamMacBridgeRoutes from '../agent/adam-mac-bridge.routes';
 import adamBlogRoutes from '../routes/adam/adam-blog.routes';
 import adamTesterRoutes from '../routes/adam/adam-tester.routes';
+import niagaRoutes from '../routes/niaga/niaga.routes';
+import platformAdminRoutes from '../routes/admin/platform-admin.routes';
 import adamExportRoutes from '../routes/adam/adam-export.routes';
 import teachingBridgeRoutes from '../teaching-bridge/teaching-bridge.routes';
 import llmPipelineRoutes from '../llm-pipeline/llm-pipeline.routes';
@@ -137,6 +139,8 @@ export function registerRoutes(app: Hono): void {
   app.route('/api/adam/journal/write', adamJournalWriteRoutes);
   app.route('/api/adam/blog',          adamBlogRoutes);
   app.route('/api/adam/tester',        adamTesterRoutes);
+  app.route('/api/niaga',              niagaRoutes);
+  app.route('/api/admin',              platformAdminRoutes);
   app.route('/api/adam/succession',    adamSuccessionRoutes);
   app.route('/api/workspaces',         adamWorkspaceRoutes);
   app.route('/api/subscriptions',    subscriptionRoutes);

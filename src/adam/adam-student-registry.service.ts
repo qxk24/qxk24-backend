@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Student Registry Service
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -23,6 +23,10 @@ import {
   ADAMFounderSessionModel,
   ADAMMessageModel,
 } from './adam.schema';
+import {
+  SubscriptionModel,
+  SubscriptionStatus,
+} from '../subscriptions/subscription.schema';
 import { ADAMPasswordResetModel } from './adam-password-reset.schema';
 import { ADAMStudentAccountModel } from './adam-student.schema';
 import { ADAMWorkspaceModel } from './adam-workspace.schema';
@@ -305,6 +309,46 @@ export function resolveStudentLoginUserId(raw: string): string | null {
   return null;
 }
 
+function escapeLoginRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Mongo fallback when account was created outside the running process (CLI bootstrap, etc.). */
+export async function resolveStudentLoginUserIdAsync(raw: string): Promise<string | null> {
+  const cached = resolveStudentLoginUserId(raw);
+  if (cached) return cached;
+
+  const trimmed = raw.trim();
+  const id = trimmed.toLowerCase();
+  if (!id) return null;
+
+  const slug = id.replace(/\s+/g, '-');
+  const doc = await ADAMStudentAccountModel.findOne({
+    active: true,
+    $or: [
+      { userId: id },
+      { userId: slug },
+      { name: { $regex: new RegExp(`^${escapeLoginRegex(trimmed)}$`, 'i') } },
+    ],
+  })
+    .select({ userId: 1, name: 1, accountLane: 1 })
+    .lean();
+
+  if (!doc) return null;
+
+  if (!activeAccounts.some((s) => s.userId === doc.userId)) {
+    const accountLane: AdamAccountLane = doc.accountLane === 'pelajar' ? 'pelajar' : 'umum';
+    const row: StudentAccountRecord = {
+      userId: doc.userId,
+      name:   doc.name,
+      accountLane,
+    };
+    activeAccounts = [...activeAccounts, row].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  return doc.userId;
+}
+
 export function studentIds(): string[] {
   return activeAccounts.map((s) => s.userId);
 }
@@ -326,6 +370,7 @@ export interface FounderStudentRow {
   name:              string;
   email?:            string;
   active:            boolean;
+  accountRole:       'student' | 'guru';
   accountLane:       AdamAccountLane;
   createdAt:         Date;
   passwordSource?:   'env' | 'founder' | 'self-register' | 'google' | 'self';
@@ -336,7 +381,7 @@ export async function listStudentsForFounder(): Promise<FounderStudentRow[]> {
   const docs = await ADAMStudentAccountModel.find()
     .sort({ name: 1 })
     .select({
-      userId: 1, name: 1, email: 1, active: 1, accountLane: 1,
+      userId: 1, name: 1, email: 1, active: 1, accountRole: 1, accountLane: 1,
       createdAt: 1, passwordSource: 1, passwordUpdatedAt: 1,
     })
     .lean();
@@ -346,6 +391,7 @@ export async function listStudentsForFounder(): Promise<FounderStudentRow[]> {
     name:              d.name,
     email:             d.email,
     active:            d.active,
+    accountRole:       d.accountRole === 'guru' ? 'guru' : 'student',
     accountLane:       d.accountLane === 'pelajar' ? 'pelajar' : 'umum',
     createdAt:         d.createdAt,
     passwordSource:    d.passwordSource,
@@ -387,6 +433,7 @@ export async function createStudentAccount(params: {
     name:              doc.name,
     email:             doc.email,
     active:            doc.active,
+    accountRole:       doc.accountRole === 'guru' ? 'guru' : 'student',
     accountLane:       doc.accountLane === 'pelajar' ? 'pelajar' : 'umum',
     createdAt:         doc.createdAt,
     passwordSource:    doc.passwordSource,
@@ -434,6 +481,7 @@ export async function updateStudentAccount(
     name:              doc.name,
     email:             doc.email,
     active:            doc.active,
+    accountRole:       doc.accountRole === 'guru' ? 'guru' : 'student',
     accountLane:       doc.accountLane === 'pelajar' ? 'pelajar' : 'umum',
     createdAt:         doc.createdAt,
     passwordSource:    doc.passwordSource,
@@ -453,7 +501,7 @@ export async function deleteStudentAccount(userId: string): Promise<DeleteStuden
 
   const sessions = await ADAMFounderSessionModel.find({
     founderId:   id,
-    sessionType: 'student',
+    sessionType: { $in: ['student', 'tutor', 'niaga', 'guru', 'group'] },
   })
     .select({ sessionId: 1 })
     .lean();
@@ -465,9 +513,20 @@ export async function deleteStudentAccount(userId: string): Promise<DeleteStuden
     await ADAMFounderSessionModel.deleteMany({ sessionId: { $in: sessionIds } });
   }
 
+  await ADAMMessageModel.deleteMany({ speakerId: id }).catch(() => {});
   await ADAMWorkspaceModel.deleteMany({ userId: id });
   await ADAMConsultModel.deleteMany({ studentId: id });
   await ADAMPasswordResetModel.deleteMany({ userId: id });
+  await SubscriptionModel.updateMany(
+    { userId: id, status: { $in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.PENDING, SubscriptionStatus.PAUSED] } },
+    {
+      $set: {
+        status:       SubscriptionStatus.CANCELLED,
+        cancelledAt:  new Date(),
+        cancelReason: 'account_deleted',
+      },
+    },
+  );
   await ADAMStudentAccountModel.deleteOne({ userId: id });
   await refreshStudentCache();
 
@@ -499,6 +558,7 @@ export async function loginStudentWithGoogle(profile: {
       name:              doc.name,
       email:             doc.email,
       active:            doc.active,
+      accountRole:       doc.accountRole === 'guru' ? 'guru' : 'student',
       accountLane:       doc.accountLane === 'pelajar' ? 'pelajar' : 'umum',
       createdAt:         doc.createdAt,
       passwordSource:    doc.passwordSource,
@@ -539,6 +599,7 @@ export async function loginStudentWithGoogle(profile: {
     name:              doc.name,
     email:             doc.email,
     active:            doc.active,
+    accountRole:       'student',
     accountLane:       'umum',
     createdAt:         doc.createdAt,
     passwordSource:    doc.passwordSource,

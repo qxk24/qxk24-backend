@@ -20,7 +20,8 @@
     "atlas:audit": "node scripts/atlas-storage-rescue.mjs",
     "atlas:rescue": "node scripts/atlas-storage-rescue.mjs --execute logs,ledger,snapshots",
     "ama:neuro-validate": "ts-node --transpile-only src/scripts/ama-neuro-validate.ts",
-    "ama:purge-episodic-uat": "ts-node --transpile-only src/scripts/ama-purge-episodic-uat.ts"
+    "ama:purge-episodic-uat": "ts-node --transpile-only src/scripts/ama-purge-episodic-uat.ts",
+    "bootstrap:platform-admin": "node dist/scripts/bootstrap-platform-admin.js"
   },
   "engines": {
     "node": ">=18.0.0"
