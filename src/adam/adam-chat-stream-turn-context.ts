@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Chat Stream — Turn Context
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-09
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -18,10 +18,6 @@
 import { ENV } from '../config/environments';
 import { adamWebSearchEnabled, getWebSearchGateReason } from './adam-web-search';
 import { runStudentSearchPrefetch, shouldStudentUseSearchFirstFlow } from './adam-search-first';
-import {
-  founderRequestsConstitutionalMirror,
-  founderRequestsTeachingSynthesis,
-} from './adam-founder-teaching-prompts';
 import { buildSmartContext } from '../qxk24brain/adam-context-builder';
 import { isAmaBrainV2Enabled } from '../lib/ama/ama-brain-integration.service';
 import { resolveTamatLayer5Block } from '../lib/ama/tamat-generator';
@@ -40,41 +36,27 @@ import {
   generateK24Address,
   saveMessage,
 } from './adam-chat-session.service';
-import { isAdamLightChatTurn } from './adam-response-generation';
-import type { ADAMChatMode, SSEEventType } from './adam.types';
+import { isAdamLightChatTurn, isAdamPracticalAdvisoryTurn, isAdamSimpleFactualTurn } from './adam-response-generation';
+import type { SSEEventType } from './adam.types';
 import type { AdamChatTurnShell } from './adam-chat-stream.types';
 import { loadTesterSystemPrefix } from './adam-chat-stream-tester-prefix';
 import type { WorkspaceRecord } from './adam-workspace.service';
 
-export interface FounderTeachingFlags {
-  founderTeachingSynthesis:  boolean;
-  founderTeachingAbsorption: boolean;
-  founderTeachingLearnerTurn: boolean;
-}
+export type {
+  FounderTeachingFlags,
+  ResolveTeachingStateInput,
+  TeachingPhase,
+} from './adam-teaching-state-machine';
 
-export function resolveFounderTeachingFlags(
-  isFounder: boolean,
-  mode: ADAMChatMode,
-  normalizedMessage: string,
-): FounderTeachingFlags {
-  const founderTeachingSynthesis =
-    isFounder
-    && mode === 'TEACHING'
-    && !founderRequestsConstitutionalMirror(normalizedMessage)
-    && founderRequestsTeachingSynthesis(normalizedMessage);
+export {
+  resolveFounderTeachingFlags,
+  resolveTeachingPhase,
+  loadRecentTeachingTurnTexts,
+  adamTeachingMessageHasInquirySection,
+  adamTeachingMessageHasSynthesisSection,
+} from './adam-teaching-state-machine';
 
-  const founderTeachingAbsorption =
-    isFounder
-    && mode === 'TEACHING'
-    && !founderRequestsConstitutionalMirror(normalizedMessage)
-    && !founderTeachingSynthesis;
-
-  return {
-    founderTeachingSynthesis,
-    founderTeachingAbsorption,
-    founderTeachingLearnerTurn: founderTeachingAbsorption || founderTeachingSynthesis,
-  };
-}
+import type { FounderTeachingFlags } from './adam-teaching-state-machine';
 
 export interface AdamTurnContextFetch {
   contextMessages: Awaited<ReturnType<typeof buildSmartContext>>;
@@ -124,6 +106,7 @@ export async function fetchAdamTurnContext(input: {
   const needContinuityBridge = !isFounder
     && !isGuestTrial
     && mode !== 'TUTOR'
+    && mode !== 'NIAGA'
     && studentContinuityNeedsFullBridge(messageForAdam);
   const needTamat = isAmaBrainV2Enabled()
     && isFounder
@@ -179,7 +162,11 @@ export async function fetchAdamTurnContext(input: {
       {
         recallProbeMessage: normalizedMessage,
         founderTeachingAbsorption: founderTeachingLearnerTurn,
-        studentStreamlined: !isFounder && isAdamLightChatTurn(normalizedMessage),
+        studentStreamlined: !isFounder && (
+          isAdamLightChatTurn(normalizedMessage)
+          || isAdamSimpleFactualTurn(normalizedMessage)
+          || isAdamPracticalAdvisoryTurn(normalizedMessage)
+        ),
       },
     ),
     needContinuityBridge

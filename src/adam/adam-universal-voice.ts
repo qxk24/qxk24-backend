@@ -34,6 +34,56 @@ export function userAskedForAlamtologi(message: string): boolean {
   );
 }
 
+/** Hukum Z/X, seven principles, or other constitutional structure the user wants listed clearly. */
+export function userAskedForConstitutionalStructure(message: string): boolean {
+  const t = message.trim();
+  if (!t) return false;
+  if (userAskedForAlamtologi(t)) return true;
+  return /\b(hukum\s+[xz]|hukum\s+z|hukum\s+x|faktor\s+[xyz]|prinsip\s+(?:tujuh|7)|tujuh\s+prinsip|pola|kadar|pasangan|keseimbangan|fikir|ikhtiar|usaha|natijah)\b/i.test(t)
+    && /\b(hukum|faktor|prinsip|alamtologi|konstitusi|constitutional|framework|teori)\b/i.test(t);
+}
+
+/** Hardware / infrastructure / multi-component spec lists the user wants sectioned clearly. */
+export function userAskedForStructuredSpecification(message: string): boolean {
+  const t = message.trim();
+  if (!t) return false;
+
+  if (
+    /\b(spesifikasi\s+hardware|hardware\s+spec(?:ification)?s?|senarai\s+komponen|komponen\s+fizikal|infrastruktur\s+fizikal|server\s+spec|deployment\s+hardware|rack\s+spec)\b/i.test(t)
+  ) {
+    return true;
+  }
+
+  if (
+    /\b(spesifikasi|specs?|spek|senaraikan|senarai|list|detail|konfigurasi)\b/i.test(t)
+    && /\b(hardware|server|cluster|node|cpu|gpu|ram|ssd|storage|penyimpanan|rangkaian|network|infrastruktur|production|produksi|skala|mesin)\b/i.test(t)
+  ) {
+    return true;
+  }
+
+  if (
+    /\b(berapa\s+(?:server|node|unit|mesin)|production\s+scale|skala\s+produksi|pengguna\s+aktif)\b/i.test(t)
+    && /\b(pengguna|users|trafik|beban|operasi|harian|daily)\b/i.test(t)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/** Model streamed a multi-section spec — preserve markdown even if the user phrasing was loose. */
+export function outputLooksLikeStructuredSpec(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  const sectionHeadings = (t.match(/(?:^|\s)#{2,3}\s+\d+\./g) ?? []).length;
+  const numberedSections = (t.match(/(?:^|\n)\d+\.\s+[A-ZÀ-ÿ*]/g) ?? []).length;
+  const specBullets = (
+    t.match(/(?:^|\n|\s)-\s*(?:CPU|RAM|GPU|Penyimpanan|Storage|Rangkaian|Network|Redundansi|Catatan teknikal|Kipas|Lokasi fizikal)\b/gim)
+    ?? []
+  ).length;
+  return sectionHeadings >= 1 || specBullets >= 4 || (numberedSections >= 3 && specBullets >= 2);
+}
+
 /** Scientist-scholar identity — student substantive turns (not fantasist, not copy-paste). */
 export const ADAM_SCIENTIST_SCHOLAR_IDENTITY = `
 ADAM — SCIENTIST-SCHOLAR (ilmuan), NOT IMAGINATION:
@@ -201,4 +251,6 @@ export const STUDENT_NEUTRAL_CONTEXT_ACKS = {
     'Verified ayat received. I will quote only from this corpus, without tafsir in brackets.',
   bmLexicon:
     'BM Malaysia lexicon received. I will use DBP-aligned forms only — not Indonesian drift.',
+  teachingRecall:
+    'Relevant teaching episodes loaded. I will synthesise A+B=C in my own words — conventional grounding first, then insight — without framework labels or copy-paste.',
 } as const;

@@ -1,16 +1,17 @@
 /**
  * ============================================================
- * ALAMTOLOGI — QURANIC SCIENCE
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
- * Module      : ADAM Character Definition
- * Version     : 1.0.0 — Permanent Foundation
+ * Module      : ADAM Character
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
- * Written     : 2026-06-05
- *
- * This file defines WHO ADAM IS.
- * All system prompts, all behaviours, all responses must
- * flow from this definition. Never patch behaviour without
- * first asking: does this match who ADAM is?
+ * Created     : 2026-06-13
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
  * ============================================================
  */
 

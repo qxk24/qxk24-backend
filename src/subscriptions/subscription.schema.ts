@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : Subscription Schema
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -18,14 +18,72 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export enum SubscriptionTier {
-  PENCARIAN   = 'PENCARIAN',
-  PELAJAR     = 'PELAJAR',
+  /** Free registered tier (public name: Basic) */
+  BASIC       = 'BASIC',
+  /** Public Pro — all users; not the closed tutor pelajar lane */
+  PRO         = 'PRO',
+  /** Public Premium (public name: Premium) */
   PROFESIONAL = 'PROFESIONAL',
   ENTERPRISE  = 'ENTERPRISE',
   TESTER      = 'TESTER',
-  /** ADAM Tutor — Layer 1 pelajar lane, all subjects, MYR flat rate */
+  /** Closed MLM channel — not on public pricing */
   TUTOR       = 'TUTOR',
 }
+
+/** Legacy Mongo value — was misnamed “Pelajar”; maps to Pro for everyone */
+export const LEGACY_SUBSCRIPTION_TIER_PELAJAR = 'PELAJAR' as const;
+
+/** Legacy Mongo value before BASIC rename */
+export const LEGACY_SUBSCRIPTION_TIER_PENCARIAN = 'PENCARIAN' as const;
+
+export function normalizeSubscriptionTier(
+  tier: string | SubscriptionTier | null | undefined,
+): SubscriptionTier {
+  if (!tier || tier === LEGACY_SUBSCRIPTION_TIER_PENCARIAN) {
+    return SubscriptionTier.BASIC;
+  }
+  if (tier === LEGACY_SUBSCRIPTION_TIER_PELAJAR) {
+    return SubscriptionTier.PRO;
+  }
+  return tier as SubscriptionTier;
+}
+
+/** Checkout/query aliases → canonical subscription tier (DB + billing). */
+export function resolveCheckoutTier(
+  raw: string | null | undefined,
+): SubscriptionTier | null {
+  const t = (raw ?? '').trim().toUpperCase();
+  if (t === 'PRO' || t === LEGACY_SUBSCRIPTION_TIER_PELAJAR) {
+    return SubscriptionTier.PRO;
+  }
+  if (t === 'PREMIUM') return SubscriptionTier.PROFESIONAL;
+  if (t === 'BASIC' || t === LEGACY_SUBSCRIPTION_TIER_PENCARIAN) {
+    return SubscriptionTier.BASIC;
+  }
+  if (Object.values(SubscriptionTier).includes(t as SubscriptionTier)) {
+    return t as SubscriptionTier;
+  }
+  return null;
+}
+
+/** Mongo filter — Basic tier rows (current + legacy). */
+export const BASIC_TIER_DB_IN = [
+  SubscriptionTier.BASIC,
+  LEGACY_SUBSCRIPTION_TIER_PENCARIAN,
+] as const;
+
+/** Mongo filter — Pro tier rows (current + legacy PELAJAR). */
+export const PRO_TIER_DB_IN = [
+  SubscriptionTier.PRO,
+  LEGACY_SUBSCRIPTION_TIER_PELAJAR,
+] as const;
+
+/** Tier values accepted in Mongo (includes legacy PENCARIAN rows). */
+export const SUBSCRIPTION_TIER_DB_VALUES = [
+  ...Object.values(SubscriptionTier),
+  LEGACY_SUBSCRIPTION_TIER_PENCARIAN,
+  LEGACY_SUBSCRIPTION_TIER_PELAJAR,
+] as const;
 
 export enum BillingCycle {
   MONTHLY    = 'MONTHLY',
@@ -202,7 +260,7 @@ const SubscriptionSchema = new Schema<ISubscription>(
   {
     userId:             { type: String, required: true, index: true },
     founderId:          { type: String, required: true },
-    tier:               { type: String, enum: Object.values(SubscriptionTier), required: true },
+    tier:               { type: String, enum: SUBSCRIPTION_TIER_DB_VALUES, required: true },
     tutorLevel:         { type: String, enum: ['primary', 'secondary', 'university'], default: null },
     status:             { type: String, enum: Object.values(SubscriptionStatus), default: SubscriptionStatus.ACTIVE },
     billingCycle:       { type: String, enum: Object.values(BillingCycle), required: true },

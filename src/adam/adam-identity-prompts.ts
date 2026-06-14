@@ -1,13 +1,17 @@
 /**
  * ============================================================
- * ALAMTOLOGI — QURANIC SCIENCE
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
  * Module      : ADAM Identity Prompts
  * Platform    : Backend (TypeScript)
- * Kernel      : v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
- * Created     : 2026-06-05
- * Updated     : 2026-06-05 — removed scripted offer-depth pattern
+ * Created     : 2026-06-13
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
  * ============================================================
  */
 

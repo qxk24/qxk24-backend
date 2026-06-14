@@ -4,7 +4,7 @@
  * ============================================================
  * Module      : ADAM Web Search Config
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * Updated     : 2026-06-09 — Fasa 3 shared search prompt base
@@ -46,6 +46,10 @@ const GREETING_ONLY =
 // ── Pure opinion / reflection — no external data needed ─────────────────────
 const PURE_REFLECTION =
   /^(apa\s+pendapat|apa\s+pandangan|apa\s+perasaan|what\s+do\s+you\s+think|how\s+do\s+you\s+feel|tell\s+me\s+about\s+yourself|siapa\s+kamu|who\s+are\s+you)\b/i;
+
+// ── Current office-holders, news, dates — search before answering ───────────
+const CURRENT_AFFAIRS =
+  /\b(current|latest|today|now|sekarang|kini|presiden|president|prime minister|menteri|who is the|siapa presiden|siapa(?:lah)?\s+presiden|pemerintah|cabinet|in office)\b/i;
 
 // ── Founder comparing own in-session teaching ────────────────────────────────
 const FOUNDER_OWN_TEACHING =
@@ -101,6 +105,18 @@ export function buildQwenSearchOptions(forcedSearch = false): Record<string, unk
   return options;
 }
 
+/** Inline Qwen search — force retrieval when office-holders / news may have changed. */
+export function shouldForceWebSearchForGateReason(reason: string | null): boolean {
+  return reason === 'current_affairs';
+}
+
+/** Office-holders, elections, breaking news — search before answering. */
+export function isAdamCurrentAffairsTurn(message: string): boolean {
+  const text = message.trim();
+  if (!text) return false;
+  return CURRENT_AFFAIRS.test(text);
+}
+
 /**
  * Gate web search per turn.
  *
@@ -131,6 +147,7 @@ export function getWebSearchGateReason(
 
   if (options?.studentFounderParity) {
     if (EXPLICIT_WEB_SEARCH.test(text)) return 'explicit_search';
+    if (CURRENT_AFFAIRS.test(text)) return 'current_affairs';
     if (options?.technicalFollowUp) return 'technical_follow_up';
     if (isTechnicalPrecisionQuestion(text)) return 'technical_precision';
     if (isUserEntityCorrectionMessage(text)) return 'entity_correction';
@@ -151,6 +168,8 @@ export function getWebSearchGateReason(
   }
 
   if (EXPLICIT_WEB_SEARCH.test(text)) return 'explicit_search';
+
+  if (CURRENT_AFFAIRS.test(text)) return 'current_affairs';
 
   if (options?.technicalFollowUp) return 'technical_follow_up';
 

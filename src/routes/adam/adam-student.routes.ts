@@ -51,12 +51,13 @@ import {
 import { detectRegionFromHeaders } from '../../subscriptions/region-detector.service';
 import {
   CREDIT_PACK_ID,
-  getBasicCreditPackOffer,
   getPremiumCreditPacks,
   resolveCreditPack,
   getCreditWalletSnapshot,
   isCreditPurchaseWired,
+  extraMessageCostCents,
 } from '../../freemium/adam-freemium-credit.service';
+import { createAdamCreditCheckoutSession } from '../../freemium/adam-credit-stripe.service';
 import { SubscriptionTier } from '../../subscriptions/subscription.schema';
 import {
   checkTesterLimit,
@@ -257,13 +258,12 @@ router.get('/auth-config', (c) => {
 });
 
 function creditPacksForAccess(
-  region: ReturnType<typeof detectRegionFromHeaders>,
   access: ReturnType<typeof getSubscriptionAccess>,
 ) {
-  if (access?.tier === SubscriptionTier.PELAJAR) {
-    return getPremiumCreditPacks(region);
+  if (access?.tier === SubscriptionTier.PRO || access?.tier === SubscriptionTier.PROFESIONAL) {
+    return getPremiumCreditPacks();
   }
-  return [getBasicCreditPackOffer(region)];
+  return [];
 }
 
 // GET /api/adam/student/freemium-status — quota for registered users
@@ -272,7 +272,7 @@ router.get('/freemium-status', requireStudent, attachSubscriptionAccess, async (
   const access = getSubscriptionAccess(c);
   const status = await getStudentFreemiumStatus(user.userId, access);
   const region = detectRegionFromHeaders(c.req.raw.headers);
-  const packs  = creditPacksForAccess(region, access);
+  const packs  = creditPacksForAccess(access);
 
   return c.json({
     success: true,
@@ -299,13 +299,14 @@ router.get('/credits', requireStudent, attachSubscriptionAccess, async (c) => {
   const access = getSubscriptionAccess(c);
   const region = detectRegionFromHeaders(c.req.raw.headers);
   const wallet = await getCreditWalletSnapshot(user.userId);
-  const packs  = creditPacksForAccess(region, access);
+  const packs  = creditPacksForAccess(access);
 
   return c.json({
     success: true,
     wallet,
     packs,
-    pack:         packs[0],
+    pack:         packs[0] ?? null,
+    extraMessageCost: extraMessageCostCents() / 100,
     paymentWired: isCreditPurchaseWired(),
     kernel:       'Alamtologi',
   });
@@ -317,15 +318,20 @@ router.post('/credits/buy', requireStudent, attachSubscriptionAccess, zValidator
   const body = c.req.valid('json');
   const access = getSubscriptionAccess(c);
   const region = detectRegionFromHeaders(c.req.raw.headers);
-  const pack = resolveCreditPack(body.packId, region);
+  const pack = resolveCreditPack(body.packId);
 
   if (!pack) {
     return c.json({ success: false, error: 'Unknown credit pack.' }, 400);
   }
 
-  const allowed = creditPacksForAccess(region, access);
-  if (!allowed.some((p) => p.id === pack.id)) {
-    return c.json({ success: false, error: 'Credit pack not available for your plan.' }, 400);
+  const allowed = creditPacksForAccess(access);
+  if (!allowed.length || !allowed.some((p) => p.id === pack.id)) {
+    return c.json({
+      success: false,
+      error:   access?.tier === SubscriptionTier.PRO || access?.tier === SubscriptionTier.PROFESIONAL
+        ? 'Credit pack not available for your plan.'
+        : 'Usage credits are available on Pro only. Upgrade at /pricing.',
+    }, 403);
   }
 
   if (!isCreditPurchaseWired()) {
@@ -340,12 +346,22 @@ router.post('/credits/buy', requireStudent, attachSubscriptionAccess, zValidator
     }, 503);
   }
 
-  // Future: create Stripe checkout for credit pack, grant on webhook confirm.
-  return c.json({
-    success: false,
-    error:   'Credit checkout is not configured yet.',
-    kernel:  'ALAMTOLOGI',
-  }, 503);
+  try {
+    const checkout = await createAdamCreditCheckoutSession({
+      userId: user.userId ?? '',
+      packId: pack.id,
+    });
+    return c.json({
+      success:     true,
+      checkoutUrl: checkout.checkoutUrl,
+      sessionId:   checkout.sessionId,
+      pack,
+      kernel:      'ALAMTOLOGI',
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Credit checkout failed.';
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 503);
+  }
 });
 
 // GET /api/adam/student/register-status — public registration gate

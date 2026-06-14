@@ -1,3 +1,20 @@
+/**
+ * ============================================================
+ * ALAMTOLOGI-QURANIC SCIENCE
+ * ============================================================
+ * Module      : ADAM Student Output Law Test
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-13
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
+ */
+
 /// <reference types="jest" />
 
 import { describe, expect, it } from '@jest/globals';
@@ -60,6 +77,11 @@ describe('constitutional and performance leak detectors', () => {
         'Tubuh peka terhadap MASA, TENAGA, dan IZWA.',
       ),
     ).toBe(true);
+    expect(
+      paragraphIsConstitutionalFrameworkLeak(
+        'From an Alamtologi perspective, timing and energy balance matter.',
+      ),
+    ).toBe(true);
     expect(paragraphIsConstitutionalFrameworkLeak('Parasimpatik mengambil alih.')).toBe(false);
   });
 
@@ -84,6 +106,26 @@ describe('textbook format leak detectors', () => {
     expect(paragraphIsOrdinalSyllabusLeak('Pertama, foo\n\nKedua, bar')).toBe(true);
     expect(paragraphIsDashSummaryLeak('Secara ringkas:\n- Jenis 1: x\n- Jenis 2: y')).toBe(true);
     expect(paragraphIsCoachingScriptClosing('Apa yang paling ingin dikongsikan dahulu?')).toBe(true);
+  });
+});
+
+describe('Malay layout prose rewrites', () => {
+  it('flattens ordinal and numbered outlines into prose', async () => {
+    const {
+      rewriteOrdinalOutlineToProse,
+      rewriteNumberedOutlineToProse,
+      rewriteSecaraRingkasBlock,
+      polishStudentOutputSurface,
+    } = await import('../src/adam/adam-student-output-law');
+
+    expect(rewriteOrdinalOutlineToProse('Pertama, otak bekerja.\nKedua, jantung berdenyut.'))
+      .toBe('otak bekerja. jantung berdenyut.');
+    expect(rewriteNumberedOutlineToProse('1. Satu\n2. Dua'))
+      .toBe('Satu. Dua.');
+    expect(rewriteSecaraRingkasBlock('Secara ringkas:\n- Jenis A: x\n- Jenis B: y'))
+      .toBe('Jenis A: x. Jenis B: y.');
+    expect(polishStudentOutputSurface('Pertama, foo.\n\nKedua, bar.'))
+      .toBe('Foo. Bar.');
   });
 });
 

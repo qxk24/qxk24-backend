@@ -1,3 +1,20 @@
+/**
+ * ============================================================
+ * ALAMTOLOGI-QURANIC SCIENCE
+ * ============================================================
+ * Module      : ADAM Book Aware Recall Test
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-13
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
+ */
+
 /// <reference types="jest" />
 
 import { describe, expect, it } from '@jest/globals';
@@ -902,7 +919,6 @@ describe('Bab 8 Teori ALAMIN', () => {
   it('PeSa routes to ALAMIN Bab 2', () => {
     expect(resolveBookChapter('Apa itu PeSa?')?.chapterId).toBe('alamin-bab-2');
   });
-
 
   it('curriculum overview includes Bab 8', () => {
     const block = buildCurriculumOverviewSealedBlock();

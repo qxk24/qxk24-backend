@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : Subscription Routes
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -44,6 +44,7 @@ import {
   SubscriptionStatus,
   SupportedRegion,
   FOUNDER_SUBSCRIPTION_ID,
+  resolveCheckoutTier,
 } from './subscription.schema';
 import {
   handleRazorpayWebhook,
@@ -59,6 +60,11 @@ import { getProviderForRegion } from './tier-access.config';
 import { ENV } from '../config/environments';
 import { grantFounderProfesionalBatch } from './founder-profesional-grant.service';
 import {
+  createFounderUnlimitedAccount,
+  grantFounderUnlimitedBatch,
+  listAdamAccountCategories,
+} from './founder-unlimited-grant.service';
+import {
   freeDailyLimit,
   pelajarMonthlyLimit,
 } from '../freemium/adam-freemium-daily.service';
@@ -70,8 +76,13 @@ import {
 } from '../freemium/adam-freemium-rolling.service';
 import { RollingQuotaBucket } from '../freemium/adam-freemium.schema';
 import { pelajarDailySoftLimit } from '../freemium/adam-freemium-premium.service';
-import { getPremiumCreditPacks } from '../freemium/adam-freemium-credit.service';
+import { getPremiumCreditPacks, extraMessageCostCents } from '../freemium/adam-freemium-credit.service';
 import { guestLifetimeLimit } from '../freemium/adam-freemium-guest.service';
+import {
+  consumerFreeDailyLimit,
+  consumerProDailyLimit,
+  isConsumerDailyPlan,
+} from '../freemium/adam-freemium-consumer.service';
 
 const router = new Hono();
 
@@ -82,6 +93,7 @@ router.get('/pricing', (c) => {
   const studio      = getStudioPricing(region);
   const stripe      = getStripeGatewayStatus();
   const paymentWired = ENV.STRIPE_ENABLED && stripe.enabled && stripe.configured;
+  const consumerPlan = isConsumerDailyPlan();
 
   return c.json({
     region,
@@ -91,6 +103,17 @@ router.get('/pricing', (c) => {
       wired:            paymentWired,
       comingSoon:       !paymentWired,
     },
+    consumerPlan: consumerPlan ? {
+      freeDailyLimit:      consumerFreeDailyLimit(),
+      proDailyLimit:       consumerProDailyLimit(),
+      proMonthlyUsd:       ENV.ADAM_PRO_MONTHLY_USD,
+      proAnnualUsd:        ENV.ADAM_PRO_ANNUAL_USD,
+      premiumMonthlyUsd:   ENV.ADAM_PREMIUM_MONTHLY_USD,
+      premiumAnnualUsd:    ENV.ADAM_PREMIUM_ANNUAL_USD,
+      extraMessageCost:    extraMessageCostCents() / 100,
+      creditBundles:       getPremiumCreditPacks(),
+      timezone:            ENV.ADAM_FREEMIUM_TIMEZONE,
+    } : null,
     freemium: ENV.ADAM_FREEMIUM_ENABLED ? {
       guestLifetimeLimit:    guestLifetimeLimit(),
       freeRollingLimit:      freeRollingLimit(),
@@ -98,16 +121,51 @@ router.get('/pricing', (c) => {
       pelajarMonthlyLimit:   pelajarMonthlyLimit(),
       pelajarDailySoftLimit: pelajarDailySoftLimit(),
       profesionalRollingLimit: profesionalRollingLimit(),
-      premiumTopUps:         getPremiumCreditPacks(region),
+      premiumTopUps:         getPremiumCreditPacks(),
       /** @deprecated Use freeRollingLimit */
       freeDailyLimit:        freeDailyLimit(),
     } : null,
-    tiers: {
-      pencarian: {
+    tiers: consumerPlan ? {
+      basic: {
         label:         'Basic',
         monthlyAmount: 0,
         annualAmount:  0,
-        currency:      pelajar.currency,
+        currency:      'USD',
+        description:   'Register free — 20 messages per day (Malaysia timezone).',
+        messageLimit:  consumerFreeDailyLimit(),
+        dailyLimit:    consumerFreeDailyLimit(),
+        extensionFee:  pelajar.extensionFee,
+      },
+      pro: {
+        label:            'Pro',
+        monthlyAmount:      ENV.ADAM_PRO_MONTHLY_USD,
+        annualAmount:     ENV.ADAM_PRO_ANNUAL_USD,
+        currency:         'USD',
+        description:      '100 messages per day included. Add usage credits when you need more.',
+        savingsNote:      `Save ${ENV.ADAM_PRO_MONTHLY_USD * 12 - ENV.ADAM_PRO_ANNUAL_USD} USD vs 12 monthly payments.`,
+        comingSoon:       !paymentWired,
+        dailyLimit:       consumerProDailyLimit(),
+        topUpPacks:       getPremiumCreditPacks(),
+        extraMessageCost: extraMessageCostCents() / 100,
+      },
+      premium: {
+        label:         'Premium',
+        monthlyAmount: ENV.ADAM_PREMIUM_MONTHLY_USD,
+        annualAmount:  ENV.ADAM_PREMIUM_ANNUAL_USD,
+        currency:      'USD',
+        description:   'Full relational memory, API access, publishing, and Builder mode.',
+        savingsNote:   `Save ${ENV.ADAM_PREMIUM_MONTHLY_USD * 12 - ENV.ADAM_PREMIUM_ANNUAL_USD} USD vs 12 monthly payments.`,
+        comingSoon:    !paymentWired,
+        rollingLimit:  profesionalRollingLimit(),
+        rollingWindowHours: rollingWindowHours(),
+      },
+      tutor: buildTutorPricingTier(paymentWired),
+    } : {
+      basic: {
+        label:         'Basic',
+        monthlyAmount: 0,
+        annualAmount:  0,
+        currency:      'USD',
         description:   'Register free — deep questions in a rolling window, no payment required.',
         messageLimit:  ENV.ADAM_FREEMIUM_ENABLED ? freeRollingLimit() : 100,
         rollingLimit:  ENV.ADAM_FREEMIUM_ENABLED ? freeRollingLimit() : undefined,
@@ -125,7 +183,7 @@ router.get('/pricing', (c) => {
         comingSoon:    !paymentWired,
         monthlyLimit:  ENV.ADAM_FREEMIUM_ENABLED ? pelajarMonthlyLimit() : undefined,
         dailySoftLimit: ENV.ADAM_FREEMIUM_ENABLED ? pelajarDailySoftLimit() : undefined,
-        topUpPacks:    ENV.ADAM_FREEMIUM_ENABLED ? getPremiumCreditPacks(region) : undefined,
+        topUpPacks:    ENV.ADAM_FREEMIUM_ENABLED ? getPremiumCreditPacks() : undefined,
       },
       profesional: {
         label:         'Profesional',
@@ -146,15 +204,6 @@ router.get('/pricing', (c) => {
         description:   'Unlimited builder sessions — inquiry while checkout is finalised.',
         savingsNote:   '2 months free with annual billing.',
       },
-      tutor: {
-        label:         'ADAM Tutor',
-        monthlyAmount: getTutorPricing('secondary').monthly,
-        annualAmount:  getTutorPricing('secondary').annual,
-        currency:      getTutorPricing('secondary').currency,
-        description:   'All academic subjects — priced by school level.',
-        comingSoon:    !paymentWired,
-        levels:        listTutorLevelPricing(),
-      },
       enterprise: {
         label: 'Enterprise',
         tiers: ENTERPRISE_PRICING.map((t) => ({
@@ -166,13 +215,28 @@ router.get('/pricing', (c) => {
         })),
         description: 'Organisational memory, white-label, and private deployment.',
       },
+      tutor: buildTutorPricingTier(paymentWired),
     },
   });
 });
 
+function buildTutorPricingTier(paymentWired: boolean) {
+  const secondary = getTutorPricing('secondary');
+  return {
+    label:         'ADAM Tutor',
+    monthlyAmount: secondary.monthly,
+    annualAmount:  0,
+    currency:      secondary.currency,
+    description:   'All academic subjects — priced by school level (monthly only).',
+    monthlyOnly:   true,
+    comingSoon:    !paymentWired,
+    levels:        listTutorLevelPricing(),
+  };
+}
+
 router.post('/create', requireAdamUser, async (c) => {
   const body = await c.req.json() as {
-    tier?:         SubscriptionTier;
+    tier?:         string;
     billingCycle?: BillingCycle;
     tutorLevel?:   TutorSubscriptionLevel;
   };
@@ -181,19 +245,24 @@ router.post('/create', requireAdamUser, async (c) => {
     return c.json({ error: 'tier and billingCycle are required.' }, 400);
   }
 
-  if (body.tier === SubscriptionTier.TUTOR && !body.tutorLevel) {
+  const tier = resolveCheckoutTier(body.tier);
+  if (!tier) {
+    return c.json({ error: `Unknown tier: ${body.tier}` }, 400);
+  }
+
+  if (tier === SubscriptionTier.TUTOR && !body.tutorLevel) {
     return c.json({
       error: 'tutorLevel is required for ADAM Tutor (primary, secondary, or university).',
     }, 400);
   }
 
-  if (body.tier === SubscriptionTier.PENCARIAN) {
-    return c.json({ error: 'Pencarian is a founder waqf — no payment required.' }, 400);
+  if (tier === SubscriptionTier.BASIC) {
+    return c.json({ error: 'Basic is free — register to chat, no payment required.' }, 400);
   }
 
-  if (body.tier === SubscriptionTier.PELAJAR) {
+  if (tier === SubscriptionTier.PRO && !isConsumerDailyPlan()) {
     return c.json({
-      error: 'Premium Pelajar is not open for new subscriptions. Use free Pencarian with credit top-ups, Student, or Profesional.',
+      error: 'Pro is not open for new subscriptions on this deployment.',
     }, 403);
   }
 
@@ -211,7 +280,7 @@ router.post('/create', requireAdamUser, async (c) => {
   try {
     const result = await routeSubscriptionCreation({
       userId:       user.userId,
-      tier:         body.tier,
+      tier,
       billingCycle: body.billingCycle,
       headers:      c.req.raw.headers,
       tutorLevel:   body.tutorLevel,
@@ -239,7 +308,7 @@ router.get('/me', requireAdamUser, async (c) => {
 
   if (!sub) {
     return c.json({
-      tier:    SubscriptionTier.PENCARIAN,
+      tier:    SubscriptionTier.BASIC,
       status:  SubscriptionStatus.WAQF,
       message: 'Selamat datang. Perjalanan kamu dibiayai oleh pengasas.',
     });
@@ -377,6 +446,80 @@ router.get('/stripe/confirm', requireAdamUser, async (c) => {
 router.get('/waqf-report', requireFounder, async (c) => {
   const report = await getWaqfReport();
   return c.json(report);
+});
+
+/** GET /api/subscription/founder/categories — ADAM subscription + freemium quota categories. */
+router.get('/founder/categories', requireFounder, (c) => {
+  return c.json({
+    success:    true,
+    categories: listAdamAccountCategories(),
+    kernel:     'ALAMTOLOGI',
+  });
+});
+
+/** POST /api/subscription/founder/grant-unlimited — Founder waqf unlimited (all quota categories). */
+router.post('/founder/grant-unlimited', requireFounder, async (c) => {
+  const body = await c.req.json() as {
+    identifiers?:  string[];
+    userIds?:       string[];
+    notes?:         string;
+    tutorLevel?:    'primary' | 'secondary' | 'university';
+    skipTutor?:     boolean;
+    create?: {
+      name:        string;
+      password:    string;
+      userId?:     string;
+      email?:      string;
+      accountRole?: 'student' | 'guru';
+      accountLane?: 'umum' | 'pelajar';
+    };
+  };
+
+  if (body.create?.name && body.create?.password) {
+    const created = await createFounderUnlimitedAccount({
+      name:        body.create.name,
+      password:    body.create.password,
+      userId:      body.create.userId,
+      email:       body.create.email,
+      notes:       body.notes,
+      tutorLevel:  body.tutorLevel,
+      skipTutor:   body.skipTutor,
+      accountRole: body.create.accountRole,
+      accountLane: body.create.accountLane,
+    });
+    return c.json({
+      success: true,
+      mode:    'create',
+      result:  created,
+      tier:    SubscriptionTier.ENTERPRISE,
+      quota:   'unlimited',
+      kernel:  'ALAMTOLOGI',
+    }, 201);
+  }
+
+  const identifiers = [
+    ...(body.identifiers ?? []),
+    ...(body.userIds ?? []),
+  ].map((s) => s.trim()).filter(Boolean);
+
+  if (identifiers.length === 0) {
+    return c.json({ error: 'identifiers, userIds, or create { name, password } required.' }, 400);
+  }
+
+  const results = await grantFounderUnlimitedBatch(identifiers, {
+    notes:      body.notes,
+    tutorLevel: body.tutorLevel,
+    skipTutor:  body.skipTutor,
+  });
+
+  return c.json({
+    success: results.some((r) => r.ok),
+    mode:    'upgrade',
+    results,
+    tier:    SubscriptionTier.ENTERPRISE,
+    quota:   'unlimited',
+    kernel:  'ALAMTOLOGI',
+  });
 });
 
 /** POST /api/subscription/founder/grant-profesional — Founder waqf upgrade (no Stripe). */

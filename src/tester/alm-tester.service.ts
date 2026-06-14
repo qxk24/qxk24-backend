@@ -4,7 +4,7 @@
  * ============================================================
  * Module      : Tester Account Service
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-04
  * ============================================================
@@ -184,7 +184,7 @@ export async function createTesterAccount(opts: TesterCreateOptions): Promise<{
     currency:       'MYR',
     amountPerCycle: 0,
     provider:       PaymentProvider.FOUNDER_WAQF,
-    access:         TIER_ACCESS[SubscriptionTier.PELAJAR],
+    access:         TIER_ACCESS[SubscriptionTier.PRO],
     isFounderFunded: true,
     enterpriseNotes: opts.notes ?? null,
     pencarianUsage: {

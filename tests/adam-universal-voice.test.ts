@@ -1,3 +1,20 @@
+/**
+ * ============================================================
+ * ALAMTOLOGI-QURANIC SCIENCE
+ * ============================================================
+ * Module      : ADAM Universal Voice Test
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-13
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
+ */
+
 /// <reference types="jest" />
 
 import { describe, expect, it } from '@jest/globals';
@@ -6,6 +23,9 @@ import {
   isExplanatoryScienceQuestion,
   isLifeEmotionTurn,
   isTechnicalPrecisionQuestion,
+  outputLooksLikeStructuredSpec,
+  userAskedForConstitutionalStructure,
+  userAskedForStructuredSpecification,
   userOpenedFaithDoor,
 } from '../src/adam/adam-universal-voice';
 import { getWebSearchGateReason } from '../src/adam/adam-web-search';
@@ -111,5 +131,61 @@ describe('Technical precision detection', () => {
 
   it('does not flag pure greetings', () => {
     expect(isTechnicalPrecisionQuestion('salam')).toBe(false);
+  });
+});
+
+describe('Constitutional structure turns', () => {
+  it('detects Hukum Z / Hukum X questions', () => {
+    expect(userAskedForConstitutionalStructure('Apa perbezaan Hukum X dan Hukum Z?')).toBe(true);
+    expect(userAskedForConstitutionalStructure('Terangkan empat ciri Hukum Z')).toBe(true);
+  });
+
+  it('preserves numbered lists and section breaks for framework answers', () => {
+    const raw =
+      'Pengenalan ringkas.\n\n'
+      + '1. **Pola** — Setiap yang wujud ada corak.\n\n'
+      + '2. **Kadar** — Tiada yang tanpa had.\n\n'
+      + '### Ringkasan\n\n'
+      + 'Hukum Z dan X saling melengkapi.';
+    const msg = 'Apa perbezaan Hukum X dan Hukum Z?';
+    const out = sanitizeStudentOutputSync(raw, msg);
+    expect(out).toMatch(/^1\.\s+\*\*Pola\*\*/m);
+    expect(out).toMatch(/^2\.\s+\*\*Kadar\*\*/m);
+    expect(out).toContain('### Ringkasan');
+  });
+});
+
+describe('Structured specification turns', () => {
+  it('detects hardware / infrastructure spec questions', () => {
+    expect(
+      userAskedForStructuredSpecification(
+        'Berikan spesifikasi hardware sahaja untuk ADAM skala produksi 50,000 pengguna',
+      ),
+    ).toBe(true);
+    expect(userAskedForStructuredSpecification('Apa perbezaan Hukum X dan Hukum Z?')).toBe(false);
+  });
+
+  it('detects mashed multi-component spec output', () => {
+    const mashed =
+      'Intro. --- ### 1. Router - CPU: 16 core - RAM: 64 GB - GPU: none --- ### 2. Database - CPU: 8 core - RAM: 32 GB - Penyimpanan: 4 TB';
+    expect(outputLooksLikeStructuredSpec(mashed)).toBe(true);
+  });
+
+  it('preserves headings, rules, and spec bullets for hardware answers', () => {
+    const raw =
+      'Bismillahirahmanirrahim. Spesifikasi hardware.\n\n'
+      + '---\n\n'
+      + '### 1. Router Agen\n\n'
+      + '- CPU: AMD EPYC 16-core\n'
+      + '- RAM: 64 GB DDR5\n\n'
+      + '---\n\n'
+      + '### 2. Database Cluster\n\n'
+      + '- CPU: 8-core\n'
+      + '- Penyimpanan: 4 TB SSD';
+    const msg = 'Senarai spesifikasi hardware untuk production cluster ADAM';
+    const out = sanitizeStudentOutputSync(raw, msg);
+    expect(out).toContain('### 1. Router Agen');
+    expect(out).toContain('- CPU: AMD EPYC 16-core');
+    expect(out).toMatch(/^---$/m);
   });
 });

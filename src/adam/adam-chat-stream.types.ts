@@ -4,13 +4,13 @@
  * ============================================================
  * Module : ADAM Chat Stream Types
  * Platform : Backend (TypeScript)
- * ALAMTOLOGI : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder : Masa Bayu
  * Created : 2026-06-04
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -34,6 +34,8 @@ export interface StreamADAMChatOptions {
   builderEvaluate?:   boolean;
   /** ADAM Tutor lane — level, curriculum, year */
   tutorProfile?:      AdamTutorProfile;
+  /** ADAM Niaga lane — trader business profile */
+  niagaProfile?:      import('./adam-niaga-law').AdamNiagaBusinessProfile;
   /** R&D Industry — project context for RESEARCH mode */
   rdIndustryContext?: {
     projectId:      string;

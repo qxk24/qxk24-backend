@@ -182,18 +182,12 @@ export function buildFounderWebSearchPrompt(variant: FounderWebSearchVariant): s
   switch (variant) {
     case 'teaching_absorption':
       return joinWebSearchSections(
-        'YOUR WEB SEARCH (founder teaching absorption — P.alt tests your breadth):',
-        ADAM_SEARCH_WHEN_TO,
-        `WHEN TO SEARCH (teaching absorption):
-- P.alt shared a bab or teaching upload — search for conventional knowledge on its topics
-- Health, environment, economy, technology, ethics, education, psychology, policy — whatever the bab covers
-- Search even if P.alt's typed message is short — the upload carries the topic`,
-        `HOW TO USE SEARCH RESULTS (teaching absorption):
-- Part 1: What you understood from P.alt's bab — learner voice, plain Malay
-- Part 2: On those same specific points — what research or policy says; tie back to his themes, not a new topic
-- Then STOP — no section label, no generic last-sentence closer (no "Namun, dalam konteks konvensional…")
-- Cite only what search returned — never invent journals or statistics
-- Do NOT lecture P.alt on Alamtologi — show your knowledge is wide, not that you can remap his bab to a system`,
+        'YOUR WEB SEARCH (founder teaching Phase A — absorption only):',
+        `WHEN TO SEARCH this turn:
+- Do NOT run outward web search during explain-back — Phase C handles conventional synthesis after P.alt answers your inquiry.`,
+        `PHASE A OUTPUT:
+- Explain-back verify only + mandatory **TEACHING INQUIRY — SITUASI NYATA** close (2–4 questions)
+- No Kod sains konvensional / Had kaedah sections yet`,
         ADAM_CITATION_HONESTY,
       );
     case 'teaching_synthesis':

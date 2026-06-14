@@ -2,11 +2,11 @@
 
 Create **3 Products** (or 3 Prices) in [Stripe Dashboard](https://dashboard.stripe.com/products) — one per school band.
 
-| Band | Product name | Price / month (MYR) | Optional `.env` key |
+| Band | Product name | Price / month (USD) | Optional `.env` key |
 |------|----------------|---------------------|---------------------|
-| Primary School | ADAM Tutor — Primary | **RM 49.90** | `STRIPE_PRICE_ID_TUTOR_PRIMARY_MONTHLY` |
-| Secondary School | ADAM Tutor — Secondary | **RM 89.90** | `STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY` |
-| College & University | ADAM Tutor — University | **RM 129.90** | `STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY` |
+| Primary School | ADAM Tutor — Primary | **$13** | `STRIPE_PRICE_ID_TUTOR_PRIMARY_MONTHLY` |
+| Secondary School | ADAM Tutor — Secondary | **$15** | `STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY` |
+| College & University | ADAM Tutor — University | **$17** | `STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY` |
 
 Legacy single-price key (secondary): `STRIPE_PRICE_ID_TUTOR_MONTHLY`
 
@@ -29,6 +29,10 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_PRICE_ID_TUTOR_PRIMARY_MONTHLY=price_1Th86WCYI196tlwhUQC9lIg5
 STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY=price_1Th876CYI196tlwhRHDoPoXp
 STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY=price_1Th87TCYI196tlwhhEzkInix
+
+ADAM_TUTOR_PRIMARY_MONTHLY_USD=13
+ADAM_TUTOR_SECONDARY_MONTHLY_USD=15
+ADAM_TUTOR_UNIVERSITY_MONTHLY_USD=17
 
 # Optional legacy alias (secondary) if you only have one old price ID:
 # STRIPE_PRICE_ID_TUTOR_MONTHLY=price_xxxxxxxx

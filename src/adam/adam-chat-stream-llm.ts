@@ -4,24 +4,26 @@
  * ============================================================
  * Module      : ADAM Chat Stream — LLM Runner
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-09
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
 
 import { isQwenDataInspectionError, llmStream } from '../llm/llm-client';
 import type { LlmMessage, LlmSearchResult } from '../llm/llm-types';
+import { shouldForceWebSearchForGateReason } from './adam-web-search';
 import { repairEastAsianScriptLeak } from './adam-language-guard';
 import {
   buildStudentGreetingFallback,
   isAdamLightChatTurn,
 } from './adam-response-generation';
+import { isAdamCurrentAffairsTurn } from './adam-web-search';
 import {
   buildTutorGreetingFallback,
   isAdamTutorMode,
@@ -30,6 +32,7 @@ import {
   applyStudentSurfaceOutputRepair,
   resolveStudentStreamSurface,
 } from './adam-student-output-guard';
+import { outputHasScannableListStructure } from './adam-student-output-law';
 import {
   sanitizeFounderTeachingQuranFormat,
 } from './adam-founder-teaching-prompts';
@@ -39,6 +42,13 @@ import {
   repairFounderTeachingOutputLeak,
   syncSanitizeFounderTeachingOutput,
 } from './adam-founder-teaching-output-guard';
+import { ensureFounderTeachingInquiryClose } from './adam-teaching-inquiry-repair';
+import { ensureFounderTeachingSynthesisSections } from './adam-teaching-synthesis-repair';
+import {
+  adamTeachingMessageHasInquirySection,
+  adamTeachingMessageHasSynthesisSection,
+} from './adam-teaching-state-machine';
+import { repairStaleOfficeHolderOutput } from './adam-current-affairs';
 import { repairFormulaXyzStreamOutput } from './adam-book-aware-recall';
 import type { ResolvedAdamModel } from '../config/llm-models';
 import type { ADAMChatMode, SSEEventType } from './adam.types';
@@ -65,6 +75,7 @@ export function createAdamLlmStreamOnce(input: {
   resolvedSessionId: string;
   userMessage: string;
   precisionActive: boolean;
+  webSearchGateReason?: string | null;
   onEvent: (event: SSEEventType, data: string) => void;
 }): AdamLlmStreamOnceFn {
   const {
@@ -75,11 +86,12 @@ export function createAdamLlmStreamOnce(input: {
     resolvedSessionId,
     userMessage,
     precisionActive,
+    webSearchGateReason,
     onEvent,
   } = input;
 
   const bufferStreamForPostRepair = false;
-  const forceWebSearch = false;
+  const forceWebSearch = shouldForceWebSearchForGateReason(webSearchGateReason ?? null);
 
   return async (messages, withSearch) => {
     const callStream = (search: boolean) =>
@@ -145,6 +157,8 @@ export interface StreamRepairResult {
   fullResponse: string;
   repairMs: number;
   syncRepairMs: number;
+  /** Post-stream guard replaced stale model output (current affairs / practical advisory). */
+  sanitizedRepairApplied: boolean;
 }
 
 export async function repairAdamStreamOutput(input: {
@@ -152,6 +166,7 @@ export async function repairAdamStreamOutput(input: {
   rawModelStream: string;
   teachingFlags: FounderTeachingFlags;
   recentUserTurns: string[];
+  recentAssistantTurns?: string[];
   mode: ADAMChatMode;
 }): Promise<StreamRepairResult> {
   const {
@@ -159,6 +174,7 @@ export async function repairAdamStreamOutput(input: {
     rawModelStream,
     teachingFlags,
     recentUserTurns,
+    recentAssistantTurns = [],
     mode,
   } = input;
   const {
@@ -170,15 +186,19 @@ export async function repairAdamStreamOutput(input: {
     resolvedSessionId,
     onEvent,
   } = shell;
-  const { founderTeachingSynthesis, founderTeachingLearnerTurn } = teachingFlags;
+  const { founderTeachingSynthesis, founderTeachingAbsorption, founderTeachingLearnerTurn } = teachingFlags;
 
   const repairStarted = Date.now();
   let syncRepairMs = 0;
+  let sanitizedRepairApplied = false;
   let fullResponse = await repairEastAsianScriptLeak(rawModelStream, userMessage);
 
   if (isFounder) {
     fullResponse = repairFormulaXyzStreamOutput(fullResponse, userMessage);
     fullResponse = restoreFounderPaltAddress(fullResponse);
+    if (!founderTeachingLearnerTurn) {
+      fullResponse = repairStaleOfficeHolderOutput(fullResponse, userMessage);
+    }
   }
 
   if (!isFounder && isAdamTutorMode(mode)) {
@@ -195,17 +215,32 @@ export async function repairAdamStreamOutput(input: {
       fullResponse,
       userMessage,
       recentUserTurns,
+      recentAssistantTurns,
     );
     syncRepairMs = Date.now() - syncStarted;
     if (!surface.trim() && isAdamLightChatTurn(userMessage)) {
       surface = buildStudentGreetingFallback(userMessage, participant.userName);
     }
-    const resolved = resolveStudentStreamSurface(rawModelStream, surface);
-    if (resolved.streamReplace) {
+    const preferSanitized = isAdamCurrentAffairsTurn(userMessage);
+    const resolved = resolveStudentStreamSurface(rawModelStream, surface, {
+      preferSanitized,
+    });
+    const structurePreservingReplace = Boolean(
+      resolved.streamReplace
+      && (
+        !outputHasScannableListStructure(rawModelStream)
+        || outputHasScannableListStructure(resolved.fullResponse)
+      ),
+    );
+    if (structurePreservingReplace) {
+      sanitizedRepairApplied = preferSanitized;
       onEvent('adam_stream_done', JSON.stringify({
-        sessionId: resolvedSessionId,
-        replace:   true,
-        response:  resolved.streamReplace,
+        sessionId:        resolvedSessionId,
+        replace:            true,
+        sanitizedRepair:    preferSanitized,
+        structurePreserving: true,
+        briefTier1Repair:   false,
+        response:           resolved.streamReplace,
       }));
     }
     fullResponse = resolved.fullResponse;
@@ -229,6 +264,34 @@ export async function repairAdamStreamOutput(input: {
         false,
         teachingGuardOptions,
       );
+    }
+    if (founderTeachingAbsorption) {
+      const beforeInquiry = fullResponse;
+      fullResponse = ensureFounderTeachingInquiryClose(
+        fullResponse,
+        normalizedMessage,
+        teaching.context,
+      );
+      if (
+        fullResponse !== beforeInquiry
+        && adamTeachingMessageHasInquirySection(fullResponse)
+      ) {
+        console.log('[adam:founder-teaching-inquiry] sync inquiry close applied', {
+          sessionId: resolvedSessionId,
+        });
+      }
+    }
+    if (founderTeachingSynthesis) {
+      const beforeSynthesis = fullResponse;
+      fullResponse = ensureFounderTeachingSynthesisSections(fullResponse);
+      if (
+        fullResponse !== beforeSynthesis
+        && adamTeachingMessageHasSynthesisSection(fullResponse)
+      ) {
+        console.log('[adam:founder-teaching-synthesis] sync section labels applied', {
+          sessionId: resolvedSessionId,
+        });
+      }
     }
   }
 
@@ -258,5 +321,6 @@ export async function repairAdamStreamOutput(input: {
     fullResponse,
     repairMs: Date.now() - repairStarted,
     syncRepairMs,
+    sanitizedRepairApplied,
   };
 }

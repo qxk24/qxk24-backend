@@ -113,7 +113,7 @@ export async function grantFounderProfesional(params: {
   await SubscriptionModel.updateMany(
     {
       userId,
-      tier:   SubscriptionTier.PELAJAR,
+      tier:   SubscriptionTier.PRO,
       status: SubscriptionStatus.ACTIVE,
     },
     {

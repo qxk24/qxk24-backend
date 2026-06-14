@@ -1,13 +1,31 @@
+/**
+ * ============================================================
+ * ALAMTOLOGI-QURANIC SCIENCE
+ * ============================================================
+ * Module      : ADAM Three Tier Knowledge Test
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-13
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
+ */
+
 /// <reference types="jest" />
 
 import { describe, expect, it } from '@jest/globals';
 import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
 import {
   buildThreeTierTurnOverlay,
-  paragraphIsThreeTierDoorOffer,
+  paragraphIsUniversalScholarDoorOffer,
   resolveStudentKnowledgeTier,
   userOptedIntoAlamtologiTier,
   userOptedIntoQuranTier,
+  UNIVERSAL_SCHOLAR_DOOR_EN,
 } from '../src/adam/adam-three-tier-knowledge';
 import { buildAdamChatSystemPrompt } from '../src/adam/adam-prompt-builder';
 
@@ -29,15 +47,19 @@ describe('three-tier knowledge architecture', () => {
     expect(buildThreeTierTurnOverlay(3)).toMatch(/ACTIVE TIER THIS TURN: 3/);
   });
 
-  it('tier door offers are kept by output guard', () => {
-    const door =
-      'Adakah anda ingin melihat soalan ini dari sudut Alamtologi selepas fakta saintifik tadi?';
-    expect(paragraphIsThreeTierDoorOffer(door)).toBe(true);
+  it('tier door offers are kept by output guard on practical advisory turns', () => {
+    const door = UNIVERSAL_SCHOLAR_DOOR_EN;
+    expect(paragraphIsUniversalScholarDoorOffer(door)).toBe(true);
     const out = sanitizeStudentOutputSync(
-      `Diabetes berkaitan rintangan insulin.\n\n${door}`,
-      'Apa punca diabetes?',
+      `An electrician installs wiring safely.\n\n${door}`,
+      'What does an electrician do day to day?',
     );
-    expect(out).toMatch(/sudut Alamtologi/i);
+    expect(out).toMatch(/skills and tools/i);
+  });
+
+  it('broad yes opens tier 2 without saying Alamtologi', () => {
+    const adamPrior = `Insulin resistance is central.\n\n${UNIVERSAL_SCHOLAR_DOOR_EN}`;
+    expect(resolveStudentKnowledgeTier('Yes, go deeper', [], [adamPrior])).toBe(2);
   });
 
   it('student prompt stack includes active tier overlay', () => {

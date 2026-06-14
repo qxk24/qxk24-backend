@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : Pencarian Tracker Service
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -125,7 +125,7 @@ export async function checkPencarianLimit(
 ): Promise<PencarianCheckResult> {
   let sub = await SubscriptionModel.findOne({
     userId,
-    tier:   SubscriptionTier.PENCARIAN,
+    tier:   SubscriptionTier.BASIC,
     status: SubscriptionStatus.WAQF,
   });
 
@@ -133,14 +133,14 @@ export async function checkPencarianLimit(
     sub = await SubscriptionModel.create({
       userId,
       founderId:      FOUNDER_SUBSCRIPTION_ID,
-      tier:           SubscriptionTier.PENCARIAN,
+      tier:           SubscriptionTier.BASIC,
       status:         SubscriptionStatus.WAQF,
       billingCycle:   BillingCycle.ONE_TIME,
       region:         SupportedRegion.OTHER,
       currency:       'MYR',
       amountPerCycle: 0,
       provider:       PaymentProvider.FOUNDER_WAQF,
-      access:         TIER_ACCESS[SubscriptionTier.PENCARIAN],
+      access:         TIER_ACCESS[SubscriptionTier.BASIC],
       isFounderFunded: true,
       pencarianUsage: {
         totalMessagesUsed:      0,
@@ -242,7 +242,7 @@ export async function purchasePencarianExtension(
 
   const sub = await SubscriptionModel.findOne({
     userId,
-    tier:   SubscriptionTier.PENCARIAN,
+    tier:   SubscriptionTier.BASIC,
     status: SubscriptionStatus.WAQF,
   });
 
@@ -282,7 +282,7 @@ export async function purchasePencarianExtension(
 
 export async function convertPencarianToPelajar(userId: string): Promise<void> {
   await SubscriptionModel.findOneAndUpdate(
-    { userId, tier: SubscriptionTier.PENCARIAN },
+    { userId, tier: SubscriptionTier.BASIC },
     {
       $set: {
         'pencarianUsage.convertedToPelajar': true,
@@ -295,7 +295,7 @@ export async function convertPencarianToPelajar(userId: string): Promise<void> {
 export async function getPencarianUsage(userId: string): Promise<IPencarianUsage | null> {
   const sub = await SubscriptionModel.findOne({
     userId,
-    tier: SubscriptionTier.PENCARIAN,
+    tier: SubscriptionTier.BASIC,
   });
   return sub?.pencarianUsage ?? null;
 }
@@ -308,7 +308,7 @@ export async function getWaqfReport(): Promise<{
   currency:             string;
 }> {
   const subs = await SubscriptionModel.find({
-    tier:            SubscriptionTier.PENCARIAN,
+    tier:            SubscriptionTier.BASIC,
     isFounderFunded: true,
   });
 

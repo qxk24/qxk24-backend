@@ -4,7 +4,7 @@
  * ============================================================
  * Module      : ADAM Student Types
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
@@ -44,7 +44,7 @@ export interface StudentAccountRecord {
 export const GROUP_SESSION_ID = 'K24s-group-alamtologi-era1';
 export const FOUNDER_USER_ID = 'masa-bayu';
 
-export type SessionType = 'founder' | 'student' | 'group' | 'guru' | 'tutor';
+export type SessionType = 'founder' | 'student' | 'group' | 'guru' | 'tutor' | 'niaga';
 export type SpeakerRole = 'founder' | 'student' | 'guru' | 'adam';
 export type AdamUserRole = 'founder' | 'student' | 'guru';
 export type AdamAccountRole = 'student' | 'guru';

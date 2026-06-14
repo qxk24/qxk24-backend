@@ -27,6 +27,10 @@ import { isQwenDataInspectionError, llmPrefetchWebSearch } from '../llm/llm-clie
 import { ENV } from '../config/environments';
 import { getFastModel } from '../config/llm-models';
 import { ADAM_SCIENTIST_SCHOLAR_IDENTITY } from './adam-universal-voice';
+import {
+  buildCurrentAffairsPrefetchPrompt,
+  isAdamCurrentAffairsTurn,
+} from './adam-current-affairs';
 
 /** Search-only phase — fast tier; synthesis keeps deep model and full token budget. */
 export function getStudentSearchPrefetchModel(): string {
@@ -58,16 +62,20 @@ const BLOCKING_SEARCH_FIRST_REASONS = new Set([
   'technical_follow_up',
   'entity_correction',
   'explicit_search',
+  'current_affairs',
 ]);
 
-/** Blocking prefetch only when specs must be verified before synthesis — not general teaching asks. */
+/** Blocking prefetch when specs or current office-holders must be verified before synthesis. */
 export function shouldStudentUseSearchFirstFlow(
   isFounder: boolean,
   searchGateReason: string | null,
 ): boolean {
-  if (ENV.ADAM_STUDENT_INLINE_SEARCH) return false;
   if (isFounder || !searchGateReason) return false;
-  return BLOCKING_SEARCH_FIRST_REASONS.has(searchGateReason);
+  if (!BLOCKING_SEARCH_FIRST_REASONS.has(searchGateReason)) return false;
+  // Office-holders and news — always prefetch; inline agent search is not enough.
+  if (searchGateReason === 'current_affairs') return true;
+  if (ENV.ADAM_STUDENT_INLINE_SEARCH) return false;
+  return true;
 }
 
 /** User block for the prefetch LLM call — includes short thread context when present. */
@@ -75,13 +83,17 @@ export function buildSearchPrefetchUserPrompt(
   userMessage: string,
   recentUserMessages: string[] = [],
 ): string {
+  const msg = userMessage.trim();
+  const searchBody = isAdamCurrentAffairsTurn(msg)
+    ? buildCurrentAffairsPrefetchPrompt(msg)
+    : msg;
   const recent = recentUserMessages.slice(-2).filter(Boolean);
-  if (recent.length === 0) return userMessage.trim();
+  if (recent.length === 0) return searchBody;
   return [
     'Recent student messages (context only):',
     ...recent.map((m) => `- ${m}`),
     '',
-    `Current message: ${userMessage.trim()}`,
+    `Current message: ${searchBody}`,
   ].join('\n');
 }
 
@@ -114,6 +126,7 @@ export function buildPrefetchedSearchContextBlock(
   return [
     '[WEB SEARCH RESULTS — MANDATORY GROUND TRUTH]',
     'Fetched BEFORE you write this answer. Use ONLY these hits for factual claims.',
+    'Office-holder / news: whoever holds the office TODAY per hits — not training-memory predecessors.',
     'Do not invent numbers, sources, or histories beyond this list.',
     ...lines,
   ].join('\n');

@@ -1,6 +1,18 @@
 /**
- * Student voice pipeline — mirrors adam-chat-stream.service post-stream order (Fasa 5).
- * Used by adam-voice-regression.test.ts to lock tutor voice + L1 invariants.
+ * ============================================================
+ * ALAMTOLOGI-QURANIC SCIENCE
+ * ============================================================
+ * Module      : ADAM Student Voice Pipeline
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-13
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
  */
 
 import {
@@ -26,6 +38,7 @@ import type { LlmSearchResult } from '../../src/llm/llm-types';
 export interface StudentVoicePipelineInput {
   userMessage:         string;
   recentUserMessages?: string[];
+  recentAssistantMessages?: string[];
   rawModelOutput:      string;
   searchResults?:      LlmSearchResult[];
   searchUsed?:         boolean;
@@ -54,11 +67,12 @@ export async function runStudentVoicePipeline(
   input: StudentVoicePipelineInput,
 ): Promise<string> {
   const recent = input.recentUserMessages ?? [];
+  const recentAssistant = input.recentAssistantMessages ?? [];
   const precision = resolveTechnicalPrecisionTurn(input.userMessage, recent);
   const entityCorrection = resolveUserEntityCorrectionTurn(input.userMessage, recent);
   const raw = input.rawModelOutput;
 
-  let out = await repairStudentOutputLeak(raw, input.userMessage, recent);
+  let out = await repairStudentOutputLeak(raw, input.userMessage, recent, recentAssistant);
 
   if (precision.isActive) {
     out = prependSearchUnavailableNotice(out, {
@@ -92,7 +106,7 @@ export async function runStudentVoicePipeline(
   }
 
   if (!out?.trim() && raw.trim()) {
-    const recovered = await repairStudentOutputLeak(raw, input.userMessage, recent);
+    const recovered = await repairStudentOutputLeak(raw, input.userMessage, recent, recentAssistant);
     const recoveredFinal = finalizeVerificationGatedOutput(
       recovered,
       input.userMessage,

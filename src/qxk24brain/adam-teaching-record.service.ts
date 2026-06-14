@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Teaching Record Service
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -487,7 +487,12 @@ export async function buildTeachingRecordRecallBlock(
       : `[ADAM TEACHING RECORDS — MASA]\n\nNo episodic teaching records indexed yet. ADAM has matured through transformation but no autobiographical episodes are stored for this query.`;
   }
 
-  const lines = records.map((r, i) => {
+  return formatChapterTeachingRecordsBlock(records);
+}
+
+/** Shared episode lines for chapter-scoped and universal recall. */
+export function formatTeachingRecordEpisodeLines(records: TeachingRecordRow[]): string[] {
+  return records.map((r, i) => {
     const session = r.sessionId ? `session …${r.sessionId.slice(-8)}` : 'session unknown';
     const thread = r.priorThreadId ? ` · thread from ${r.priorThreadId.slice(-12)}` : '';
     return [
@@ -499,14 +504,47 @@ export async function buildTeachingRecordRecallBlock(
       `   C uid: ${r.entity_C_uid}${thread}`,
     ].join('\n');
   });
+}
 
+function formatChapterTeachingRecordsBlock(records: TeachingRecordRow[]): string {
   return [
     '[P.ALT TEACHING RECORDS — Formula XYZ · HISAL (AIDIL/ASAS/SuNom) · lived sessions]',
     '',
     'BOOK ORDER: Sains Alamtologi — Bab 1–6, Bab 7 HISAL (7.1 AIDIL, 7.2 ASAS, 7.3 SuNom, 7.4 GANDA).',
     'ADAM may say "I remember" ONLY for episodes listed here — not from invention.',
     '',
-    ...lines,
+    ...formatTeachingRecordEpisodeLines(records),
+  ].join('\n');
+}
+
+/**
+ * Universal Recall Router — semantic/text search on every substantive turn.
+ * Returns null when no indexed episodes match (no empty placeholder).
+ */
+export async function buildUniversalTeachingRecallBlock(
+  founderId: string,
+  userMessage: string,
+): Promise<string | null> {
+  if (founderAsksPersonalBiography(userMessage)) return null;
+
+  let records = await searchTeachingRecords(
+    founderId,
+    userMessage,
+    5,
+    { skipRecentFallback: true },
+  );
+  records = records.filter((row) => !recordLooksLikeThirdPartyBiography(row));
+  if (!records.length) return null;
+
+  return [
+    '[UNIVERSAL TEACHING RECALL — episod P.alt relevan dengan soalan ini]',
+    '',
+    'Synthesise A+B=C from these episodes — EXPLAIN-BACK LAW: Phase 1B conventional grounding first,',
+    'then Phase 2 insight in your own universal scholar voice.',
+    'Never copy-paste P.alt transcript or meterai labels. No "Alamtologi" billboard unless user asked faith/framework.',
+    'ADAM may reference lived teaching ONLY from episodes listed below — not from invention.',
+    '',
+    ...formatTeachingRecordEpisodeLines(records),
   ].join('\n');
 }
 

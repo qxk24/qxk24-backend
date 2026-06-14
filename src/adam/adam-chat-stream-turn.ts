@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Chat Stream — Turn Runner
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-09
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -25,6 +25,7 @@ import {
   fetchAdamTurnContext,
   handlePlasPrescanShortCircuit,
   resolveFounderTeachingFlags,
+  loadRecentTeachingTurnTexts,
 } from './adam-chat-stream-turn-context';
 import { isGuestUserId } from '../freemium/adam-freemium-guest.service';
 import type { AdamChatTurnShell } from './adam-chat-stream.types';
@@ -76,11 +77,19 @@ export async function runAdamChatTurn(input: {
   }
 
   try {
-    const teachingFlags = resolveFounderTeachingFlags(
+    const recentTeachingTurns =
+      isFounder && shell.mode === 'TEACHING'
+        ? await loadRecentTeachingTurnTexts(shell.resolvedSessionId)
+        : { recentAssistantMessages: [] as string[], recentUserMessages: [] as string[] };
+
+    const teachingFlags = resolveFounderTeachingFlags({
       isFounder,
-      shell.mode,
-      shell.normalizedMessage,
-    );
+      mode: shell.mode,
+      normalizedMessage: shell.normalizedMessage,
+      hasTeachingUpload: shell.teaching.fileNames.length > 0,
+      recentAssistantMessages: recentTeachingTurns.recentAssistantMessages,
+      recentUserMessages: recentTeachingTurns.recentUserMessages,
+    });
 
     const turnContext = await fetchAdamTurnContext({
       shell,

@@ -1,5 +1,18 @@
 /**
- * R&D checkout validation — gates per ALAMTOLOGI_COMMERCIAL_PLAN.md
+ * ============================================================
+ * ALAMTOLOGI-QURANIC SCIENCE
+ * ============================================================
+ * Module      : Rd Checkout Validation Test
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-13
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
  */
 
 import { validateRdCheckoutInput } from '../src/rd-applied/rd-checkout.validation';

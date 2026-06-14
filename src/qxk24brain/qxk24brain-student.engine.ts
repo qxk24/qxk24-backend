@@ -4,7 +4,7 @@
  * ============================================================
  * Module      : Alamtologi Brain Student Contribution Engine
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================

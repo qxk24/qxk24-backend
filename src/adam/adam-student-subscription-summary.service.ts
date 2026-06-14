@@ -16,15 +16,15 @@
  */
 
 import {
-  isTutorBillingEnforced,
-  isTutorQaBypassUser,
-} from './adam-tutor-subscription.service';
-import {
   SubscriptionModel,
   SubscriptionStatus,
   SubscriptionTier,
   type TutorSubscriptionLevel,
 } from '../subscriptions/subscription.schema';
+import {
+  isTutorBillingEnforced,
+  isTutorQaBypassUser,
+} from './adam-tutor-subscription.service';
 import { TUTOR_LEVEL_LABELS } from '../subscriptions/tier-access.config';
 import type { AdamAccountLane } from './adam-student.types';
 
@@ -38,9 +38,9 @@ const ACTIVEISH = [
 const LEARN_TIER_PRIORITY: Record<string, number> = {
   [SubscriptionTier.ENTERPRISE]:  5,
   [SubscriptionTier.PROFESIONAL]: 4,
-  [SubscriptionTier.PELAJAR]:     3,
+  [SubscriptionTier.PRO]:     3,
   [SubscriptionTier.TESTER]:      2,
-  [SubscriptionTier.PENCARIAN]:   1,
+  [SubscriptionTier.BASIC]:   1,
 };
 
 type LeanSub = {
@@ -52,11 +52,28 @@ type LeanSub = {
   isFounderFunded?:  boolean;
   provider?:         string;
   currentPeriodEnd?: Date | null;
+  enterpriseNotes?:  string | null;
 };
 
+function isActiveEnterpriseUnlimited(sub: LeanSub | null): boolean {
+  if (!sub) return false;
+  if (sub.tier !== SubscriptionTier.ENTERPRISE) return false;
+  if (sub.status !== SubscriptionStatus.ACTIVE) return false;
+  if (sub.currentPeriodEnd && sub.currentPeriodEnd < new Date()) return false;
+  return true;
+}
+
 export interface FounderStudentSubscriptionSummary {
-  learnLine: string;
-  tutorLine?: string;
+  learnLine:    string;
+  tutorLine?:   string;
+  learnTier:    SubscriptionTier | 'NONE';
+  isUnlimited:  boolean;
+}
+
+export interface FounderStudentBillingBadge {
+  learnTier:   SubscriptionTier | 'NONE';
+  learnLabel:  string;
+  isUnlimited: boolean;
 }
 
 function formatStatus(status: SubscriptionStatus): string {
@@ -74,10 +91,10 @@ function formatStatus(status: SubscriptionStatus): string {
 function formatLearnTierName(tier: SubscriptionTier): string {
   switch (tier) {
     case SubscriptionTier.PROFESIONAL: return 'Profesional';
-    case SubscriptionTier.PELAJAR:     return 'Pelajar';
+    case SubscriptionTier.PRO:     return 'Pro';
     case SubscriptionTier.ENTERPRISE:  return 'Enterprise';
     case SubscriptionTier.TESTER:      return 'Tester';
-    case SubscriptionTier.PENCARIAN:   return 'Pencarian (free)';
+    case SubscriptionTier.BASIC:   return 'Basic (free)';
     default:                           return tier;
   }
 }
@@ -160,10 +177,15 @@ function summarizeUserSubscriptions(
 ): FounderStudentSubscriptionSummary {
   const tutorSub = subs.find((s) => s.tier === SubscriptionTier.TUTOR) ?? null;
   const learnSub = pickBestLearnSub(subs);
+  const unlimited = isActiveEnterpriseUnlimited(learnSub);
 
   return {
-    learnLine: formatLearnSubscriptionLine(learnSub),
-    tutorLine: formatTutorSubscriptionLine(userId, tutorSub),
+    learnLine:   unlimited
+      ? 'Enterprise · unlimited quota (∞)'
+      : formatLearnSubscriptionLine(learnSub),
+    tutorLine:   formatTutorSubscriptionLine(userId, tutorSub),
+    learnTier:   learnSub?.tier ?? 'NONE',
+    isUnlimited: unlimited,
   };
 }
 
@@ -183,6 +205,7 @@ export async function getStudentSubscriptionSummariesForFounder(
       isFounderFunded: 1,
       provider: 1,
       currentPeriodEnd: 1,
+      enterpriseNotes: 1,
     })
     .sort({ updatedAt: -1 })
     .lean();
@@ -199,6 +222,25 @@ export async function getStudentSubscriptionSummariesForFounder(
   }
 
   return map;
+}
+
+export async function getFounderStudentBillingBadges(
+  userIds: readonly string[],
+): Promise<Map<string, FounderStudentBillingBadge>> {
+  const summaries = await getStudentSubscriptionSummariesForFounder(userIds);
+  const badges = new Map<string, FounderStudentBillingBadge>();
+
+  for (const userId of userIds) {
+    const summary = summaries.get(userId);
+    const learnLabel = summary?.learnLine.split(' · ')[0] ?? 'Pencarian (free)';
+    badges.set(userId, {
+      learnTier:   summary?.learnTier ?? 'NONE',
+      learnLabel,
+      isUnlimited: summary?.isUnlimited ?? false,
+    });
+  }
+
+  return badges;
 }
 
 export function founderSubscriptionLinesForStudent(

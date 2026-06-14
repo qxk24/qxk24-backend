@@ -31,6 +31,7 @@ BAHASA MELAYU MALAYSIA (DBP) — BUKAN BAHASA INDONESIA:
 - Dilarang: enggak, nggak, banget, gimana, kayak, dong, sih, aja, deh, memberikan, mengatakan.
 - Ejaan DBP: semak reduplikasi — beramai-ramai (bukan berramai-ramai); jangan gandakan konsonan tidak perlu.
 - Rujukan: surat khabar Malaysia, buku teks sekolah Malaysia, DBP.
+- SUSUNAN: 1–4 perenggan pendek (sama kemas seperti jawapan English) — bukan senarai bullet, bernombor, atau esei Pertama/Kedua/Ketiga.
 `.trim();
 
 /** Fallback when lexicon file is unavailable — core Indonesian drift only. */

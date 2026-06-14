@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Students Management Routes
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -35,6 +35,7 @@ import {
   syncSeedStudentPasswords,
   updateStudentAccount,
 } from '../../adam/adam-student-registry.service';
+import { getFounderStudentBillingBadges } from '../../adam/adam-student-subscription-summary.service';
 
 const router = new Hono();
 
@@ -82,6 +83,7 @@ router.post('/sync-seed', requireFounder, async (c) => {
       name:              s.name,
       email:             s.email,
       active:            s.active,
+      accountRole:       s.accountRole,
       accountLane:       s.accountLane,
       createdAt:         s.createdAt.toISOString(),
       passwordSource:    s.passwordSource,
@@ -94,18 +96,30 @@ router.post('/sync-seed', requireFounder, async (c) => {
 // GET /api/adam/students — founder list (includes inactive)
 router.get('/', requireFounder, async (c) => {
   const students = await listStudentsForFounder();
+  const billing = await getFounderStudentBillingBadges(students.map((s) => s.userId));
   return c.json({
     success: true,
-    students: students.map((s) => ({
-      userId:            s.userId,
-      name:              s.name,
-      email:             s.email,
-      active:            s.active,
-      accountLane:       s.accountLane,
-      createdAt:         s.createdAt.toISOString(),
-      passwordSource:    s.passwordSource,
-      passwordUpdatedAt: s.passwordUpdatedAt?.toISOString(),
-    })),
+    students: students.map((s) => {
+      const badge = billing.get(s.userId);
+      return {
+        userId:            s.userId,
+        name:              s.name,
+        email:             s.email,
+        active:            s.active,
+        accountRole:       s.accountRole,
+        accountLane:       s.accountLane,
+        createdAt:         s.createdAt.toISOString(),
+        passwordSource:    s.passwordSource,
+        passwordUpdatedAt: s.passwordUpdatedAt?.toISOString(),
+        billing:           badge
+          ? {
+              learnTier:   badge.learnTier,
+              learnLabel:  badge.learnLabel,
+              isUnlimited: badge.isUnlimited,
+            }
+          : { learnTier: 'NONE', learnLabel: 'Pencarian (free)', isUnlimited: false },
+      };
+    }),
     kernel: 'ALAMTOLOGI',
   });
 });
@@ -132,6 +146,7 @@ router.post('/', requireFounder, zValidator('json', CreateSchema), async (c) => 
       name:        created.name,
       email:       created.email,
       active:      created.active,
+      accountRole: created.accountRole ?? 'student',
       accountLane: created.accountLane,
       createdAt:   created.createdAt.toISOString(),
     },
@@ -251,15 +266,43 @@ router.delete('/:userId', requireFounder, async (c) => {
     return c.json({ success: false, error: 'Student id required.', kernel: 'ALAMTOLOGI' }, 400);
   }
 
-  const result = await deleteStudentAccount(userId);
-  if (result === 'forbidden') {
-    return c.json({ success: false, error: 'This account cannot be deleted.', kernel: 'ALAMTOLOGI' }, 403);
+  try {
+    const result = await deleteStudentAccount(userId);
+    if (result === 'forbidden') {
+      return c.json({ success: false, error: 'This account cannot be deleted.', kernel: 'ALAMTOLOGI' }, 403);
+    }
+    if (result === 'not_found') {
+      return c.json({ success: false, error: 'Student not found.', kernel: 'ALAMTOLOGI' }, 404);
+    }
+
+    return c.json({ success: true, deletedUserId: userId, kernel: 'ALAMTOLOGI' });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Delete failed.';
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 500);
   }
-  if (result === 'not_found') {
-    return c.json({ success: false, error: 'Student not found.', kernel: 'ALAMTOLOGI' }, 404);
+});
+
+// POST /api/adam/students/:userId/delete — alias when DELETE is blocked upstream
+router.post('/:userId/delete', requireFounder, async (c) => {
+  const userId = (c.req.param('userId') ?? '').trim().toLowerCase();
+  if (!userId) {
+    return c.json({ success: false, error: 'Student id required.', kernel: 'ALAMTOLOGI' }, 400);
   }
 
-  return c.json({ success: true, deletedUserId: userId, kernel: 'ALAMTOLOGI' });
+  try {
+    const result = await deleteStudentAccount(userId);
+    if (result === 'forbidden') {
+      return c.json({ success: false, error: 'This account cannot be deleted.', kernel: 'ALAMTOLOGI' }, 403);
+    }
+    if (result === 'not_found') {
+      return c.json({ success: false, error: 'Student not found.', kernel: 'ALAMTOLOGI' }, 404);
+    }
+
+    return c.json({ success: true, deletedUserId: userId, kernel: 'ALAMTOLOGI' });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Delete failed.';
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 500);
+  }
 });
 
 // PATCH /api/adam/students/:userId
@@ -282,6 +325,7 @@ router.patch('/:userId', requireFounder, zValidator('json', PatchSchema), async 
       name:        updated.name,
       email:       updated.email,
       active:      updated.active,
+      accountRole: updated.accountRole,
       accountLane: updated.accountLane,
       createdAt:   updated.createdAt.toISOString(),
     },

@@ -329,6 +329,7 @@ export async function resolveStudentLoginUserIdAsync(raw: string): Promise<strin
       { userId: id },
       { userId: slug },
       { name: { $regex: new RegExp(`^${escapeLoginRegex(trimmed)}$`, 'i') } },
+      { email: { $regex: new RegExp(`^${escapeLoginRegex(trimmed)}$`, 'i') } },
     ],
   })
     .select({ userId: 1, name: 1, accountLane: 1 })

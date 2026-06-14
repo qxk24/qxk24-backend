@@ -167,8 +167,8 @@ router.post('/chat', zValidator('json', PublicChatSchema), async (c) => {
       if (freemium.limitReached && freemium.registerGate) {
         await s.write(
           `event: freemium_register_gate\ndata: ${JSON.stringify({
-            message:     'Ini soalan percubaan terakhir anda. Daftar untuk teruskan.',
-            registerUrl: '/register?next=/adam/learn',
+            message:     'This is your last trial question. Sign up free to continue with ADAM.',
+            registerUrl: '/register?next=/adam/chat',
           })}\n\n`,
         );
       }
@@ -177,7 +177,7 @@ router.post('/chat', zValidator('json', PublicChatSchema), async (c) => {
         message,
         mode:      'QUESTIONING',
         isFounder: false,
-        userName:  'Tetamu',
+        userName:  'Guest',
       });
       if (!layerGate.allowed) {
         await streamLayerGateBlockedTurn(s, sessionId!, layerGate);
@@ -193,7 +193,7 @@ router.post('/chat', zValidator('json', PublicChatSchema), async (c) => {
           [],
           {
             userId:      sessionUserId,
-            userName:    'Tetamu',
+            userName:    'Guest',
             role:        'student',
             sessionType: 'student',
           },
@@ -261,7 +261,7 @@ router.get('/limits', (c) => {
     success: true,
     guest: {
       lifetimeLimit: guestLifetimeLimit(),
-      label:         'Tetamu (tanpa daftar)',
+      label:         'Guest (no account)',
     },
     free: {
       rollingLimit:     freeRollingLimit(),

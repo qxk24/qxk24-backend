@@ -1,3 +1,20 @@
+/**
+ * ============================================================
+ * ALAMTOLOGI-QURANIC SCIENCE
+ * ============================================================
+ * Module      : ADAM Search First Test
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-13
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
+ */
+
 /// <reference types="jest" />
 
 import { describe, expect, it } from '@jest/globals';
@@ -20,6 +37,9 @@ describe('ADAM search-first flow', () => {
     expect(shouldStudentUseSearchFirstFlow(false, null)).toBe(false);
   });
 
+  it('blocks search-first on current affairs (presidents, news)', () => {
+    expect(shouldStudentUseSearchFirstFlow(false, 'current_affairs')).toBe(true);
+  });
 
   it('builds prefetch user prompt with recent context', () => {
     const prompt = buildSearchPrefetchUserPrompt('Exclusive pula?', ['Berapa tork varian Elite?']);

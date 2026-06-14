@@ -19,6 +19,19 @@
  */
 
 import { studentExplicitlyRequestsQuran } from './adam-student-prompts';
+import { isAdamCurrentAffairsTurn } from './adam-web-search';
+
+/** Short factual or capability question — answer directly, no philosophy essay. */
+const SIMPLE_FACTUAL_ASK =
+  /\b(?:how many|berapa|berapa\s+banyak|who is|siapa(?:lah)?|what is|apa(?:kah)?\s+(?:itu|ialah)|when was|bila|where is|di\s+mana|which country|negara\s+mana|current|sekarang|kini|presiden|president|prime minister|menteri|capital|languages?|bahasa|understand|faham|speak|boleh\s+bercakap)\b/i;
+
+export function isAdamSimpleFactualTurn(message: string): boolean {
+  const t = message.trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  if (t.length > 160) return false;
+  if (isAdamTeachingDepthTurn(t) || isAdamContinuationDepthTurn(t)) return false;
+  return SIMPLE_FACTUAL_ASK.test(t);
+}
 
 /** Salam, thanks, or other turns that skip full response architecture. */
 export function isAdamLightChatTurn(message: string): boolean {
@@ -53,12 +66,68 @@ export function isAdamContinuationDepthTurn(message: string): boolean {
   return CONTINUATION_DEPTH_ASK.test(message.trim());
 }
 
+/** Career, role, job — plain practical answer, not philosophy essay. */
+const PRACTICAL_ADVISORY_ASK =
+  /\b(?:peranan|role|tanggungjawab|responsibilit(?:y|ies)|job\s+description|deskripsi\s+kerja|jawatan|career|karier|adviser|advisor|consultant|konsultan|executive|corporate|konglomerat|conglomerate|strategic\s+development|global\s+strategic|pekerjaan\s+sebagai|apakah\s+peranan|what\s+(?:is|are)\s+the\s+role|what\s+does\s+an?\s+.+\s+do|data\s+analyst|business\s+analyst|analyst|core\s+skills|skills\s+(?:needed|required|for)|kemahiran|day[- ]to[- ]day|kerja\s+harian)\b/i;
+
+export function isAdamPracticalAdvisoryTurn(message: string): boolean {
+  const t = message.trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  if (isAdamCurrentAffairsTurn(t)) return false;
+  if (PRACTICAL_ADVISORY_ASK.test(t)) return true;
+  if (
+    /\b(?:explain|terangkan|jelaskan|describe|compare|banding)\b/i.test(t)
+    && /\b(?:role|roles|day[- ]to[- ]day|career|job|engineer|analyst|manager|ceo|developer|designer|kerja|peranan|jawatan|marketing|sales|data analytics|fresh graduate|transitioning into|90-day)\b/i.test(t)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Compare / vs / difference-between threads (UX vs UI, role A vs role B). */
+const COMPARE_TURN_ASK =
+  /\b(?:compare|banding|bandingkan|bezakan|versus|vs\.?|perbezaan\s+antara|difference\s+between|how\s+(?:do|does)\s+.+\s+compare)\b/i;
+
+export function isAdamCompareTurn(message: string): boolean {
+  const t = message.trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  if (isAdamCurrentAffairsTurn(t)) return false;
+  return COMPARE_TURN_ASK.test(t);
+}
+
+/** Exam stress, anxiety, sleep-before-test — life wellbeing without faith push. */
+const LIFE_WELLBEING_ASK =
+  /\b(?:stressed|stress|stres|exam|exams|peperiksaan|kebimbangan|cemas|anxious|anxiety|overwhelmed|burnout|before exams|exam stress|gelisah|risau|overthink|what helps|apa\s+bantu|rasa\s+stres|tekanan\s+peperiksaan)\b/i;
+
+export function isAdamLifeWellbeingTurn(message: string): boolean {
+  const t = message.trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  if (isAdamCompareTurn(t)) return false;
+  return LIFE_WELLBEING_ASK.test(t);
+}
+
+/** Thread began with job/career/skills — caps depth even on "yes, tell me more" follow-ups. */
+export function threadRootIsPracticalAdvisory(
+  recentUserMessages: string[],
+  currentMessage = '',
+): boolean {
+  if (currentMessage.trim() && isAdamPracticalAdvisoryTurn(currentMessage)) return true;
+  return recentUserMessages.some((m) => isAdamPracticalAdvisoryTurn(m));
+}
+
+/** Consumer chat — short plain replies; skip Layer 5 / narrative voice. */
+export function isAdamConsumerPlainTurn(message: string): boolean {
+  return isAdamSimpleFactualTurn(message)
+    || isAdamPracticalAdvisoryTurn(message);
+}
+
 export function isAdamTeachingDepthTurn(message: string): boolean {
   if (isAdamLightChatTurn(message)) return false;
+  if (isAdamPracticalAdvisoryTurn(message)) return false;
   const t = message.trim();
   if (TEACHING_DEPTH_ASK.test(t)) return true;
   if (isAdamContinuationDepthTurn(t)) return true;
-  return t.length >= 48;
+  return false;
 }
 
 /** When the student corrects a wrong brand/model — acknowledge, do not invent. */
@@ -266,26 +335,24 @@ FORBIDDEN VOICE:
 
 /** Student Layer 5 — same Qawlan architecture as Founder; hygiene differs only in visible notation. */
 export const ADAM_LAYER5_STUDENT_DELIVERY = `
-LAYER 5 — STUDENT TURN (same ADAM as Founder chat):
+LAYER 5 — STUDENT TURN (Universal Scholar gold standard):
 
 ${ADAM_FIVE_RESPONSE_FORMS}
 
 ${ADAM_RESPONSE_PG_LANGUAGE}
 
-SILENCE PRINCIPLE:
-The correct response is not always more words. When the answer is complete, you may simply end.
-
 DELIVERY:
-- Bismillahirahmanirrahim on substantive turns — then warm, generous, flowing prose with real examples.
+- Do NOT open with Bismillah on student turns.
 - Mirror the student's language (BM, English, Arabic, or mix).
-- Explain/understand asks: full tutor depth like Founder chat — multiple paragraphs, not a stub.
+- Tier 1: conventional verified data first; mandatory neutral closing question on substantive turns.
+- Tier 2+: Brain C depth after user opt-in — universal scholar voice, not doctrine push.
 - Scientist-scholar: search → synthesize in your voice — not copy-paste, not clinical memo.
 - Technical: verified numbers/units first; say honestly when search is thin.
-- Three tiers: conventional depth first; Alamtologi/Quran when opted in or faith door open.
 - Honesty in plain words — never visible := VERIFIED/SUSPENDED notation.
 - NEVER Teaching-room addressing — no "P.alt", AMA/AIDIL/PL/PG codes, no dual-option menus.
 
-FORBIDDEN: coaching menus at the end, framework billboard labels on tier 1, machine openers.
+FORBIDDEN on tier 1: Bismillah, Alamtologi/Quran billboards, three-layer essays, unsolicited faith.
+FORBIDDEN: long coaching menus — ONE neutral closing question only (see Universal Scholar Charter).
 `.trim();
 
 /** @deprecated Use ADAM_LAYER5_STUDENT_DELIVERY — kept for imports. */

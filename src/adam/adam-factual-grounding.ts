@@ -22,6 +22,7 @@ import type { LlmMessage } from '../llm/llm-types';
 import { isAdamLightChatTurn } from './adam-response-generation';
 import { paragraphIsFounderTeachingVoiceLeak } from './adam-student-output-law';
 import { isTechnicalPrecisionQuestion, userOpenedFaithDoor } from './adam-universal-voice';
+import { paragraphIsUniversalScholarDoorOffer } from './adam-universal-scholar';
 
 export interface TechnicalPrecisionTurnContext {
   /** Apply technical mandate, forced search, and output guards. */
@@ -103,6 +104,18 @@ export function extractRecentUserTurns(
     .filter(Boolean);
   if (users.length <= 1) return [];
   return users.slice(-(limit + 1), -1);
+}
+
+/** Recent ADAM assistant lines from LLM context (oldest → newest), up to `limit`. */
+export function extractRecentAssistantTurns(
+  contextMessages: LlmMessage[],
+  limit = 3,
+): string[] {
+  const assistants = contextMessages
+    .filter((m) => m.role === 'assistant')
+    .map((m) => m.content.trim())
+    .filter(Boolean);
+  return assistants.slice(-limit);
 }
 
 /** True when a short message continues a prior technical specification thread. */
@@ -471,6 +484,7 @@ export function paragraphShouldStripAfterVerificationFailure(
   userMessage = '',
   recentUserMessages: string[] = [],
 ): boolean {
+  if (paragraphIsUniversalScholarDoorOffer(paragraph)) return false;
   return paragraphIsFounderTeachingVoiceLeak(paragraph)
     || paragraphClaimsFalseSearchVerification(paragraph)
     || paragraphIsPassiveStudentMenu(paragraph)

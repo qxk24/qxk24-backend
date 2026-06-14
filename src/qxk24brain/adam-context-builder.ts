@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Smart Context Builder
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -93,6 +93,10 @@ import {
 } from '../adam/adam-book-aware-recall';
 import { buildTeachingRecordRecallBlock } from './adam-teaching-record.service';
 import { buildRelationalMemoryContextBlock } from './adam-thread-builder.service';
+import {
+  runUniversalTeachingRecall,
+  shouldRunUniversalTeachingRecall,
+} from '../adam/adam-universal-recall-router';
 import {
   readMoment,
   buildMomentBlock,
@@ -401,6 +405,8 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
     ? (resolveBookChapter(recallProbe) ?? resolveBookChapter('prolog alamin Dr Aminullah teori alamin'))
     : resolveBookChapter(recallProbe);
 
+  let bookAwareTeachingRecallLoaded = false;
+
   if (
     !teachingAbsorption
     && needsBookAwareTeachingRecall(recallProbe)
@@ -446,6 +452,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
     );
 
     if (teachingRecall) {
+      bookAwareTeachingRecallLoaded = true;
       const framed = resolvedChapter
         ? `${buildChapterRecallFrame(resolvedChapter)}\n\n${teachingRecall}`
         : `${ALAMTOLOGI_BOOK_CANON}\n\n${teachingRecall}`;
@@ -453,6 +460,26 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
       messages.push({
         role: 'assistant',
         content: buildChapterRecallAck(resolvedChapter, participant.role === 'founder'),
+      });
+    }
+  }
+
+  if (
+    shouldRunUniversalTeachingRecall({
+      message:               recallProbe,
+      teachingAbsorption,
+      bookAwareRecallLoaded: bookAwareTeachingRecallLoaded,
+      isGuestTrial,
+    })
+  ) {
+    const universalRecall = await runUniversalTeachingRecall(recallProbe);
+    if (universalRecall) {
+      messages.push({ role: 'user', content: universalRecall });
+      messages.push({
+        role: 'assistant',
+        content: participant.role === 'founder'
+          ? 'Bismillahirahmanirrahim. P.alt, saya muat episod pengajaran relevan — saya sintesis A+B=C, bukan salin meterai.'
+          : STUDENT_NEUTRAL_CONTEXT_ACKS.teachingRecall,
       });
     }
   }

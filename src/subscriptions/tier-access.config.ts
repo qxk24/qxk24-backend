@@ -4,17 +4,18 @@
  * ============================================================
  * Module      : Subscription Tier Access Config
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
 
+import { ENV } from '../config/environments';
 import {
   SubscriptionTier,
   ITierAccess,
@@ -27,7 +28,7 @@ import {
 
 export const TIER_ACCESS: Record<SubscriptionTier, ITierAccess> = {
 
-  [SubscriptionTier.PENCARIAN]: {
+  [SubscriptionTier.BASIC]: {
     memoryLevel:        'session',
     episodicRecords:    false,
     relationalArc:      false,
@@ -43,7 +44,7 @@ export const TIER_ACCESS: Record<SubscriptionTier, ITierAccess> = {
     maxUsers:           1,
   },
 
-  [SubscriptionTier.PELAJAR]: {
+  [SubscriptionTier.PRO]: {
     memoryLevel:        'basic',
     episodicRecords:    true,
     relationalArc:      false,
@@ -339,16 +340,22 @@ export const ENTERPRISE_PRICING: IEnterpriseTier[] = [
   },
 ];
 
-// ─── ADAM Tutor — MYR by school level (all subjects per band) ────────────────
+// ─── ADAM Tutor — USD by school level (monthly only, all subjects per band) ─
 
-export const TUTOR_MONTHLY_MYR_BY_LEVEL: Record<TutorSubscriptionLevel, number> = {
-  primary:    49.9,
-  secondary:  89.9,
-  university: 129.9,
-};
+export function tutorMonthlyUsdByLevel(
+  level?: TutorSubscriptionLevel | string | null,
+): number {
+  const band = normalizeTutorSubscriptionLevel(level);
+  const byLevel: Record<TutorSubscriptionLevel, number> = {
+    primary:    ENV.ADAM_TUTOR_PRIMARY_MONTHLY_USD,
+    secondary:  ENV.ADAM_TUTOR_SECONDARY_MONTHLY_USD,
+    university: ENV.ADAM_TUTOR_UNIVERSITY_MONTHLY_USD,
+  };
+  return byLevel[band];
+}
 
-/** @deprecated Use getTutorPricing('secondary').monthly */
-export const TUTOR_MONTHLY_MYR = TUTOR_MONTHLY_MYR_BY_LEVEL.secondary;
+/** @deprecated Use tutorMonthlyUsdByLevel('secondary') */
+export const TUTOR_MONTHLY_MYR = ENV.ADAM_TUTOR_SECONDARY_MONTHLY_USD;
 
 export const TUTOR_LEVEL_LABELS: Record<TutorSubscriptionLevel, string> = {
   primary:    'Primary School',
@@ -366,13 +373,12 @@ export function normalizeTutorSubscriptionLevel(
 export function getTutorPricing(
   level?: TutorSubscriptionLevel | string | null,
 ): IRegionalPrice {
-  const band = normalizeTutorSubscriptionLevel(level);
-  const monthly = TUTOR_MONTHLY_MYR_BY_LEVEL[band];
+  const monthly = tutorMonthlyUsdByLevel(level);
   return {
-    region:       SupportedRegion.MY,
-    currency:     'MYR',
+    region:       SupportedRegion.US,
+    currency:     'USD',
     monthly,
-    annual:       Math.round(monthly * 10),
+    annual:       0,
     provider:     PaymentProvider.STRIPE,
     extensionFee: 0,
   };
@@ -385,7 +391,7 @@ export function listTutorLevelPricing(): Array<{
   annualAmount:   number;
   currency:       string;
 }> {
-  return (Object.keys(TUTOR_MONTHLY_MYR_BY_LEVEL) as TutorSubscriptionLevel[]).map((level) => {
+  return (['primary', 'secondary', 'university'] as TutorSubscriptionLevel[]).map((level) => {
     const p = getTutorPricing(level);
     return {
       level,

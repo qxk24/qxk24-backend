@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : Stripe Gateway Service
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -35,6 +35,7 @@ import {
 } from './tier-access.config';
 import { notifySubscriptionActivated } from './subscription-welcome-mail.service';
 import { ENV } from '../config/environments';
+import { isConsumerDailyPlan } from '../freemium/adam-freemium-consumer.service';
 import { toStripeUnitAmount, stripeSecondsToDate, validDateOrNull, computeBillingPeriodEnd, stripeResourceId } from './stripe-currency';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
@@ -126,8 +127,10 @@ export function getStripePriceId(
   }
 
   const map: Partial<Record<string, string>> = {
-    [`${SubscriptionTier.PELAJAR}_${BillingCycle.MONTHLY}`]:     ENV.STRIPE_PRICE_ID_PELAJAR_MONTHLY,
-    [`${SubscriptionTier.PELAJAR}_${BillingCycle.ANNUAL}`]:      ENV.STRIPE_PRICE_ID_PELAJAR_ANNUAL,
+    [`${SubscriptionTier.PRO}_${BillingCycle.MONTHLY}`]:
+      ENV.STRIPE_PRICE_ID_PRO_MONTHLY || ENV.STRIPE_PRICE_ID_PELAJAR_MONTHLY,
+    [`${SubscriptionTier.PRO}_${BillingCycle.ANNUAL}`]:
+      ENV.STRIPE_PRICE_ID_PRO_ANNUAL || ENV.STRIPE_PRICE_ID_PELAJAR_ANNUAL,
     [`${SubscriptionTier.PROFESIONAL}_${BillingCycle.MONTHLY}`]: ENV.STRIPE_PRICE_ID_PROFESIONAL_MONTHLY,
     [`${SubscriptionTier.PROFESIONAL}_${BillingCycle.ANNUAL}`]:  ENV.STRIPE_PRICE_ID_PROFESIONAL_ANNUAL,
   };
@@ -140,10 +143,10 @@ function resolveStripePriceId(sub: ISubscription): string {
 
 function tierCheckoutLabel(tier: SubscriptionTier): string {
   switch (tier) {
-    case SubscriptionTier.PELAJAR:
-      return 'ADAM Premium';
+    case SubscriptionTier.PRO:
+      return isConsumerDailyPlan() ? 'ADAM Pro' : 'ADAM Premium';
     case SubscriptionTier.PROFESIONAL:
-      return 'ADAM Profesional + Consultant';
+      return isConsumerDailyPlan() ? 'ADAM Premium' : 'ADAM Profesional + Consultant';
     case SubscriptionTier.TUTOR:
       return 'ADAM Tutor';
     default:
@@ -352,6 +355,16 @@ async function handleCheckoutCompleted(session: Record<string, unknown>): Promis
     await activateRdFromStripeCheckout(session);
     return;
   }
+  if (meta?.checkoutType === 'niaga_seat') {
+    const { activateNiagaFromStripeCheckout } = await import('../niaga/niaga-stripe.service');
+    await activateNiagaFromStripeCheckout(session);
+    return;
+  }
+  if (meta?.checkoutType === 'adam_credits') {
+    const { activateAdamCreditsFromStripeCheckout } = await import('../freemium/adam-credit-stripe.service');
+    await activateAdamCreditsFromStripeCheckout(session);
+    return;
+  }
 
   const mongoId =
     meta?.subscriptionId
@@ -495,7 +508,7 @@ async function activateStripeSubscription(
     },
   });
 
-  if (sub.tier === SubscriptionTier.PELAJAR) {
+  if (sub.tier === SubscriptionTier.PRO) {
     await convertPencarianToPelajar(sub.userId);
   }
 

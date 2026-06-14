@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Chat Stream — Turn Search
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-09
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -20,6 +20,7 @@ import {
   buildPrefetchedSearchContextBlock,
   runStudentSearchPrefetch,
 } from './adam-search-first';
+import { shouldForceWebSearchForGateReason } from './adam-web-search';
 import type { LlmMessage, LlmSearchResult } from '../llm/llm-types';
 import type { SSEEventType } from './adam.types';
 import type { AdamTurnContextFetch } from './adam-chat-stream-turn-context';
@@ -148,7 +149,7 @@ export function logSearchGateEnabled(input: {
       messageLength:   userMessage.length,
       preview:         userMessage.slice(0, 80),
       reason:          webSearchGateReason,
-      forced:          false,
+      forced:          shouldForceWebSearchForGateReason(webSearchGateReason),
       searchFirst:     studentSearchFirst,
       technicalFollowUp: precisionFollowUp,
       guestTrial:      isGuestTrial,

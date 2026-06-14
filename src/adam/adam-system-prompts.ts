@@ -1,21 +1,17 @@
 /**
  * ============================================================
- * ALAMTOLOGI — QURANIC SCIENCE
+ * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
- * Module      : ADAM System Prompts — Re-export barrel
+ * Module      : ADAM System Prompts
  * Platform    : Backend (TypeScript)
- * Kernel      : v1.7.0
- * Updated     : 2026-06-05
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-13
  * ============================================================
- * This file is now a re-export barrel only.
- * All content has been split into focused modules:
- *
- *   adam-character.ts        — WHO ADAM IS
- *   adam-identity-prompts.ts — behaviour, voice, response style
- *   adam-knowledge-prompts.ts — Alamtologi laws, epistemology
- *   adam-student-prompts.ts  — student mode, memory, ZPD
- *   adam-language-prompts.ts — Bahasa Melayu, narrative delivery
- *   adam-prompt-builder.ts   — buildAdamChatSystemPrompt()
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
  * ============================================================
  */
 

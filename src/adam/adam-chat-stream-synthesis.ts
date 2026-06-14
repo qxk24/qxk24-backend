@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Chat Stream — Synthesis Turn
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-09
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -77,6 +77,7 @@ export async function executeAdamSynthesisTurn(input: {
     systemPrompt: initialPrompt,
     journal,
     recentUserTurns,
+    recentAssistantTurns,
     precisionTurn,
     enableWebSearch,
     webSearchGateReason,
@@ -132,6 +133,7 @@ export async function executeAdamSynthesisTurn(input: {
     resolvedSessionId,
     userMessage,
     precisionActive: precisionTurn.isActive,
+    webSearchGateReason,
     onEvent,
   });
 
@@ -141,6 +143,7 @@ export async function executeAdamSynthesisTurn(input: {
   let streamMs = 0;
   let repairMs = 0;
   let syncRepairMs = 0;
+  let sanitizedRepairApplied = false;
 
   if (mode === 'JOURNAL_GEN' && isFounder) {
     const journalResult = await streamAdamJournalResponse({
@@ -181,11 +184,13 @@ export async function executeAdamSynthesisTurn(input: {
       rawModelStream,
       teachingFlags,
       recentUserTurns,
+      recentAssistantTurns,
       mode,
     });
     fullResponse = repairResult.fullResponse;
     repairMs = repairResult.repairMs;
     syncRepairMs = repairResult.syncRepairMs;
+    sanitizedRepairApplied = repairResult.sanitizedRepairApplied;
   }
 
   console.log(
@@ -257,6 +262,7 @@ export async function executeAdamSynthesisTurn(input: {
     journal,
     sectionJournalComplete,
     sectionDraftMap,
+    sanitizedRepairApplied,
     modelChoice,
     workspace,
   });

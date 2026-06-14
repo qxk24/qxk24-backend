@@ -1,3 +1,20 @@
+/**
+ * ============================================================
+ * ALAMTOLOGI-QURANIC SCIENCE
+ * ============================================================
+ * Module      : ADAM Factual Grounding Test
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-13
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
+ */
+
 /// <reference types="jest" />
 
 import { describe, expect, it } from '@jest/globals';
@@ -22,6 +39,7 @@ import {
   paragraphIsTechnicalAskDeflection,
   paragraphIsHollowImportanceOpener,
   paragraphIsOwnershipPhilosophyCloser,
+  extractRecentAssistantTurns,
 } from '../src/adam/adam-factual-grounding';
 import { getAdamWebSearchPrompt, getWebSearchGateReason } from '../src/adam/adam-web-search';
 import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
@@ -29,6 +47,30 @@ import {
   isTechnicalPrecisionQuestion,
   messageHasSlashSeparatedDimensions,
 } from '../src/adam/adam-universal-voice';
+
+describe('extractRecentAssistantTurns', () => {
+  it('returns the most recent assistant turns including the immediately prior reply', () => {
+    const context = [
+      { role: 'user' as const, content: 'What does a data analyst do?' },
+      { role: 'assistant' as const, content: 'Overview.\n\nWould you like more on skills and tools, a career path, or a real-world example?' },
+      { role: 'user' as const, content: 'Career path please' },
+    ];
+    expect(extractRecentAssistantTurns(context)).toEqual([
+      'Overview.\n\nWould you like more on skills and tools, a career path, or a real-world example?',
+    ]);
+  });
+
+  it('returns up to limit prior assistant turns', () => {
+    const context = [
+      { role: 'user' as const, content: 'q1' },
+      { role: 'assistant' as const, content: 'a1' },
+      { role: 'user' as const, content: 'q2' },
+      { role: 'assistant' as const, content: 'a2' },
+      { role: 'user' as const, content: 'q3' },
+    ];
+    expect(extractRecentAssistantTurns(context, 2)).toEqual(['a1', 'a2']);
+  });
+});
 
 describe('Technical precision detection (universal — no brand lists)', () => {
   it('detects torque questions by dimension word', () => {

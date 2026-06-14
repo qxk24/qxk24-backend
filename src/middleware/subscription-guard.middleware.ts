@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : Subscription Guard Middleware
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -107,7 +107,8 @@ export async function requireTutorSubscription(
       error:      access.message ?? 'ADAM Tutor subscription required.',
       code:       access.code ?? 'TUTOR_SUBSCRIPTION_REQUIRED',
       upgradeUrl: access.upgradeUrl,
-      monthlyMYR: access.monthlyMYR,
+      monthlyAmount: access.monthlyAmount,
+      currency:      access.currency,
       kernel:     'ALAMTOLOGI',
     }, 402);
   }

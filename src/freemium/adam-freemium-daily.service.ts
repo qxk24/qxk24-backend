@@ -32,7 +32,7 @@ export interface DailyQuotaSnapshot {
 }
 
 export function freeDailyLimit(): number {
-  return ENV.ADAM_FREEMIUM_FREE_ROLLING;
+  return ENV.ADAM_FREEMIUM_FREE_DAILY;
 }
 
 export function pelajarMonthlyLimit(): number {

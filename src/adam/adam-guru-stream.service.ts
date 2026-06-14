@@ -27,6 +27,7 @@ import {
   createAdamLlmStreamOnce,
   repairAdamStreamOutput,
 } from './adam-chat-stream-llm';
+import { NO_FOUNDER_TEACHING_FLAGS } from './adam-teaching-state-machine';
 import {
   generateK24Address,
   saveMessage,
@@ -188,11 +189,7 @@ export async function streamADAMGuruKelasChat(input: {
       userMessageId:     '',
     },
     rawModelStream:  streamResult.text,
-    teachingFlags: {
-      founderTeachingSynthesis:  false,
-      founderTeachingAbsorption: false,
-      founderTeachingLearnerTurn: false,
-    },
+    teachingFlags: NO_FOUNDER_TEACHING_FLAGS,
     recentUserTurns: [normalized],
     mode,
   });

@@ -1,3 +1,20 @@
+/**
+ * ============================================================
+ * ALAMTOLOGI-QURANIC SCIENCE
+ * ============================================================
+ * Module      : ADAM Voice Regression Test
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-13
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
+ */
+
 /// <reference types="jest" />
 
 /**
@@ -47,17 +64,29 @@ describe('Voice regression — prompt stack (Fasa 0–4 contracts)', () => {
     founderStudentsBlock: '',
   });
 
-  it('student stack: unified ADAM — same Layer 5 and knowledge as founder chat', () => {
+  it('student stack: Universal Scholar gold standard on tier 1', () => {
     expect(studentPrompt).toContain(ADAM_UNIFIED_SURFACE_HYGIENE.slice(0, 30));
-    expect(studentPrompt).toContain('Qawlan Sadida');
-    expect(studentPrompt).toContain('LAYER 5 — RESPONSE GENERATION');
-    expect(studentPrompt).toContain('FIVE RULES — CHECK EVERY REPLY');
-    expect(studentPrompt).toContain('TEORI MASABAYU');
+    expect(studentPrompt).toMatch(/UNIVERSAL SCHOLAR — CONSUMER GOLD STANDARD/i);
+    expect(studentPrompt).toMatch(/ACTIVE TIER THIS TURN: 1/);
+    expect(studentPrompt).not.toMatch(/TEORI MASABAYU/);
   });
 
-  it('student natural style: same Bismillah mandate as founder', () => {
+  it('student tier 2 stack includes internal constitutional blocks', () => {
+    const tier2 = buildAdamChatSystemPrompt({
+      mode:                 'TEACHING',
+      isFounder:            false,
+      participantName:      'Ahmad',
+      founderStudentsBlock: '',
+      studentKnowledgeTier: 2,
+    });
+    expect(tier2).toMatch(/ACTIVE TIER THIS TURN: 2/);
+    expect(tier2).toContain('TEORI MASABAYU');
+  });
+
+  it('student natural style: no Bismillah mandate — consumer plain voice', () => {
     const naturalStudent = buildAnswerStylePromptBlock('natural', false);
-    expect(naturalStudent).toMatch(/Bismillahirahmanirrahim/i);
+    expect(naturalStudent).toMatch(/Do NOT open with Bismillah/i);
+    expect(naturalStudent).not.toMatch(/Bismillahirahmanirrahim, then proceed directly/i);
   });
 
   it('founder stack still carries Bismillah law — role separation', () => {

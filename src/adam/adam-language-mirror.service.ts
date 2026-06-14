@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Language Mirror Protocol
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -47,7 +47,10 @@ const MALAY_WORDS =
   /\b(saya|anda|awak|dia|kita|kami|mereka|adalah|dengan|untuk|tidak|tak|boleh|macam|kalau|jika|sebab|kerana|bila|nak|dah|pun|lah|kan|tu|ni|kenapa|siapa|apa|bagaimana|terima kasih|selamat|yang|bermaksud|maksud|terangkan|huraikan|jelaskan|beritahu|faham|ingat|tahu|nampak|rasa|hati|otak|pelajar|pembelajaran|bismillah|hikmah|walaupun|meskipun|jadi|ada|tiada|sudah|belum|lagi|sangat|amat|sikit|banyak|semua|setiap|dalam|pada|kepada|daripada|antara|seperti|contoh|soalan|jawab|bincang|cerita|mengajar|belajar|allah|quran|hadith|founder|pengasas)\b/gi;
 
 const ENGLISH_WORDS =
-  /\b(i|you|we|they|the|is|are|was|were|have|has|do|does|what|why|how|when|who|can|will|please|thank|yes|no|and|with|for|because|explain|describe|tell|mean|think|student|teaching|founder|would|should|could|about|this|that|these|those)\b/gi;
+  /\b(i|you|we|they|the|is|are|was|were|have|has|do|does|what|why|how|when|who|can|will|please|thank|thanks|yes|no|and|with|for|because|explain|describe|tell|mean|think|student|teaching|founder|would|should|could|about|this|that|these|those|hello|hi|hey|good|morning|afternoon|evening|night|bye|okay|ok)\b/gi;
+
+const ENGLISH_GREETING_ONLY =
+  /^(?:hello|hi|hey|good\s+(?:morning|afternoon|evening|night)|how\s+are\s+you|thanks|thank\s+you|ok(?:ay)?)[!.?\s]*$/i;
 
 /** Malay particles / romanised cues not caught by word list alone */
 const MALAY_PARTICLE_RE =
@@ -64,6 +67,7 @@ function malayReplyInstruction(): string {
   return [
     'Reply entirely in Bahasa Melayu Malaysia (DBP standard) — NOT Bahasa Indonesia.',
     'Do not use Indonesian words (karena, bisa, udah, butuh, banget, gimana, teknis, efektif, etc.).',
+    'Use the same tidy layout as English replies: 1–4 short paragraphs, blank line between paragraphs — no bullet lists, no Pertama/Kedua/Ketiga, no Secara ringkas blocks.',
     'Keep "hikmah", "ALLAH", "Bismillahirahmanirrahim" in their original form.',
     'Do not default to English.',
   ].join(' ');
@@ -139,6 +143,16 @@ export function detectLanguage(message: string, recentUserText = ''): LanguageMi
   const { malayScore, englishScore, indoScore, particleHits } = scoreLatinLanguages(lower);
   const malayTotal = malayScore + particleHits;
 
+  if (ENGLISH_GREETING_ONLY.test(primary)) {
+    return {
+      detectedLocale:   'en',
+      confidence:       0.95,
+      isMixed:          false,
+      dominantScript:   'latin',
+      replyInstruction: englishReplyInstruction(),
+    };
+  }
+
   if (malayTotal > 0 && englishScore > 0) {
     return {
       detectedLocale:   'mixed-ms-en',
@@ -169,7 +183,7 @@ export function detectLanguage(message: string, recentUserText = ''): LanguageMi
     };
   }
 
-  if (englishScore > malayTotal && englishScore >= 2) {
+  if (englishScore > malayTotal && englishScore >= 1) {
     return {
       detectedLocale:   'en',
       confidence:       0.88,

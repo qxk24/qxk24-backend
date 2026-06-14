@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : Environment Config
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-28
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -130,7 +130,7 @@ export const ENV = {
   ADAM_CHAT_BRAIN_CHARS,
   ADAM_CHAT_HISTORY_MSG_CHARS,
   /** malay | english — default voice language when the speaker's language is unclear */
-  ADAM_DEFAULT_LANGUAGE: optional('ADAM_DEFAULT_LANGUAGE', 'malay'),
+  ADAM_DEFAULT_LANGUAGE: optional('ADAM_DEFAULT_LANGUAGE', 'english'),
   /** Allow public POST /api/adam/student/register */
   ADAM_STUDENT_SELF_REGISTER: optional('ADAM_STUDENT_SELF_REGISTER', 'true') === 'true',
   /** When set, self-register requires this code */
@@ -246,11 +246,14 @@ export const ENV = {
   /** Flip to true when Stripe keys and price IDs are set in .env */
   STRIPE_ENABLED:           optional('STRIPE_ENABLED', 'false') === 'true',
 
-  /** Premium (Pelajar) monthly — optional legacy MYR Price ID (checkout uses regional PPP by default) */
+  /** Pro — $19 USD/month (public name). Prefer STRIPE_PRICE_ID_PRO_* over legacy PELAJAR keys. */
+  STRIPE_PRICE_ID_PRO_MONTHLY:         optional('STRIPE_PRICE_ID_PRO_MONTHLY', ''),
+  STRIPE_PRICE_ID_PRO_ANNUAL:          optional('STRIPE_PRICE_ID_PRO_ANNUAL', ''),
+  /** @deprecated use STRIPE_PRICE_ID_PRO_MONTHLY */
   STRIPE_PRICE_ID_PELAJAR_MONTHLY:     optional('STRIPE_PRICE_ID_PELAJAR_MONTHLY', ''),
-  /** Premium (Pelajar) annual — optional legacy MYR Price ID */
+  /** @deprecated use STRIPE_PRICE_ID_PRO_ANNUAL */
   STRIPE_PRICE_ID_PELAJAR_ANNUAL:      optional('STRIPE_PRICE_ID_PELAJAR_ANNUAL', ''),
-  /** Profesional + ADAM Consultant — RM 450/month MYR (paste Stripe price_… ID) */
+  /** Premium — $75 USD/month (maps to PROFESIONAL tier) */
   STRIPE_PRICE_ID_PROFESIONAL_MONTHLY: optional('STRIPE_PRICE_ID_PROFESIONAL_MONTHLY', ''),
   /** Profesional annual — RM 4500/year MYR */
   STRIPE_PRICE_ID_PROFESIONAL_ANNUAL:  optional('STRIPE_PRICE_ID_PROFESIONAL_ANNUAL', ''),
@@ -275,6 +278,11 @@ export const ENV = {
   STRIPE_PRICE_ID_AS_LAB_5_ANNUAL:           optional('STRIPE_PRICE_ID_AS_LAB_5_ANNUAL', ''),
   STRIPE_PRICE_ID_BUNDLE_IND_AS_SOLO_ANNUAL: optional('STRIPE_PRICE_ID_BUNDLE_IND_AS_SOLO_ANNUAL', ''),
   STRIPE_PRICE_ID_BUNDLE_IND_AS_LAB_ANNUAL:  optional('STRIPE_PRICE_ID_BUNDLE_IND_AS_LAB_ANNUAL', ''),
+  /** ADAM Niaga trader seat — MYR monthly / annual */
+  STRIPE_PRICE_ID_NIAGA_SEAT_MONTHLY: optional('STRIPE_PRICE_ID_NIAGA_SEAT_MONTHLY', ''),
+  STRIPE_PRICE_ID_NIAGA_SEAT_ANNUAL:  optional('STRIPE_PRICE_ID_NIAGA_SEAT_ANNUAL', ''),
+  /** When false, Niaga chat works without paid sub after partner approval (lab / pre-Stripe). */
+  ADAM_NIAGA_BILLING_REQUIRED: optional('ADAM_NIAGA_BILLING_REQUIRED', 'false') === 'true',
   /** When false, tutor chat works without paid sub (lab / pre-Stripe). Production: true when Stripe live. */
   ADAM_TUTOR_BILLING_REQUIRED: optional('ADAM_TUTOR_BILLING_REQUIRED', 'false') === 'true',
   /** When geo headers are missing — default PPP region (production: MY). */
@@ -302,7 +310,7 @@ export const ENV = {
   ADAM_FREEMIUM_PUBLIC_ENABLED: optional('ADAM_FREEMIUM_PUBLIC_ENABLED', 'true') === 'true',
   ADAM_FREEMIUM_GUEST_LIMIT:    optionalInt('ADAM_FREEMIUM_GUEST_LIMIT', 3),
   /** @deprecated Use ADAM_FREEMIUM_FREE_ROLLING — Basic tier is rolling 5-hour window */
-  ADAM_FREEMIUM_FREE_DAILY:     optionalInt('ADAM_FREEMIUM_FREE_DAILY', 15),
+  ADAM_FREEMIUM_FREE_DAILY:     optionalInt('ADAM_FREEMIUM_FREE_DAILY', 20),
   /** Basic (free registered) — questions per rolling window */
   ADAM_FREEMIUM_FREE_ROLLING:   optionalInt('ADAM_FREEMIUM_FREE_ROLLING', 4),
   /** Rolling window length (hours) — Claude-style pacing for Basic & Profesional */
@@ -317,6 +325,21 @@ export const ENV = {
   ADAM_FREEMIUM_PROFESIONAL_ROLLING: optionalInt('ADAM_FREEMIUM_PROFESIONAL_ROLLING', 18),
   ADAM_FREEMIUM_CREDIT_PACK_SIZE: optionalInt('ADAM_FREEMIUM_CREDIT_PACK_SIZE', 25),
   ADAM_FREEMIUM_TIMEZONE:       optional('ADAM_FREEMIUM_TIMEZONE', 'Asia/Kuala_Lumpur'),
+  /** Consumer plan — Free 20/day, Pro 100/day + USD wallet */
+  ADAM_CONSUMER_DAILY_PLAN:     optional('ADAM_CONSUMER_DAILY_PLAN', 'true') === 'true',
+  ADAM_FREEMIUM_PRO_DAILY:      optionalInt('ADAM_FREEMIUM_PRO_DAILY', 100),
+  ADAM_EXTRA_MESSAGE_COST_CENTS: optionalInt('ADAM_EXTRA_MESSAGE_COST_CENTS', 12),
+  ADAM_PRO_MONTHLY_USD:         optionalInt('ADAM_PRO_MONTHLY_USD', 19),
+  ADAM_PRO_ANNUAL_USD:          optionalInt('ADAM_PRO_ANNUAL_USD', 200),
+  ADAM_PREMIUM_MONTHLY_USD:     optionalInt('ADAM_PREMIUM_MONTHLY_USD', 75),
+  ADAM_PREMIUM_ANNUAL_USD:      optionalInt('ADAM_PREMIUM_ANNUAL_USD', 800),
+  /** ADAM Tutor (closed student lane) — USD monthly by school level */
+  ADAM_TUTOR_PRIMARY_MONTHLY_USD:    optionalInt('ADAM_TUTOR_PRIMARY_MONTHLY_USD', 13),
+  ADAM_TUTOR_SECONDARY_MONTHLY_USD:  optionalInt('ADAM_TUTOR_SECONDARY_MONTHLY_USD', 15),
+  ADAM_TUTOR_UNIVERSITY_MONTHLY_USD: optionalInt('ADAM_TUTOR_UNIVERSITY_MONTHLY_USD', 17),
+  STRIPE_PRICE_ID_CREDITS_50:   optional('STRIPE_PRICE_ID_CREDITS_50', ''),
+  STRIPE_PRICE_ID_CREDITS_250:  optional('STRIPE_PRICE_ID_CREDITS_250', ''),
+  STRIPE_PRICE_ID_CREDITS_1000: optional('STRIPE_PRICE_ID_CREDITS_1000', ''),
 
   /**
    * Layer 2 — ADAM Jurnal / Buku / Kod servers.

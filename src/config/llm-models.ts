@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Model Router (Qwen / DashScope)
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-29
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
@@ -28,7 +28,7 @@ export interface ModelRouterParticipant {
   userId:      string;
   userName:    string;
   role:        'founder' | 'student' | 'guru';
-  sessionType: 'founder' | 'student' | 'group' | 'guru' | 'tutor';
+  sessionType: 'founder' | 'student' | 'group' | 'guru' | 'tutor' | 'niaga';
 }
 
 const DEEP_MODES: ADAMChatMode[] = [

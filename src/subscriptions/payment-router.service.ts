@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : Payment Router Service
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-31
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -35,6 +35,7 @@ import {
 import type { TutorSubscriptionLevel } from './subscription.schema';
 import { detectRegionFromHeaders } from './region-detector.service';
 import { ENV } from '../config/environments';
+import { isConsumerDailyPlan } from '../freemium/adam-freemium-consumer.service';
 import {
   createStripeCheckoutSession,
 } from './stripe-gateway.service';
@@ -66,10 +67,13 @@ export async function routeSubscriptionCreation(
   const region   = detectRegionFromHeaders(input.headers);
   const provider = PaymentProvider.STRIPE;
 
-  if (input.tier === SubscriptionTier.PELAJAR) {
-    throw new Error(
-      'Premium Pelajar is not open for new subscriptions. Use Pencarian with credit top-ups, Student, or Profesional.',
-    );
+  if (input.tier === SubscriptionTier.PRO) {
+    if (!isConsumerDailyPlan()) {
+      throw new Error(
+        'Pro is not open for new subscriptions on this deployment.',
+      );
+    }
+    return createConsumerProSubscription(input, provider);
   }
 
   switch (input.tier) {
@@ -82,6 +86,40 @@ export async function routeSubscriptionCreation(
     default:
       throw new Error(`Unsupported tier for payment routing: ${input.tier}`);
   }
+}
+
+async function createConsumerProSubscription(
+  input:    CreateSubscriptionInput,
+  provider: PaymentProvider,
+): Promise<SubscriptionCreationResult> {
+  const monthly = ENV.ADAM_PRO_MONTHLY_USD;
+  const amount  = input.billingCycle === BillingCycle.ANNUAL
+    ? ENV.ADAM_PRO_ANNUAL_USD
+    : monthly;
+
+  const sub = await saveSubscription({
+    userId:          input.userId,
+    founderId:       FOUNDER_SUBSCRIPTION_ID,
+    tier:            SubscriptionTier.PRO,
+    status:          SubscriptionStatus.PENDING,
+    billingCycle:    input.billingCycle,
+    region:          SupportedRegion.US,
+    currency:        'USD',
+    amountPerCycle:  amount,
+    provider,
+    access:          TIER_ACCESS[SubscriptionTier.PRO],
+    isFounderFunded: false,
+  });
+
+  const checkoutUrl = await createProviderCheckout(sub, amount, 'USD', provider);
+
+  return {
+    subscriptionId: sub._id.toString(),
+    checkoutUrl,
+    provider,
+    currency: 'USD',
+    amount,
+  };
 }
 
 async function createPelajarSubscription(
@@ -97,14 +135,14 @@ async function createPelajarSubscription(
   const sub = await saveSubscription({
     userId:          input.userId,
     founderId:       FOUNDER_SUBSCRIPTION_ID,
-    tier:            SubscriptionTier.PELAJAR,
+    tier:            SubscriptionTier.PRO,
     status:          SubscriptionStatus.PENDING,
     billingCycle:    input.billingCycle,
     region,
     currency:        pricing.currency,
     amountPerCycle:  amount,
     provider,
-    access:          TIER_ACCESS[SubscriptionTier.PELAJAR],
+    access:          TIER_ACCESS[SubscriptionTier.PRO],
     isFounderFunded: false,
   });
 
@@ -138,7 +176,7 @@ async function createTutorSubscription(
     tutorLevel,
     status:          SubscriptionStatus.PENDING,
     billingCycle:    BillingCycle.MONTHLY,
-    region:          SupportedRegion.MY,
+    region:          SupportedRegion.US,
     currency:        pricing.currency,
     amountPerCycle:  amount,
     provider,
@@ -162,7 +200,14 @@ async function createProfesionalSubscription(
   region:   SupportedRegion,
   provider: PaymentProvider,
 ): Promise<SubscriptionCreationResult> {
-  const pricing = getProfesionalPricing(region);
+  const consumer = isConsumerDailyPlan();
+  const pricing = consumer
+    ? {
+        currency: 'USD',
+        monthly:  ENV.ADAM_PREMIUM_MONTHLY_USD,
+        annual:   ENV.ADAM_PREMIUM_ANNUAL_USD,
+      }
+    : getProfesionalPricing(region);
   const amount  = input.billingCycle === BillingCycle.ANNUAL
     ? pricing.annual
     : pricing.monthly;
@@ -173,7 +218,7 @@ async function createProfesionalSubscription(
     tier:            SubscriptionTier.PROFESIONAL,
     status:          SubscriptionStatus.PENDING,
     billingCycle:    input.billingCycle,
-    region,
+    region:          consumer ? SupportedRegion.US : region,
     currency:        pricing.currency,
     amountPerCycle:  amount,
     provider,

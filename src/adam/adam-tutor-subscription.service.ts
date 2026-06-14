@@ -11,6 +11,7 @@
  */
 
 import { ENV } from '../config/environments';
+import { isQaUnlimitedAccount } from '../qa/qa-unlimited-account.service';
 import {
   SubscriptionModel,
   SubscriptionStatus,
@@ -33,7 +34,8 @@ export interface TutorSubscriptionAccess {
   message?:     string;
   upgradeUrl?:  string;
   code?:        'TUTOR_SUBSCRIPTION_REQUIRED' | 'TUTOR_SUBSCRIPTION_EXPIRED';
-  monthlyMYR?:  number;
+  monthlyAmount?: number;
+  currency?:      string;
 }
 
 function tutorUpgradeUrl(level: TutorSubscriptionLevel = 'secondary'): string {
@@ -71,14 +73,15 @@ export async function resolveTutorSubscriptionAccess(
   const checkoutLevel = normalizeTutorSubscriptionLevel(preferredLevel);
   const checkoutPricing = getTutorPricing(checkoutLevel);
 
-  if (isTutorQaBypass(userId)) {
+  if (isTutorQaBypass(userId) || await isQaUnlimitedAccount(userId)) {
     return {
       canChat:     true,
       active:      true,
-      status:      'QA_BYPASS',
+      status:      isTutorQaBypass(userId) ? 'QA_BYPASS' : 'FOUNDER_UNLIMITED',
       tier:        'NONE',
       tutorLevel:  checkoutLevel,
-      monthlyMYR:  checkoutPricing.monthly,
+      monthlyAmount: checkoutPricing.monthly,
+      currency:      checkoutPricing.currency,
     };
   }
 
@@ -89,7 +92,8 @@ export async function resolveTutorSubscriptionAccess(
       status:      'OPEN',
       tier:        'NONE',
       tutorLevel:  checkoutLevel,
-      monthlyMYR:  checkoutPricing.monthly,
+      monthlyAmount: checkoutPricing.monthly,
+      currency:      checkoutPricing.currency,
     };
   }
 
@@ -111,9 +115,10 @@ export async function resolveTutorSubscriptionAccess(
       tier:        'NONE',
       tutorLevel:  checkoutLevel,
       code:        'TUTOR_SUBSCRIPTION_REQUIRED',
-      message:     `Subscribe to ADAM Tutor (${levelLabel}) — RM ${checkoutPricing.monthly.toFixed(2)}/month, all subjects.`,
+      message:     `Subscribe to ADAM Tutor (${levelLabel}) — $${checkoutPricing.monthly.toFixed(2)}/month USD, all subjects.`,
       upgradeUrl:  tutorUpgradeUrl(checkoutLevel),
-      monthlyMYR:  checkoutPricing.monthly,
+      monthlyAmount: checkoutPricing.monthly,
+      currency:      checkoutPricing.currency,
     };
   }
 
@@ -127,7 +132,8 @@ export async function resolveTutorSubscriptionAccess(
       code:        'TUTOR_SUBSCRIPTION_REQUIRED',
       message:     'Payment failed. Update your ADAM Tutor billing to continue.',
       upgradeUrl:  tutorUpgradeUrl(subLevel),
-      monthlyMYR:  subPricing.monthly,
+      monthlyAmount: subPricing.monthly,
+      currency:      subPricing.currency,
     };
   }
 
@@ -141,7 +147,8 @@ export async function resolveTutorSubscriptionAccess(
       code:        'TUTOR_SUBSCRIPTION_EXPIRED',
       message:     'ADAM Tutor subscription expired. Renew to keep learning.',
       upgradeUrl:  tutorUpgradeUrl(subLevel),
-      monthlyMYR:  subPricing.monthly,
+      monthlyAmount: subPricing.monthly,
+      currency:      subPricing.currency,
     };
   }
 
@@ -151,6 +158,7 @@ export async function resolveTutorSubscriptionAccess(
     status:      tutorSub.status,
     tier:        SubscriptionTier.TUTOR,
     tutorLevel:  subLevel,
-    monthlyMYR:  subPricing.monthly,
+    monthlyAmount: subPricing.monthly,
+    currency:      subPricing.currency,
   };
 }

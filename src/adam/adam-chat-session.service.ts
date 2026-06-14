@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Chat Session Service
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-05-30
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -362,6 +362,25 @@ export async function resolveTutorChatSession(userId: string): Promise<string> {
   return getOrCreateSession(userId, 'tutor');
 }
 
+/** Most recent niaga thread with history, else create one. */
+export async function resolveNiagaChatSession(userId: string): Promise<string> {
+  const recent = await ADAMFounderSessionModel.findOne({
+    founderId:    userId,
+    sessionType:  'niaga',
+    messageCount: { $gt: 0 },
+  })
+    .sort({ lastActiveAt: -1 })
+    .lean();
+  if (recent?.sessionId) {
+    await ADAMFounderSessionModel.updateOne(
+      { sessionId: recent.sessionId },
+      { lastActiveAt: new Date(), active: true },
+    );
+    return recent.sessionId;
+  }
+  return getOrCreateSession(userId, 'niaga');
+}
+
 export async function resolveStudentChatSession(userId: string): Promise<string> {
   const recent = await ADAMFounderSessionModel.findOne({
     founderId:    userId,
@@ -708,7 +727,7 @@ export async function assertCanClearSessionChat(
       if (!opts.isFounder) throw new Error('Session access denied.');
       return;
     }
-    if (session.sessionType === 'student' || session.sessionType === 'tutor') {
+    if (session.sessionType === 'student' || session.sessionType === 'tutor' || session.sessionType === 'niaga') {
       if (opts.isFounder || session.founderId === userId) return;
       throw new Error('Session access denied.');
     }

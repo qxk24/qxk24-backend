@@ -27,6 +27,7 @@ import {
   SubscriptionModel,
   SubscriptionStatus,
   SubscriptionTier,
+  PRO_TIER_DB_IN,
 } from '../subscriptions/subscription.schema';
 import { AdamGuruKelasModel, AdamGuruMemberModel } from './adam-guru.schema';
 
@@ -70,7 +71,7 @@ function appUrl(path: string): string {
 export async function hasActivePremiumLayer1(userId: string): Promise<boolean> {
   const paidSub = await SubscriptionModel.findOne({
     userId,
-    tier:   { $in: [SubscriptionTier.PELAJAR, SubscriptionTier.PROFESIONAL, SubscriptionTier.ENTERPRISE] },
+    tier:   { $in: [...PRO_TIER_DB_IN, SubscriptionTier.PROFESIONAL, SubscriptionTier.ENTERPRISE] },
     status: SubscriptionStatus.ACTIVE,
   }).sort({ updatedAt: -1 }).lean();
 

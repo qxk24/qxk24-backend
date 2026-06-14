@@ -4,13 +4,13 @@
  * ============================================================
  * Module      : ADAM Chat Stream — Post Turn
  * Platform    : Backend (TypeScript)
- * ALAMTOLOGI  : Kernel v1.7.0
+ * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-04
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by Alamtologi. Knowledge
+ * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
  */
@@ -48,6 +48,7 @@ export async function finishAdamChatTurn(input: {
   journal:                JournalGenContext;
   sectionJournalComplete: boolean;
   sectionDraftMap?:       Partial<Record<JournalSectionId, string>>;
+  sanitizedRepairApplied?: boolean;
   modelChoice: {
     model:  string;
     tier:   string;
@@ -166,6 +167,7 @@ export async function finishAdamChatTurn(input: {
     healthScore:      parsed.healthScore,
     principleApplied: parsed.principleApplied,
     response:         finalResponse,
+    sanitizedRepair:  input.sanitizedRepairApplied === true,
     mode:             shell.mode,
     needsConsult:     parsed.consult.needsConsult && !shell.isFounder,
     model:            modelChoice.model,

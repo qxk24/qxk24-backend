@@ -1,6 +1,23 @@
 #!/usr/bin/env ts-node
 /**
- * Founder CLI — create or upgrade a QA unlimited test account (no quota).
+ * ============================================================
+ * ALAMTOLOGI-QURANIC SCIENCE
+ * ============================================================
+ * Module      : Create Qa Unlimited Account
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-13
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
+ */
+
+/**
+ * Founder CLI — create or upgrade a founder unlimited account (no quota, all categories).
  *
  * Usage:
  *   npx ts-node --transpile-only src/scripts/create-qa-unlimited-account.ts --password 'YourSecurePass'
@@ -10,11 +27,11 @@
 
 import mongoose from 'mongoose';
 import { ENV } from '../config/environments';
+import { QA_UNLIMITED_DEFAULT_USER_ID } from '../qa/qa-unlimited-account.service';
 import {
-  createQaUnlimitedAccount,
-  QA_UNLIMITED_DEFAULT_USER_ID,
-  upgradeStudentToQaUnlimited,
-} from '../qa/qa-unlimited-account.service';
+  createFounderUnlimitedAccount,
+  upgradeStudentToFounderUnlimited,
+} from '../subscriptions/founder-unlimited-grant.service';
 
 function readArg(flag: string): string | undefined {
   const idx = process.argv.indexOf(flag);
@@ -39,18 +56,18 @@ async function main(): Promise<void> {
   console.log('[qa-unlimited] connected:', ENV.MONGODB_URI.replace(/\/\/[^@]+@/, '//***@'));
 
   if (upgradeTarget) {
-    const result = await upgradeStudentToQaUnlimited(upgradeTarget);
+    const result = await upgradeStudentToFounderUnlimited(upgradeTarget);
     console.log(JSON.stringify({
-      mode:     'upgrade',
+      mode:  'upgrade',
       ...result,
-      tier:     'ENTERPRISE',
-      quota:    'unlimited',
+      tier:  'ENTERPRISE',
+      quota: 'unlimited',
     }, null, 2));
     await mongoose.disconnect();
     process.exit(result.ok ? 0 : 1);
   }
 
-  const result = await createQaUnlimitedAccount({
+  const result = await createFounderUnlimitedAccount({
     name,
     password,
     userId,
@@ -58,13 +75,14 @@ async function main(): Promise<void> {
   });
 
   console.log(JSON.stringify({
-    mode:     'create',
-    userId:   result.userId,
-    name:     result.name,
-    action:   result.action,
-    tier:     'ENTERPRISE',
-    quota:    'unlimited',
-    loginUrl: `${ENV.ADAM_WEB_BASE_URL.replace(/\/$/, '')}/login?next=/adam/learn`,
+    mode:         'create',
+    userId:       result.userId,
+    name:         result.name,
+    action:       result.action,
+    tutorGranted: result.tutorGranted,
+    tier:         'ENTERPRISE',
+    quota:        'unlimited',
+    loginUrl:     `${ENV.ADAM_WEB_BASE_URL.replace(/\/$/, '')}/login?next=/adam/learn`,
     credentials: {
       loginId:  result.userId,
       password: '(as supplied on CLI — not stored in logs)',

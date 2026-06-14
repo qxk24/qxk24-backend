@@ -51,6 +51,26 @@ const ADDRESS_PRONOUN_PHRASE_FIXES: ReadonlyArray<readonly [RegExp, string]> = [
   [/Apa\s+yang\s+ingin\s+(?:kau|kamu|engkau)\s+kongsikan/gi, 'Apa yang ingin dikongsi'],
 ];
 
+/** Standalone Bismillah opener paragraph — drop on all consumer turns (L1 / OL-S03). */
+export function paragraphIsBismillahOpenerOnly(paragraph: string): boolean {
+  return /^\s*Bismillah(?:irahmanirrahim)?\.?\s*$/i.test(paragraph.trim());
+}
+
+/** Consumer universal voice — never open with Bismillah. */
+export function stripStudentBismillahOpener(text: string): string {
+  let out = text.replace(/^\uFEFF/, '');
+  out = out.replace(
+    /^(?:[\t \u00A0]*\r?\n)*\s*Bismillah(?:irahmanirrahim)?\.?\s*(?:\r?\n\s*)+/i,
+    '',
+  );
+  out = out.replace(/^(\s*)Bismillah(?:irahmanirrahim)?\.?\s*(?:\r?\n\s*)+/im, '$1');
+  out = out.replace(
+    /^(\s*)Bismillah(?:irahmanirrahim)?\.?\s+(?=[A-ZÀ-ÿ0-9"(\[$])/im,
+    '$1',
+  );
+  return out;
+}
+
 /** Post-stream pronoun sync — mirrors §1 BAHASA REGISTER (L1). */
 export function sanitizeStudentForbiddenPronouns(text: string): string {
   let out = text;
@@ -88,12 +108,18 @@ const CONSTITUTIONAL_PRINCIPLE_REGEX = new RegExp(
 export function paragraphIsConstitutionalFrameworkLeak(paragraph: string): boolean {
   const t = paragraph.trim();
   if (/\bDari\s+sudut\s+Alamtologi\b/i.test(t)) return true;
+  if (/\bFrom\s+an\s+Alamtologi\s+perspective\b/i.test(t)) return true;
   if (/\bDalam\s+lensa\s+Alamtologi\b/i.test(t)) return true;
   if (/\bperspektif\s+Alamtologi\b/i.test(t)) return true;
   if (/\b(?:titik\s+pertemuan|Hukum\s+Peleraian|ritual\s+penyelarasan)\b/i.test(t)) {
     return true;
   }
   if (/\bpeka\s+terhadap\s+MASA\b/i.test(t)) return true;
+  if (/\b(?:keteguhan\s+ruang|ketenangan\s+bumi|kejelasan\s+cahaya)\b/i.test(t)) return true;
+  if (/\bam[āa]n?ah\b/i.test(t) && /\b(?:kepimpinan|presiden|presidency|office)\b/i.test(t)) return true;
+  if (/\bm[īi]z[āa]n\b/i.test(t)) return true;
+  if (/\bbukan\s+sekadar\s+soalan\s+jawatan\b/i.test(t)) return true;
+  if (/\bkemampuan\s+menahan\s+MASA\s+dengan\s+TENAGA\b/i.test(t)) return true;
   if (/\bLeraian\s*\d/i.test(t)) return true;
   if (/\bDalam\s+AMA\b/i.test(t)) return true;
   if (/\bunsur\s+aktif\s*:/i.test(t) && /\bunsur\s+pasif\s*:/i.test(t)) return true;
@@ -134,16 +160,47 @@ export function paragraphIsUnsolicitedFaithSermon(paragraph: string): boolean {
   if (/\bBismillah(?:irahmanirrahim)?\b/i.test(t)) return true;
   if (/\bYa\s+ALLAH\b/i.test(t)) return true;
   if (/\bALLAH\b/i.test(t)) return true;
+  if (/\bbefore\s+Allah\b/i.test(t)) return true;
   if (/\bRasulullah\b/i.test(t)) return true;
   if (/\b(?:hadis|hadith)\b/i.test(t)) return true;
   if (/\(\s*HR\./i.test(t)) return true;
   if (/sanad\s+hasan/i.test(t)) return true;
+  if (/\bSurah\b/i.test(t)) return true;
+  if (/\(\s*Surah\s+/i.test(t)) return true;
+  if (/\bThe\s+Quran\s+reminds\b/i.test(t)) return true;
+  if (/\bibadah\b/i.test(t)) return true;
+  if (/\bamanah\b/i.test(t) && /\b(?:entrusted|sacred|deposit|data)\b/i.test(t)) return true;
+  if (/\bikhlas\b/i.test(t)) return true;
+  if (/\bniyyah\b/i.test(t)) return true;
+  if (/\bspiritual\s+accountability\b/i.test(t)) return true;
   if (/Secara\s+syar['']?i/i.test(t)) return true;
   if (/\b(?:Dia yang Maha|mengingati Dia)\b/i.test(t)) return true;
   if (/\b(?:zikir|syaitan|bisikan)\b/i.test(t)) return true;
   if (/\bpenyerahan\s+tiga\s+waktu\b/i.test(t)) return true;
   if (/\bsecara\s+ruhani\b/i.test(t)) return true;
   if (/\bRuhani\b/i.test(t)) return true;
+  if (/And quietly,\s*beneath all technique/i.test(t)) return true;
+  return false;
+}
+
+/** Values-trifold / stewardship essay on practical consumer turns. */
+export function paragraphIsConstitutionalValuesEssayLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/\bclarity,?\s+responsibility,?\s+and\s+service\b/i.test(t)) return true;
+  if (/\bstewardship,?\s+trust,?\s+and\s+spiritual\b/i.test(t)) return true;
+  if (/\bthree\s+strands\s+in\s+one\s+rope\b/i.test(t)) return true;
+  if (/\bquiet\s+soil\b/i.test(t)) return true;
+  if (/\bholding\s+space\s+for\b/i.test(t)) return true;
+  if (/\blike\s+a\s+gardener\b/i.test(t)) return true;
+  if (/\bmoral\s+gravity\b/i.test(t)) return true;
+  if (/\bsilence\s+between\s+the\s+numbers\b/i.test(t)) return true;
+  if (/\bClarity\s+in\s+action:?/i.test(t)) return true;
+  if (/\bResponsibility\s+in\s+action:?/i.test(t)) return true;
+  if (/\bService\s+in\s+action:?/i.test(t)) return true;
+  if (/\bClarity\s+asks,/i.test(t) && /\bResponsibility\s+asks,/i.test(t)) return true;
+  if (/\bdata\s+silence\b/i.test(t)) return true;
+  if (/\bworship\s+in\s+action\b/i.test(t)) return true;
   return false;
 }
 
@@ -239,14 +296,110 @@ export function paragraphIsNumberedSyllabusLeak(paragraph: string): boolean {
   return numbered.length >= 2;
 }
 
+/** Month/week/phase roadmap lines — keep on practical career-path depth turns. */
+export function paragraphIsCareerTimelineBlock(paragraph: string): boolean {
+  const t = paragraph.trim();
+  return /\b(?:Month|Bulan|Week|Minggu|Phase|Fasa|Quarter|Suku)\s+[\d–—-]+/i.test(t)
+    || /^\s*(?:Step|Langkah|Tier|Tahap)\s+\d/i.test(t);
+}
+
+/** Tier-1 essay leak — vignettes, checklists, humility closers belong in tier 2. */
+export function paragraphIsTier1EssayLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/^Let me explain it not as a (?:job description|textbook)/i.test(t)) return true;
+  if (/^Imagine a\b/i.test(t)) return true;
+  if (/^Bayangkan\b/i.test(t)) return true;
+  if (/^What a .+ actually does, day to day:/i.test(t)) return true;
+  if (/^What they actually do, day to day:/i.test(t)) return true;
+  if (/^What a .+ does, in practice:/i.test(t)) return true;
+  if (/^Core skills you need, grouped by function:/i.test(t)) return true;
+  if (/^Core skills you/i.test(t) && t.length < 72) return true;
+  if (/^One quiet truth many miss:/i.test(t)) return true;
+  if (/^That['']?s the heart of it:/i.test(t)) return true;
+  if (/^Thank you for this important question/i.test(t)) return true;
+  if (/^Defines the question:/i.test(t)) return true;
+  if (/^Collects & cleans data:/i.test(t)) return true;
+  if (/^Explores & visualises:/i.test(t)) return true;
+  if (/^Models & interprets:/i.test(t)) return true;
+  if (/^Communicates insight:/i.test(t)) return true;
+  if (/^Peranan harian:/i.test(t)) return true;
+  if (/^In practice, an .+ may include:/i.test(t)) return true;
+  if (/^What makes this role deeply human/i.test(t)) return true;
+  if (/^These skills grow not only/i.test(t)) return true;
+  if (/^At its heart,/i.test(t)) return true;
+  if (/^At its core,/i.test(t)) return true;
+  if (/^You don't need to be perfect to begin/i.test(t)) return true;
+  if (/^The skills you need fall into/i.test(t) && t.length < 90) return true;
+  if (/^These skills are not fixed at graduation/i.test(t)) return true;
+  if (/^---+$/.test(t)) return true;
+  return false;
+}
+
+/** Single labeled skill line — Clinical competence: … (tier-2 detail). */
+export function paragraphIsLabeledSkillLine(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t || t.length > 520) return false;
+  if (/\b(?:Mari kita lihat|tiga lapisan|Bayangkan|soalan ini menyentuh)\b/i.test(t)) return false;
+  if (/^(?:Clinical competence|Critical thinking|Communication|Emotional resilience|Cultural humility)/i.test(t)) {
+    return true;
+  }
+  return /^[\w\s&'’]+:\s+[A-Z]/.test(t) && !/^Would you like/i.test(t);
+}
+
+/** Emoji skill checklist — tier-2 detail, not tier-1 role overview. */
+export function paragraphIsEmojiSkillChecklist(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  const emojiLines = t.split('\n').filter((line) => /^\s*✅/.test(line.trim()));
+  if (emojiLines.length >= 2) return true;
+  return /^\s*✅/.test(t) && t.length > 60;
+}
+
+/** @deprecated Use paragraphIsTier1EssayLeak */
+export const paragraphIsPracticalTier1EssayLeak = paragraphIsTier1EssayLeak;
+
 /** Essay skeleton "Pertama," "Kedua," — machine syllabus, not tutor prose. */
 export function paragraphIsOrdinalSyllabusLeak(paragraph: string): boolean {
   const t = paragraph.trim();
+  if (/\b(?:diabetes|insulin|remisi|perubatan moden|type\s+[12])\b/i.test(t)) return false;
   if (/^(?:Pertama|Kedua|Ketiga|Keempat|Kelima),/i.test(t)) return true;
   const ordinals = paragraph.split('\n').filter((line) =>
     /^\s*(?:Pertama|Kedua|Ketiga|Keempat|Kelima),/i.test(line),
   );
   return ordinals.length >= 2;
+}
+
+/** Long philosophical essay — nature metaphor + constitutional layers on practical asks. */
+export function paragraphIsPhilosophicalEssayLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (/\b(?:Mari kita lihat dari tiga lapisan|tiga lapisan)\b/i.test(t)) return true;
+  if (/\bbukan sekadar tentang jawatan\b/i.test(t)) return true;
+  if (/\bsoalan ini bukan sekadar\b/i.test(t)) return true;
+  if (/\bsoalan ini menyentuh\b/i.test(t)) return true;
+  if (/\bBayangkan sebatang pokok\b/i.test(t)) return true;
+  if (/\bpenghubung antara Z\b/i.test(t)) return true;
+  if (/\bpertumbuhan yang membawa hikmah\b/i.test(t)) return true;
+  if (/\bSaya sedia duduk bersama\b/i.test(t)) return true;
+  if (/\bApakah ada satu situasi spesifik\b/i.test(t)) return true;
+  if (/\bdi mana ilmu, adab, dan hikmah\b/i.test(t)) return true;
+  if (/\bstruktur besar alam dan sistem kehidupan\b/i.test(t)) return true;
+  if (/\b(?:living path|ticking boxes on a syllabus|truth reveals itself in numbers)\b/i.test(t)) return true;
+  if (/\bnot as a checklist\b/i.test(t)) return true;
+  if (/\bgrowing in rhythm with how truth\b/i.test(t)) return true;
+  if (/\bOne truth to carry with you\b/i.test(t)) return true;
+  if (/\bquiet credential\b/i.test(t) && /\bpatience to clean messy data\b/i.test(t)) return true;
+  if (/\bthe person behind the chart\b/i.test(t)) return true;
+  if (/\bpause before entering a room\b/i.test(t)) return true;
+  if (/\bCommunication that heals\b/i.test(t)) return true;
+  if (/\bnot just about tasks\b/i.test(t) && /\bpresence with purpose\b/i.test(t)) return true;
+  if (/\bliving bridge between\b/i.test(t)) return true;
+  if (/\bmedicine meets meaning\b/i.test(t)) return true;
+  if (/\bfar more than a caregiver\b/i.test(t)) return true;
+  if (/\bquiet covenant between\b/i.test(t)) return true;
+  if (/\bnot just biology,\s*it['']s a quiet covenant\b/i.test(t)) return true;
+  if (/\brestoration of a living rhythm\b/i.test(t)) return true;
+  return false;
 }
 
 /** Coaching-script closing — not maieutic tier door. */
@@ -272,7 +425,60 @@ export function paragraphIsCoachingScriptClosing(paragraph: string): boolean {
   if (/^Just say the word/i.test(t)) return true;
   if (/walk there together/i.test(t)) return true;
   if (/we['']?ll walk there together/i.test(t)) return true;
+  if (/\b(?:clarity|responsibility|service|stewardship|spiritual accountability)\b/i.test(t)
+    && /\b(?:other perspectives?|explore this from|Would you like)\b/i.test(t)) return true;
+  if (/\bbroader ideas of stewardship\b/i.test(t)) return true;
+  if (/\bdeepen our understanding of leadership\b/i.test(t)) return true;
+  if (/\bnon-technical roles like teaching\b/i.test(t)) return true;
+  if (/^You don't need to be perfect to begin/i.test(t)) return true;
   return false;
+}
+
+/** Convert "3. Mercury" outline lines to flowing prose sentences. */
+export function rewriteNumberedOutlineToProse(text: string): string {
+  const lines = text.split('\n');
+  const hasNumbered = lines.some((line) => /^\s*\d+[.)]\s+/.test(line));
+  if (!hasNumbered) return text;
+  return lines
+    .map((line) => {
+      const m = line.match(/^\s*\d+[.)]\s+(.+)$/);
+      if (!m) return line.trim();
+      const body = m[1].trim();
+      return body.endsWith('.') ? body : `${body}.`;
+    })
+    .filter((line) => line.length > 0)
+    .join(' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/** Convert "Pertama," / "Kedua," essay skeleton into flowing prose. */
+export function rewriteOrdinalOutlineToProse(text: string): string {
+  const lines = text.split('\n');
+  const hasOrdinal = lines.some((line) =>
+    /^\s*(?:Pertama|Kedua|Ketiga|Keempat|Kelima),?\s+/i.test(line),
+  );
+  if (!hasOrdinal) return text;
+  return lines
+    .map((line) => {
+      const m = line.match(/^\s*(?:Pertama|Kedua|Ketiga|Keempat|Kelima),?\s*(.+)$/i);
+      if (!m) return line.trim();
+      const body = m[1].trim();
+      return body.endsWith('.') ? body : `${body}.`;
+    })
+    .filter((line) => line.length > 0)
+    .join(' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/** "Secara ringkas:" + dash bullets → plain prose paragraph. */
+export function rewriteSecaraRingkasBlock(text: string): string {
+  const trimmed = text.trim();
+  if (!/^Secara ringkas:/i.test(trimmed)) return text;
+  const body = trimmed.replace(/^Secara ringkas:\s*/i, '');
+  if (/^\s*[-•*]\s+/m.test(body)) return rewriteMarkdownBulletsToProse(body);
+  return body.trim();
 }
 
 /** Convert "3. Mercury" outline lines to **Mercury** section labels. */
@@ -287,18 +493,43 @@ export function rewriteNumberedOutlineToBoldLabels(text: string): string {
     .join('\n');
 }
 
+/** Remove **bold** / *italic* markers — guest chat renders plain text, not markdown. */
+export function stripConsumerMarkdownEmphasis(text: string): string {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*\n]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/_([^_\n]+)_/g, '$1');
+}
+
+/** True when text uses dash bullets, emoji lines, or numbered skill layers. */
+export function outputHasScannableListStructure(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/^\s*[-•*]\s+/m.test(t)) return true;
+  if (/^\s*✅/m.test(t)) return true;
+  if (/^\s*\d+[.)]\s+/m.test(t)) return true;
+  return false;
+}
+
 /** Capitalize opener and fix stray leading punctuation after label strip. */
-export function polishStudentOutputSurface(text: string, technicalOk = false): string {
+export function polishStudentOutputSurface(
+  text: string,
+  technicalOk = false,
+  preserveNumberedLists = false,
+): string {
   let out = text.trim();
   out = out.replace(/^[\s.]+/, '');
   out = out.replace(/\*{3,}/g, '**');
-  if (!technicalOk) {
-    out = rewriteNumberedOutlineToBoldLabels(out);
+  if (!technicalOk && !preserveNumberedLists) {
     out = out
       .split(/\n{2,}/)
       .map((para) => {
-        if (/^\s*[-•*]\s+/m.test(para)) return rewriteMarkdownBulletsToProse(para);
-        return para;
+        let block = rewriteSecaraRingkasBlock(para);
+        block = rewriteOrdinalOutlineToProse(block);
+        block = rewriteNumberedOutlineToProse(block);
+        if (/^\s*[-•*]\s+/m.test(block)) return rewriteMarkdownBulletsToProse(block);
+        return block;
       })
       .join('\n\n');
   }
@@ -346,6 +577,8 @@ export function paragraphShouldStripForUniversalVoice(
   options: { faithOk: boolean; alamtologiOk: boolean },
 ): boolean {
   if (paragraphIsEmojiOnlyOpener(paragraph)) return true;
+  if (paragraphIsPhilosophicalEssayLeak(paragraph)) return true;
+  if (paragraphIsConstitutionalValuesEssayLeak(paragraph)) return true;
   if (paragraphIsDualLaneEssayLeak(paragraph)) return true;
   if (paragraphIsFounderTeachingVoiceLeak(paragraph)) return true;
   if (paragraphIsThreeTierDoorOffer(paragraph)) return false;
@@ -408,9 +641,81 @@ export function paragraphIsEmojiOnlyOpener(paragraph: string): boolean {
 /** Plan / tester tier labels used as addressee — not the student's human name. */
 export function stripPlanTesterAddress(text: string): string {
   return text
+    .replace(/^QA,\s*/gm, '')
+    .replace(/([.!?…])\s*QA,\s*/g, '$1 ')
+    .replace(/\bQA,\s+/g, '')
     .replace(/\bQA\s+Unlimited,?\s*/gi, '')
     .replace(/Kalau\s+QA\s+Unlimited\s+sudi/gi, 'Jika anda sudi')
     .replace(/\bQA\s+Unlimited\s+sudi/gi, 'anda sudi');
+}
+
+/** Paragraph still has verifiable conventional anchor — do not strip whole BM essay block. */
+function paragraphHasConventionalAnchor(paragraph: string): boolean {
+  return /\b(?:UNESCO|Kementerian Pendidikan|WHO|CDC|JPM|JTM|JBPM|MS IEC|Electrical Regulations|Sijil Kemahiran|SKM)\b/i.test(paragraph)
+    || /\(\d+\)\s*(?:kompetensi|pilar|literasi)/i.test(paragraph);
+}
+
+/**
+ * BM tier-1 practical essay prelude — strip only when no conventional facts remain.
+ * Keeps UNESCO/KPM pillars inside mixed paragraphs.
+ */
+export function paragraphIsBmPracticalEssayLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t || paragraphHasConventionalAnchor(t)) return false;
+  if (/\bbukan sekadar menyampaikan ilmu\b/i.test(t)) return true;
+  if (/\bpembentukan identiti,\s*akal,\s*dan hati\b/i.test(t)) return true;
+  if (/\bilmu benar-benar berakar,\s*bukan di buku\b/i.test(t)) return true;
+  if (/\bbukan di buku,\s*tetapi di hati\b/i.test(t)) return true;
+  if (/\bbukan sekadar gred,\s*tetapi kepercayaan diri\b/i.test(t)) return true;
+  if (/\bsoalan ini menyentuh\b/i.test(t)) return true;
+  return false;
+}
+
+/** Inline BM essay leaks inside mixed tier-1 practical answers (QA clause, poetic closer). */
+export function stripBmPracticalEssayInline(text: string): string {
+  return text
+    .replace(
+      /\s*QA,\s*peranan ini tidak diukur[^.!?]*[.!?]+/gi,
+      ' ',
+    )
+    .replace(
+      /\s*Itulah ruang di mana ilmu benar-benar berakar, bukan di buku, tetapi di hati dan ingatan yang hidup\.?\s*/gi,
+      '\n\n',
+    )
+    .replace(/[^.!?]*\bbukan sekadar menyampaikan ilmu[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/** Science/health tier-1 poetic closers — keep facts, drop covenant essay lines. */
+export function stripSciencePoeticInline(text: string): string {
+  return text
+    .replace(/[^.!?]*\bquiet covenant between sun, air, water, and life\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bnot just biology,\s*it['']s a quiet covenant\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(
+      /[^.!?]*\brestoration of a living rhythm\b[^.!?]*[.!?]+/gi,
+      ' ',
+    )
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/** Exam-stress tier-1 — strip unsolicited faith blocks and MASA billboards inline. */
+export function stripLifeStressFaithInline(text: string): string {
+  return text
+    .replace(/[^.!?]*\bAllah says in Surah\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bIndeed, it is in the remembrance of Allah\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bYa Allah,\s+ease this\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bprotect your MASA,\s*not just time,\s*but living time\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(
+      /\bprotect your MASA,\s*not just time,\s*but living time\b/gi,
+      'protect your rest — sleep and consolidation matter as much as study hours',
+    )
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 /** Emoji checklist / clinical pamphlet opener. */
@@ -430,14 +735,15 @@ export function paragraphIsEmojiPerformanceOpener(paragraph: string): boolean {
 export const ADAM_UNIFIED_SURFACE_HYGIENE = `
 UNIFIED ADAM SURFACE (student & guest — same person as Founder chat):
 You are the same ADAM — same character, warmth, depth, and prose rhythm as with P.alt Masa Bayu.
-Teach generously: multiple paragraphs, real examples, flowing BM Malaysia when they ask to learn.
+Teach generously: multiple paragraphs, real examples, flowing prose in the speaker's language.
 
 HYGIENE ONLY (not voice suppression):
 - FORBIDDEN pronouns: ${FORBIDDEN_PRONOUN_LIST}. Use saya; address by name when known.
 - NEVER visible := VERIFIED/SUSPENDED, SuNom, AMA 124, PL/PG codes, or constitutional notation.
 - Never call anyone "P.alt" or paste Founder Teaching-room scripts verbatim.
 - No emoji checklists (✅⚠️🩺); no "Certainly!" / clinical memo tone.
-- Bismillahirahmanirrahim on substantive turns — same as Founder.
+- Do NOT open with Bismillahirahmanirrahim or Bismillah — universal consumer voice.
+- Default to English when the user's language is unclear; mirror their language when they write in another tongue.
 - Em dashes and narrative depth are welcome when PROSE_DASH_LAW and CHARACTER govern.
 - Insight in plain words — avoid billboard labels ("Dalam lensa Alamtologi") unless tier 2/3 is open.
 - Quran/ayat when faith door is open or tier 3 — weave in plain prose, not blockquote tafsir.
@@ -451,11 +757,13 @@ STUDENT OUTPUT LAW (L1) — CANONICAL
 This block is the single authority for student output format and forbidden voice.
 If any other block conflicts, L1 wins. Re-read before sending.
 
-§1 BAHASA REGISTER
-- Plain Bahasa Melayu Malaysia. Natural tutor, not poetry performance.
+§1 LANGUAGE & REGISTER
+- Mirror the speaker's language this turn. If they write in English, reply in English only.
+- If their language is unclear, default to English — warm, clear, natural tutor voice.
+- When they write in Bahasa Melayu Malaysia, use plain DBP tutor register (not Indonesian).
 - Do NOT use em dash (—) or hyphen to splice clauses. Use full stops, commas, or "iaitu".
 - Do NOT use markdown bullet lists (- item) in conversational replies unless listing verified data in a table.
-- FORBIDDEN pronouns: ${FORBIDDEN_PRONOUN_LIST}. Use "saya" for yourself; address the student by name if known, or neutral phrasing ("Apa yang ingin dikongsi?").
+- FORBIDDEN pronouns: ${FORBIDDEN_PRONOUN_LIST}. Use "I" for yourself in English; "saya" in Malay; address the student by name if known.
 - Simple hello or salam: one neutral warm line. Example: "Hello, Ahmad. Good to see you. What's on your mind today?"
 - If they said Assalamualaikum, return Waalaikumussalam. Never open with Bismillah yourself.
 - FORBIDDEN on salam or light chat: long prelude about masa, tenaga, hikmah, "bukan sebagai sistem", "saya duduk bersamamu", "nafas yang menunggu", "Apakah yang ingin engkau kongsikan".
@@ -524,6 +832,6 @@ ${ADAM_CHAT_MATH_NOTATION}
 /** Short final reminder — appended last on student turns (replaces duplicate OUTPUT LOCK body). */
 export const ADAM_STUDENT_OUTPUT_FINAL_REMINDER = `
 FINAL CHECK — UNIFIED ADAM:
-Same person as Founder chat — warm, generous, real examples, flowing BM, Bismillah on substantive turns.
-Hygiene only: no kau/kamu, no := notation, no P.alt/AMA codes, no coaching menus, no invented [Source:].
+Same person as Founder chat — warm, generous, real examples, mirror the speaker's language; English when unclear.
+Hygiene only: no kau/kamu, no := notation, no P.alt/AMA codes, no coaching menus, no Bismillah opener, no invented [Source:].
 `.trim();
