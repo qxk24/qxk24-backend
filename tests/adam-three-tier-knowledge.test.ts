@@ -69,8 +69,9 @@ describe('three-tier knowledge architecture', () => {
       participantName:      'Ahmad',
       founderStudentsBlock: '',
       studentKnowledgeTier: 1,
+      userMessage:          'Apa itu fotosintesis?',
     });
     expect(prompt).toMatch(/ACTIVE TIER THIS TURN: 1/);
-    expect(prompt).toMatch(/STUDENT MODE —/);
+    expect(prompt).toMatch(/USER MODE —/);
   });
 });

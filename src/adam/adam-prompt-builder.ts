@@ -32,8 +32,10 @@ import { ADAM_UNIFIED_SURFACE_HYGIENE } from './adam-student-output-law';
 import {
   ADAM_MEMORY_HONESTY_RULE,
   ADAM_MEMORY_HONESTY_RULE_STUDENT,
+  ADAM_MEMORY_HONESTY_WEB_SEARCH_OVERRIDE,
   LAYER1_CHAT_ONLY_PROMPT,
   STUDENT_MODE_PROMPT,
+  webSearchPromptNeedsMemoryOverride,
 } from './adam-student-prompts';
 import {
   buildStudentAddressLaw,
@@ -43,13 +45,16 @@ import {
   ADAM_STUDENT_TEACHING_DEPTH_TURN,
 } from './adam-student-constitution';
 import {
-  ADAM_DIRECT_TECHNICAL_REPLY_LAW,
-  isDirectTechnicalHowToQuestion,
-} from './adam-direct-technical-law';
-import {
   ADAM_CONSTITUTIONAL_KNOWLEDGE_HOLD,
   ADAM_EXPLAIN_BACK_LAW,
 } from './adam-student-explain-back-law';
+import {
+  buildAdamAlphaGenerationLaw,
+  buildAdamAnswerProfileHeader,
+  buildAdamAnswerVoiceOverlay,
+  resolveAdamAnswerProfile,
+} from './adam-answer-profile';
+import { ADAM_DEFAULT_GOLD_STANDARD_PIPELINE } from './adam-search-first';
 import {
   isAdamContinuationDepthTurn,
   isAdamConsumerPlainTurn,
@@ -217,7 +222,7 @@ export interface AdamChatSystemPromptParams {
 /**
  * Assembles the system prompt for each conversation turn.
  *
- * Unified ADAM (Founder decree): students receive the same character, warmth,
+ * Unified ADAM (Founder decree): Users receive the same character, warmth,
  * Layer 5, and knowledge stack as Founder chat — hygiene-only surface rules differ.
  */
 export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): string {
@@ -338,17 +343,20 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
   }
   if (!params.isFounder && !teachingLearnerTurn && consumerPlain) {
     parts.push(`
-CONSUMER PLAIN (direct factual / practical advisory):
-- Tier 1: facts first (~150–280 words on career/practical). One practical closing fork (skills/tools, career path, real example).
+CONSUMER PLAIN (direct factual / practical advisory — α):
+- L1 facts first from web search when enabled — career/role answers MUST use official sources (NHS, WHO, .gov).
+- Practical advisory: full ADAM voice — multi-paragraph prose + penjiwaan OK when facts are search-verified.
+- L5 optional: organic close — career fork, Gold Standard follow-up, or depth invitation when it adds value.
 - Tier 2 only after user accepts — ONE extra practical section; no values trifold; no faith/Quran on career threads.
-- FORBIDDEN: Alamtologi/Quran/Islam labels, Bismillah, philosophy essays, clarity/responsibility/service trifold, stewardship, spiritual accountability.
+- FORBIDDEN: Alamtologi/Quran/Islam labels, Bismillah, stub answers, invented duties/skills without search hits.
 `.trim());
   } else if (!params.isFounder && !teachingLearnerTurn && !consumerPlain) {
     parts.push(`
-UNIVERSAL SCHOLAR VOICE (student turn — default):
+UNIVERSAL SCHOLAR VOICE (User turn — default):
 - General + formal. ADAM character — warm, clear — not constitutional performance.
-- Answer directly first; mandatory neutral closing question on substantive turns.
-- Brain C depth only after user accepts the invitation.
+- Follow Answer Profile (α or β) injected below — α: inti first; β: realiti semasa (gambar hidup) first.
+- α L5 optional; β L5 mandatory tamparan jiwa — see Explain-Back Law CLOSE.
+- Brain C depth only after user accepts the invitation (tier 2+).
 `.trim());
   }
 
@@ -443,8 +451,14 @@ UNIVERSAL SCHOLAR VOICE (student turn — default):
     appendExplainBackPedagogy(parts, params, teachingLearnerTurn);
   }
 
-  // ── 7. Memory honesty — always last ──────────────────────────
+  // ── 7. Memory honesty — always last (web-search override wins on student search turns)
   parts.push(params.isFounder ? ADAM_MEMORY_HONESTY_RULE : ADAM_MEMORY_HONESTY_RULE_STUDENT);
+  if (
+    !params.isFounder
+    && webSearchPromptNeedsMemoryOverride(params.webSearchPrompt)
+  ) {
+    parts.push(ADAM_MEMORY_HONESTY_WEB_SEARCH_OVERRIDE);
+  }
   if (teachingSynthesis) {
     parts.push(FOUNDER_TEACHING_SYNTHESIS_OUTPUT_LOCK);
   } else if (teachingInquiry) {
@@ -456,7 +470,7 @@ UNIVERSAL SCHOLAR VOICE (student turn — default):
   return parts.filter(Boolean).join('\n\n');
 }
 
-/** Explain-back pedagogy before constitutional stack — all roles except Teaching learner. */
+/** Answer Constitution pedagogy (α / β) — User + Founder consumer; not Tutor/Niaga/Journal/Teaching learner. See docs/ADAM_ANSWER_CONSTITUTION.md §VI. */
 function appendExplainBackPedagogy(
   parts: string[],
   params: AdamChatSystemPromptParams,
@@ -464,32 +478,47 @@ function appendExplainBackPedagogy(
 ): void {
   if (teachingLearnerTurn) return;
 
-  const directTechnical = Boolean(
-    params.userMessage?.trim() && isDirectTechnicalHowToQuestion(params.userMessage),
-  );
+  const userMessage = params.userMessage ?? '';
+  const profile = resolveAdamAnswerProfile({
+    message:             userMessage,
+    recentUserMessages:  params.recentUserMessages ?? [],
+  });
+
+  if (profile === 'light') return;
+
+  parts.push(ADAM_DEFAULT_GOLD_STANDARD_PIPELINE);
+
+  const header = buildAdamAnswerProfileHeader(profile);
+  if (header) parts.push(header);
+  parts.push(buildAdamAnswerVoiceOverlay(profile, params.isFounder));
+
+  if (profile === 'alpha') {
+    parts.push(buildAdamAlphaGenerationLaw(userMessage));
+  } else {
+    parts.push(ADAM_EXPLAIN_BACK_LAW);
+  }
 
   if (!params.isFounder) {
     const studentTier = params.studentKnowledgeTier ?? 1;
     const practicalRoot = threadRootIsPracticalAdvisory(
       params.recentUserMessages ?? [],
-      params.userMessage ?? '',
+      userMessage,
     );
     parts.push(STUDENT_MODE_PROMPT);
-    if (directTechnical) {
-      parts.push(ADAM_DIRECT_TECHNICAL_REPLY_LAW);
-    } else {
-      parts.push(ADAM_EXPLAIN_BACK_LAW);
+    if (profile === 'beta') {
       parts.push(ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE);
       parts.push(buildThreeTierTurnOverlay(studentTier, {
         practicalAdvisoryRoot: practicalRoot,
         recentAssistantMessages: params.recentAssistantMessages ?? [],
       }));
+    } else if (isAdamPracticalAdvisoryTurn(userMessage) || practicalRoot) {
+      parts.push(ADAM_PRACTICAL_ADVISORY_TURN);
     }
     parts.push(buildStudentAddressLaw(params.participantName));
     if (params.studentContinuityBridge) parts.push(params.studentContinuityBridge);
     if (params.workspacePrompt) parts.push(params.workspacePrompt);
     if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
-    if (studentTier >= 2 && !practicalRoot) {
+    if (studentTier >= 2 && !practicalRoot && profile === 'beta') {
       parts.push(ADAM_CONSTITUTIONAL_KNOWLEDGE_HOLD);
       parts.push(ALAMTOLOGI_BOOK_CANON);
       parts.push(ADAM_TEORI_MASABAYU);
@@ -503,11 +532,6 @@ function appendExplainBackPedagogy(
     return;
   }
 
-  if (directTechnical) {
-    parts.push(ADAM_DIRECT_TECHNICAL_REPLY_LAW);
-  } else {
-    parts.push(ADAM_EXPLAIN_BACK_LAW);
-  }
   if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
   parts.push(ADAM_CONSTITUTIONAL_KNOWLEDGE_HOLD);
   parts.push(ALAMTOLOGI_BOOK_CANON);
@@ -543,6 +567,9 @@ function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): string 
   if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
   parts.push(buildTutorStudentAddressLaw(params.participantName));
   parts.push(ADAM_MEMORY_HONESTY_RULE_STUDENT);
+  if (webSearchPromptNeedsMemoryOverride(params.webSearchPrompt)) {
+    parts.push(ADAM_MEMORY_HONESTY_WEB_SEARCH_OVERRIDE);
+  }
 
   return parts.filter(Boolean).join('\n\n');
 }

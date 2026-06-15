@@ -37,15 +37,24 @@ import {
   logSearchGateEnabled,
 } from './adam-chat-stream-turn-search';
 import {
+  resolveGoldStandardSearchFirstReply,
+  appendGoldStandardSynthesisContextToPrompt,
+} from './adam-search-first';
+import {
   createAdamLlmStreamOnce,
   repairAdamStreamOutput,
 } from './adam-chat-stream-llm';
+import { resolveAdamTurnDisplayForSave } from './adam-stream-display-merge';
+import { alphaStatPersistedStreamBody } from './adam-stat-stream-preserve';
+import { evidenceHasGoldStandardArticle } from './adam-alpha-output-guard';
 import { isAdamLightChatTurn } from './adam-response-generation';
+import { isAdamCurrentAffairsTurn, isFactualAdamWebSearchGateReason, isVerifiedDataStatAsk } from './adam-web-search';
 import {
   enforceTutorReplyGuards,
   isAdamTutorMode,
 } from './adam-tutor-law';
 import type { WorkspaceRecord } from './adam-workspace.service';
+import { detectContextRecallLoaded } from './adam-universal-recall-router';
 
 export async function executeAdamSynthesisTurn(input: {
   shell: AdamChatTurnShell;
@@ -105,6 +114,23 @@ export async function executeAdamSynthesisTurn(input: {
   const llmMessages = toLlmMessages(contextMessages);
   const maxTokens = resolveAdamMaxTokens(modelChoice.tier, isFounder, mode);
   const lightChat = isAdamLightChatTurn(userMessage);
+
+  const searchBundle = await injectTurnSearchPrefetch({
+    systemPrompt:       initialPrompt,
+    studentSearchFirst,
+    webSearchGateReason,
+    turnContext,
+    userMessage,
+    llmMessages,
+    resolvedSessionId,
+    onEvent,
+  });
+
+  const goldStandardSearchFirst = studentSearchFirst
+    && isFactualAdamWebSearchGateReason(webSearchGateReason)
+    && searchBundle.prefetchedSearchUsed
+    && !searchBundle.prefetchedSearchDropped;
+
   const enableThinking = resolveQwenEnableThinking(
     modelChoice.tier,
     mode,
@@ -112,18 +138,29 @@ export async function executeAdamSynthesisTurn(input: {
       founderTeachingAbsorption: founderTeachingLearnerTurn,
       isStudent:                 !isFounder,
       lightChat,
+      searchFirstSynthesis:      goldStandardSearchFirst,
     },
   );
 
-  const searchBundle = await injectTurnSearchPrefetch({
-    systemPrompt:       initialPrompt,
-    studentSearchFirst,
-    turnContext,
-    userMessage,
-    llmMessages,
-    resolvedSessionId,
-    onEvent,
-  });
+  let goldStandardVerifiedFigure: string | null = null;
+  let goldStandardArticleReady = false;
+  if (goldStandardSearchFirst) {
+    const fastResult = await resolveGoldStandardSearchFirstReply({
+      userMessage,
+      searchResults:  searchBundle.prefetchedSearchResults,
+      extractedFacts: searchBundle.extractedFacts,
+    });
+    searchBundle.prefetchedSearchResults = fastResult.evidence;
+    searchBundle.extractedFacts = fastResult.extractedFacts;
+    goldStandardArticleReady = evidenceHasGoldStandardArticle(fastResult.evidence, userMessage);
+    goldStandardVerifiedFigure = fastResult.verifiedFigure;
+    searchBundle.systemPrompt = appendGoldStandardSynthesisContextToPrompt(
+      initialPrompt,
+      userMessage,
+      fastResult.evidence,
+      fastResult.extractedFacts,
+    );
+  }
 
   const streamOnce = createAdamLlmStreamOnce({
     modelChoice,
@@ -134,16 +171,20 @@ export async function executeAdamSynthesisTurn(input: {
     userMessage,
     precisionActive: precisionTurn.isActive,
     webSearchGateReason,
+    bufferChunksUntilRepair: false,
     onEvent,
   });
 
-  let fullResponse: string;
+  let fullResponse = '';
   let sectionJournalComplete = false;
   let sectionDraftMap: Partial<Record<JournalSectionId, string>> | undefined;
   let streamMs = 0;
   let repairMs = 0;
   let syncRepairMs = 0;
   let sanitizedRepairApplied = false;
+  let rawModelStreamForBrain = '';
+  let webSearchUsedThisTurn = false;
+  let preserveStreamBody = false;
 
   if (mode === 'JOURNAL_GEN' && isFounder) {
     const journalResult = await streamAdamJournalResponse({
@@ -167,30 +208,76 @@ export async function executeAdamSynthesisTurn(input: {
     repairMs = journalResult.repairMs;
     onEvent('adam_stream_idle', JSON.stringify({ sessionId: resolvedSessionId }));
   } else {
-    const streamStarted = Date.now();
-    const synthesisWithSearch = enableWebSearch && !studentSearchFirst;
-    const streamResult = await streamOnce(llmMessages, synthesisWithSearch);
-    if (studentSearchFirst) {
-      streamResult.searchResults = searchBundle.prefetchedSearchResults;
-      streamResult.searchUsed = searchBundle.prefetchedSearchUsed;
-      streamResult.searchDroppedByFilter = searchBundle.prefetchedSearchDropped;
+    if (goldStandardSearchFirst && goldStandardArticleReady) {
+      console.log('[adam:search-first] gold standard — ADAM full-voice synthesis', JSON.stringify({
+        sessionId: resolvedSessionId,
+        hits:      searchBundle.prefetchedSearchResults.length,
+        hasFigure: goldStandardVerifiedFigure !== null,
+      }));
+    } else if (goldStandardSearchFirst && goldStandardVerifiedFigure) {
+      console.log('[adam:search-first] gold standard — synthesis with verified opener', JSON.stringify({
+        sessionId: resolvedSessionId,
+        figure:    goldStandardVerifiedFigure,
+        hits:      searchBundle.prefetchedSearchResults.length,
+      }));
+    } else if (goldStandardSearchFirst) {
+      console.log('[adam:search-first] gold standard — guarded synthesis fallback', JSON.stringify({
+        sessionId: resolvedSessionId,
+        hits:      searchBundle.prefetchedSearchResults.length,
+      }));
     }
-    const rawModelStream = streamResult.text;
-    streamMs = Date.now() - streamStarted;
-    onEvent('adam_stream_idle', JSON.stringify({ sessionId: resolvedSessionId }));
 
-    const repairResult = await repairAdamStreamOutput({
-      shell,
-      rawModelStream,
-      teachingFlags,
-      recentUserTurns,
-      recentAssistantTurns,
-      mode,
-    });
-    fullResponse = repairResult.fullResponse;
-    repairMs = repairResult.repairMs;
-    syncRepairMs = repairResult.syncRepairMs;
-    sanitizedRepairApplied = repairResult.sanitizedRepairApplied;
+    if (!fullResponse) {
+      const streamStarted = Date.now();
+      const synthesisWithSearch = enableWebSearch && !studentSearchFirst;
+      const streamResult = await streamOnce(llmMessages, synthesisWithSearch);
+      if (studentSearchFirst) {
+        streamResult.searchResults = searchBundle.prefetchedSearchResults;
+        streamResult.searchUsed = searchBundle.prefetchedSearchUsed;
+        streamResult.searchDroppedByFilter = searchBundle.prefetchedSearchDropped;
+      }
+      webSearchUsedThisTurn = Boolean(
+        enableWebSearch
+        && (streamResult.searchUsed || searchBundle.prefetchedSearchUsed),
+      );
+      const rawModelStream = streamResult.text;
+      rawModelStreamForBrain = rawModelStream;
+      streamMs = Date.now() - streamStarted;
+      onEvent('adam_stream_idle', JSON.stringify({ sessionId: resolvedSessionId }));
+
+      const searchEvidence = searchBundle.prefetchedSearchResults.length > 0
+        ? searchBundle.prefetchedSearchResults
+        : streamResult.searchResults;
+
+      const repairResult = await repairAdamStreamOutput({
+        shell,
+        rawModelStream,
+        teachingFlags,
+        recentUserTurns,
+        recentAssistantTurns,
+        mode,
+        searchResults: searchEvidence,
+        searchUsed: streamResult.searchUsed || searchBundle.prefetchedSearchUsed,
+        searchDroppedByFilter: streamResult.searchDroppedByFilter
+          || searchBundle.prefetchedSearchDropped,
+        extractedFacts: searchBundle.extractedFacts,
+      });
+      fullResponse = repairResult.fullResponse;
+      repairMs = repairResult.repairMs;
+      syncRepairMs = repairResult.syncRepairMs;
+      sanitizedRepairApplied = repairResult.sanitizedRepairApplied;
+      const alphaStatTurn = isVerifiedDataStatAsk(userMessage);
+      const searchRan = searchBundle.prefetchedSearchUsed && !searchBundle.prefetchedSearchDropped;
+
+      if (alphaStatTurn && searchRan) {
+        preserveStreamBody = true;
+        fullResponse = alphaStatPersistedStreamBody(rawModelStream);
+      } else {
+        fullResponse = resolveAdamTurnDisplayForSave(rawModelStream, fullResponse, {
+          forceReplace: sanitizedRepairApplied && isAdamCurrentAffairsTurn(userMessage),
+        });
+      }
+    }
   }
 
   console.log(
@@ -245,15 +332,8 @@ export async function executeAdamSynthesisTurn(input: {
   if (persistResult?.sections) {
     sectionDraftMap = persistResult.sections;
   }
-  if (persistResult?.mergedDisplay) {
+  if (persistResult?.mergedDisplay && !preserveStreamBody) {
     fullResponse = persistResult.mergedDisplay;
-  }
-  if (isFounder && fullResponse?.trim()) {
-    onEvent('adam_stream_done', JSON.stringify({
-      sessionId: resolvedSessionId,
-      replace:   true,
-      response:  fullResponse,
-    }));
   }
 
   await finishAdamChatTurn({
@@ -263,7 +343,17 @@ export async function executeAdamSynthesisTurn(input: {
     sectionJournalComplete,
     sectionDraftMap,
     sanitizedRepairApplied,
+    preserveStreamBody,
     modelChoice,
     workspace,
+    turnBrainMeta: !isFounder && mode !== 'JOURNAL_GEN'
+      ? {
+        recallLoaded: detectContextRecallLoaded(turnContext.contextMessages),
+        webSearchUsed: webSearchUsedThisTurn,
+        rawModelStream: rawModelStreamForBrain || undefined,
+        recentUserMessages: recentUserTurns,
+        recentAssistantMessages: recentAssistantTurns,
+      }
+      : undefined,
   });
 }

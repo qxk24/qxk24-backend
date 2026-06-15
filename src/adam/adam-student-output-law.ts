@@ -109,8 +109,10 @@ export function paragraphIsConstitutionalFrameworkLeak(paragraph: string): boole
   const t = paragraph.trim();
   if (/\bDari\s+sudut\s+Alamtologi\b/i.test(t)) return true;
   if (/\bFrom\s+an\s+Alamtologi\s+perspective\b/i.test(t)) return true;
-  if (/\bDalam\s+lensa\s+Alamtologi\b/i.test(t)) return true;
+  if (/\bDalam\s+(?:lensa|perspektif)\s+Alamtologi\b/i.test(t)) return true;
   if (/\bperspektif\s+Alamtologi\b/i.test(t)) return true;
+  if (/\bhukum\s+Z\b/i.test(t)) return true;
+  if (/\bpola,\s*kadar,\s*pasangan,\s*(?:dan\s+)?keseimbangan\b/i.test(t)) return true;
   if (/\b(?:titik\s+pertemuan|Hukum\s+Peleraian|ritual\s+penyelarasan)\b/i.test(t)) {
     return true;
   }
@@ -152,6 +154,36 @@ export function rewriteDualLaneEssayLabels(text: string): string {
       ),
     )
     .join('\n');
+}
+
+/** Quranic gloss / Arabic / Pencipta sermon on tier-1 science without faith door. */
+export function paragraphIsUnsolicitedTier1FaithWeave(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/[\u0600-\u06FF]/.test(t)) return true;
+  if (/Kata\s+["'«]?\w+["'»]?\s*\(/i.test(t) && /[\u0600-\u06FF]/.test(t)) return true;
+  if (/\bmenegakkan\b/i.test(t) && /[\u0600-\u06FF]/.test(t)) return true;
+  if (/\bkebijaksanaan\s+Pencipta\b/i.test(t)) return true;
+  if (/\btanda\s+kekuasaan\s+dan\s+hikmah\b/i.test(t)) return true;
+  if (/\bmengembalikan\s+manusia\s+kepada\s+Pencipta\b/i.test(t)) return true;
+  if (/\bbukan\s+kebetulan\b/i.test(t) && /\b(?:Pencipta|hikmah|kekuasaan)\b/i.test(t)) return true;
+  if (/\bkeadaan\s+optimum\b/i.test(t) && /\b(?:Pencipta|hikmah|radiasi\s+kosmik)\b/i.test(t) && t.length > 120) {
+    return true;
+  }
+  if (/\bilmu\s+ini\s+tidak\s+bertentangan\s+dengan\s+hikmah\b/i.test(t)) return true;
+  if (/\bfirman\s+Allah\b/i.test(t)) return true;
+  if (/\bAn-Naziat\b/i.test(t)) return true;
+  if (/\bdihamparkanNya\b/i.test(t)) return true;
+  if (/\bdihamparkan\s+dengan\s+kebijaksanaan\b/i.test(t)) return true;
+  if (/\bMaknanya\s+bukan\s+[""]rata[""]/i.test(t)) return true;
+  return false;
+}
+
+/** Science anchors — keep paragraph when faith leak is inline-strippable. */
+export function paragraphHasSubstantiveScienceAnchors(paragraph: string): boolean {
+  return /\b(?:geoid|GRACE|GOCE|GPS|graviti|Newton|satelit|gerhana|flattening|6,?378|\$\$|g_\{|g_\{\\text|pemutaran|sentrifugal|khatulistiwa)\b/i.test(
+    paragraph,
+  );
 }
 
 /** Faith sermon / doa ritual when user did not open the faith door. */
@@ -493,6 +525,31 @@ export function rewriteNumberedOutlineToBoldLabels(text: string): string {
     .join('\n');
 }
 
+/** Guest/student display — restore paragraph breaks after guard flattening. */
+export function normalizeConsumerParagraphBreaks(text: string): string {
+  let out = text.trim();
+  if (!out) return out;
+
+  out = out.replace(/([.!?…])\n(?=[A-ZÀ-ÿ"(\[]|Secara |Bayangkan |Adakah |Yang |Ini |QA,)/g, '$1\n\n');
+  out = out.replace(
+    /([.!?…])\s+(?=(?:Secara (?:saintifik|ilmu|formula)|Bayangkan |Adakah |Yang menarik|Ini disebabkan|Nilai |Di mana ))/gi,
+    '$1\n\n',
+  );
+
+  if (!/\n{2,}/.test(out) && out.length > 320) {
+    out = out.replace(
+      /([.!?…])\s+(?=[A-ZÀ-ÿ][a-zà-ÿ]{2,})/g,
+      (match, punct, offset, whole) => {
+        const before = whole.slice(Math.max(0, offset - 8), offset);
+        if (/[\d$\\]$/.test(before.trim())) return match;
+        return `${punct}\n\n`;
+      },
+    );
+  }
+
+  return out.replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /** Remove **bold** / *italic* markers — guest chat renders plain text, not markdown. */
 export function stripConsumerMarkdownEmphasis(text: string): string {
   return text
@@ -583,7 +640,22 @@ export function paragraphShouldStripForUniversalVoice(
   if (paragraphIsFounderTeachingVoiceLeak(paragraph)) return true;
   if (paragraphIsThreeTierDoorOffer(paragraph)) return false;
   if (!options.alamtologiOk && paragraphIsConstitutionalFrameworkLeak(paragraph)) return true;
+  if (
+    !options.faithOk
+    && paragraphIsUnsolicitedFaithSermon(paragraph)
+    && paragraphHasSubstantiveScienceAnchors(paragraph)
+  ) {
+    return false;
+  }
+  if (
+    !options.faithOk
+    && paragraphIsUnsolicitedTier1FaithWeave(paragraph)
+    && paragraphHasSubstantiveScienceAnchors(paragraph)
+  ) {
+    return false;
+  }
   if (!options.faithOk && paragraphIsUnsolicitedFaithSermon(paragraph)) return true;
+  if (!options.faithOk && paragraphIsUnsolicitedTier1FaithWeave(paragraph)) return true;
   if (paragraphIsTutorPerformanceLeak(paragraph)) return true;
   if (paragraphIsCoachingScriptClosing(paragraph)) return true;
   if (paragraphIsOrdinalSyllabusLeak(paragraph)) return true;
@@ -685,6 +757,59 @@ export function stripBmPracticalEssayInline(text: string): string {
     .replace(/[^.!?]*\bbukan sekadar menyampaikan ilmu[^.!?]*[.!?]+/gi, ' ')
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/** Strip faith/Quran sentences from one science paragraph — preserve line/paragraph breaks. */
+function stripScienceFaithParagraph(paragraph: string): string {
+  let out = paragraph
+    .replace(/[^.!?]*[\u0600-\u06FF][^.!?]*[.!?]+/gu, ' ')
+    .replace(/[^.!?]*\bKata\s+["'«][^"'»]+["'»]\s*\([^)]*[\u0600-\u06FF][^)]*\)[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bkebijaksanaan\s+Pencipta\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bilmu\s+ini\s+tidak\s+bertentangan\s+dengan\s+hikmah\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\btanda\s+kekuasaan\s+dan\s+hikmah\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bKedu-dua\s+tidak\s+bertentangan\s+dengan\s+firman\s+Allah\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bfirman\s+Allah\s+dalam\s+Surah\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bSurah\s+An-Naziat\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bSurah\s+[A-Za-z][A-Za-z'\-]*\s+ayat\s+\d+[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bdihamparkanNya\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bMaknanya\s+bukan\s+[""]rata[""][^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bdihamparkan\s+dengan\s+kebijaksanaan\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bsetiap\s+lengkungnya\s+mengatur\s+iklim[^.!?]*[.!?]+/gi, ' ')
+    .replace(/^\s*["'«]\s*/gm, '')
+    .trim();
+
+  const faithSentence = (s: string): boolean => {
+    const t = s.trim();
+    if (!t) return true;
+    if (/\b(?:firman\s+Allah|Surah\s+An-Naziat|dihamparkanNya|dihamparkan\s+dengan\s+kebijaksanaan)\b/i.test(t)) {
+      return true;
+    }
+    return /Maknanya\s+bukan\s+[""]rata/i.test(t);
+  };
+
+  return out
+    .split(/\n/)
+    .map((line) =>
+      line
+        .split(/(?<=[.!?])\s+/)
+        .filter((sentence) => !faithSentence(sentence))
+        .join(' ')
+        .trim(),
+    )
+    .filter(Boolean)
+    .join('\n')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/** Science/nature tier-1 — strip Arabic gloss, Surah tafsir, Pencipta sermon inline. */
+export function stripScienceFaithInline(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .map((para) => stripScienceFaithParagraph(para.trim()))
+    .filter(Boolean)
+    .join('\n\n')
     .trim();
 }
 

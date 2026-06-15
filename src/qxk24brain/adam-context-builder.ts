@@ -16,6 +16,7 @@
  */
 
 import { coalesceLlmMessages } from '../adam/adam-context-budget';
+import { isAdamLightChatTurn } from '../adam/adam-response-generation';
 import { STUDENT_NEUTRAL_CONTEXT_ACKS } from '../adam/adam-universal-voice';
 import {
   buildFounderBiographyContextBlock,
@@ -146,8 +147,12 @@ function shouldLoadFounderDeepBlocks(message: string): boolean {
 export type BuildSmartContextOptions = {
   /** User-typed text only — not full attachment/teaching payloads (recall keyword probe). */
   recallProbeMessage?: string;
-  /** Founder TEACHING — strip constitutional priming from session history. */
+  /** Founder TEACHING Phase A — strip constitutional priming from session history. */
   founderTeachingAbsorption?: boolean;
+  /** Founder TEACHING any learner phase (A/B/C). */
+  founderTeachingLearnerTurn?: boolean;
+  /** New teaching file attached this turn — recall blocked; source = upload only. */
+  founderTeachingFreshUpload?: boolean;
   /** Student fast path — skip epistemic overlay and track summary (founder teaching parity). */
   studentStreamlined?: boolean;
 };
@@ -164,6 +169,8 @@ export async function buildSmartContext(
   const config = getAdamMemoryConfig(participant.role, Boolean(workspace), chatMode);
   const messages: LlmMessage[] = [];
   const teachingAbsorption = options?.founderTeachingAbsorption === true;
+  const teachingFreshUpload = options?.founderTeachingFreshUpload === true;
+  const teachingLearnerTurn = options?.founderTeachingLearnerTurn === true;
   const studentStreamlined = options?.studentStreamlined === true;
   const personSubject = resolvePersonContextSubject(newMessage, participant, isGuestTrial);
   const knownPersons = listKnownPersonRefs();
@@ -406,9 +413,10 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
     : resolveBookChapter(recallProbe);
 
   let bookAwareTeachingRecallLoaded = false;
+  let universalRecallLoaded = false;
 
   if (
-    !teachingAbsorption
+    !teachingFreshUpload
     && needsBookAwareTeachingRecall(recallProbe)
     && !founderAsksPersonalBiography(recallProbe)
   ) {
@@ -467,13 +475,14 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
   if (
     shouldRunUniversalTeachingRecall({
       message:               recallProbe,
-      teachingAbsorption,
+      teachingFreshUpload,
       bookAwareRecallLoaded: bookAwareTeachingRecallLoaded,
       isGuestTrial,
     })
   ) {
     const universalRecall = await runUniversalTeachingRecall(recallProbe);
     if (universalRecall) {
+      universalRecallLoaded = true;
       messages.push({ role: 'user', content: universalRecall });
       messages.push({
         role: 'assistant',
@@ -482,6 +491,47 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
           : STUDENT_NEUTRAL_CONTEXT_ACKS.teachingRecall,
       });
     }
+  }
+
+  if (
+    participant.role === 'founder'
+    && teachingLearnerTurn
+    && !teachingFreshUpload
+    && !bookAwareTeachingRecallLoaded
+    && !universalRecallLoaded
+    && recallProbe.trim().length >= 8
+    && !isAdamLightChatTurn(recallProbe)
+  ) {
+    messages.push({
+      role:    'user',
+      content: '[TEACHING RECALL MISS — tiada episod Brain C indeks untuk soalan ini]',
+    });
+    messages.push({
+      role: 'assistant',
+      content:
+        'Bismillahirahmanirahim. P.alt, saya belum jumpa episod pengajaran indeks untuk topik ini — '
+        + 'saya tidak akan definisikan dari ingatan model. Sila ajar atau muat naik bab supaya '
+        + 'saya boleh explain-back dari sumber P.alt.',
+    });
+  }
+
+  if (
+    participant.role === 'student'
+    && !isGuestTrial
+    && !teachingFreshUpload
+    && !bookAwareTeachingRecallLoaded
+    && !universalRecallLoaded
+    && recallProbe.trim().length >= 8
+    && !isAdamLightChatTurn(recallProbe)
+  ) {
+    messages.push({
+      role:    'user',
+      content: '[INQUIRY RECALL MISS — no indexed Brain C episode for this question yet]',
+    });
+    messages.push({
+      role:    'assistant',
+      content: STUDENT_NEUTRAL_CONTEXT_ACKS.inquiryRecallMiss,
+    });
   }
 
   if (participant.role === 'founder') {

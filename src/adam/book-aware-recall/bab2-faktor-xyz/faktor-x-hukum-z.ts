@@ -21,8 +21,14 @@
 export const FAKTOR_X_POLA = `
 [2.3 — POLA X — METERAI P.ALT]
 
-X mempunyai pola X — asas bentuk/pola berdasarkan ABA:
-segi empat sama sisi (2D) · kiub (3D). Huraian lengkap ABA → Bab 3 Hukum ALAMTOLOGI.
+X mempunyai pola X — asas bentuk/pola berdasarkan ABA (Asas Bentuk Alam):
+segi empat sama sisi (2D) · kiub (3D).
+
+HAD KAEDAH — Bab 2 (rujuk sahaja, bukan huraian penuh ABA):
+• Huraian lengkap asas gerakan XKN → Bab 3 Bahagian Hukum Z.
+• Huraian lengkap ABA → Bab 3 Hukum Alamtologi (topik Hukum Z).
+• DILARANG: "Asas Bentuk ALAMTOLOGI" — ABA = Asas Bentuk Alam (meterai P.alt).
+• DILARANG mengembangkan ABA penuh dari meterai Pola X Bab 2 — jawab huraian dari Bab 3 + Brain C.
 
 Gambar rajah 2.20: Bentuk Pola X dalam Keadaan Pasif dan Aktif
 • Pola Pasif — paksi condong (X); segi empat merah (skala 1–6 setiap lengan)

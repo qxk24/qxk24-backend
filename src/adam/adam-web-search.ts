@@ -14,9 +14,17 @@
 import { ENV } from '../config/environments';
 import { parseQuranAyahRefs } from '../quran/quran-ayah-parser';
 import { isUserEntityCorrectionMessage } from './adam-factual-grounding';
-import { isAdamLightChatTurn, isAdamSubstantiveTurn } from './adam-response-generation';
+import {
+  isAdamLightChatTurn,
+  isAdamSimpleFactualTurn,
+  isAdamSubstantiveTurn,
+  stripLeadingAdamSalutation,
+} from './adam-response-generation';
+import { isDirectTechnicalHowToQuestion } from './adam-direct-technical-law';
 import { isTechnicalPrecisionQuestion } from './adam-universal-voice';
-import { buildFounderWebSearchPrompt } from './adam-web-search-prompts';
+import { extractDomainsFromMessageUrls } from './adam-official-source-enrich';
+import { buildFounderWebSearchPrompt, buildStudentWebSearchPrompt } from './adam-web-search-prompts';
+import { extractDashScopeApiHost, isDashScopeIntlHost } from '../llm/dashscope-search';
 
 export { ADAM_STUDENT_REPLY_PIPELINE } from './adam-search-first';
 
@@ -39,9 +47,34 @@ export {
 const EXPLICIT_WEB_SEARCH =
   /\b(cuba\s+search|carian\s+web|search\s+the\s+web|web\s+search|google|mencari\s+(?:di\s+)?internet|search\s+online|search\s+tentang)\b/i;
 
-// ── Pure greeting — no search needed ────────────────────────────────────────
-const GREETING_ONLY =
-  /^(salam|assalamu|waalaikum|bismillah|hi|hello|terima\s+kasih|thank\s+you|syukran|good\s+(morning|afternoon|evening|night))\b/i;
+/** User asks for latest data, verification, or fresh study — search even when C exists. */
+const EXPLICIT_FRESHNESS =
+  /\b(latest|terbaru|new\s+study|kajian\s+terbaru|verify|sahkan|confirm|double[\s-]?check|most\s+recent|kemaskini|updated|202[4-9])\b/i;
+
+/** Gate reasons that require factual web grounding before ADAM answers. */
+export const FACTUAL_ADAM_WEB_SEARCH_GATE_REASONS = new Set([
+  'explicit_search',
+  'current_affairs',
+  'technical_follow_up',
+  'technical_precision',
+  'entity_correction',
+  'verified_data_stat',
+  'substantive_conventional',
+  'factual_question',
+]);
+
+export function isFactualAdamWebSearchGateReason(reason: string | null): boolean {
+  return reason !== null && FACTUAL_ADAM_WEB_SEARCH_GATE_REASONS.has(reason);
+}
+
+/** Institutional / enrollment figures — always verify on web, never brain-only. */
+const VERIFIED_DATA_STAT_ASK =
+  /\b(?:jumlah|bilangan|berapa\s+(?:ramai\s+)?(?:orang|pelajar|murid|siswa|kakitangan|staff)|statistik|statistic|enrollment|maklumat\s+(?:jumlah|rasmi)|official\s+(?:figure|number|data)|data\s+(?:rasmi|terkini)|total\s+students?)\b/i;
+
+export function isVerifiedDataStatAsk(message: string): boolean {
+  const body = stripLeadingAdamSalutation(message.trim());
+  return VERIFIED_DATA_STAT_ASK.test(body);
+}
 
 // ── Pure opinion / reflection — no external data needed ─────────────────────
 const PURE_REFLECTION =
@@ -74,11 +107,18 @@ export function getAdamWebSearchPrompt(
     recentUserMessages?: string[];
     /** Search-first flow — prefetch already injected into system context. */
     searchPrefetched?: boolean;
+    /** Institutional enrollment / official statistics — forced live search. */
+    verifiedDataStat?: boolean;
   },
 ): string {
   if (!isFounder) {
-    // Founder-shaped agent search — model decides when to search; no mandatory prefetch voice.
-    return buildFounderWebSearchPrompt('default');
+    if (options?.searchPrefetched) {
+      return buildStudentWebSearchPrompt('prefetched');
+    }
+    if (options?.verifiedDataStat) {
+      return buildStudentWebSearchPrompt('verified_data_stat');
+    }
+    return buildStudentWebSearchPrompt('agent_default');
   }
 
   if (options?.founderTeachingSynthesis) {
@@ -94,20 +134,63 @@ export function getAdamWebSearchPrompt(
 export const getFounderWebSearchPrompt = getAdamWebSearchPrompt;
 
 /** DashScope search_options passed to API */
-export function buildQwenSearchOptions(forcedSearch = false): Record<string, unknown> {
-  const options: Record<string, unknown> = {
-    search_strategy: ENV.QWEN_SEARCH_STRATEGY,
+export function buildQwenSearchOptions(
+  forcedSearch = false,
+  options?: { assignedSites?: string[]; searchStrategy?: string },
+): Record<string, unknown> {
+  const strategy = normalizeDashScopeSearchStrategy(options?.searchStrategy);
+  const searchOptions: Record<string, unknown> = {
+    search_strategy: strategy,
     forced_search:   forcedSearch,
   };
   if (ENV.QWEN_SEARCH_ENABLE_CITATION) {
-    options.enable_citation = true;
+    searchOptions.enable_citation = true;
   }
-  return options;
+  searchOptions.enable_source = true;
+  if (ENV.QWEN_SEARCH_PREPEND_RESULTS) {
+    searchOptions.prepend_search_result = true;
+  }
+  const sites = options?.assignedSites?.map((s) => s.trim()).filter(Boolean).slice(0, 25);
+  if (sites?.length) {
+    searchOptions.assigned_site_list = sites;
+  }
+  return searchOptions;
 }
 
-/** Inline Qwen search — force retrieval when office-holders / news may have changed. */
+/** Optional DashScope site focus — only hostnames from URLs pasted in the question. */
+export function buildVerifiedDataStatSearchSites(message: string): string[] | undefined {
+  const domains = extractDomainsFromMessageUrls(message);
+  return domains.length > 0 ? domains : undefined;
+}
+
+/** DashScope site focus for global health/career factual asks — improves RN hit rate on intl. */
+export function buildFactualCareerSearchSites(message: string): string[] | undefined {
+  const body = stripLeadingAdamSalutation(message.trim());
+  if (!/\b(?:registered nurse|nursing|nurse|midwife|healthcare career)\b/i.test(body)) {
+    return undefined;
+  }
+  return ['healthcareers.nhs.uk', 'nhs.uk', 'who.int'];
+}
+
+/** DashScope search strategy for stat prefetch — agent on intl (max returns China-index hits). */
+export function resolveVerifiedDataStatSearchStrategy(): string {
+  return 'agent';
+}
+
+/** Map legacy "max" to agent on intl — prevents China-web index on global factual turns. */
+export function normalizeDashScopeSearchStrategy(
+  strategy: string | undefined,
+  nativeHost?: string,
+): string {
+  const raw = strategy?.trim() || ENV.QWEN_SEARCH_STRATEGY;
+  const host = nativeHost?.trim() || extractDashScopeApiHost(ENV.QWEN_API_BASE);
+  if (isDashScopeIntlHost(host) && raw === 'max') return 'agent';
+  return raw;
+}
+
+/** Inline Qwen search — force retrieval when live factual data must not be skipped. */
 export function shouldForceWebSearchForGateReason(reason: string | null): boolean {
-  return reason === 'current_affairs';
+  return isFactualAdamWebSearchGateReason(reason);
 }
 
 /** Office-holders, elections, breaking news — search before answering. */
@@ -115,6 +198,29 @@ export function isAdamCurrentAffairsTurn(message: string): boolean {
   const text = message.trim();
   if (!text) return false;
   return CURRENT_AFFAIRS.test(text);
+}
+
+/** User explicitly wants fresh verification — overrides brain-first skip. */
+export function isExplicitFreshnessRequest(message: string): boolean {
+  const text = message.trim();
+  if (!text) return false;
+  return EXPLICIT_FRESHNESS.test(text) || EXPLICIT_WEB_SEARCH.test(text);
+}
+
+export interface BrainFirstSearchSkipInput {
+  message:              string;
+  brainRecallLoaded:    boolean;
+  technicalFollowUp?:   boolean;
+}
+
+/**
+ * Gold Standard default — search runs on every substantive turn even when Brain C recall loaded.
+ * Brain-first search skip is disabled so live evidence always grounds α figures and β Phase 1B.
+ */
+export function shouldSkipSearchWhenRecallHitStableTopic(
+  _input: BrainFirstSearchSkipInput,
+): boolean {
+  return false;
 }
 
 /**
@@ -138,6 +244,8 @@ export function getWebSearchGateReason(
      * conventional theory / scientific grounding (Explain-Back Phase 1B).
      */
     studentFounderParity?: boolean;
+    /** Indexed Brain C episode loaded this turn — brain-first may skip search. */
+    brainRecallLoaded?: boolean;
   },
 ): string | null {
   if (!adamWebSearchEnabled()) return null;
@@ -145,14 +253,25 @@ export function getWebSearchGateReason(
   const text = message.trim();
   if (!text) return null;
 
+  const brainFirstSkip = !options?.studentFounderParity
+    && shouldSkipSearchWhenRecallHitStableTopic({
+      message:            text,
+      brainRecallLoaded:  options?.brainRecallLoaded === true,
+      technicalFollowUp:  options?.technicalFollowUp,
+    });
+  if (brainFirstSkip) return null;
+
   if (options?.studentFounderParity) {
     if (EXPLICIT_WEB_SEARCH.test(text)) return 'explicit_search';
     if (CURRENT_AFFAIRS.test(text)) return 'current_affairs';
+    if (isVerifiedDataStatAsk(text)) return 'verified_data_stat';
     if (options?.technicalFollowUp) return 'technical_follow_up';
     if (isTechnicalPrecisionQuestion(text)) return 'technical_precision';
     if (isUserEntityCorrectionMessage(text)) return 'entity_correction';
-    if (GREETING_ONLY.test(text) || isAdamLightChatTurn(text)) return null;
+    if (isAdamLightChatTurn(text)) return null;
     if (PURE_REFLECTION.test(text)) return null;
+    if (isAdamSimpleFactualTurn(text)) return 'factual_question';
+    if (isDirectTechnicalHowToQuestion(text)) return 'factual_question';
     if (isAdamSubstantiveTurn(text)) return 'substantive_conventional';
     return null;
   }
@@ -171,17 +290,22 @@ export function getWebSearchGateReason(
 
   if (CURRENT_AFFAIRS.test(text)) return 'current_affairs';
 
+  if (isVerifiedDataStatAsk(text)) return 'verified_data_stat';
+
   if (options?.technicalFollowUp) return 'technical_follow_up';
+
+  if (isTechnicalPrecisionQuestion(text)) return 'technical_precision';
 
   if (isUserEntityCorrectionMessage(text)) return 'entity_correction';
 
   if (text.length < 8) return null;
 
-  if (GREETING_ONLY.test(text)) return null;
+  if (isAdamLightChatTurn(text)) return null;
+  if (PURE_REFLECTION.test(text)) return null;
+  if (isAdamSimpleFactualTurn(text)) return 'factual_question';
+  if (isDirectTechnicalHowToQuestion(text)) return 'factual_question';
 
   if (parseQuranAyahRefs(text).length > 0) return null;
-
-  if (PURE_REFLECTION.test(text)) return null;
 
   if (
     options?.isFounder &&

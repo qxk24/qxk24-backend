@@ -186,6 +186,12 @@ describe('Student founder parity search gate', () => {
     expect(
       getWebSearchGateReason('SALAM', { studentFounderParity: true }),
     ).toBeNull();
+    expect(
+      getWebSearchGateReason(
+        'Salam Adam, Bagikan maklumat jumlah pelajar KPTM',
+        { studentFounderParity: true },
+      ),
+    ).toBe('verified_data_stat');
   });
 
   it('enables search for direct technical specs and entity correction', () => {

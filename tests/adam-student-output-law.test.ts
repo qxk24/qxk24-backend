@@ -129,6 +129,33 @@ describe('Malay layout prose rewrites', () => {
   });
 });
 
+describe('normalizeConsumerParagraphBreaks', () => {
+  it('restores paragraph gaps after guard flattening', async () => {
+    const { normalizeConsumerParagraphBreaks } = await import('../src/adam/adam-student-output-law');
+    const flat = [
+      'Secara saintifik, bumi berbentuk geoid.',
+      'Ini disebabkan oleh putaran bumi pada paksinya.',
+      'Data GRACE mengukur geoid dengan tepat.',
+    ].join(' ');
+    const out = normalizeConsumerParagraphBreaks(flat);
+    expect(out.split(/\n{2,}/).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('sanitizeStudentOutputSync — paragraph layout', () => {
+  it('keeps paragraph breaks on guest-style science reply', () => {
+    const raw = [
+      'Secara saintifik, bumi berbentuk geoid.',
+      '',
+      'Ini disebabkan oleh putaran bumi.',
+      '',
+      'GRACE dan GOCE memetakan geoid.',
+    ].join('\n');
+    const out = sanitizeStudentOutputSync(raw, 'Apa bentuk bumi?');
+    expect(out.split(/\n{2,}/).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe('sanitizeStudentOutputSync — Fasa 4 pronoun guard', () => {
   it('syncs forbidden pronouns in full pipeline', () => {
     const raw = 'Bismillahirahmanirrahim.\n\nAku rasa kamu perlu berehat sebentar.';

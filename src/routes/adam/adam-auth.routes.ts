@@ -16,11 +16,12 @@
  */
 
 import { Hono } from 'hono';
-import { sign, verify } from 'jsonwebtoken';
+import { verify } from 'jsonwebtoken';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { ENV } from '../../config/environments';
-import { getFounderPassword, verifyFounderPassword } from '../../config/founder-auth';
+import { getFounderPassword } from '../../config/founder-auth';
+import { attemptUnifiedAdamLogin } from '../../adam/adam-unified-login.service';
 import { requireFounder } from '../../middleware/auth.middleware';
 import { getAccountLane } from '../../adam/adam-student-registry.service';
 import { ADAMFounderSessionModel } from '../../adam/adam.schema';
@@ -33,6 +34,7 @@ import { adamSleepProtocol } from '../../qxk24brain/adam-sleep-wake.service';
 const router = new Hono();
 
 const LoginSchema = z.object({
+  username: z.string().optional().default(''),
   password: z.string().min(1),
 });
 
@@ -47,55 +49,50 @@ router.get('/login-hint', async (c) => {
   });
 });
 
-// POST /api/adam/auth/login
+// POST /api/adam/auth/login — same unified sign-in as /api/adam/student/login
 router.post('/login', zValidator('json', LoginSchema), async (c) => {
-  const { password } = c.req.valid('json');
-  const submitted = password.trim();
-  const founderPassword = getFounderPassword();
+  const { username, password } = c.req.valid('json');
+  const result = await attemptUnifiedAdamLogin(username, password);
 
-  if (!founderPassword) {
-    await new Promise((r) => setTimeout(r, 1000));
-    return c.json({
-      success: false,
-      error:   'Founder login is not configured on this server.',
-      kernel:  'ALAMTOLOGI',
-    }, 503);
+  if (result.kind === 'failure') {
+    return c.json(
+      {
+        success: false,
+        error:   result.error,
+        hint:    result.hint,
+        kernel:  'ALAMTOLOGI',
+      },
+      result.status,
+    );
   }
 
-  if (!verifyFounderPassword(submitted, founderPassword)) {
-    await new Promise((r) => setTimeout(r, 1000));
-    const lengthMismatch = submitted.length !== founderPassword.length;
+  if (result.kind === 'founder') {
     return c.json({
-      success: false,
-      error:   'Access denied.',
-      hint:    lengthMismatch
-        ? `You entered ${submitted.length} characters; this server expects ${founderPassword.length}. Check # and * at the end.`
-        : 'Characters count matches but the password is wrong — use Show password and retype (avoid autofill from student login).',
-      kernel:  'ALAMTOLOGI',
-    }, 401);
-  }
-
-  const token = sign(
-    {
-      userId:    'masa-bayu',
-      role:      'founder',
-      isFounder: true,
-      name:      'Masa Bayu',
-      kernel:    ENV.QXK24_KERNEL_VERSION,
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      version:   ENV.QXK24_KERNEL_VERSION,
       era:       ENV.QXK24_ERA,
-    },
-    ENV.JWT_SECRET,
-    { expiresIn: '30d' },
-  );
+      data: {
+        token:       result.token,
+        role:        'founder',
+        userId:      result.userId,
+        name:        result.name,
+        founderName: result.name,
+        expiresIn:   '30d',
+      },
+      timestamp: new Date().toISOString(),
+    });
+  }
 
   return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    version:   ENV.QXK24_KERNEL_VERSION,
-    era:       ENV.QXK24_ERA,
+    success: true,
+    kernel:  'ALAMTOLOGI',
     data: {
-      token,
-      founderName: 'Masa Bayu',
+      token:       result.token,
+      role:        result.role,
+      userId:      result.userId,
+      name:        result.name,
+      accountLane: result.accountLane,
       expiresIn:   '30d',
     },
     timestamp: new Date().toISOString(),

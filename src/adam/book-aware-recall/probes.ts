@@ -324,6 +324,7 @@ export const FORMULA_XYZ_PROBES: ChapterProbe[] = [
     searchTerms:    [
       'faktor xyz', 'faktor x y z', 'ketetapan y', 'formula xyz bab 2',
       'faktor x', 'faktor y', 'faktor z', 'pelaku x', 'pencipta y',
+      'pola X', 'pola x', 'LATI', 'segi empat sama sisi', 'kiub',
     ],
     patterns:       [
       /\bfaktor\s*xyz\b/i,
@@ -331,6 +332,9 @@ export const FORMULA_XYZ_PROBES: ChapterProbe[] = [
       /\bformula\s+xyz\b[^.\n]{0,40}\bbab\s*(?:2|dua)\b/i,
       /\bbab\s*(?:2|dua)\b[^.\n]{0,40}\bfaktor\b/i,
       /\bketetapan\s+y\b/i,
+      /\bbab\s*(?:2|dua)\b[^.\n]{0,40}\b(?:pola\s+x|ABA)\b/i,
+      /\bpola\s+x\b[^.\n]{0,40}\bbab\s*(?:2|dua)\b/i,
+      /\bLATI\b/i,
     ],
   },
   {
@@ -340,8 +344,12 @@ export const FORMULA_XYZ_PROBES: ChapterProbe[] = [
       'hukum alamtologi', 'hukum z', 'hukum x', 'hukum peleraian',
       'pola kadar pasangan keseimbangan', 'formula xyz bab 3',
       'empat hukum alam', 'empat hukum manusia', 'bab 3 hukum',
+      'ABA', 'Asas Bentuk Alam', 'asas bentuk alam', 'XKN', 'garisan sifar',
     ],
     patterns:       [
+      /\b(?:apa\s+(?:itu|ialah|maksud)\s+)?ABA\b/i,
+      /\bAsas\s+Bentuk\s+Alam\b/i,
+      /\bABA\b[^.\n]{0,60}\b(?:hukum\s+z|pola|kadar|pasangan|keseimbangan|XKN|LATI)\b/i,
       /\bhukum\s+alamtologi\b/i,
       /\bhukum\s+z\b/i,
       /\bhukum\s+x\b/i,

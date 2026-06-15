@@ -17,13 +17,16 @@
 
 import { isQwenDataInspectionError, llmStream } from '../llm/llm-client';
 import type { LlmMessage, LlmSearchResult } from '../llm/llm-types';
-import { shouldForceWebSearchForGateReason } from './adam-web-search';
+import {
+  isAdamCurrentAffairsTurn,
+  isVerifiedDataStatAsk,
+  shouldForceWebSearchForGateReason,
+} from './adam-web-search';
 import { repairEastAsianScriptLeak } from './adam-language-guard';
 import {
   buildStudentGreetingFallback,
   isAdamLightChatTurn,
 } from './adam-response-generation';
-import { isAdamCurrentAffairsTurn } from './adam-web-search';
 import {
   buildTutorGreetingFallback,
   isAdamTutorMode,
@@ -31,7 +34,9 @@ import {
 import {
   applyStudentSurfaceOutputRepair,
   resolveStudentStreamSurface,
+  studentStreamBodyWasGutted,
 } from './adam-student-output-guard';
+import { alphaStatPersistedStreamBody } from './adam-stat-stream-preserve';
 import { outputHasScannableListStructure } from './adam-student-output-law';
 import {
   sanitizeFounderTeachingQuranFormat,
@@ -50,6 +55,7 @@ import {
 } from './adam-teaching-state-machine';
 import { repairStaleOfficeHolderOutput } from './adam-current-affairs';
 import { repairFormulaXyzStreamOutput } from './adam-book-aware-recall';
+import { stripMisplacedPracticalCareerDoor } from './adam-universal-scholar';
 import type { ResolvedAdamModel } from '../config/llm-models';
 import type { ADAMChatMode, SSEEventType } from './adam.types';
 import type { AdamChatTurnShell } from './adam-chat-stream.types';
@@ -76,6 +82,7 @@ export function createAdamLlmStreamOnce(input: {
   userMessage: string;
   precisionActive: boolean;
   webSearchGateReason?: string | null;
+  bufferChunksUntilRepair?: boolean;
   onEvent: (event: SSEEventType, data: string) => void;
 }): AdamLlmStreamOnceFn {
   const {
@@ -87,10 +94,11 @@ export function createAdamLlmStreamOnce(input: {
     userMessage,
     precisionActive,
     webSearchGateReason,
+    bufferChunksUntilRepair,
     onEvent,
   } = input;
 
-  const bufferStreamForPostRepair = false;
+  const bufferStreamForPostRepair = bufferChunksUntilRepair === true;
   const forceWebSearch = shouldForceWebSearchForGateReason(webSearchGateReason ?? null);
 
   return async (messages, withSearch) => {
@@ -103,6 +111,7 @@ export function createAdamLlmStreamOnce(input: {
         enableWebSearch: search,
         forceWebSearch:  search && forceWebSearch,
         enableThinking,
+        searchDisplayQuery: userMessage.trim().slice(0, 120) || 'Mencari data sebenar…',
         onEvent:         (event, data) => {
           if (bufferStreamForPostRepair && event === 'adam_chunk') return;
           onEvent(event as SSEEventType, data);
@@ -168,6 +177,10 @@ export async function repairAdamStreamOutput(input: {
   recentUserTurns: string[];
   recentAssistantTurns?: string[];
   mode: ADAMChatMode;
+  searchResults?: LlmSearchResult[];
+  searchUsed?: boolean;
+  searchDroppedByFilter?: boolean;
+  extractedFacts?: string;
 }): Promise<StreamRepairResult> {
   const {
     shell,
@@ -176,6 +189,10 @@ export async function repairAdamStreamOutput(input: {
     recentUserTurns,
     recentAssistantTurns = [],
     mode,
+    searchResults = [],
+    searchUsed = false,
+    searchDroppedByFilter = false,
+    extractedFacts = '',
   } = input;
   const {
     isFounder,
@@ -194,7 +211,14 @@ export async function repairAdamStreamOutput(input: {
   let fullResponse = await repairEastAsianScriptLeak(rawModelStream, userMessage);
 
   if (isFounder) {
-    fullResponse = repairFormulaXyzStreamOutput(fullResponse, userMessage);
+    if (!founderTeachingLearnerTurn) {
+      fullResponse = repairFormulaXyzStreamOutput(fullResponse, userMessage);
+      fullResponse = stripMisplacedPracticalCareerDoor(
+        fullResponse,
+        userMessage,
+        recentUserTurns,
+      );
+    }
     fullResponse = restoreFounderPaltAddress(fullResponse);
     if (!founderTeachingLearnerTurn) {
       fullResponse = repairStaleOfficeHolderOutput(fullResponse, userMessage);
@@ -211,39 +235,53 @@ export async function repairAdamStreamOutput(input: {
     }
   } else if (!isFounder) {
     const syncStarted = Date.now();
-    let surface = applyStudentSurfaceOutputRepair(
-      fullResponse,
-      userMessage,
-      recentUserTurns,
-      recentAssistantTurns,
-    );
-    syncRepairMs = Date.now() - syncStarted;
-    if (!surface.trim() && isAdamLightChatTurn(userMessage)) {
-      surface = buildStudentGreetingFallback(userMessage, participant.userName);
+    const alphaStatTurn = isVerifiedDataStatAsk(userMessage);
+
+    if (alphaStatTurn) {
+      fullResponse = alphaStatPersistedStreamBody(rawModelStream);
+      syncRepairMs = Date.now() - syncStarted;
+    } else {
+      let surface = applyStudentSurfaceOutputRepair(
+        fullResponse,
+        userMessage,
+        recentUserTurns,
+        recentAssistantTurns,
+      );
+      syncRepairMs = Date.now() - syncStarted;
+      if (!surface.trim() && isAdamLightChatTurn(userMessage)) {
+        surface = buildStudentGreetingFallback(userMessage, participant.userName);
+      }
+      const preferSanitized = isAdamCurrentAffairsTurn(userMessage);
+      const streamGutted = studentStreamBodyWasGutted(rawModelStream, surface);
+      if (streamGutted) {
+        fullResponse = alphaStatPersistedStreamBody(rawModelStream);
+      } else {
+        const resolved = resolveStudentStreamSurface(rawModelStream, surface, {
+          preferSanitized,
+          preserveStreamBody: false,
+        });
+        const structurePreservingReplace = Boolean(
+          resolved.streamReplace
+          && preferSanitized
+          && (
+            !outputHasScannableListStructure(rawModelStream)
+            || outputHasScannableListStructure(resolved.fullResponse)
+          ),
+        );
+        if (structurePreservingReplace) {
+          sanitizedRepairApplied = true;
+          onEvent('adam_stream_done', JSON.stringify({
+            sessionId:           resolvedSessionId,
+            replace:               true,
+            sanitizedRepair:       true,
+            briefTier1Repair:      false,
+            structurePreserving:   true,
+            response:              resolved.streamReplace,
+          }));
+        }
+        fullResponse = resolved.fullResponse;
+      }
     }
-    const preferSanitized = isAdamCurrentAffairsTurn(userMessage);
-    const resolved = resolveStudentStreamSurface(rawModelStream, surface, {
-      preferSanitized,
-    });
-    const structurePreservingReplace = Boolean(
-      resolved.streamReplace
-      && (
-        !outputHasScannableListStructure(rawModelStream)
-        || outputHasScannableListStructure(resolved.fullResponse)
-      ),
-    );
-    if (structurePreservingReplace) {
-      sanitizedRepairApplied = preferSanitized;
-      onEvent('adam_stream_done', JSON.stringify({
-        sessionId:        resolvedSessionId,
-        replace:            true,
-        sanitizedRepair:    preferSanitized,
-        structurePreserving: true,
-        briefTier1Repair:   false,
-        response:           resolved.streamReplace,
-      }));
-    }
-    fullResponse = resolved.fullResponse;
   } else if (founderTeachingLearnerTurn) {
     fullResponse = sanitizeFounderTeachingQuranFormat(fullResponse);
     fullResponse = syncSanitizeFounderTeachingOutput(fullResponse);

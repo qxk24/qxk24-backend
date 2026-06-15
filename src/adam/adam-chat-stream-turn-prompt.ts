@@ -19,6 +19,7 @@ import {
   adamWebSearchEnabled,
   getAdamWebSearchPrompt,
   getWebSearchGateReason,
+  isVerifiedDataStatAsk,
 } from './adam-web-search';
 import { extractRecentUserTurns, extractRecentAssistantTurns, resolveTechnicalPrecisionTurn } from './adam-factual-grounding';
 import { shouldStudentUseSearchFirstFlow } from './adam-search-first';
@@ -103,18 +104,19 @@ export async function buildTurnPromptAndSearchGate(input: {
       isFounder,
       hasTeachingUpload: shell.teaching.fileNames.length > 0,
       founderTeachingSynthesis: true,
+      brainRecallLoaded: turnContext.brainRecallLoaded,
     })
     : founderTeachingLearnerTurn
       ? null
       : getWebSearchGateReason(userMessage, {
         isFounder,
-        technicalFollowUp: precisionTurn.isFollowUp,
+        technicalFollowUp: precisionTurn.isFollowUp && !isVerifiedDataStatAsk(messageForAdam),
         studentFounderParity: !isFounder,
+        brainRecallLoaded: turnContext.brainRecallLoaded,
       });
 
   const enableWebSearch = Boolean(webSearchGateReason);
-  const studentSearchFirst =
-    !isFounder && shouldStudentUseSearchFirstFlow(false, webSearchGateReason);
+  const studentSearchFirst = shouldStudentUseSearchFirstFlow(isFounder, webSearchGateReason);
   const studentKnowledgeTier = !isFounder && !isTutorLane && !isNiagaLane && !isResearchLane
     ? resolveStudentKnowledgeTier(messageForAdam, recentUserTurns, recentAssistantTurns)
     : isResearchLane ? 2 as const : undefined;
@@ -150,6 +152,7 @@ export async function buildTurnPromptAndSearchGate(input: {
           userMessage: messageForAdam,
           recentUserMessages: recentUserTurns,
           searchPrefetched: studentSearchFirst,
+          verifiedDataStat: webSearchGateReason === 'verified_data_stat',
         })
         : undefined,
   });

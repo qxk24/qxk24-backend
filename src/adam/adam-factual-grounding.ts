@@ -19,7 +19,7 @@
  */
 
 import type { LlmMessage } from '../llm/llm-types';
-import { isAdamLightChatTurn } from './adam-response-generation';
+import { isAdamLightChatTurn, stripLeadingAdamSalutation } from './adam-response-generation';
 import { paragraphIsFounderTeachingVoiceLeak } from './adam-student-output-law';
 import { isTechnicalPrecisionQuestion, userOpenedFaithDoor } from './adam-universal-voice';
 import { paragraphIsUniversalScholarDoorOffer } from './adam-universal-scholar';
@@ -35,6 +35,15 @@ export interface TechnicalPrecisionTurnContext {
 
 const TECHNICAL_FOLLOW_UP_CUE =
   /^(?:dan\s+)?(?:yang\s+)?(?:exclusive|elite|standard|pro|max|plus|premium|manual|auto|automatik|pula|juga|tu\s*plk|itu\s*plk|yang\s+tu|the\s+other|what\s+about|how\s+about|berapa\s+lg|bandingkan|compare|kelajuan|transmisi|tork|torque|spek|spesifikasi)\b/i;
+
+/** Mirror adam-web-search VERIFIED_DATA_STAT_ASK — keep in sync; no circular import. */
+const INSTITUTIONAL_STAT_ASK_RE =
+  /\b(?:jumlah|bilangan|berapa\s+(?:ramai\s+)?(?:orang|pelajar|murid|siswa|kakitangan|staff)|statistik|statistic|enrollment|maklumat\s+(?:jumlah|rasmi)|official\s+(?:figure|number|data)|data\s+(?:rasmi|terkini)|total\s+students?)\b/i;
+
+function isInstitutionalStatAskMessage(message: string): boolean {
+  const body = stripLeadingAdamSalutation(message.trim());
+  return INSTITUTIONAL_STAT_ASK_RE.test(body);
+}
 
 const TECHNICAL_FOLLOW_UP_BLOCK = `
 TECHNICAL FOLLOW-UP TURN:
@@ -125,6 +134,7 @@ export function isTechnicalFollowUpMessage(
 ): boolean {
   const t = message.trim();
   if (!t || isTechnicalPrecisionQuestion(t)) return false;
+  if (isInstitutionalStatAskMessage(t)) return false;
   if (isAdamLightChatTurn(t)) return false;
   if (!recentUserMessages.some((m) => isTechnicalPrecisionQuestion(m))) return false;
   if (TECHNICAL_FOLLOW_UP_CUE.test(t)) return true;
@@ -137,6 +147,9 @@ export function resolveTechnicalPrecisionTurn(
   recentUserMessages: string[],
 ): TechnicalPrecisionTurnContext {
   const current = currentMessage.trim();
+  if (isInstitutionalStatAskMessage(current)) {
+    return { isActive: false, isFollowUp: false, precisionText: current };
+  }
   const isDirect = isTechnicalPrecisionQuestion(current);
   const isFollowUp = !isDirect && isTechnicalFollowUpMessage(current, recentUserMessages);
   const isActive = isDirect || isFollowUp;

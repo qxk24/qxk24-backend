@@ -23,7 +23,18 @@ import { isAdamCurrentAffairsTurn } from './adam-web-search';
 
 /** Short factual or capability question — answer directly, no philosophy essay. */
 const SIMPLE_FACTUAL_ASK =
-  /\b(?:how many|berapa|berapa\s+banyak|who is|siapa(?:lah)?|what is|apa(?:kah)?\s+(?:itu|ialah)|when was|bila|where is|di\s+mana|which country|negara\s+mana|current|sekarang|kini|presiden|president|prime minister|menteri|capital|languages?|bahasa|understand|faham|speak|boleh\s+bercakap)\b/i;
+  /\b(?:how many|berapa|berapa\s+banyak|berapa\s+(?:orang|pelajar|murid|siswa)|who is|siapa(?:lah)?|what is|apa(?:kah)?\s+(?:itu|ialah)|when was|bila|where is|di\s+mana|which country|negara\s+mana|current|sekarang|kini|presiden|president|prime minister|menteri|capital|languages?|bahasa|understand|faham|speak|boleh\s+bercakap|jumlah|bilangan|statistik|maklumat|bagikan|berikan|share)\b/i;
+
+/** Strip leading salam/hi — "Salam Adam, berapa…" keeps the factual ask. */
+export function stripLeadingAdamSalutation(message: string): string {
+  return message
+    .trim()
+    .replace(
+      /^(?:salam(?:\s+(?:adam|qa|qa\.?))?|assalamu(?:\s*alaikum)?|waalaikum(?:\s*ssalam)?|bismillah|hi(?:\s+(?:adam|qa))?|hello(?:\s+(?:adam|qa))?|hey)[,!.\s—-]+/i,
+      '',
+    )
+    .trim();
+}
 
 export function isAdamSimpleFactualTurn(message: string): boolean {
   const t = message.trim();
@@ -37,6 +48,12 @@ export function isAdamSimpleFactualTurn(message: string): boolean {
 export function isAdamLightChatTurn(message: string): boolean {
   const t = message.trim();
   if (!t) return true;
+
+  const afterSalutation = stripLeadingAdamSalutation(t);
+  if (afterSalutation !== t && afterSalutation.length >= 10) {
+    return false;
+  }
+
   if (
     t.length <= 120 &&
     /^(salam|assalamu|waalaikum|bismillah|hi|hello|hey|terima\s+kasih|thank\s+you|syukran|thanks|good\s+(morning|afternoon|evening|night)|apa\s+khabar|how\s+are\s+you)\b/i.test(
@@ -128,6 +145,17 @@ export function isAdamTeachingDepthTurn(message: string): boolean {
   if (TEACHING_DEPTH_ASK.test(t)) return true;
   if (isAdamContinuationDepthTurn(t)) return true;
   return false;
+}
+
+/** Science / nature / faith+science synthesis — tier-1 universal voice strip (no Alamtologi billboards). */
+const SCIENCE_NATURE_SYNTHESIS_ASK =
+  /\b(?:bumi|earth|bulat|flat|rata|geoid|graviti|gravity|orbit|bentuk|planet|gerhana|eclipse|magellan|NASA|ESA|JAXA|angkasa|cuaca|iklim|fotosintesis|photosynthesis|evolusi|evolution|diabetes|insulin|remission|saintifik|science|universe|alam\s+semesta|kosmos|relativiti|kuantum|black\s+hole|lubang\s+hitam|teori\s+(?:bumi|earth|rata|flat))\b/i;
+
+export function isAdamScienceNatureSynthesisTurn(message: string): boolean {
+  const t = message.trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  if (isAdamPracticalAdvisoryTurn(t)) return false;
+  return SCIENCE_NATURE_SYNTHESIS_ASK.test(t);
 }
 
 /** When the student corrects a wrong brand/model — acknowledge, do not invent. */
@@ -333,18 +361,18 @@ FORBIDDEN VOICE:
 - Copy-paste Teaching-room / P.alt voice to students — never "P.alt", AMA 124, AIDIL, lerai (PL)/digabung (PG), or dual-option menus ("Adakah ingin saya terangkan… atau kongsikan ayat…").
 `.trim();
 
-/** Student Layer 5 — same Qawlan architecture as Founder; hygiene differs only in visible notation. */
+/** User Layer 5 — same Qawlan architecture as Founder; hygiene differs only in visible notation. */
 export const ADAM_LAYER5_STUDENT_DELIVERY = `
-LAYER 5 — STUDENT TURN (Universal Scholar gold standard):
+LAYER 5 — USER TURN (Universal Scholar gold standard):
 
 ${ADAM_FIVE_RESPONSE_FORMS}
 
 ${ADAM_RESPONSE_PG_LANGUAGE}
 
 DELIVERY:
-- Do NOT open with Bismillah on student turns.
-- Mirror the student's language (BM, English, Arabic, or mix).
-- Tier 1: conventional verified data first; mandatory neutral closing question on substantive turns.
+- Do NOT open with Bismillah on User turns.
+- Mirror the User's language (BM, English, Arabic, or mix).
+- Follow Answer Profile: α L5 optional; β L5 tamparan jiwa mandatory (see Explain-Back Law CLOSE).
 - Tier 2+: Brain C depth after user opt-in — universal scholar voice, not doctrine push.
 - Scientist-scholar: search → synthesize in your voice — not copy-paste, not clinical memo.
 - Technical: verified numbers/units first; say honestly when search is thin.
@@ -352,7 +380,7 @@ DELIVERY:
 - NEVER Teaching-room addressing — no "P.alt", AMA/AIDIL/PL/PG codes, no dual-option menus.
 
 FORBIDDEN on tier 1: Bismillah, Alamtologi/Quran billboards, three-layer essays, unsolicited faith.
-FORBIDDEN: long coaching menus — ONE neutral closing question only (see Universal Scholar Charter).
+FORBIDDEN: long coaching menus — no filler L5 on α turns already complete at L1.
 `.trim();
 
 /** @deprecated Use ADAM_LAYER5_STUDENT_DELIVERY — kept for imports. */

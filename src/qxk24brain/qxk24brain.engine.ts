@@ -15,9 +15,10 @@
  * ============================================================
  *
  * A + B = C
- * A = ADAM's current unified being (master)
+ * A = ADAM's accumulated sources (master + indexed episodes — see Unified Transform Engine)
  * B = Founder's new message (evidence — persists in Kotak 3 when AMA v2)
  * C = New structural principle (Kotak 2 when AMA v2; legacy: new A)
+ * Student inquiry channel: adam-transform-turn.ts (aSource: inquiry)
  */
 
 import { resolveBrainDeepModel } from '../config/llm-models';

@@ -211,16 +211,30 @@ export const ENV = {
   QXK24_SUCCESSION_ENCRYPTION_KEY: optional('QXK24_SUCCESSION_ENCRYPTION_KEY'),
 
   /**
-   * Student chat latency — true = one LLM call with inline web search (default, faster).
-   * false = blocking search-first prefetch before synthesis (slower, stricter separation).
-   * Does not change memory or output token limits.
+   * Legacy telemetry flag — student factual turns always use search-first prefetch
+   * when the web-search gate is open (see adam-search-first.ts). Does not change
+   * memory or output token limits.
    */
-  ADAM_STUDENT_INLINE_SEARCH: optional('ADAM_STUDENT_INLINE_SEARCH', 'true') === 'true',
+  ADAM_STUDENT_INLINE_SEARCH: optional('ADAM_STUDENT_INLINE_SEARCH', 'false') === 'true',
+  /** Unified transform engine — inquiry channel grows Brain C from student questions */
+  ADAM_UNIFIED_TRANSFORM: optional('ADAM_UNIFIED_TRANSFORM', 'true') === 'true',
+  ADAM_INQUIRY_TRANSFORM: optional('ADAM_INQUIRY_TRANSFORM', 'true') === 'true',
+  /** P4 — gated audit merge of inquiry C into master.unifiedUnderstanding (default off) */
+  ADAM_INQUIRY_MASTER_MERGE: optional('ADAM_INQUIRY_MASTER_MERGE', 'false') === 'true',
 
   /** DashScope web search (agent = model decides when to search) */
   QWEN_ENABLE_SEARCH: optional('QWEN_ENABLE_SEARCH', 'true') === 'true',
   QWEN_SEARCH_STRATEGY: optional('QWEN_SEARCH_STRATEGY', 'agent'),
   QWEN_SEARCH_ENABLE_CITATION: optional('QWEN_SEARCH_ENABLE_CITATION', 'true') === 'true',
+  /**
+   * Optional native DashScope host for prefetch search only (not chat completions).
+   * Example: https://dashscope.aliyuncs.com or https://dashscope-intl.aliyuncs.com
+   */
+  QWEN_SEARCH_NATIVE_HOST: optional('QWEN_SEARCH_NATIVE_HOST', ''),
+  /** Second native host to try when primary returns 0 search hits (region-scoped API keys). */
+  QWEN_SEARCH_FALLBACK_NATIVE_HOST: optional('QWEN_SEARCH_FALLBACK_NATIVE_HOST', ''),
+  /** Native SSE prefetch — prepend_search_result surfaces hits in first SSE chunk. */
+  QWEN_SEARCH_PREPEND_RESULTS: optional('QWEN_SEARCH_PREPEND_RESULTS', 'true') === 'true',
   /** Hybrid Qwen models — false skips reasoning phase for much faster replies */
   QWEN_ENABLE_THINKING: optional('QWEN_ENABLE_THINKING', 'false') === 'true',
 

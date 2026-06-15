@@ -26,8 +26,12 @@ export type LlmStreamEventHandler = (event: string, data: string) => void;
 
 /** DashScope web-search hit surfaced during streaming (SuNom picu lerai). */
 export interface LlmSearchResult {
-  title?: string;
-  url?:   string;
+  title?:   string;
+  url?:     string;
+  /** DashScope may surface page summary/snippet when available. */
+  snippet?: string;
+  /** True when snippet was built from a full HTML page fetch — never from search API alone. */
+  pageFetched?: boolean;
 }
 
 export interface LlmStreamResult {
@@ -43,10 +47,16 @@ export interface LlmCompleteParams {
 }
 
 export interface LlmStreamParams extends LlmCompleteParams {
-  enableWebSearch?:   boolean;
-  forceWebSearch?:    boolean;
-  enableThinking?:    boolean;
-  onEvent?:           LlmStreamEventHandler;
+  enableWebSearch?:      boolean;
+  forceWebSearch?:       boolean;
+  enableThinking?:       boolean;
+  /** Shown in adam_searching SSE — usually the student's question. */
+  searchDisplayQuery?:   string;
+  /** DashScope assigned_site_list — up to 25 domains for focused retrieval. */
+  searchAssignedSites?:  string[];
+  /** Override ENV.QWEN_SEARCH_STRATEGY for this call (e.g. max for stat prefetch). */
+  searchStrategy?:       string;
+  onEvent?:              LlmStreamEventHandler;
 }
 
 /** Pass-through after coalesce — kept for call-site stability. */

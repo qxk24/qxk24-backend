@@ -27,28 +27,33 @@ describe('universal recall router gate', () => {
   it('runs on substantive questions without bab keyword', () => {
     expect(shouldRunUniversalTeachingRecall({
       message: 'Apa bentuk bumi dan kenapa kelihatan bulat?',
-      teachingAbsorption: false,
+      teachingFreshUpload: false,
       bookAwareRecallLoaded: false,
     })).toBe(true);
   });
 
-  it('skips light chat and founder teaching absorption', () => {
+  it('skips light chat and fresh-upload explain-back only', () => {
     expect(shouldRunUniversalTeachingRecall({
       message: 'Terima kasih ADAM',
-      teachingAbsorption: false,
+      teachingFreshUpload: false,
       bookAwareRecallLoaded: false,
     })).toBe(false);
     expect(shouldRunUniversalTeachingRecall({
       message: 'Kupas bab ini.',
-      teachingAbsorption: true,
+      teachingFreshUpload: true,
       bookAwareRecallLoaded: false,
     })).toBe(false);
+    expect(shouldRunUniversalTeachingRecall({
+      message: 'Apa maksud ABA dalam bab tadi?',
+      teachingFreshUpload: false,
+      bookAwareRecallLoaded: false,
+    })).toBe(true);
   });
 
   it('skips when book-aware recall already loaded', () => {
     expect(shouldRunUniversalTeachingRecall({
       message: 'Terangkan faktor xyz',
-      teachingAbsorption: false,
+      teachingFreshUpload: false,
       bookAwareRecallLoaded: true,
     })).toBe(false);
   });
@@ -56,7 +61,7 @@ describe('universal recall router gate', () => {
   it('skips guest trial', () => {
     expect(shouldRunUniversalTeachingRecall({
       message: 'Apa bentuk bumi?',
-      teachingAbsorption: false,
+      teachingFreshUpload: false,
       bookAwareRecallLoaded: false,
       isGuestTrial: true,
     })).toBe(false);
@@ -65,7 +70,7 @@ describe('universal recall router gate', () => {
   it('skips founder personal biography recall probe', () => {
     expect(shouldRunUniversalTeachingRecall({
       message: 'Adam kena rujuk kisah saya dari kecil',
-      teachingAbsorption: false,
+      teachingFreshUpload: false,
       bookAwareRecallLoaded: false,
     })).toBe(false);
   });
@@ -87,7 +92,7 @@ describe('universal recall policy alignment', () => {
       founderStudentsBlock: '',
       studentKnowledgeTier: 1,
     });
-    expect(prompt).toMatch(/teaching recall episodes are in context/i);
+    expect(prompt).toMatch(/Teaching recall in context|UNIVERSAL TEACHING RECALL/i);
     expect(prompt).toMatch(/EXPLAIN-BACK LAW/);
   });
 });

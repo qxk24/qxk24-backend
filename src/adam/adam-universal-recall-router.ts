@@ -14,9 +14,9 @@
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
- * Every substantive turn (not only bab/buku keywords) searches teaching
- * records and loads relevant Brain C episodes into context — one channel
- * for all questions, no per-topic hardcode.
+ * Every substantive turn searches teaching records and loads Brain C
+ * episodes — no per-topic hardcode. Fresh upload explain-back is
+ * the only teaching turn that skips recall (source = file only).
  */
 
 import { founderAsksPersonalBiography } from './adam-knowledge-prompts';
@@ -25,22 +25,23 @@ import { buildUniversalTeachingRecallBlock } from '../qxk24brain/adam-teaching-r
 import { FOUNDER_USER_ID } from './adam-student.types';
 
 export interface UniversalRecallRouterInput {
-  message:              string;
-  teachingAbsorption:   boolean;
+  message:               string;
+  /** New file this turn — explain-back from [FOUNDER TEACHING DATA] only. */
+  teachingFreshUpload:   boolean;
   bookAwareRecallLoaded: boolean;
-  isGuestTrial?:        boolean;
+  isGuestTrial?:         boolean;
 }
 
-/** Gate universal recall — substantive turns outside Founder Teaching absorption. */
+/** Gate universal recall — substantive turns; skip fresh-upload explain-back only. */
 export function shouldRunUniversalTeachingRecall(input: UniversalRecallRouterInput): boolean {
   const {
     message,
-    teachingAbsorption,
+    teachingFreshUpload,
     bookAwareRecallLoaded,
     isGuestTrial = false,
   } = input;
 
-  if (teachingAbsorption) return false;
+  if (teachingFreshUpload) return false;
   if (bookAwareRecallLoaded) return false;
   if (isGuestTrial) return false;
 
@@ -57,4 +58,13 @@ export async function runUniversalTeachingRecall(
   founderId = FOUNDER_USER_ID,
 ): Promise<string | null> {
   return buildUniversalTeachingRecallBlock(founderId, userMessage.trim());
+}
+
+/** Whether context messages include indexed Brain C recall blocks this turn. */
+export function detectContextRecallLoaded(
+  messages: ReadonlyArray<{ content?: string }>,
+): boolean {
+  return messages.some((m) =>
+    /\[(?:UNIVERSAL TEACHING RECALL|P\.ALT TEACHING RECORDS)/i.test(m.content ?? ''),
+  );
 }

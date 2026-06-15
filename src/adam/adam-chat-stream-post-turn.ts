@@ -27,13 +27,16 @@ import { allJournalSectionsComplete, type JournalSectionId } from './adam-journa
 import { generateK24Address, saveMessage } from './adam-chat-session.service';
 import { checkMemoryHealthCached } from '../qxk24brain/adam-health.service';
 import { triggerBrainTransformation } from '../qxk24brain/qxk24brain.engine';
+import { ENV } from '../config/environments';
 import { shouldAppendEpisodicB } from '../lib/ama/ama-episodic-gate';
 import { updateSessionSummary } from '../qxk24brain/adam-anchor.service';
 import { appendWorkspaceUnderstanding } from './adam-workspace.service';
 import { writeStudentStateAfterTurn } from './student-continuity-bridge';
 import { deleteTeachingUploads } from './adam-upload.service';
+import { triggerTransformTurn } from './adam-transform-turn';
+import { isGuestUserId } from '../freemium/adam-freemium-guest.service';
+import { resolveStudentKnowledgeTier } from './adam-universal-scholar';
 import type { JournalGenContext, AdamChatTurnShell } from './adam-chat-stream.types';
-import { persistInteractiveJournalDraft } from './adam-chat-stream-journal-persist';
 import {
   buildFinalResponseForSave,
   parseAdamTurnBlocks,
@@ -42,6 +45,14 @@ import { handleAdamTurnRelays } from './adam-chat-stream-post-relay';
 
 export { persistInteractiveJournalDraft } from './adam-chat-stream-journal-persist';
 
+export interface AdamTurnBrainMeta {
+  recallLoaded:             boolean;
+  webSearchUsed:            boolean;
+  rawModelStream?:          string;
+  recentUserMessages?:      string[];
+  recentAssistantMessages?: string[];
+}
+
 export async function finishAdamChatTurn(input: {
   shell:                  AdamChatTurnShell;
   fullResponse:           string;
@@ -49,6 +60,8 @@ export async function finishAdamChatTurn(input: {
   sectionJournalComplete: boolean;
   sectionDraftMap?:       Partial<Record<JournalSectionId, string>>;
   sanitizedRepairApplied?: boolean;
+  preserveStreamBody?:     boolean;
+  turnBrainMeta?:         AdamTurnBrainMeta;
   modelChoice: {
     model:  string;
     tier:   string;
@@ -168,6 +181,7 @@ export async function finishAdamChatTurn(input: {
     principleApplied: parsed.principleApplied,
     response:         finalResponse,
     sanitizedRepair:  input.sanitizedRepairApplied === true,
+    preserveStreamBody: input.preserveStreamBody === true,
     mode:             shell.mode,
     needsConsult:     parsed.consult.needsConsult && !shell.isFounder,
     model:            modelChoice.model,
@@ -189,15 +203,27 @@ export async function finishAdamChatTurn(input: {
       uploadIds:       shell.uploadIds,
       teachingContext: shell.teaching.context,
     });
-    void triggerBrainTransformation(
-      shell.messageForAdam,
-      FOUNDER_USER_ID,
-      shell.resolvedSessionId,
-      {
-        founderMessageId:   shell.userMessageId,
+    if (ENV.ADAM_UNIFIED_TRANSFORM) {
+      triggerTransformTurn({
+        aSource:            'founder',
+        isFounder:          true,
+        founderId:          FOUNDER_USER_ID,
+        sessionId:          shell.resolvedSessionId,
+        userMessageId:      shell.userMessageId,
+        userMessage:        shell.messageForAdam,
         skipEpisodicAppend: !appendEpisodicB,
-      },
-    ).catch((err) => console.error('[Alamtologi Brain] Founder transformation:', err));
+      });
+    } else {
+      void triggerBrainTransformation(
+        shell.messageForAdam,
+        FOUNDER_USER_ID,
+        shell.resolvedSessionId,
+        {
+          founderMessageId:   shell.userMessageId,
+          skipEpisodicAppend: !appendEpisodicB,
+        },
+      ).catch((err) => console.error('[Alamtologi Brain] Founder transformation:', err));
+    }
     void updateSessionSummary(shell.resolvedSessionId, FOUNDER_USER_ID).catch(() => {});
   }
 
@@ -217,6 +243,32 @@ export async function finishAdamChatTurn(input: {
       finalResponse,
       shell.userMessage,
     );
+
+    const isGuestTrial = isGuestUserId(shell.participant.userId);
+    const isTutorLane = shell.participant.sessionType === 'tutor';
+    if (!isTutorLane) {
+      const recentUser = input.turnBrainMeta?.recentUserMessages ?? [];
+      const recentAssistant = input.turnBrainMeta?.recentAssistantMessages ?? [];
+      const tier = resolveStudentKnowledgeTier(
+        shell.normalizedMessage,
+        recentUser,
+        recentAssistant,
+      );
+      triggerTransformTurn({
+        sessionId:            shell.resolvedSessionId,
+        userMessageId:        shell.userMessageId,
+        studentId:            shell.participant.userId,
+        studentName:          shell.participant.userName,
+        userMessage:          shell.normalizedMessage,
+        finalResponse,
+        rawModelStream:       input.turnBrainMeta?.rawModelStream,
+        recallLoaded:         input.turnBrainMeta?.recallLoaded === true,
+        webSearchUsed:        input.turnBrainMeta?.webSearchUsed === true,
+        isGuestTrial,
+        isFounder:            false,
+        studentKnowledgeTier: tier,
+      });
+    }
   }
 
   if (shell.teaching.uploadIds.length) {

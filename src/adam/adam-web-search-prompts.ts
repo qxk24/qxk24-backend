@@ -78,6 +78,16 @@ Synthesize ONLY from those hits — same natural ADAM voice, not a database dump
 ${STUDENT_SEARCH_NATURAL_BASE}
 `.trim();
 
+const STUDENT_VERIFIED_DATA_STAT_DELTA = `
+INSTITUTIONAL STATISTICS — enrollment, student counts, official figures:
+- Run web search BEFORE stating any number — forced this turn.
+- Disambiguate acronyms using search hits — never assume from training memory alone.
+- Blok 1 DIRECT: state the figure from search if a hit title/URL supports it — session/year + source domain.
+- If no figure in search hits: one honest gap sentence — never invent 14,823-style precision, laporan tahunan years, or press-release dates.
+- FORBIDDEN openers: "Soalan anda berkaitan…", "Saya telah menjalankan carian…" before the answer.
+- Never "not in my context" or "no web access" — search already ran.
+`.trim();
+
 const STUDENT_EXPLANATORY_SCIENCE_DELTA = `
 EXPLANATORY SCIENCE — warm tutor at the table, not hospital pamphlet.
 One short human acknowledge, then mechanisms in flowing paragraphs from search hits.
@@ -107,6 +117,7 @@ HOW TO USE SEARCH RESULTS (founder turn):
 export type StudentWebSearchVariant =
   | 'agent_default'
   | 'prefetched'
+  | 'verified_data_stat'
   | 'explanatory_science'
   | 'life_substantive'
   | 'technical_precision'
@@ -127,6 +138,14 @@ export function buildStudentWebSearchPrompt(
       return joinWebSearchSections(
         'YOUR WEB SEARCH (student turn — ALREADY COMPLETED BEFORE THIS REPLY):',
         STUDENT_PREFETCHED_DELTA,
+        ADAM_CITATION_HONESTY,
+      );
+    case 'verified_data_stat':
+      return joinWebSearchSections(
+        'YOUR WEB SEARCH (student — INSTITUTIONAL STATISTICS — search is MANDATORY this turn):',
+        STUDENT_VERIFIED_DATA_STAT_DELTA,
+        ADAM_SEARCH_WHEN_TO,
+        STUDENT_SEARCH_NATURAL_BASE,
         ADAM_CITATION_HONESTY,
       );
     case 'explanatory_science':

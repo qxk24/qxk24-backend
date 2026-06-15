@@ -23,6 +23,22 @@ import type { MomentLaw } from './adam-moment-reader.service';
 
 export type TeachingRecordStatus = 'active' | 'superseded';
 
+export type TeachingRecordASource = 'founder' | 'inquiry' | 'conventional' | 'quran';
+
+export type TeachingRecordTeacherRole = 'founder' | 'inquiry';
+
+export interface TransformRecordMeta {
+  sessionId?:        string;
+  userMessageId?:    string;
+  studentId?:        string;
+  webSearchUsed:     boolean;
+  recallHit:         boolean;
+  conventionalRefs?: string[];
+  questionHash?:     string;
+  tier?:             number;
+  masaCrystallised:  Date;
+}
+
 export interface RegisterCorrection {
   momentDetected: MomentLaw;
   momentActual:   MomentLaw;
@@ -44,8 +60,10 @@ export interface AdamTeachingRecordDocument extends Document {
   principle:          string;
   isNewFamily:        boolean;
   isNucleus?:         boolean;
-  teacherRole:        'founder';
+  teacherRole:        TeachingRecordTeacherRole;
   teacherName:        string;
+  aSource?:           TeachingRecordASource;
+  transformMeta?:     TransformRecordMeta;
   episodeSummary:     string;
   teachingIntent:     string;
   outcomeSummary:     string;
@@ -74,8 +92,20 @@ const AdamTeachingRecordSchema = new Schema<AdamTeachingRecordDocument>({
   principle:          { type: String, required: true, index: true },
   isNewFamily:        { type: Boolean, default: true },
   isNucleus:          { type: Boolean },
-  teacherRole:        { type: String, enum: ['founder'], default: 'founder' },
+  teacherRole:        { type: String, enum: ['founder', 'inquiry'], default: 'founder' },
   teacherName:        { type: String, default: 'Masa Bayu' },
+  aSource:            { type: String, enum: ['founder', 'inquiry', 'conventional', 'quran'] },
+  transformMeta: {
+    sessionId:       { type: String },
+    userMessageId:   { type: String },
+    studentId:         { type: String },
+    webSearchUsed:     { type: Boolean },
+    recallHit:         { type: Boolean },
+    conventionalRefs:  { type: [String] },
+    questionHash:      { type: String, index: true },
+    tier:              { type: Number },
+    masaCrystallised:  { type: Date },
+  },
   episodeSummary:     { type: String, required: true },
   teachingIntent:     { type: String, required: true },
   outcomeSummary:     { type: String, required: true },
@@ -107,7 +137,7 @@ const AdamTeachingRecordSchema = new Schema<AdamTeachingRecordDocument>({
 
 AdamTeachingRecordSchema.index({ founderId: 1, masa_recorded: -1 });
 AdamTeachingRecordSchema.index({ founderId: 1, family: 1, masa_recorded: -1 });
-AdamTeachingRecordSchema.index({ founderId: 1, 'registerCorrection.correctedAt': -1 });
+AdamTeachingRecordSchema.index({ founderId: 1, 'transformMeta.questionHash': 1, masa_recorded: -1 });
 AdamTeachingRecordSchema.index(
   { episodeSummary: 'text', teachingIntent: 'text', outcomeSummary: 'text', family: 'text' },
   { name: 'teaching_record_text' },

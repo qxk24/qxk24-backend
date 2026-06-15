@@ -90,13 +90,22 @@ describe('adam-web-search-prompts (Fasa 3)', () => {
     expect(prompt).not.toMatch(/TECHNICAL PRECISION — search is MANDATORY/);
   });
 
-  it('getAdamWebSearchPrompt — student prefetched still founder-shaped', () => {
+  it('getAdamWebSearchPrompt — student prefetched uses student prefetched overlay', () => {
     const prompt = getAdamWebSearchPrompt(false, {
       searchPrefetched: true,
       userMessage:      'Apa punca manusia mengidap diabetes?',
     });
-    expect(prompt).toMatch(/DashScope agent mode/i);
-    expect(prompt).not.toMatch(/STUDENT REPLY PIPELINE/);
+    expect(prompt).toMatch(/ALREADY COMPLETED BEFORE THIS REPLY/i);
+    expect(prompt).not.toMatch(/DashScope agent mode/i);
+  });
+
+  it('getAdamWebSearchPrompt — verified data stat uses mandatory institutional overlay', () => {
+    const prompt = getAdamWebSearchPrompt(false, {
+      verifiedDataStat: true,
+      userMessage:      'Jumlah pelajar KPTM',
+    });
+    expect(prompt).toMatch(/INSTITUTIONAL STATISTICS/i);
+    expect(prompt).toMatch(/Poly-Tech Mara/i);
   });
 
   it('getAdamWebSearchPrompt — student life turn still founder-shaped', () => {

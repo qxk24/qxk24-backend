@@ -60,8 +60,9 @@ export interface TeachingRecordRow {
   principle:          string;
   isNewFamily:        boolean;
   isNucleus?:         boolean;
-  teacherRole:        'founder';
+  teacherRole:        'founder' | 'inquiry';
   teacherName:        string;
+  aSource?:           'founder' | 'inquiry' | 'conventional' | 'quran';
   episodeSummary:     string;
   teachingIntent:     string;
   outcomeSummary:     string;
@@ -263,6 +264,119 @@ export async function recordTeachingTransformation(
   }
 
   return doc;
+}
+
+export interface RecordTransformEpisodeInput {
+  founderId:        string;
+  aSource:          'founder' | 'inquiry' | 'conventional' | 'quran';
+  sessionId:        string;
+  userMessageId?:   string;
+  studentId?:       string;
+  episodeSummary:   string;
+  teachingIntent:   string;
+  outcomeSummary:   string;
+  relationalTags:   string[];
+  questionHash:     string;
+  webSearchUsed:    boolean;
+  recallHit:        boolean;
+  conventionalRefs?: string[];
+  tier?:            number;
+}
+
+/** Unified episode writer — inquiry / conventional crystallisation (P0). */
+export async function recordTransformEpisode(
+  input: RecordTransformEpisodeInput,
+): Promise<AdamTeachingRecordDocument> {
+  const prior = await AdamTeachingRecordModel.findOne({
+    founderId: input.founderId,
+    family:    'Inquiry Synthesis',
+    status:    'active',
+  })
+    .sort({ masa_recorded: -1 })
+    .lean();
+
+  const suffix = Math.random().toString(36).slice(2, 8);
+  const recordId = `K24TR-INQ-${Date.now()}-${suffix}`;
+  const transformationId = `K24TX-INQ-${Date.now()}-${suffix}`;
+  const entity_C_uid = `K24B-INQUIRY-${input.questionHash}-${Date.now()}`;
+  const masa = new Date();
+  const tags = [
+    ...new Set([
+      ...input.relationalTags.map((t) => t.toLowerCase().trim()).filter(Boolean),
+      input.aSource,
+      'inquiry-synthesis',
+    ]),
+  ];
+
+  const doc = await AdamTeachingRecordModel.create({
+    recordId,
+    founderId:        input.founderId,
+    sessionId:        input.sessionId,
+    founderMessageId: input.userMessageId,
+    transformationId,
+    entity_C_uid,
+    masa_recorded:    masa,
+    stage:            1,
+    family:           'Inquiry Synthesis',
+    principle:        'CAHAYA',
+    isNewFamily:      false,
+    isNucleus:        false,
+    teacherRole:      'inquiry',
+    teacherName:      'Universal inquiry',
+    aSource:          input.aSource,
+    episodeSummary:   input.episodeSummary.trim().slice(0, 500),
+    teachingIntent:   input.teachingIntent.trim().slice(0, 2000),
+    outcomeSummary:   input.outcomeSummary.trim().slice(0, 2000),
+    relationalTags:   tags,
+    priorThreadId:    prior?.recordId,
+    autoJudgment:     'MAKMUR',
+    auditStatus:      'pending',
+    kernel:           ENV.QXK24_KERNEL_VERSION,
+    era:              ENV.QXK24_ERA,
+    status:           'active',
+    transformMeta: {
+      sessionId:        input.sessionId,
+      userMessageId:    input.userMessageId,
+      studentId:        input.studentId,
+      webSearchUsed:    input.webSearchUsed,
+      recallHit:        input.recallHit,
+      conventionalRefs: (input.conventionalRefs ?? []).slice(0, 8),
+      questionHash:     input.questionHash,
+      tier:             input.tier ?? 1,
+      masaCrystallised: masa,
+    },
+  });
+
+  void import('./adam-continuity.service')
+    .then(({ refreshRelationalMemoryOnMaster }) =>
+      refreshRelationalMemoryOnMaster(input.founderId),
+    )
+    .catch((err) => console.error('[ADAM Transform Record] Relational refresh failed:', err));
+
+  void import('../teaching-bridge/teaching-bridge.hook')
+    .then(({ hookTeachingBridgeAfterRecord }) => hookTeachingBridgeAfterRecord(doc))
+    .catch((err) => console.error('[TeachingBridge] Inquiry hook failed:', err));
+
+  return doc;
+}
+
+/** Skip duplicate inquiry crystallisation within cooldown window. */
+export async function findRecentTransformByQuestionHash(
+  founderId: string,
+  questionHash: string,
+  cooldownMs: number,
+): Promise<TeachingRecordRow | null> {
+  const since = new Date(Date.now() - cooldownMs);
+  const row = await AdamTeachingRecordModel.findOne({
+    founderId,
+    status:    'active',
+    aSource:   { $in: ['inquiry', 'conventional'] },
+    'transformMeta.questionHash': questionHash,
+    masa_recorded: { $gte: since },
+  })
+    .sort({ masa_recorded: -1 })
+    .lean();
+  return row ? (row as TeachingRecordRow) : null;
 }
 
 export function founderAsksTeachingRecall(message: string): boolean {

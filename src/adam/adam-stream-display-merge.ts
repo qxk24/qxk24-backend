@@ -1,0 +1,107 @@
+/**
+ * ============================================================
+ * ALAMTOLOGI-QURANIC SCIENCE
+ * ============================================================
+ * Module      : ADAM Stream Display Merge
+ * Platform    : Backend (TypeScript)
+ * QXK24       : Kernel v1.7.0
+ * Founder     : Masa Bayu
+ * Created     : 2026-06-14
+ * ============================================================
+ * CONSTITUTIONAL DECLARATION:
+ * This module operates under the Alamtologi Constitutional
+ * Framework. All actions are governed by QXK24. Knowledge
+ * belongs to no human. It flows like water to all.
+ * ============================================================
+ *
+ * Keeps streamed P.alt-visible prose when post-stream repair would
+ * swap it for an unrelated summary. Sync with alm-web/adam-message-merge.ts.
+ */
+
+const STREAM_REPLACE_MIN_RATIO = 0.52;
+
+function normalizeStreamBody(text: string): string {
+  return text
+    .replace(/\*\*/g, '')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function stripCommonOpener(text: string): string {
+  return text.replace(/^bismillahirahmanirahim\.?\s*/i, '').trim();
+}
+
+function tokenOverlapRatio(a: string, b: string): number {
+  const wordsA = new Set(a.split(/\s+/).filter((w) => w.length > 4));
+  const wordsB = new Set(b.split(/\s+/).filter((w) => w.length > 4));
+  if (wordsA.size === 0) return 1;
+  let hit = 0;
+  for (const w of wordsA) {
+    if (wordsB.has(w)) hit += 1;
+  }
+  return hit / wordsA.size;
+}
+
+function streamBodyMostlyPreserved(streamed: string, replacement: string): boolean {
+  const prev = normalizeStreamBody(stripCommonOpener(streamed));
+  const next = normalizeStreamBody(stripCommonOpener(replacement));
+  if (!prev) return true;
+  if (next.includes(prev)) return true;
+  if (prev.length >= 120) {
+    const head = prev.slice(0, Math.min(400, Math.floor(prev.length * 0.72)));
+    if (head.length >= 80 && next.includes(head)) return true;
+    if (tokenOverlapRatio(prev, next) >= 0.45) return true;
+  }
+  if (prev.length >= 60 && prev.length < 120 && tokenOverlapRatio(prev, next) >= 0.55) {
+    return true;
+  }
+  return false;
+}
+
+function shouldAcceptStreamReplace(
+  streamed: string,
+  replacement: string,
+  options?: { forceReplace?: boolean },
+): boolean {
+  const prev = streamed.trim();
+  const next = replacement.trim();
+  if (options?.forceReplace) {
+    if (prev.length > 280 && next.length / prev.length < 0.15) return false;
+    return next.length > 0;
+  }
+  if (!next) return false;
+  if (!prev) return true;
+  if (prev.length <= 60) return next.length > 0;
+  if (next.length / prev.length < STREAM_REPLACE_MIN_RATIO) return false;
+  return streamBodyMostlyPreserved(prev, next);
+}
+
+/** Body to persist and emit — never save a repair that gutted the live stream. */
+export function resolveAdamTurnDisplayForSave(
+  streamed: string,
+  repaired: string,
+  options?: { forceReplace?: boolean },
+): string {
+  const prev = streamed.trim();
+  const next = repaired.trim();
+
+  if (options?.forceReplace) {
+    if (!next) return prev;
+    if (prev.length > 280 && next.length / prev.length < 0.15) return prev;
+    return next.length >= 40 ? next : prev;
+  }
+
+  if (prev.length > 280 && next.length > 0 && next.length / prev.length < STREAM_REPLACE_MIN_RATIO) {
+    return prev;
+  }
+  const prevParas = prev.split(/\n{2,}/).filter((p) => p.trim()).length;
+  const nextParas = next.split(/\n{2,}/).filter((p) => p.trim()).length;
+  if (prevParas >= 2 && nextParas < prevParas) {
+    return prev;
+  }
+  return shouldAcceptStreamReplace(streamed, repaired, options)
+    ? repaired.trim() || streamed.trim()
+    : streamed.trim();
+}

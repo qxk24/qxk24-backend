@@ -253,4 +253,6 @@ export const STUDENT_NEUTRAL_CONTEXT_ACKS = {
     'BM Malaysia lexicon received. I will use DBP-aligned forms only — not Indonesian drift.',
   teachingRecall:
     'Relevant teaching episodes loaded. I will synthesise A+B=C in my own words — conventional grounding first, then insight — without framework labels or copy-paste.',
+  inquiryRecallMiss:
+    'No indexed Brain C episode yet for this question. I will ground in conventional evidence and search when needed — not invent depth from model memory alone. This turn may grow Brain C after synthesis.',
 } as const;

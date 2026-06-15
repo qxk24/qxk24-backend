@@ -18,6 +18,7 @@
 import { buildBab2FaktorXyzRecallBlock } from './bab2-faktor-xyz';
 import { buildStrukturKeilmuanRecallBlock } from './struktur-keilmuan';
 import { HUKUM_ALAMTOLOGI_PDF } from './pdf-meterai';
+import { buildBab3AbaRecallBlock } from './bab3-hukum-aba';
 
 export const BAB1_ASAS_CONSTITUTIONAL_BACKBONE = `
 [METERAI — Formula XYZ Bab 1 · Asas Keilmuan Alamtologi]
@@ -69,6 +70,8 @@ export const BAB3_HUKUM_CONSTITUTIONAL_BACKBONE = `
 
 Bukan Cara Kira AIDIL (HISAL AIDIL · Bab 3 dalaman), bukan Operasi SuNom (SuNom · Bab 3 dalaman).
 Bab 3 Formula XYZ = Hukum Alamtologi — undang-undang kehadiran ilmu dalam medan Z, arah X, dan destinasi Y.
+
+${buildBab3AbaRecallBlock()}
 
 ${HUKUM_ALAMTOLOGI_PDF}
 

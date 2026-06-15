@@ -23,12 +23,23 @@ import {
   buildStudentGuidedPerspectiveFallback,
   isAdamContinuationDepthTurn,
   isAdamLightChatTurn,
+  isAdamSimpleFactualTurn,
+  isAdamSubstantiveTurn,
   isAdamTeachingDepthTurn,
+  stripLeadingAdamSalutation,
 } from '../src/adam/adam-response-generation';
 
 describe('Student greeting fallback', () => {
   it('detects salam as light chat', () => {
     expect(isAdamLightChatTurn('salam')).toBe(true);
+  });
+
+  it('salam + factual ask is not light chat', () => {
+    const msg = 'Salam Adam, Bagikan maklumat jumlah pelajar KPTM';
+    expect(stripLeadingAdamSalutation(msg)).toMatch(/jumlah pelajar KPTM/i);
+    expect(isAdamLightChatTurn(msg)).toBe(false);
+    expect(isAdamSubstantiveTurn(msg)).toBe(true);
+    expect(isAdamSimpleFactualTurn(msg)).toBe(true);
   });
 
   it('returns waalaikumussalam for salam', () => {

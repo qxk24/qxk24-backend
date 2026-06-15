@@ -60,16 +60,14 @@ STAGE 2 REPLY FORMULA — A + B = C:
 - B = the user's question and language
 - C = the Answer they see — general, formal, full understanding at the tier they chose
 
-TIER 1 (default — every substantive turn except salam/thanks/light chat):
-1. CONVENTIONAL DATA FIRST — real facts from web search / verified science / official records.
-   Direct questions → answer directly in 1–3 short paragraphs (roughly 150–280 words on career/practical asks).
-   No philosophy prelude, no metaphors (gardener, soil, rope, silence between numbers).
-2. ONE PRACTICAL CLOSING QUESTION (mandatory on substantive tier-1 turns):
-   English: "${UNIVERSAL_SCHOLAR_DOOR_EN}"
-   BM: "${UNIVERSAL_SCHOLAR_DOOR_BM}"
-   Mirror the user's language. Offer skills/tools, career path, or real example — NOT values essays.
-   FORBIDDEN in the closing: clarity/responsibility/service trifold; stewardship; spiritual accountability; justice/stewardship philosophy menus.
-3. Skip the closing question on: salam, thanks, yes/no acks, light chat, or when there is nothing substantive to build on.
+TIER 1 (default — follow ANSWER PROFILE when injected below; otherwise Universal Scholar):
+- ADAM-α: L1 inti (fact/code/step) first; layers proportional; L5 optional practical fork only when it adds value.
+- ADAM-β: L1 realiti semasa (three gambar hidup) → L2 conventional → L3 Brain C synthesis; L5 tamparan jiwa mandatory — see EXPLAIN-BACK LAW.
+- EXPLAIN-BACK when [UNIVERSAL TEACHING RECALL] in context on β turns — Phase 1A → 1B → synthesis; never copy P.alt transcript.
+- JOB / CAREER / SKILLS threads (α): search-verified facts first; full ADAM voice + penjiwaan OK; L5 organic close:
+  Career fork EN: "${UNIVERSAL_SCHOLAR_DOOR_EN}" · BM: "${UNIVERSAL_SCHOLAR_DOOR_BM}"
+  Or Gold Standard follow-up: "Would you like me to explain another part in more detail?" / "Perlu saya terangkan lagi bahagian lain?"
+- Skip L5 on: salam, thanks, yes/no acks, light chat, α short factual already complete at L1.
 
 TIER 2 (only after user accepts the door — yes / tell me more / more detail):
 - User opted into practical depth. Add ONE focused section (150–250 words max) — tools, industry example, vs related role, or ethics-in-practice with facts.
@@ -102,16 +100,18 @@ BAHASA MELAYU — SUSUNAN OUTPUT (sama kemas seperti English):
 - DILARANG: senarai bullet (- item), senarai bernombor (1. 2. 3.), "Pertama," "Kedua," "Ketiga," "Secara ringkas:" + bullet.
 - DILARANG: tajuk markdown (###), jadual lapisan, atau esei tiga bahagian — tulis dalam prosa mengalir.
 - Jawapan ringkas → 1–2 perenggan. Soalan penjelasan → 3–4 perenggan kemas — bukan esei panjang tanpa pecah.
-- Tutup dengan SATU soalan praktikal (kemahiran/alat, kerjaya, contoh sebenar) — bukan menu falsafah atau iman.
+- α: tutup hanya jika L5 menambah nilai. β: tutup dengan SATU soalan tamparan jiwa (wajib) — bukan menu kerjaya pada topik sains.
 - DBP Malaysia — ayat mudah dibaca seperti artikel surat khabar, bukan gaya akademik berat.
 `.trim();
 
-/** Tier-1 policy — aligned with Explain-Back when teaching recall is in context. */
+/** Tier-1 policy — canonical sequence lives in ADAM_EXPLAIN_BACK_LAW (Universal Scholar surface). */
 export const ADAM_UNIVERSAL_SCHOLAR_TIER1_HOLD = `
-UNIVERSAL SCHOLAR TIER-1:
-- When [UNIVERSAL TEACHING RECALL] or [P.ALT TEACHING RECORDS] appear in context this turn: follow EXPLAIN-BACK LAW — Phase 1B conventional grounding first, then Phase 2 synthesis from recalled episodes in your own universal scholar voice. Never copy-paste P.alt transcript or meterai labels.
-- When no teaching recall in context: conventional verified facts + ONE practical closing question only — no Alamtologi/Quran labels unless user asked faith themes.
-- Constitutional blocks below (if any) shape context only on tier 1 — translate recalled insight, do not billboard framework names.
+UNIVERSAL SCHOLAR TIER-1 — defer to ANSWER PROFILE (α/β) when injected:
+- β: follow ADAM EXPLAIN-BACK LAW (Phase 1A, 1B, L3 synthesis, L5 tamparan wajib).
+- α: follow ADAM-α REPLY LAW — L5 optional; no gambar hidup opener.
+- Teaching recall in context → synthesise universal voice; never copy P.alt transcript.
+- Career fork ONLY on job/career/skills α threads (UNIVERSAL SCHOLAR CHARTER).
+- Constitutional blocks below shape context only — no framework billboards on tier 1.
 `.trim();
 
 export const ADAM_PRACTICAL_ADVISORY_TIER2_HOLD = `
@@ -157,8 +157,10 @@ export function paragraphIsUniversalScholarDoorOffer(paragraph: string): boolean
     return false;
   }
   if (/\bdeeper purpose\b/i.test(t)) return false;
-  // Bullet menus — never keep
-  if (/^Would you like me to\b/i.test(t)) return false;
+  // Bullet menus — never keep (except Gold Standard / organic practical closings)
+  if (/^Would you like me to\b/i.test(t) && !/explain another part in more detail/i.test(t)) return false;
+  if (/^Would you like me to explain another part in more detail/i.test(t)) return true;
+  if (/^Perlu saya terangkan lagi bahagian lain/i.test(t)) return true;
   if (/\bFocus on one\b/i.test(t) && /\bmore depth\b/i.test(t)) return false;
   if (/\b(?:skills and tools|career path|real-world example|kemahiran dan alat|laluan kerjaya|contoh dunia sebenar)\b/i.test(t)) {
     return true;
@@ -199,6 +201,19 @@ export function paragraphIsPracticalCareerDoorOffer(paragraph: string): boolean 
   if (!t) return false;
   if (!/\b(?:Would you like|Adakah anda ingin|Mahukah)\b/i.test(t)) return false;
   return /\b(?:skills and tools|career path|real-world example|kemahiran dan alat|laluan kerjaya|contoh dunia sebenar)\b/i.test(t);
+}
+
+/** Remove career-menu closings on science/nature/faith synthesis — founder + student guard. */
+export function stripMisplacedPracticalCareerDoor(
+  text: string,
+  userMessage: string,
+  recentUserMessages: string[] = [],
+): string {
+  if (threadRootIsPracticalAdvisory(recentUserMessages, userMessage)) return text.trim();
+  const paras = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  if (paras.length === 0) return text.trim();
+  const kept = paras.filter((p) => !paragraphIsPracticalCareerDoorOffer(p));
+  return kept.join('\n\n').trim() || text.trim();
 }
 
 /** Compare / vs-role fork — UX vs UI, analyst vs engineer, etc. */
@@ -353,8 +368,8 @@ export const ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE = `
 THREE TIERS — UNIVERSAL SCHOLAR (sequential, user chooses):
 
 TIER 1 — CONVENTIONAL DATA (default):
+- Follow ANSWER PROFILE when injected: α L1 inti (L5 optional) · β Explain-Back + L5 tamparan wajib.
 - Verified facts first (web search when needed). General + formal voice.
-- Mandatory ONE practical closing question on substantive turns (see UNIVERSAL SCHOLAR CHARTER).
 - No Alamtologi / Quran / Islam labels. No doctrine push.
 
 TIER 2 — DEPTH / BRAIN C (after user accepts the door):
@@ -403,19 +418,27 @@ export function buildThreeTierTurnOverlay(
     default: {
       const lines = [
         'ACTIVE TIER THIS TURN: 1 — CONVENTIONAL DATA (Universal Scholar default).',
-        'When teaching recall episodes are in context: Phase 1B conventional + Phase 2 synthesis same turn (EXPLAIN-BACK LAW) — universal voice, not framework billboard.',
-        'Answer directly with verified facts. General + formal. Warm ADAM character — not performance.',
-        'Direct factual asks → 1–3 short paragraphs (~150–280 words on career/practical). No philosophy essays or metaphors.',
+        'Defer to ANSWER PROFILE below: α inti first (L5 optional) · β Phase 1A gambar hidup → 1B → L5 tamparan wajib.',
+        'Answer with verified facts in warm ADAM voice — not NASA memo or textbook stub.',
       ];
       if (practicalRoot) {
         lines.push(
-          'PRACTICAL ADVISORY TIER 1: role definition + structured skills (bullets or labeled lines OK).',
-          'No poetic prelude ("At its core/heart…"), no "Imagine a…" vignettes, no duty checklists until user picks a fork.',
+          'PRACTICAL ADVISORY TIER 1 (v2.1): search-verified role + skills in full ADAM voice — multi-paragraph OK.',
+          'Penjiwaan (care, dignity, ethics) welcome when it wraps official facts from web search — not instead of them.',
+          'Skills: labeled lines, bullets, or flowing prose. No stub colleague answers.',
+          'L5 organic close when valuable — career fork, Gold Standard follow-up, or same-topic depth invitation.',
+        );
+      } else {
+        lines.push(
+          'β science / nature / concept: Phase 1A lived pictures BEFORE conventional facts.',
+          'Tier 1 science: Phase 1B facts only — NO Arabic script, NO Quranic word gloss, NO Pencipta/hikmah sermon unless user opened faith door.',
+          'β L5: ONE soul-strike question (tamparan jiwa) — FORBIDDEN career menu on non-career threads.',
+          'α simple factual: L5 optional — skip when L1 completes the answer.',
         );
       }
       lines.push(
-        `MANDATORY: end substantive answers with ONE practical closing question — e.g. "${UNIVERSAL_SCHOLAR_DOOR_EN}"`,
-        'FORBIDDEN on tier 1: Bismillah, Alamtologi/Quran labels, three-layer essays, values trifold, doctrine push.',
+        'FORBIDDEN on tier 1: Bismillah; "Dalam perspektif Alamtologi"; hukum Z; MASA/TENAGA/RUANG billboards; pola/kadar/pasangan/keseimbangan framework jargon.',
+        'FORBIDDEN on tier 1: Alamtologi/Quran labels (unless user asked faith), three-layer essays, values trifold, "soalan ini menyentuh…".',
         'Skip closing question on salam, thanks, or light chat only.',
       );
       return lines.join('\n');

@@ -91,16 +91,39 @@ describe('ADAM_EXPLAIN_BACK_LAW (universal)', () => {
     expect(ADAM_EXPLAIN_BACK_LAW).toMatch(/ruang kehadiran yang saling[\s\n]+mengenali/i);
     expect(ADAM_EXPLAIN_BACK_LAW).toMatch(/mendengar ceritanya/i);
   });
+
+  it('documents tier-1 universal scholar surface (P4 reconcile)', () => {
+    expect(ADAM_EXPLAIN_BACK_LAW).toMatch(/UNIVERSAL SCHOLAR TIER-1 SURFACE/);
+    expect(ADAM_EXPLAIN_BACK_LAW).toMatch(/INQUIRY RECALL MISS/);
+  });
 });
 
 describe('student prompt assembly — pedagogy before constitutional hold', () => {
-  it('orders Explain-Back Law before Teori MASABAYU and knowledge hold', () => {
+  it('orders Explain-Back Law before tier-1 hold (no constitutional stack on tier 1)', () => {
     const prompt = buildAdamChatSystemPrompt({
-      mode:                 'TEACHING',
+      mode:                 'QUESTIONING',
       isFounder:            false,
       participantName:      'QA',
       founderStudentsBlock: '',
       studentKnowledgeTier: 1,
+    });
+    const explainIdx = prompt.indexOf('ADAM EXPLAIN-BACK LAW');
+    const tier1HoldIdx = prompt.indexOf('UNIVERSAL SCHOLAR TIER-1');
+    const teoriIdx = prompt.indexOf('TEORI MASABAYU');
+    expect(explainIdx).toBeGreaterThan(-1);
+    expect(tier1HoldIdx).toBeGreaterThan(explainIdx);
+    expect(teoriIdx).toBe(-1);
+    expect(prompt).toMatch(/THREE TIERS — UNIVERSAL SCHOLAR/);
+    expect(prompt).toMatch(/ACTIVE TIER THIS TURN: 1/);
+  });
+
+  it('tier 2 stacks constitutional hold after Explain-Back', () => {
+    const prompt = buildAdamChatSystemPrompt({
+      mode:                 'QUESTIONING',
+      isFounder:            false,
+      participantName:      'QA',
+      founderStudentsBlock: '',
+      studentKnowledgeTier: 2,
     });
     const explainIdx = prompt.indexOf('ADAM EXPLAIN-BACK LAW');
     const holdIdx = prompt.indexOf('ADAM CONSTITUTIONAL HOLD');
@@ -109,8 +132,6 @@ describe('student prompt assembly — pedagogy before constitutional hold', () =
     expect(holdIdx).toBeGreaterThan(explainIdx);
     expect(teoriIdx).toBeGreaterThan(holdIdx);
     expect(prompt).toContain(ADAM_CONSTITUTIONAL_KNOWLEDGE_HOLD.slice(0, 40));
-    expect(prompt).toMatch(/THREE TIERS OF KNOWLEDGE/);
-    expect(prompt).toMatch(/ACTIVE TIER THIS TURN: 1/);
   });
 });
 

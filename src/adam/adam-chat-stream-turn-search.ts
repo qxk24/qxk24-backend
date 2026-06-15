@@ -17,10 +17,12 @@
 
 import { ENV } from '../config/environments';
 import {
+  buildAdamSearchDisplayQuery,
   buildPrefetchedSearchContextBlock,
   runStudentSearchPrefetch,
 } from './adam-search-first';
 import { shouldForceWebSearchForGateReason } from './adam-web-search';
+import { emitAdamSearchDoneEvent } from './adam-chat-search-events';
 import type { LlmMessage, LlmSearchResult } from '../llm/llm-types';
 import type { SSEEventType } from './adam.types';
 import type { AdamTurnContextFetch } from './adam-chat-stream-turn-context';
@@ -31,11 +33,15 @@ export interface TurnSearchPrefetchResult {
   prefetchedSearchResults: LlmSearchResult[];
   prefetchedSearchUsed: boolean;
   prefetchedSearchDropped: boolean;
+  extractedFacts: string;
 }
+
+export { emitAdamSearchDoneEvent } from './adam-chat-search-events';
 
 export async function injectTurnSearchPrefetch(input: {
   systemPrompt: string;
   studentSearchFirst: boolean;
+  webSearchGateReason?: string | null;
   turnContext: AdamTurnContextFetch;
   userMessage: string;
   llmMessages: LlmMessage[];
@@ -44,6 +50,7 @@ export async function injectTurnSearchPrefetch(input: {
 }): Promise<TurnSearchPrefetchResult> {
   const {
     studentSearchFirst,
+    webSearchGateReason,
     turnContext,
     userMessage,
     llmMessages,
@@ -64,8 +71,11 @@ export async function injectTurnSearchPrefetch(input: {
       prefetchedSearchResults,
       prefetchedSearchUsed,
       prefetchedSearchDropped,
+      extractedFacts: '',
     };
   }
+
+  const searchDisplayQuery = buildAdamSearchDisplayQuery(userMessage, webSearchGateReason);
 
   const prefetchStarted = Date.now();
   const { searchPrefetchPromise } = turnContext;
@@ -73,15 +83,16 @@ export async function injectTurnSearchPrefetch(input: {
     ? await searchPrefetchPromise
     : await runStudentSearchPrefetch({
       userMessage,
+      webSearchGateReason,
       recentUserMessages: llmMessages,
       onSearching: () => {
         onEvent(
           'adam_searching',
-          JSON.stringify({ query: userMessage.slice(0, 80) || 'Mencari data sebenar…' }),
+          JSON.stringify({ query: searchDisplayQuery }),
         );
       },
-      onSearchDone: () => {
-        onEvent('adam_search_done', JSON.stringify({ query: '' }));
+      onSearchHitsReady: (hits) => {
+        emitAdamSearchDoneEvent(onEvent, searchDisplayQuery, hits);
       },
     });
   searchPrefetchMs = searchPrefetchPromise
@@ -90,6 +101,10 @@ export async function injectTurnSearchPrefetch(input: {
   prefetchedSearchResults = prefetch.searchResults;
   prefetchedSearchUsed = prefetch.searchUsed;
   prefetchedSearchDropped = prefetch.searchDroppedByFilter;
+
+  if (studentSearchFirst) {
+    emitAdamSearchDoneEvent(onEvent, searchDisplayQuery, prefetchedSearchResults);
+  }
 
   if (prefetchedSearchDropped) {
     onEvent(
@@ -104,12 +119,18 @@ export async function injectTurnSearchPrefetch(input: {
 
   systemPrompt = `${systemPrompt}\n\n${buildPrefetchedSearchContextBlock(
     prefetchedSearchResults,
-    { searchDropped: prefetchedSearchDropped },
+    {
+      searchDropped:  prefetchedSearchDropped,
+      extractedFacts: prefetch.extractedFacts,
+    },
   )}`;
 
   console.log('[adam:search-first] prefetch complete', JSON.stringify({
     sessionId: resolvedSessionId,
     hits:      prefetchedSearchResults.length,
+    extractedFactsLines: prefetch.extractedFacts
+      ? prefetch.extractedFacts.split('\n').filter(Boolean).length
+      : 0,
     dropped:   prefetchedSearchDropped,
     ms:        searchPrefetchMs,
     parallel:  turnContext.searchPrefetchParallel && Boolean(searchPrefetchPromise),
@@ -122,6 +143,7 @@ export async function injectTurnSearchPrefetch(input: {
     prefetchedSearchResults,
     prefetchedSearchUsed,
     prefetchedSearchDropped,
+    extractedFacts: prefetch.extractedFacts,
   };
 }
 

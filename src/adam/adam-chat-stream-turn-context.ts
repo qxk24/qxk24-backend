@@ -15,14 +15,20 @@
  * ============================================================
  */
 
-import { ENV } from '../config/environments';
-import { adamWebSearchEnabled, getWebSearchGateReason } from './adam-web-search';
-import { runStudentSearchPrefetch, shouldStudentUseSearchFirstFlow } from './adam-search-first';
+
+import {
+  adamWebSearchEnabled,
+  getWebSearchGateReason,
+  shouldSkipSearchWhenRecallHitStableTopic,
+} from './adam-web-search';
+import { runStudentSearchPrefetch, buildAdamSearchDisplayQuery, shouldStudentUseSearchFirstFlow } from './adam-search-first';
+import { emitAdamSearchDoneEvent } from './adam-chat-search-events';
 import { buildSmartContext } from '../qxk24brain/adam-context-builder';
 import { isAmaBrainV2Enabled } from '../lib/ama/ama-brain-integration.service';
 import { resolveTamatLayer5Block } from '../lib/ama/tamat-generator';
 import { getOrCreateMaster } from '../qxk24brain/qxk24brain.engine';
 import { FOUNDER_USER_ID } from './adam-student.types';
+import { detectContextRecallLoaded } from './adam-universal-recall-router';
 import {
   buildStudentContinuityBridge,
   studentContinuityNeedsFullBridge,
@@ -70,6 +76,8 @@ export interface AdamTurnContextFetch {
   searchPrefetchPromise: ReturnType<typeof runStudentSearchPrefetch> | null;
   studentInlineSearchOnly: boolean;
   earlyWebSearchReason: string | null;
+  brainRecallLoaded: boolean;
+  brainRecallStable: boolean;
 }
 
 export async function fetchAdamTurnContext(input: {
@@ -100,7 +108,7 @@ export async function fetchAdamTurnContext(input: {
     participant,
     userMessage,
   } = shell;
-  const { founderTeachingLearnerTurn } = teachingFlags;
+  const { founderTeachingLearnerTurn, founderTeachingAbsorption } = teachingFlags;
 
   const contextStarted = Date.now();
   const needContinuityBridge = !isFounder
@@ -120,31 +128,9 @@ export async function fetchAdamTurnContext(input: {
       ? getWebSearchGateReason(messageForAdam, { studentFounderParity: true })
       : null;
   const studentInlineSearchOnly = !isFounder;
-  const studentSearchFirstEarly = !isFounder
-    && Boolean(earlyWebSearchReason)
-    && shouldStudentUseSearchFirstFlow(false, earlyWebSearchReason);
 
   let searchPrefetchParallel = false;
   let searchPrefetchPromise: ReturnType<typeof runStudentSearchPrefetch> | null = null;
-  if (
-    studentSearchFirstEarly
-    && !ENV.ADAM_STUDENT_INLINE_SEARCH
-  ) {
-    searchPrefetchParallel = true;
-    searchPrefetchPromise = runStudentSearchPrefetch({
-      userMessage,
-      recentUserMessages: [],
-      onSearching: () => {
-        onEvent(
-          'adam_searching',
-          JSON.stringify({ query: userMessage.slice(0, 80) || 'Mencari data sebenar…' }),
-        );
-      },
-      onSearchDone: () => {
-        onEvent('adam_search_done', JSON.stringify({ query: '' }));
-      },
-    });
-  }
 
   const [
     contextMessages,
@@ -161,7 +147,9 @@ export async function fetchAdamTurnContext(input: {
       mode,
       {
         recallProbeMessage: normalizedMessage,
-        founderTeachingAbsorption: founderTeachingLearnerTurn,
+        founderTeachingAbsorption,
+        founderTeachingLearnerTurn,
+        founderTeachingFreshUpload: shell.teaching.fileNames.length > 0,
         studentStreamlined: !isFounder && (
           isAdamLightChatTurn(normalizedMessage)
           || isAdamSimpleFactualTurn(normalizedMessage)
@@ -189,6 +177,47 @@ export async function fetchAdamTurnContext(input: {
     plasPrescanPromise,
   ]);
 
+  const brainRecallLoaded = detectContextRecallLoaded(contextMessages);
+  const brainRecallStable = shouldSkipSearchWhenRecallHitStableTopic({
+    message:           messageForAdam,
+    brainRecallLoaded,
+  });
+
+  const postRecallWebSearchReason = !isFounder && adamWebSearchEnabled()
+    ? getWebSearchGateReason(messageForAdam, {
+      studentFounderParity: true,
+      brainRecallLoaded,
+    })
+    : isFounder && !founderTeachingLearnerTurn && adamWebSearchEnabled()
+      ? getWebSearchGateReason(userMessage, {
+        isFounder,
+        hasTeachingUpload: shell.teaching.fileNames.length > 0,
+        brainRecallLoaded,
+      })
+      : null;
+
+  const searchFirstLate = Boolean(postRecallWebSearchReason)
+    && shouldStudentUseSearchFirstFlow(isFounder, postRecallWebSearchReason);
+
+  if (searchFirstLate && !brainRecallStable) {
+    searchPrefetchParallel = true;
+    const parallelSearchQuery = buildAdamSearchDisplayQuery(userMessage, postRecallWebSearchReason);
+    searchPrefetchPromise = runStudentSearchPrefetch({
+      userMessage,
+      webSearchGateReason: postRecallWebSearchReason,
+      recentUserMessages: [],
+      onSearching: () => {
+        onEvent(
+          'adam_searching',
+          JSON.stringify({ query: parallelSearchQuery }),
+        );
+      },
+      onSearchHitsReady: (hits) => {
+        emitAdamSearchDoneEvent(onEvent, parallelSearchQuery, hits);
+      },
+    });
+  }
+
   return {
     contextMessages,
     studentContinuityBridge,
@@ -200,7 +229,9 @@ export async function fetchAdamTurnContext(input: {
     searchPrefetchParallel,
     searchPrefetchPromise,
     studentInlineSearchOnly,
-    earlyWebSearchReason,
+    earlyWebSearchReason: postRecallWebSearchReason ?? earlyWebSearchReason,
+    brainRecallLoaded,
+    brainRecallStable,
   };
 }
 

@@ -35,14 +35,15 @@ import {
   paragraphIsNumberedSyllabusLeak,
   paragraphShouldStripForUniversalVoice,
   outputHasScannableListStructure,
+  normalizeConsumerParagraphBreaks,
   polishStudentOutputSurface,
   rewriteDualLaneEssayLabels,
   rewriteEmojiPerformanceOpeners,
   sanitizeStudentForbiddenPronouns,
   stripPlanTesterAddress,
-  stripBmPracticalEssayInline,
   paragraphIsBmPracticalEssayLeak,
   stripSciencePoeticInline,
+  stripScienceFaithInline,
   stripLifeStressFaithInline,
   stripSunomNotation,
   stripConsumerMarkdownEmphasis,
@@ -55,11 +56,8 @@ import {
   paragraphIsUniversalScholarDoorOffer,
   countRecentUniversalScholarDoors,
   userRequestedPracticalDepth,
-  paragraphIsPracticalCareerDoorOffer,
-  paragraphIsHealthAdaptedDoorOffer,
-  paragraphIsCompareDoorOffer,
-  paragraphIsLifeWellbeingAdaptedDoorOffer,
   appendUniversalScholarTier1DoorIfMissing,
+  stripMisplacedPracticalCareerDoor,
   UNIVERSAL_SCHOLAR_DOOR_EN,
 } from './adam-universal-scholar';
 import {
@@ -67,12 +65,15 @@ import {
   isAdamContinuationDepthTurn,
   isAdamLightChatTurn,
   isAdamPracticalAdvisoryTurn,
-  isAdamSubstantiveTurn,
+  isAdamSimpleFactualTurn,
+  isAdamScienceNatureSynthesisTurn,
   isAdamCompareTurn,
   isAdamLifeWellbeingTurn,
   threadRootIsPracticalAdvisory,
 } from './adam-response-generation';
-import { isAdamCurrentAffairsTurn } from './adam-web-search';
+import { isAdamCurrentAffairsTurn, isVerifiedDataStatAsk } from './adam-web-search';
+import { resolveAdamAnswerProfile } from './adam-answer-profile';
+import { repairAlphaStatSurface } from './adam-alpha-output-guard';
 import {
   isTechnicalPrecisionQuestion,
   outputLooksLikeStructuredSpec,
@@ -82,7 +83,7 @@ import {
 
 /** Strip billboard framework labels on tier 1 — inline only, never drop paragraphs. */
 const FRAMEWORK_LEAK =
-  /\b(?:Dalam\s+lensa\s+Alamtologi|Dari\s+perspektif\s+Alamtologi|From\s+an\s+Alamtologi\s+perspective|Alamtologi\s+menyatakan|framework\s+Alamtologi)\b/i;
+  /\b(?:Dalam\s+(?:lensa|perspektif)\s+Alamtologi|Dari\s+perspektif\s+Alamtologi|From\s+an\s+Alamtologi\s+perspective|Alamtologi\s+menyatakan|framework\s+Alamtologi|hukum\s+Z)\b/gi;
 
 function stripFrameworkBillboards(text: string, userMessage: string): string {
   if (userMessage && userAskedForConstitutionalStructure(userMessage)) {
@@ -233,6 +234,11 @@ export function sanitizeStudentOutputSync(
   recentUserMessages: string[] = [],
   recentAssistantMessages: string[] = [],
 ): string {
+  // ADAM-α stat turns — meta/orphan strip only; never run tier-1 paragraph gutting.
+  if (isVerifiedDataStatAsk(userMessage)) {
+    return repairAlphaStatSurface(text, userMessage);
+  }
+
   const { text: stashed, slots } = stashStudentMathBlocks(text);
   const lightChat = isAdamLightChatTurn(userMessage);
   const practicalThread = threadRootIsPracticalAdvisory(recentUserMessages, userMessage);
@@ -248,11 +254,22 @@ export function sanitizeStudentOutputSync(
   const structuredSpecOk =
     userAskedForStructuredSpecification(userMessage)
     || outputLooksLikeStructuredSpec(stashed);
-  const tier1BriefEssayStrip = !preserveCareerStructure
+  const profile = resolveAdamAnswerProfile({
+    message:            userMessage,
+    recentUserMessages,
+  });
+  const tier1BriefEssayStrip = profile === 'alpha'
+    && !preserveCareerStructure
     && !isAdamContinuationDepthTurn(userMessage)
     && !userRequestedPracticalDepth(userMessage)
     && !isAdamLightChatTurn(userMessage)
-    && (strictPlainConsumer || isAdamSubstantiveTurn(userMessage));
+    && !isAdamPracticalAdvisoryTurn(userMessage)
+    && !practicalThread
+    && (
+      strictPlainConsumer
+      || isAdamSimpleFactualTurn(userMessage)
+      || isAdamCurrentAffairsTurn(userMessage)
+    );
   const preservePracticalSkillsStructure = isAdamPracticalAdvisoryTurn(userMessage)
     && !isAdamContinuationDepthTurn(userMessage)
     && !userRequestedPracticalDepth(userMessage);
@@ -263,7 +280,7 @@ export function sanitizeStudentOutputSync(
     || practicalThread
     || isAdamLifeWellbeingTurn(userMessage)
     || isAdamCompareTurn(userMessage)
-    || /\b(?:diabetes|remission|photosynthesis|fotosintesis|type\s+[12]\s+diabetes|insulin)\b/i.test(userMessage)
+    || isAdamScienceNatureSynthesisTurn(userMessage)
   );
 
   const preserveStructuredMarkdown = constitutionalStructureOk || structuredSpecOk;
@@ -287,15 +304,11 @@ export function sanitizeStudentOutputSync(
   out = rewriteEmojiPerformanceOpeners(out);
   out = stripSunomNotation(out);
   out = stripPlanTesterAddress(out);
-  if (
-    tier1BriefEssayStrip
-    && isAdamPracticalAdvisoryTurn(userMessage)
-    && /\b(?:guru|sekolah|peranan|kemahiran|murid|pelajar|jawatan|kerjaya)\b/i.test(userMessage)
-  ) {
-    out = stripBmPracticalEssayInline(out);
-  }
   if (tier1BriefEssayStrip && !practicalThread) {
     out = stripSciencePoeticInline(out);
+    if (isAdamScienceNatureSynthesisTurn(userMessage)) {
+      out = stripScienceFaithInline(out);
+    }
   }
   if (tier1BriefEssayStrip && isAdamLifeWellbeingTurn(userMessage)) {
     out = stripLifeStressFaithInline(out);
@@ -369,15 +382,13 @@ export function sanitizeStudentOutputSync(
   const usePracticalCareerDoor = threadRootIsPracticalAdvisory(recentUserMessages, userMessage)
     && !isAdamCompareTurn(userMessage);
   if (!usePracticalCareerDoor) {
-    for (let i = kept.length - 1; i >= 0; i -= 1) {
-      const para = kept[i] ?? '';
-      if (paragraphIsPracticalCareerDoorOffer(para)
-        && !paragraphIsHealthAdaptedDoorOffer(para)
-        && !paragraphIsCompareDoorOffer(para)
-        && !paragraphIsLifeWellbeingAdaptedDoorOffer(para)) {
-        kept.splice(i, 1);
-      }
-    }
+    const stripped = stripMisplacedPracticalCareerDoor(
+      kept.join('\n\n').trim(),
+      userMessage,
+      recentUserMessages,
+    );
+    kept.length = 0;
+    kept.push(...stripped.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean));
   }
 
   let polished = polishStudentOutputSurface(
@@ -398,12 +409,23 @@ export function sanitizeStudentOutputSync(
     tier1BriefEssayStrip
     && !userRequestedPracticalDepth(userMessage)
     && countRecentUniversalScholarDoors(recentAssistantMessages) === 0
+    && (
+      usePracticalCareerDoor
+      || isAdamCompareTurn(userMessage)
+      || isAdamLifeWellbeingTurn(userMessage)
+    )
   ) {
     polished = appendUniversalScholarTier1DoorIfMissing(
       polished,
       userMessage,
       recentAssistantMessages,
     );
+  }
+  if (!usePracticalCareerDoor) {
+    polished = stripMisplacedPracticalCareerDoor(polished, userMessage, recentUserMessages);
+  }
+  if (!lightChat) {
+    polished = normalizeConsumerParagraphBreaks(polished);
   }
   return stripStudentBismillahOpener(polished);
 }
@@ -431,6 +453,27 @@ export function applyStudentSurfaceOutputRepair(
 /** Min fraction of streamed chars guards must keep before replacing the live stream. */
 export const STUDENT_SURFACE_MIN_RETAIN_RATIO = 0.35;
 
+/** Stat/fakta turns — keep live stream unless surface keeps most body text. */
+export const STUDENT_STAT_STREAM_MIN_RETAIN_RATIO = 0.85;
+
+function countOutputParagraphs(text: string): number {
+  return text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).length;
+}
+
+/** True when post-stream repair dropped substantive paragraphs from the live stream. */
+export function studentStreamBodyWasGutted(rawModelStream: string, surface: string): boolean {
+  const raw = stripStudentBismillahOpener(rawModelStream.trim());
+  const surf = stripStudentBismillahOpener(surface.trim());
+  if (!raw || !surf || surf === raw) return false;
+  const rawLen = raw.length;
+  const retainRatio = rawLen > 0 ? surf.length / rawLen : 1;
+  const rawParas = countOutputParagraphs(raw);
+  const surfParas = countOutputParagraphs(surf);
+  if (rawParas >= 2 && surfParas < rawParas) return true;
+  if (rawLen > 280 && retainRatio < STUDENT_STAT_STREAM_MIN_RETAIN_RATIO) return true;
+  return false;
+}
+
 /** Min fraction retained for tier-1 essay repairs (role ask stripped to brief + door). */
 export const STUDENT_BRIEF_TIER1_MIN_RETAIN_RATIO = 0.06;
 
@@ -442,6 +485,8 @@ export interface ResolveStudentStreamSurfaceOptions {
   preferSanitized?: boolean;
   /** Tier-1 role/skills ask — accept brief guard repair over long streamed essay. */
   allowBriefTier1Repair?: boolean;
+  /** Stat/fakta — never swap stream for a gutted guard surface. */
+  preserveStreamBody?: boolean;
 }
 
 /** @deprecated Tier-1 role answers keep streamed structure — only strip poetic leaks, never force brief replace. */
@@ -469,6 +514,10 @@ export function resolveStudentStreamSurface(
   }
   const rawLen = raw.length;
   const retainRatio = rawLen > 0 ? surf.length / rawLen : 1;
+
+  if (options?.preserveStreamBody && studentStreamBodyWasGutted(raw, surf)) {
+    return { fullResponse: raw, streamReplace: null };
+  }
 
   if (options?.preferSanitized) {
     // Current-affairs repair may shorten stale essays — but never swap for a near-empty stub.

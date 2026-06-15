@@ -124,15 +124,24 @@ export function resolveAdamMaxTokens(
 export function resolveQwenEnableThinking(
   tier: ModelTier,
   mode: ADAMChatMode,
-  options?: { founderTeachingAbsorption?: boolean; isStudent?: boolean; lightChat?: boolean },
+  options?: {
+    founderTeachingAbsorption?: boolean;
+    isStudent?: boolean;
+    lightChat?: boolean;
+    /** Search-first factual — prefetch already waited; stream answer tokens immediately. */
+    searchFirstSynthesis?: boolean;
+  },
 ): boolean {
   if (!ENV.QWEN_ENABLE_THINKING) return false;
   if (tier === 'fast') return false;
   // Salam / thanks — answer streams immediately (no silent thinking phase)
   if (options?.lightChat) return false;
-  // Unified ADAM — students on deep tier use thinking like founder (voice depth)
   // Teaching absorption — stream visible sooner; output tokens unchanged
   if (options?.founderTeachingAbsorption) return false;
+  // User consumer — no silent reasoning buffer before first visible chunk (v2.1 UX)
+  if (options?.isStudent) return false;
+  // Gold Standard / search-first — user already waited on prefetch; stream prose live
+  if (options?.searchFirstSynthesis) return false;
   return DEEP_MODES.includes(mode);
 }
 

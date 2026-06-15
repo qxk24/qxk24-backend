@@ -78,12 +78,10 @@ import {
   clearSessionChatHistory,
   getOrCreateGroupSession,
 } from '../../adam/adam-chat.service';
+import { attemptUnifiedAdamLogin } from '../../adam/adam-unified-login.service';
 import {
-  getStudentAccount,
   getStudentAccounts,
   issueAdamToken,
-  resolveStudentLoginUserIdAsync,
-  verifyStudentPassword,
 } from '../../adam/adam-student.service';
 import {
   isStudentSelfRegisterEnabled,
@@ -120,7 +118,7 @@ import {
 const router = new Hono();
 
 const LoginSchema = z.object({
-  username: z.string().min(1),
+  username: z.string().optional().default(''),
   password: z.string().min(1),
 });
 
@@ -498,51 +496,50 @@ router.post('/change-password', requireStudent, zValidator('json', ChangePasswor
   }
 });
 
-// POST /api/adam/student/login
+// POST /api/adam/student/login — unified sign-in (founder password or student account)
 router.post('/login', zValidator('json', LoginSchema), async (c) => {
   const { username, password } = c.req.valid('json');
-  const userId = await resolveStudentLoginUserIdAsync(username);
+  const result = await attemptUnifiedAdamLogin(username, password);
 
-  if (!userId) {
-    console.warn('[adam:student-login] unknown login id', { username: username.trim().slice(0, 40) });
-    await new Promise((r) => setTimeout(r, 800));
-    return c.json({ success: false, error: 'Access denied.', kernel: 'ALAMTOLOGI' }, 401);
+  if (result.kind === 'failure') {
+    return c.json(
+      {
+        success: false,
+        error:   result.error,
+        hint:    result.hint,
+        kernel:  'ALAMTOLOGI',
+      },
+      result.status,
+    );
   }
 
-  const account = getStudentAccount(userId);
-  const passwordOk = account
-    ? await verifyStudentPassword(account.userId, password)
-    : false;
-
-  if (!account || !passwordOk) {
-    console.warn('[adam:student-login] access denied', {
-      userId,
-      hasAccount: Boolean(account),
-      passwordOk,
+  if (result.kind === 'founder') {
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data: {
+        token:       result.token,
+        role:        'founder',
+        userId:      result.userId,
+        name:        result.name,
+        founderName: result.name,
+        expiresIn:   '30d',
+      },
+      timestamp: new Date().toISOString(),
     });
-    await new Promise((r) => setTimeout(r, 800));
-    return c.json({ success: false, error: 'Access denied.', kernel: 'ALAMTOLOGI' }, 401);
   }
-
-  const accountRole = await getAccountRole(account.userId);
-  const accountLane = await getAccountLane(account.userId);
-  const token = issueAdamToken({
-    userId:       account.userId,
-    role:         accountRole,
-    name:         account.name,
-    isFounder:    false,
-    accountLane,
-  });
 
   return c.json({
     success: true,
     kernel:  'ALAMTOLOGI',
     data: {
-      token,
-      role:        accountRole,
-      userId:      account.userId,
-      name:        account.name,
-      accountLane,
+      token:       result.token,
+      role:        result.role,
+      userId:      result.userId,
+      name:        result.name,
+      accountLane: result.accountLane,
       expiresIn:   '30d',
     },
     timestamp: new Date().toISOString(),

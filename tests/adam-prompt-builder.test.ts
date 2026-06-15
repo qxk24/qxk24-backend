@@ -30,6 +30,7 @@ describe('buildAdamChatSystemPrompt — unified ADAM (student = founder voice)',
       participantName:      'Ahmad',
       founderStudentsBlock: '',
       studentKnowledgeTier: 1,
+      userMessage:          'Apa itu fotosintesis?',
     });
     expect(prompt.split('UNIFIED ADAM SURFACE').length - 1).toBe(1);
     expect(prompt).toContain(ADAM_UNIFIED_SURFACE_HYGIENE.slice(0, 40));
@@ -38,11 +39,11 @@ describe('buildAdamChatSystemPrompt — unified ADAM (student = founder voice)',
     expect(prompt).toContain('FIVE RULES — CHECK EVERY REPLY');
     expect(prompt).toContain('LAYER 5 — RESPONSE GENERATION');
     expect(prompt).toContain('THE FIVE FORMS OF RESPONSE');
-    expect(prompt).toContain('TEORI MASABAYU');
-    expect(prompt).toContain('STUDENT MODE —');
+    expect(prompt).toContain('UNIVERSAL SCHOLAR TIER-1');
+    expect(prompt).not.toContain('TEORI MASABAYU');
+    expect(prompt).toContain('USER MODE —');
     expect(prompt).toContain('ADAM EXPLAIN-BACK LAW');
     expect(prompt).toContain('ACTIVE TIER THIS TURN: 1');
-    expect(prompt.indexOf('ADAM EXPLAIN-BACK LAW')).toBeLessThan(prompt.indexOf('TEORI MASABAYU'));
     expect(prompt.split(ADAM_WARMTH_VOICE.slice(0, 32)).length - 1).toBe(1);
     expect(prompt).not.toContain('ADAM CHARACTER — SUPREME (student turn)');
     expect(prompt).not.toContain('ANSWER FRAME (mandatory');
@@ -99,6 +100,7 @@ describe('buildAdamChatSystemPrompt — unified ADAM (student = founder voice)',
       isFounder:            true,
       participantName:      'Masa Bayu',
       founderStudentsBlock: '',
+      userMessage:          'Boleh terangkan tentang komunikasi antara manusia?',
     });
     expect(prompt).toContain('ADAM EXPLAIN-BACK LAW');
     expect(prompt).toMatch(/substantive turns/i);

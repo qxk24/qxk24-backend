@@ -68,6 +68,8 @@ describe('Formula XYZ chapters 1–6', () => {
   it('Bab 3 — Hukum Alamtologi / Hukum Z', () => {
     expect(resolveBookChapter('Apa itu Hukum Z?')?.chapterId).toBe('bab-3-hukum');
     expect(resolveBookChapter('Hukum Alamtologi')?.chapterId).toBe('bab-3-hukum');
+    expect(resolveBookChapter('Apa itu ABA?')?.chapterId).toBe('bab-3-hukum');
+    expect(resolveBookChapter('Apa maksud Asas Bentuk Alam?')?.chapterId).toBe('bab-3-hukum');
   });
 
   it('Bab 4 — Sains (IZWA, SIRA, RINA)', () => {
@@ -701,6 +703,9 @@ describe('Bab 3 Hukum confusion output guard', () => {
   it('bab 3 constitutional backbone anchors hukum', () => {
     expect(BAB3_HUKUM_CONSTITUTIONAL_BACKBONE).toMatch(/Hukum Z/i);
     expect(BAB3_HUKUM_CONSTITUTIONAL_BACKBONE).toMatch(/DILARANG.*Cara Kira/i);
+    expect(BAB3_HUKUM_CONSTITUTIONAL_BACKBONE).toMatch(/Asas Bentuk Alam/i);
+    expect(BAB3_HUKUM_CONSTITUTIONAL_BACKBONE).toMatch(/DILARANG.*Asas Bentuk ALAMTOLOGI/i);
+    expect(BAB3_HUKUM_CONSTITUTIONAL_BACKBONE).toMatch(/Bab 2.*rujuk/i);
   });
 });
 
