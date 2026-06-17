@@ -16,6 +16,12 @@
  */
 
 import { isQwenDataInspectionError, llmStream } from '../llm/llm-client';
+import { repairTechnicalDiagramOutput } from './adam-technical-diagram-guard';
+import { repairAdamMediaOutput, outputHasAdamChatMedia } from './adam-media-guard';
+import {
+  isAdamMediaSearchTurn,
+  type AdamMediaSearchHit,
+} from './adam-media-search';
 import type { LlmMessage, LlmSearchResult } from '../llm/llm-types';
 import {
   isAdamCurrentAffairsTurn,
@@ -26,16 +32,30 @@ import { repairEastAsianScriptLeak } from './adam-language-guard';
 import {
   buildStudentGreetingFallback,
   isAdamLightChatTurn,
+  isAdamSimpleFactualTurn,
+  isAdamSimpleArithmeticTurn,
+  isAdamHistoricalBiographyTurn,
+  isAdamScienceNatureSynthesisTurn,
+  isAdamTechnicalKonvensionalDisplayTurn,
+  isAdamVisualDrawTurn,
 } from './adam-response-generation';
+import { isArithmeticAlphaCollapsedRepair } from './adam-arithmetic-alpha-guard';
+import { isVisualDrawCollapsedRepair } from './adam-visual-draw-guard';
+import { ensureStudentHaiGreeting, isStudentGreetingOnlyRepair } from './adam-student-constitution';
 import {
   buildTutorGreetingFallback,
   isAdamTutorMode,
+  repairTutorMalaySessionLanguage,
 } from './adam-tutor-law';
 import {
   applyStudentSurfaceOutputRepair,
   resolveStudentStreamSurface,
   studentStreamBodyWasGutted,
 } from './adam-student-output-guard';
+import {
+  outputHasKonvensionalFrameworkLeak,
+  outputHasMediaRefusal,
+} from './adam-student-output-law';
 import { alphaStatPersistedStreamBody } from './adam-stat-stream-preserve';
 import { outputHasScannableListStructure } from './adam-student-output-law';
 import {
@@ -168,6 +188,12 @@ export interface StreamRepairResult {
   syncRepairMs: number;
   /** Post-stream guard replaced stale model output (current affairs / practical advisory). */
   sanitizedRepairApplied: boolean;
+  /** α arithmetic allowlist collapse — short L1 answer + close replaces long stream. */
+  arithmeticAlphaRepairApplied: boolean;
+  /** Visual draw canonical ASCII shapes replace long geometry essay stream. */
+  visualDrawRepairApplied: boolean;
+  /** Hai + name prepended — stream UI must replace raw chunks. */
+  studentGreetingRepairApplied: boolean;
 }
 
 export async function repairAdamStreamOutput(input: {
@@ -181,6 +207,7 @@ export async function repairAdamStreamOutput(input: {
   searchUsed?: boolean;
   searchDroppedByFilter?: boolean;
   extractedFacts?: string;
+  mediaHits?: AdamMediaSearchHit[];
 }): Promise<StreamRepairResult> {
   const {
     shell,
@@ -193,6 +220,7 @@ export async function repairAdamStreamOutput(input: {
     searchUsed = false,
     searchDroppedByFilter = false,
     extractedFacts = '',
+    mediaHits = [],
   } = input;
   const {
     isFounder,
@@ -208,6 +236,9 @@ export async function repairAdamStreamOutput(input: {
   const repairStarted = Date.now();
   let syncRepairMs = 0;
   let sanitizedRepairApplied = false;
+  let arithmeticAlphaRepairApplied = false;
+  let visualDrawRepairApplied = false;
+  let studentGreetingRepairApplied = false;
   let fullResponse = await repairEastAsianScriptLeak(rawModelStream, userMessage);
 
   if (isFounder) {
@@ -222,6 +253,44 @@ export async function repairAdamStreamOutput(input: {
     fullResponse = restoreFounderPaltAddress(fullResponse);
     if (!founderTeachingLearnerTurn) {
       fullResponse = repairStaleOfficeHolderOutput(fullResponse, userMessage);
+      if (
+        isAdamSimpleFactualTurn(userMessage)
+        || isAdamSimpleArithmeticTurn(userMessage)
+        || isAdamHistoricalBiographyTurn(userMessage)
+        || isAdamScienceNatureSynthesisTurn(userMessage)
+        || isAdamVisualDrawTurn(userMessage)
+      ) {
+        fullResponse = applyStudentSurfaceOutputRepair(
+          fullResponse,
+          userMessage,
+          recentUserTurns,
+          recentAssistantTurns,
+          participant.userName,
+        );
+      }
+    }
+    if (
+      !founderTeachingLearnerTurn
+      && !isAdamLightChatTurn(userMessage)
+      && !isAdamVisualDrawTurn(userMessage)
+      && fullResponse?.trim()
+    ) {
+      const greeted = ensureStudentHaiGreeting(fullResponse, participant.userName);
+      if (greeted !== fullResponse.trim()) {
+        fullResponse = greeted;
+      }
+    }
+    if (isArithmeticAlphaCollapsedRepair(rawModelStream, fullResponse, userMessage)) {
+      arithmeticAlphaRepairApplied = true;
+      sanitizedRepairApplied = true;
+      onEvent('adam_stream_done', JSON.stringify({
+        sessionId:           resolvedSessionId,
+        replace:             true,
+        sanitizedRepair:     true,
+        arithmeticAlphaRepair: true,
+        briefTier1Repair:    true,
+        response:            fullResponse,
+      }));
     }
   }
 
@@ -232,6 +301,13 @@ export async function repairAdamStreamOutput(input: {
         participant.userName,
         shell.options.tutorProfile,
       );
+    } else if (fullResponse?.trim()) {
+      const tutorLangStarted = Date.now();
+      fullResponse = await repairTutorMalaySessionLanguage(
+        fullResponse,
+        shell.options.tutorProfile,
+      );
+      syncRepairMs = Date.now() - tutorLangStarted;
     }
   } else if (!isFounder) {
     const syncStarted = Date.now();
@@ -246,20 +322,40 @@ export async function repairAdamStreamOutput(input: {
         userMessage,
         recentUserTurns,
         recentAssistantTurns,
+        participant.userName,
+        true,
       );
       syncRepairMs = Date.now() - syncStarted;
       if (!surface.trim() && isAdamLightChatTurn(userMessage)) {
         surface = buildStudentGreetingFallback(userMessage, participant.userName);
       }
       const preferSanitized = isAdamCurrentAffairsTurn(userMessage);
-      const streamGutted = studentStreamBodyWasGutted(rawModelStream, surface);
+      const forceSanitized = isAdamTechnicalKonvensionalDisplayTurn(userMessage)
+        && (
+          outputHasKonvensionalFrameworkLeak(rawModelStream)
+          || outputHasMediaRefusal(rawModelStream)
+        );
+      const streamGutted = studentStreamBodyWasGutted(rawModelStream, surface, userMessage);
       if (streamGutted) {
         fullResponse = alphaStatPersistedStreamBody(rawModelStream);
       } else {
         const resolved = resolveStudentStreamSurface(rawModelStream, surface, {
           preferSanitized,
+          forceSanitized,
           preserveStreamBody: false,
+          userMessage,
         });
+        if (isArithmeticAlphaCollapsedRepair(rawModelStream, resolved.fullResponse, userMessage)) {
+          arithmeticAlphaRepairApplied = true;
+          sanitizedRepairApplied = true;
+        }
+        if (isVisualDrawCollapsedRepair(rawModelStream, resolved.fullResponse, userMessage)) {
+          visualDrawRepairApplied = true;
+          sanitizedRepairApplied = true;
+        }
+        if (forceSanitized && resolved.streamReplace) {
+          sanitizedRepairApplied = true;
+        }
         const structurePreservingReplace = Boolean(
           resolved.streamReplace
           && preferSanitized
@@ -268,14 +364,20 @@ export async function repairAdamStreamOutput(input: {
             || outputHasScannableListStructure(resolved.fullResponse)
           ),
         );
-        if (structurePreservingReplace) {
+        const arithmeticReplace = Boolean(resolved.streamReplace && arithmeticAlphaRepairApplied);
+        const visualDrawReplace = Boolean(resolved.streamReplace && visualDrawRepairApplied);
+        const technicalRepairReplace = Boolean(resolved.streamReplace && forceSanitized);
+        if (structurePreservingReplace || arithmeticReplace || visualDrawReplace || technicalRepairReplace) {
           sanitizedRepairApplied = true;
           onEvent('adam_stream_done', JSON.stringify({
             sessionId:           resolvedSessionId,
             replace:               true,
             sanitizedRepair:       true,
-            briefTier1Repair:      false,
-            structurePreserving:   true,
+            arithmeticAlphaRepair: arithmeticReplace,
+            visualDrawRepair:      visualDrawReplace,
+            technicalMediaRepair: technicalRepairReplace,
+            briefTier1Repair:      arithmeticReplace || visualDrawReplace || technicalRepairReplace,
+            structurePreserving:   structurePreservingReplace,
             response:              resolved.streamReplace,
           }));
         }
@@ -333,6 +435,51 @@ export async function repairAdamStreamOutput(input: {
     }
   }
 
+  if (
+    !founderTeachingLearnerTurn
+    && !isAdamTutorMode(mode)
+    && !isAdamLightChatTurn(userMessage)
+    && fullResponse?.trim()
+    && isStudentGreetingOnlyRepair(rawModelStream, fullResponse)
+    && !arithmeticAlphaRepairApplied
+    && !visualDrawRepairApplied
+  ) {
+    studentGreetingRepairApplied = true;
+    sanitizedRepairApplied = true;
+    onEvent('adam_stream_done', JSON.stringify({
+      sessionId:             resolvedSessionId,
+      replace:               true,
+      sanitizedRepair:       true,
+      studentGreetingRepair: true,
+      response:              fullResponse,
+    }));
+  }
+
+  if (!isFounder && isAdamMediaSearchTurn(userMessage) && fullResponse?.trim()) {
+    const hits = mediaHits;
+    if (hits.length > 0) {
+      const bodyBeforeMedia = fullResponse;
+      fullResponse = repairAdamMediaOutput(fullResponse, userMessage, hits);
+      if (isAdamTechnicalKonvensionalDisplayTurn(userMessage)) {
+        fullResponse = repairTechnicalDiagramOutput(fullResponse, userMessage);
+      }
+      if (
+        fullResponse !== bodyBeforeMedia
+        && (outputHasAdamChatMedia(fullResponse) || sanitizedRepairApplied)
+      ) {
+        onEvent('adam_stream_done', JSON.stringify({
+          sessionId:           resolvedSessionId,
+          replace:             true,
+          sanitizedRepair:     true,
+          technicalMediaRepair: true,
+          briefTier1Repair:    true,
+          response:            fullResponse,
+        }));
+        sanitizedRepairApplied = true;
+      }
+    }
+  }
+
   if (!fullResponse?.trim()) {
     if (isFounder) {
       console.warn('[adam:stream] empty founder response after stream/repair', {
@@ -360,5 +507,8 @@ export async function repairAdamStreamOutput(input: {
     repairMs: Date.now() - repairStarted,
     syncRepairMs,
     sanitizedRepairApplied,
+    arithmeticAlphaRepairApplied,
+    visualDrawRepairApplied,
+    studentGreetingRepairApplied,
   };
 }

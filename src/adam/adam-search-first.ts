@@ -30,7 +30,14 @@ import {
   buildCurrentAffairsPrefetchPrompt,
   isAdamCurrentAffairsTurn,
 } from './adam-current-affairs';
-import { stripLeadingAdamSalutation } from './adam-response-generation';
+import { isAdamPracticalAdvisoryTurn, stripLeadingAdamSalutation } from './adam-response-generation';
+import {
+  buildMarketPricingPrefetchPrompt,
+  buildMarketPricingSearchDisplayQuery,
+  buildMarketPricingSearchSites,
+  buildMarketPricingSearchWeaveRules,
+  isAdamMarketPricingTurn,
+} from './adam-market-pricing';
 import {
   blobHasVerifiableStatFigure,
   enrichSearchHitsUntilStatFigure,
@@ -50,8 +57,10 @@ import {
   searchHitsIncludeSubjectToken,
   snippetIsFullArticle,
   snippetHasGoldStandardBody,
+  snippetHasSynthesisGroundingBody,
   buildFactualAuthoritativeProbeUrls,
 } from './adam-official-source-enrich';
+import { buildPracticalAdvisorySearchWeaveRules } from './adam-practical-advisory-gold';
 import {
   buildGoldStandardSynthesisInstruction,
   evidenceHasGoldStandardArticle,
@@ -108,8 +117,8 @@ EXTRACTED_FACTS:
 - claim_or_figure | source_title | url
 
 Rules:
-- One line per verifiable fact (numbers, dates, names, definitions) found in search hits
-- Include enrollment totals, specs, office-holders, or published statistics when present
+- One line per verifiable fact: enrollment totals, office-holders, role duties, required skills, qualifications, published standards
+- Include role definitions and skill requirements when the question asks about a job or career
 - Use exact figures from sources — never invent or round creatively
 - Max 8 lines
 - If nothing verifiable was found, output exactly: EXTRACTED_FACTS: NONE
@@ -175,6 +184,8 @@ export function groundExtractedFactsToSearchHits(
     .join(' ')
     .toLowerCase();
 
+  const careerAsk = messageAsksRoleAndSkills(userMessage) || isAdamPracticalAdvisoryTurn(userMessage);
+
   const kept = extractedFacts
     .split('\n')
     .map((line) => line.trim())
@@ -182,10 +193,18 @@ export function groundExtractedFactsToSearchHits(
       if (!line) return false;
       if (hitUrls.some((url) => line.includes(url))) return true;
       const figures = line.match(/\d{1,3}(?:,\d{3})+|\d{4,6}/g) ?? [];
-      return figures.some((fig) => {
+      if (figures.some((fig) => {
         const compact = fig.replace(/,/g, '');
         return hitBlob.includes(fig.toLowerCase()) || hitBlob.includes(compact);
-      });
+      })) {
+        return true;
+      }
+      if (careerAsk) {
+        const tokens = line.toLowerCase().split(/\W+/).filter((w) => w.length > 4);
+        const overlap = tokens.filter((t) => hitBlob.includes(t)).length;
+        if (overlap >= 3) return true;
+      }
+      return false;
     });
 
   return kept.slice(0, 8).join('\n');
@@ -217,6 +236,58 @@ export function extractHeuristicFactsFromSearchHits(
   }
 
   return lines.slice(0, 8).join('\n');
+}
+
+/** Role/skill claims from search snippets — career asks without enrollment stats. */
+export function extractRoleSkillFactsFromSearchHits(
+  hits: LlmSearchResult[],
+  userMessage = '',
+): string {
+  if (!messageAsksRoleAndSkills(userMessage) && !isAdamPracticalAdvisoryTurn(userMessage)) {
+    return '';
+  }
+  const lines: string[] = [];
+  const seen = new Set<string>();
+  const scopedHits = userMessage.trim()
+    ? filterSearchHitsToSubjectRelevant(hits, userMessage)
+    : hits;
+  const pool = scopedHits.length > 0 ? scopedHits : hits;
+
+  for (const hit of pool) {
+    const title = hit.title?.trim() ?? '';
+    const url = hit.url?.trim() ?? '';
+    const snippet = hit.snippet?.trim() ?? '';
+    const blob = `${title}\n${snippet}`;
+    const chunks = blob
+      .split(/(?<=[.!?])\s+|\n{2,}/)
+      .map((c) => c.trim())
+      .filter((c) => c.length >= 40);
+
+    for (const chunk of chunks) {
+      if (!/\b(?:role|skill|responsibilit|duty|duties|peranan|kemahiran|guru|teacher|nurse|tanggungjawab|competen|qualification|membimbing|mengajar|pendidikan|kurikulum|PdPc|pentaksiran)\b/i.test(chunk)) {
+        continue;
+      }
+      const key = chunk.toLowerCase().slice(0, 96);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      lines.push(`${chunk} | ${title || 'source'} | ${url}`);
+      if (lines.length >= 8) break;
+    }
+    if (lines.length >= 8) break;
+  }
+
+  return lines.join('\n');
+}
+
+/** Stat figures + role/skill claims — unified fact extraction for synthesis. */
+export function extractFactsFromSearchHits(
+  hits: LlmSearchResult[],
+  userMessage = '',
+): string {
+  return mergeExtractedFactLines(
+    extractHeuristicFactsFromSearchHits(hits, userMessage),
+    extractRoleSkillFactsFromSearchHits(hits, userMessage),
+  );
 }
 
 export function mergeExtractedFactLines(...blocks: Array<string | undefined>): string {
@@ -291,7 +362,7 @@ export async function resolveGoldStandardSearchFirstReply(input: {
     evidence = dedupeSearchHits(enriched);
     facts = mergeExtractedFactLines(
       facts,
-      extractHeuristicFactsFromSearchHits(enriched, input.userMessage),
+      extractFactsFromSearchHits(enriched, input.userMessage),
       extractRichPageStatFactsFromHits(enriched, input.userMessage),
     );
     figure = extractVerifiedStatFigureFromEvidence(evidence, facts, input.userMessage);
@@ -325,6 +396,7 @@ export async function resolveGoldStandardSearchFirstReply(input: {
     facts = mergeExtractedFactLines(
       facts,
       extractHeuristicFactsFromSearchHits(evidence, input.userMessage),
+      extractRoleSkillFactsFromSearchHits(evidence, input.userMessage),
       extractRichPageStatFactsFromHits(evidence, input.userMessage),
     );
     console.log('[adam:search-first] gold standard full article ready', JSON.stringify({
@@ -349,6 +421,7 @@ export async function resolveGoldStandardSearchFirstReply(input: {
     facts = mergeExtractedFactLines(
       facts,
       extractHeuristicFactsFromSearchHits(evidence, input.userMessage),
+      extractRoleSkillFactsFromSearchHits(evidence, input.userMessage),
       extractRichPageStatFactsFromHits(evidence, input.userMessage),
     );
     return {
@@ -382,7 +455,7 @@ export async function resolveGoldStandardSearchFirstReply(input: {
 export function appendPrefetchedSearchContextToPrompt(
   baseSystemPrompt: string,
   results: LlmSearchResult[],
-  options?: { searchDropped?: boolean; extractedFacts?: string },
+  options?: { searchDropped?: boolean; extractedFacts?: string; userMessage?: string },
 ): string {
   const marker = '\n\n[WEB SEARCH';
   const base = baseSystemPrompt.includes(marker)
@@ -400,7 +473,10 @@ export function appendGoldStandardSynthesisContextToPrompt(
 ): string {
   const goldBlock = buildGoldStandardSynthesisInstruction(userMessage, evidence, extractedFacts);
   if (!goldBlock) {
-    return appendPrefetchedSearchContextToPrompt(baseSystemPrompt, evidence, { extractedFacts });
+    return appendPrefetchedSearchContextToPrompt(baseSystemPrompt, evidence, {
+      extractedFacts,
+      userMessage,
+    });
   }
   const marker = '\n\n[WEB SEARCH';
   const goldMarker = '\n\n[GOLD STANDARD';
@@ -546,6 +622,9 @@ export function buildAdamSearchDisplayQuery(
   if (statAsk && body) {
     return body.slice(0, 120);
   }
+  if (isAdamMarketPricingTurn(body)) {
+    return buildMarketPricingSearchDisplayQuery(userMessage);
+  }
   if (messageAsksRoleAndSkills(body)) {
     return buildFactualZeroHitSearchDisplayQuery(body);
   }
@@ -610,11 +689,19 @@ export function buildFactualZeroHitRetryPrompt(message: string): string {
 export function buildFactualCareerPrefetchPrompt(message: string): string {
   const body = stripLeadingAdamSalutation(message.trim());
   const query = buildFactualZeroHitSearchDisplayQuery(message);
+  const prefersHealth = /\b(?:nurse|nursing|healthcare|midwife|jururawat)\b/i.test(body);
+  const prefersBmEdu = /\b(?:guru|sekolah|murid|pendidikan|kurikulum|kemahiran|peranan)\b/i.test(body);
+  const prioritySources = prefersHealth
+    ? 'healthcareers.nhs.uk, nhs.uk, who.int, national nursing bodies.'
+    : prefersBmEdu
+      ? 'Kementerian Pendidikan Malaysia (moe.gov.my), portal rasmi KPM, garis panduan kurikulum/pendidikan — bukan berita kampus atau blog persendirian.'
+      : 'official government (.gov), professional bodies, and national career guidance sites — not job boards or news aggregators.';
   return [
     `Find official career reference pages for: ${body}`,
-    `Search query: ${query} NHS healthcare careers skills qualifications`,
-    'Priority sources: healthcareers.nhs.uk, nhs.uk, who.int, professional nursing bodies.',
-    'Return pages with role definitions and required personal skills — not job boards or aggregators.',
+    `Search query: ${query} official role duties required skills qualifications`,
+    `Priority sources: ${prioritySources}`,
+    'Return pages with clear role definitions, daily duties, and required skills or competencies.',
+    'Output EXTRACTED_FACTS block — one line per verifiable role duty or skill with source title and URL.',
   ].join('\n');
 }
 
@@ -645,9 +732,11 @@ export function buildSearchPrefetchUserPrompt(
     ? buildCurrentAffairsPrefetchPrompt(msg)
     : isVerifiedDataStatAsk(msg)
       ? buildVerifiedDataStatPrefetchPrompt(msg)
-      : messageAsksRoleAndSkills(msg)
-        ? buildFactualCareerPrefetchPrompt(msg)
-        : msg;
+      : isAdamMarketPricingTurn(msg)
+        ? buildMarketPricingPrefetchPrompt(msg)
+        : messageAsksRoleAndSkills(msg)
+          ? buildFactualCareerPrefetchPrompt(msg)
+          : msg;
   const recent = recentUserMessages.slice(-2).filter(Boolean);
   if (recent.length === 0) return searchBody;
   return [
@@ -661,7 +750,7 @@ export function buildSearchPrefetchUserPrompt(
 /** Injected into synthesis system prompt — search already completed. */
 export function buildPrefetchedSearchContextBlock(
   results: LlmSearchResult[],
-  options?: { searchDropped?: boolean; extractedFacts?: string },
+  options?: { searchDropped?: boolean; extractedFacts?: string; userMessage?: string },
 ): string {
   if (options?.searchDropped) {
     return [
@@ -686,9 +775,16 @@ export function buildPrefetchedSearchContextBlock(
   const lines = results.map((hit, index) => formatPrefetchedSearchHitLine(hit, index));
   const factBlock = options?.extractedFacts?.trim();
   const hasVerifiedFigure = factBlock ? /\d{1,3}(?:,\d{3})+|\d{4,6}/.test(factBlock) : false;
+  const practicalAdvisory = options?.userMessage
+    && (isAdamPracticalAdvisoryTurn(options.userMessage) || messageAsksRoleAndSkills(options.userMessage));
+  const marketPricing = options?.userMessage && isAdamMarketPricingTurn(options.userMessage);
+  const careerFactBlock = practicalAdvisory && factBlock && !hasVerifiedFigure;
+
   return [
     '[WEB SEARCH RESULTS — MANDATORY GROUND TRUTH]',
     'Fetched BEFORE you write this answer. Use ONLY these hits and extracted facts for factual claims.',
+    ...(marketPricing ? [buildMarketPricingSearchWeaveRules(), ''] : []),
+    ...(practicalAdvisory && !marketPricing ? [buildPracticalAdvisorySearchWeaveRules(), ''] : []),
     ...(factBlock
       ? [
         '[WEB SEARCH EXTRACTED FACTS — from prefetch analysis of hits]',
@@ -710,6 +806,12 @@ export function buildPrefetchedSearchContextBlock(
             'No reflective philosophy closing — facts and campus list only.',
           ]
           : ['Prefer EXTRACTED FACTS for numbers and dates; cross-check with hit titles/snippets below.']),
+        ...(careerFactBlock
+          ? [
+            'Career/role turn — weave EVERY line in EXTRACTED FACTS into the answer (duties, skills, qualifications).',
+            'FORBIDDEN: constitutional jargon or philosophy without facts from EXTRACTED FACTS and hits below.',
+          ]
+          : []),
       ]
       : []),
     'Titles, URLs, and snippets — do not invent numbers, dates, names, citations, or parent organisations beyond this list.',
@@ -783,7 +885,9 @@ export async function runStudentSearchPrefetch(input: {
   try {
     const primarySites = statAsk
       ? buildVerifiedDataStatSearchSites(input.userMessage)
-      : buildFactualCareerSearchSites(input.userMessage);
+      : isAdamMarketPricingTurn(input.userMessage)
+        ? buildMarketPricingSearchSites()
+        : buildFactualCareerSearchSites(input.userMessage);
     const statStrategy = statAsk ? resolveVerifiedDataStatSearchStrategy() : undefined;
 
     let prefetch = await runPrefetch({
@@ -801,9 +905,9 @@ export async function runStudentSearchPrefetch(input: {
     let extractedFacts = useFactExtraction
       ? mergeExtractedFactLines(
         parseExtractedFactsFromPrefetch(prefetch.text),
-        extractHeuristicFactsFromSearchHits(searchResults, input.userMessage),
+        extractFactsFromSearchHits(searchResults, input.userMessage),
       )
-      : extractHeuristicFactsFromSearchHits(searchResults, input.userMessage);
+      : extractFactsFromSearchHits(searchResults, input.userMessage);
 
     const needsSubjectFocusedRetry = statAsk
       && searchResults.length > 0
@@ -905,7 +1009,8 @@ export async function runStudentSearchPrefetch(input: {
 
     const needsPageEnrich = searchResults.length > 0
       && !rankHitsForStatPageEnrich(searchResults, input.userMessage)
-        .some((h) => snippetHasGoldStandardBody(h.snippet));
+        .some((h) => snippetHasGoldStandardBody(h.snippet)
+          || snippetHasSynthesisGroundingBody(h.snippet));
 
     if (needsPageEnrich) {
       const enrichStarted = Date.now();
@@ -923,7 +1028,7 @@ export async function runStudentSearchPrefetch(input: {
       searchResults = dedupeSearchHits(enrichedHits);
       extractedFacts = mergeExtractedFactLines(
         extractedFacts,
-        extractHeuristicFactsFromSearchHits(enrichedHits, input.userMessage),
+        extractFactsFromSearchHits(enrichedHits, input.userMessage),
       );
       if (figureFound) {
         console.log('[adam:search-first] search-hit page enrich', JSON.stringify({

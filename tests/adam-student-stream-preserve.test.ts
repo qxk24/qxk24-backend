@@ -73,7 +73,7 @@ describe('preserveAlphaStatStreamBody', () => {
     expect(out).toMatch(/18,000.*verified via web search/i);
     expect(out).toMatch(/Alor Setar/);
     expect(out).toMatch(/62,000.*graduan/i);
-    expect(out).toMatch(/Perlu saya terangkan lagi bahagian lain/i);
+    expect(out).toMatch(/Mahu saya jelaskan lebih lanjut/i);
     expect(out.length).toBeGreaterThan(body.length);
   });
 });

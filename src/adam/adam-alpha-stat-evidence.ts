@@ -25,8 +25,11 @@ import {
   extractSubjectBoundStatFigure,
   extractSubjectTokensFromMessage,
   snippetHasGoldStandardBody,
+  snippetHasSynthesisGroundingBody,
+  messageAsksRoleAndSkills,
   rankHitsForStatPageEnrich,
 } from './adam-official-source-enrich';
+import { isAdamPracticalAdvisoryTurn } from './adam-response-generation';
 
 export function figureDisplayTokens(figureRaw: string): string[] {
   const compact = figureRaw.replace(/,/g, '');
@@ -157,15 +160,43 @@ export function findRichestStatEvidenceHit(
   evidence: LlmSearchResult[],
   userMessage: string,
 ): LlmSearchResult | null {
+  return findRichestSynthesisEvidenceHit(evidence, userMessage, { statOnly: true });
+}
+
+/**
+ * Best evidence for search-first synthesis — stats need figures/articles;
+ * practical advisory accepts role/skill grounding at a lower bar.
+ */
+export function findRichestSynthesisEvidenceHit(
+  evidence: LlmSearchResult[],
+  userMessage: string,
+  options?: { statOnly?: boolean },
+): LlmSearchResult | null {
+  const practicalAdvisory = !options?.statOnly
+    && (isAdamPracticalAdvisoryTurn(userMessage) || messageAsksRoleAndSkills(userMessage));
   let best: LlmSearchResult | null = null;
   let bestLen = 0;
   for (const hit of rankHitsForStatPageEnrich(evidence, userMessage)) {
-    if (!hit.pageFetched) continue;
     const snippet = hit.snippet?.trim().replace(/&nbsp;/gi, ' ') ?? '';
     if (snippet.length < 80) continue;
-    const hasFigure = extractStatFigureFromHit(hit, userMessage) !== null;
-    const hasArticle = snippetHasGoldStandardBody(snippet);
-    if (!hasFigure && !hasArticle) continue;
+
+    if (hit.pageFetched) {
+      const hasFigure = extractStatFigureFromHit(hit, userMessage) !== null;
+      const hasArticle = snippetHasGoldStandardBody(snippet);
+      const hasCareerGrounding = practicalAdvisory && snippetHasSynthesisGroundingBody(snippet);
+      if (options?.statOnly) {
+        if (!hasFigure && !hasArticle) continue;
+      } else if (practicalAdvisory) {
+        if (!hasFigure && !hasArticle && !hasCareerGrounding) continue;
+      } else if (!hasFigure && !hasArticle) {
+        continue;
+      }
+    } else if (practicalAdvisory && snippet.length >= 120 && snippetHasSynthesisGroundingBody(snippet)) {
+      // Snippet-only fallback when page fetch failed — still weave search hits.
+    } else {
+      continue;
+    }
+
     if (snippet.length > bestLen) {
       bestLen = snippet.length;
       best = hit;

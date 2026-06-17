@@ -23,7 +23,40 @@ import { isAdamCurrentAffairsTurn } from './adam-web-search';
 
 /** Short factual or capability question — answer directly, no philosophy essay. */
 const SIMPLE_FACTUAL_ASK =
-  /\b(?:how many|berapa|berapa\s+banyak|berapa\s+(?:orang|pelajar|murid|siswa)|who is|siapa(?:lah)?|what is|apa(?:kah)?\s+(?:itu|ialah)|when was|bila|where is|di\s+mana|which country|negara\s+mana|current|sekarang|kini|presiden|president|prime minister|menteri|capital|languages?|bahasa|understand|faham|speak|boleh\s+bercakap|jumlah|bilangan|statistik|maklumat|bagikan|berikan|share)\b/i;
+  /\b(?:how many|berapa|berapa\s+banyak|berapa\s+(?:orang|pelajar|murid|siswa|jumlah|hasil)|who is|siapa(?:lah)?|what is|apa(?:kah)?\s+(?:itu|ialah)|when was|bila|where is|di\s+mana|which country|negara\s+mana|current|sekarang|kini|presiden|president|prime minister|menteri|capital|languages?|bahasa|understand|faham|speak|boleh\s+bercakap|jumlah|bilangan|statistik|maklumat|bagikan|berikan|share|tambah|tolak|darab|bahagi|campur)\b/i;
+
+/** α word-problem / count arithmetic — not biology depth (spider legs keeps full voice). */
+const SIMPLE_ARITHMETIC_ASK =
+  /\b(?:tambah|tolak|darab|kali|bahagi|campur|plus|minus|times|divided)\b/i;
+
+const SIMPLE_ARITHMETIC_COUNT_NOUN =
+  /\b(?:epal|apple|oren|orange|guli|marble|biskut|cookie|buah|batu)\b/i;
+
+const INSTITUTIONAL_STAT_NOUN =
+  /\b(?:pelajar|murid|siswa|kakitangan|staff|enrollment|graduan|students?|graduates?)\b/i;
+
+const SIMPLE_ARITHMETIC_EXPR = /\d\s*[\+\-\u00d7x\*]\s*\d/;
+
+/** Linear equation in one variable — α step-by-step, not word-problem collapse. */
+const LINEAR_ALGEBRA_EXPR =
+  /\d*\s*[a-zA-Z]\s*[\+\-\u2212]\s*\d+\s*=\s*\d+|\d+\s*=\s*\d*\s*[a-zA-Z]\s*[\+\-\u2212]\s*\d+/;
+
+const LINEAR_ALGEBRA_ASK =
+  /\b(?:persamaan|equation|selesaikan|solve|nyatakan\s+nilai|carikan?\s+nilai|find\s+(?:the\s+value\s+of\s+)?x|for\s+x)\b/i;
+
+export function isAdamLinearAlgebraTurn(message: string): boolean {
+  const t = stripLeadingAdamSalutation(message).trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  if (t.length > 240) return false;
+  if (LINEAR_ALGEBRA_EXPR.test(t)) return true;
+  if (LINEAR_ALGEBRA_ASK.test(t) && /\b[x-z]\b/i.test(t)) return true;
+  return false;
+}
+
+/** Word-problem / count arithmetic — α collapse allowlist (not linear algebra steps). */
+export function isAdamArithmeticWordProblemTurn(message: string): boolean {
+  return isAdamSimpleArithmeticTurn(message) && !isAdamLinearAlgebraTurn(message);
+}
 
 /** Strip leading salam/hi — "Salam Adam, berapa…" keeps the factual ask. */
 export function stripLeadingAdamSalutation(message: string): string {
@@ -41,7 +74,40 @@ export function isAdamSimpleFactualTurn(message: string): boolean {
   if (!t || isAdamLightChatTurn(t)) return false;
   if (t.length > 160) return false;
   if (isAdamTeachingDepthTurn(t) || isAdamContinuationDepthTurn(t)) return false;
-  return SIMPLE_FACTUAL_ASK.test(t);
+  return SIMPLE_FACTUAL_ASK.test(t) || isAdamSimpleArithmeticTurn(t);
+}
+
+/** Basic arithmetic / word problem — α ringkas; not β or biology-count depth. */
+export function isAdamSimpleArithmeticTurn(message: string): boolean {
+  if (isAdamLinearAlgebraTurn(message)) return true;
+  const t = stripLeadingAdamSalutation(message).trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  if (t.length > 200) return false;
+  if (isAdamTeachingDepthTurn(t) || isAdamContinuationDepthTurn(t)) return false;
+  if (SIMPLE_ARITHMETIC_EXPR.test(t)) return true;
+  if (SIMPLE_ARITHMETIC_ASK.test(t)) return true;
+  if (
+    /\bberapa\s+jumlah\b/i.test(t)
+    && SIMPLE_ARITHMETIC_COUNT_NOUN.test(t)
+    && !INSTITUTIONAL_STAT_NOUN.test(t)
+  ) {
+    return true;
+  }
+  if (
+    SIMPLE_ARITHMETIC_COUNT_NOUN.test(t)
+    && /\d/.test(t)
+    && !INSTITUTIONAL_STAT_NOUN.test(t)
+  ) {
+    return true;
+  }
+  if (
+    SIMPLE_ARITHMETIC_COUNT_NOUN.test(t)
+    && /\b(?:berapa|jumlah|banyak|tambah|bagi|kalau|jika|if|ada|have)\b/i.test(t)
+    && !INSTITUTIONAL_STAT_NOUN.test(t)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /** Salam, thanks, or other turns that skip full response architecture. */
@@ -147,15 +213,66 @@ export function isAdamTeachingDepthTurn(message: string): boolean {
   return false;
 }
 
-/** Science / nature / faith+science synthesis — tier-1 universal voice strip (no Alamtologi billboards). */
+/** Science / nature / school physics-chemistry — tier-1 konvensional strip (no Alamtologi billboards). */
 const SCIENCE_NATURE_SYNTHESIS_ASK =
-  /\b(?:bumi|earth|bulat|flat|rata|geoid|graviti|gravity|orbit|bentuk|planet|gerhana|eclipse|magellan|NASA|ESA|JAXA|angkasa|cuaca|iklim|fotosintesis|photosynthesis|evolusi|evolution|diabetes|insulin|remission|saintifik|science|universe|alam\s+semesta|kosmos|relativiti|kuantum|black\s+hole|lubang\s+hitam|teori\s+(?:bumi|earth|rata|flat))\b/i;
+  /\b(?:bumi|earth|bulat|flat|rata|geoid|graviti|gravity|orbit|bentuk|planet|gerhana|eclipse|magellan|NASA|ESA|JAXA|angkasa|cuaca|iklim|fotosintesis|photosynthesis|evolusi|evolution|diabetes|insulin|remission|saintifik|science|universe|alam\s+semesta|kosmos|relativiti|kuantum|black\s+hole|lubang\s+hitam|teori\s+(?:bumi|earth|rata|flat)|ais|ice|peleburan|mencair|melting|membeku|freeze|wap|steam|sublim|fasa|phase\s+change|titik\s+lebur|titik\s+didih|boiling|molekul|atom|tenaga\s+haba|heat\s+energy|pepejal|cecair|sains\s+fizikal|physics|kimia|chemistry|asid|bes|alkali|acid|base|peneutralan|neutralis|neutralization|larutan|ion\s+hidrogen|hidroksida|ph\b|skala\s+ph)\b/i;
 
 export function isAdamScienceNatureSynthesisTurn(message: string): boolean {
   const t = message.trim();
   if (!t || isAdamLightChatTurn(t)) return false;
   if (isAdamPracticalAdvisoryTurn(t)) return false;
   return SCIENCE_NATURE_SYNTHESIS_ASK.test(t);
+}
+
+/** Historical figure / legend / tokoh — konvensional surface unless user opened Alamtologi. */
+const HISTORICAL_BIOGRAPHY_ASK =
+  /\b(?:siapa(?:lah)?|who\s+was|who\s+is|apa(?:kah)?\s+itu|cerita|kisah|tokoh|legenda|sejarah|wira|pahlawan|kenapa\s+.+\s+penting|mengapa\s+.+\s+penting|peranan\s+.+\s+dalam\s+sejarah|tell\s+me\s+about)\b/i;
+
+const HISTORICAL_BIOGRAPHY_SUBJECT =
+  /\b(?:hang\s+tuah|hang\s+jebat|melaka|kesultanan|parameswara|tuanku|sultan|tokoh|legenda|wira|pahlawan|sejarah\s+malaysia|sulalatus\s+salatin|laksamana)\b/i;
+
+export function isAdamHistoricalBiographyTurn(message: string): boolean {
+  const t = message.trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  if (!HISTORICAL_BIOGRAPHY_ASK.test(t) && !/\b(?:siapa|who)\b/i.test(t)) return false;
+  return HISTORICAL_BIOGRAPHY_SUBJECT.test(t)
+    || /\b(?:dalam\s+sejarah|sejarah\s+malaysia|sejarah\s+islam|tokoh\s+sejarah)\b/i.test(t);
+}
+
+/** World / regional history synthesis — WWI, empire, revolution (konvensional α, no MASA/TENAGA weave). */
+const HISTORY_SYNTHESIS_ASK =
+  /\b(?:perang\s+dunia|world\s+war|ww1|ww2|wwi|wwii|perang\s+besar|revolusi|empayar|kolonial|imperialisme|imperialism|sejarah\s+dunia|punca\s+(?:perang|konflik)|causes?\s+of\s+(?:the\s+)?war|cold\s+war|perang\s+dingin|kenapa\s+.+\s+tercetus|mengapa\s+.+\s+berlaku)\b/i;
+
+export function isAdamHistorySynthesisTurn(message: string): boolean {
+  const t = stripLeadingAdamSalutation(message).trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  if (isAdamPracticalAdvisoryTurn(t)) return false;
+  if (isAdamHistoricalBiographyTurn(t)) return false;
+  return HISTORY_SYNTHESIS_ASK.test(t);
+}
+
+/** General konvensional — technical GFM blocks (###, lists), not flowing essay. */
+export function isAdamTechnicalKonvensionalDisplayTurn(message: string): boolean {
+  const t = stripLeadingAdamSalutation(message).trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  if (isAdamPracticalAdvisoryTurn(t)) return false;
+  return isAdamScienceNatureSynthesisTurn(t)
+    || isAdamLinearAlgebraTurn(t)
+    || isAdamHistorySynthesisTurn(t);
+}
+
+/** User asked to draw/sketch basic shapes — show ASCII/Unicode art, not essay. */
+const VISUAL_DRAW_ASK =
+  /\b(?:lukis(?:kan)?|lukiskan|draw|sketch|gambar(?:kan)?|tunjuk(?:kan)?\s+(?:gambar|bentuk))\b/i;
+
+const BASIC_SHAPE_NOUN =
+  /\b(?:bulat(?:an)?|segi\s*empat|segi\s*tiga|square|circle|triangle|rectangle|kubus|cube|bentuk\s+asas)\b/i;
+
+export function isAdamVisualDrawTurn(message: string): boolean {
+  const t = stripLeadingAdamSalutation(message).trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  if (!VISUAL_DRAW_ASK.test(t)) return false;
+  return BASIC_SHAPE_NOUN.test(t);
 }
 
 /** When the student corrects a wrong brand/model — acknowledge, do not invent. */

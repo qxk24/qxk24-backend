@@ -16,6 +16,7 @@
  */
 
 import type { LlmSearchResult } from '../llm/llm-types';
+import type { AdamMediaSearchHit } from './adam-media-search';
 import type { SSEEventType } from './adam.types';
 
 export function emitAdamSearchDoneEvent(
@@ -29,6 +30,22 @@ export function emitAdamSearchDoneEvent(
     results: results.slice(0, 8).map((hit) => ({
       title: hit.title ?? '',
       url:   hit.url ?? '',
+    })),
+  }));
+}
+
+export function emitAdamMediaReadyEvent(
+  onEvent: (event: SSEEventType, data: string) => void,
+  hits: AdamMediaSearchHit[],
+): void {
+  if (hits.length === 0) return;
+  onEvent('adam_media_ready', JSON.stringify({
+    count: hits.length,
+    items: hits.map((hit) => ({
+      kind:   hit.kind,
+      url:    hit.url,
+      title:  hit.title,
+      source: hit.source,
     })),
   }));
 }

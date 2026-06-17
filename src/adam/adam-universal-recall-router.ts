@@ -20,9 +20,10 @@
  */
 
 import { founderAsksPersonalBiography } from './adam-knowledge-prompts';
-import { isAdamLightChatTurn } from './adam-response-generation';
+import { isAdamLightChatTurn, isAdamSimpleFactualTurn } from './adam-response-generation';
 import { buildUniversalTeachingRecallBlock } from '../qxk24brain/adam-teaching-record.service';
 import { FOUNDER_USER_ID } from './adam-student.types';
+import type { BrainRecallExportSurface } from './adam-brain-recall-filter';
 
 export interface UniversalRecallRouterInput {
   message:               string;
@@ -47,6 +48,7 @@ export function shouldRunUniversalTeachingRecall(input: UniversalRecallRouterInp
 
   const probe = message.trim();
   if (!probe || isAdamLightChatTurn(probe)) return false;
+  if (isAdamSimpleFactualTurn(probe)) return false;
   if (founderAsksPersonalBiography(probe)) return false;
 
   return true;
@@ -56,8 +58,9 @@ export function shouldRunUniversalTeachingRecall(input: UniversalRecallRouterInp
 export async function runUniversalTeachingRecall(
   userMessage: string,
   founderId = FOUNDER_USER_ID,
+  exportSurface: BrainRecallExportSurface = 'sintesis',
 ): Promise<string | null> {
-  return buildUniversalTeachingRecallBlock(founderId, userMessage.trim());
+  return buildUniversalTeachingRecallBlock(founderId, userMessage.trim(), exportSurface);
 }
 
 /** Whether context messages include indexed Brain C recall blocks this turn. */
@@ -65,6 +68,6 @@ export function detectContextRecallLoaded(
   messages: ReadonlyArray<{ content?: string }>,
 ): boolean {
   return messages.some((m) =>
-    /\[(?:UNIVERSAL TEACHING RECALL|P\.ALT TEACHING RECORDS)/i.test(m.content ?? ''),
+    /\[(?:UNIVERSAL TEACHING RECALL|KONVENSIONAL BRAIN RECALL|P\.ALT TEACHING RECORDS)/i.test(m.content ?? ''),
   );
 }

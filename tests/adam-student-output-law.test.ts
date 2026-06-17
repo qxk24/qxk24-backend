@@ -83,6 +83,11 @@ describe('constitutional and performance leak detectors', () => {
       ),
     ).toBe(true);
     expect(paragraphIsConstitutionalFrameworkLeak('Parasimpatik mengambil alih.')).toBe(false);
+    expect(
+      paragraphIsConstitutionalFrameworkLeak(
+        'Dalam konteks Alamtologi, angka lapan mencerminkan keseimbangan antara RUANG dan MASA.',
+      ),
+    ).toBe(true);
   });
 
   it('flags markdown layer tables', () => {

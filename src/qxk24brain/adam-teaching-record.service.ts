@@ -42,6 +42,8 @@ import {
   type TeachingRecordStatus,
 } from './adam-teaching-record.schema';
 import type { MomentLaw } from './adam-moment-reader.service';
+import type { BrainRecallExportSurface } from '../adam/adam-brain-recall-filter';
+import { sanitizeOutcomeLineForKonvensional } from '../adam/adam-brain-recall-filter';
 import {
   buildMongoRegexFromLiteral,
   clipMongoTextSearchQuery,
@@ -631,6 +633,24 @@ function formatChapterTeachingRecordsBlock(records: TeachingRecordRow[]): string
   ].join('\n');
 }
 
+function formatKonvensionalTeachingRecallBlock(records: TeachingRecordRow[]): string | null {
+  const lines: string[] = [];
+  for (const r of records) {
+    const outcome = sanitizeOutcomeLineForKonvensional(r.outcomeSummary);
+    const episode = sanitizeOutcomeLineForKonvensional(r.episodeSummary);
+    if (outcome) lines.push(`- ${outcome}`);
+    else if (episode) lines.push(`- ${episode}`);
+  }
+  if (!lines.length) return null;
+  return [
+    '[KONVENSIONAL BRAIN RECALL — universal synthesis only]',
+    'Brain C episod — gunakan hanya baris di bawah untuk L2/L3 konvensional.',
+    'FORBIDDEN outward: HISAL, AIDIL, TAJU, Formula XYZ, waqf, PL/PG, label Alamtologi.',
+    '',
+    ...lines,
+  ].join('\n');
+}
+
 /**
  * Universal Recall Router — semantic/text search on every substantive turn.
  * Returns null when no indexed episodes match (no empty placeholder).
@@ -638,6 +658,7 @@ function formatChapterTeachingRecordsBlock(records: TeachingRecordRow[]): string
 export async function buildUniversalTeachingRecallBlock(
   founderId: string,
   userMessage: string,
+  exportSurface: BrainRecallExportSurface = 'sintesis',
 ): Promise<string | null> {
   if (founderAsksPersonalBiography(userMessage)) return null;
 
@@ -649,6 +670,14 @@ export async function buildUniversalTeachingRecallBlock(
   );
   records = records.filter((row) => !recordLooksLikeThirdPartyBiography(row));
   if (!records.length) return null;
+
+  if (exportSurface === 'konvensional') {
+    return formatKonvensionalTeachingRecallBlock(records);
+  }
+
+  if (exportSurface === 'alamtologi') {
+    return formatChapterTeachingRecordsBlock(records);
+  }
 
   return [
     '[UNIVERSAL TEACHING RECALL — episod P.alt relevan dengan soalan ini]',

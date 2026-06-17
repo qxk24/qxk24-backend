@@ -449,6 +449,7 @@ export type SSEEventType =
   | 'adam_searching'
   | 'adam_search_done'
   | 'adam_search_unavailable'
+  | 'adam_media_ready'
   | 'adam_judgment'
   | 'adam_complete'
   | 'adam_guru_sleep'

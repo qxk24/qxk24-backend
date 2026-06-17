@@ -68,6 +68,14 @@ export function stripStudentBismillahOpener(text: string): string {
     /^(\s*)Bismillah(?:irahmanirrahim)?\.?\s+(?=[A-ZÀ-ÿ0-9"(\[$])/im,
     '$1',
   );
+  out = out.replace(
+    /^(Hai\s+[^,\n]+,\s*)Bismillah(?:irahmanirrahim)?\.?\s*(?:\r?\n\s*)?/im,
+    '$1',
+  );
+  out = out.replace(
+    /^(Hai\s+[^,\n]+,\s*)Bismillah(?:irahmanirrahim)?\.?\s+(?=[A-ZÀ-ÿ])/im,
+    '$1',
+  );
   return out;
 }
 
@@ -109,8 +117,24 @@ export function paragraphIsConstitutionalFrameworkLeak(paragraph: string): boole
   const t = paragraph.trim();
   if (/\bDari\s+sudut\s+Alamtologi\b/i.test(t)) return true;
   if (/\bFrom\s+an\s+Alamtologi\s+perspective\b/i.test(t)) return true;
-  if (/\bDalam\s+(?:lensa|perspektif)\s+Alamtologi\b/i.test(t)) return true;
+  if (/\bDalam\s+(?:lensa|perspektif|konteks|pandangan)\s+Alamtologi\b/i.test(t)) return true;
+  if (/\bpandangan\s+Alamtologi\b/i.test(t)) return true;
   if (/\bperspektif\s+Alamtologi\b/i.test(t)) return true;
+  if (/\bkonteks\s+Alamtologi\b/i.test(t)) return true;
+  if (/\bMASA\s*(?:→|->|—|–)\s*TENAGA\b/i.test(t)) return true;
+  if (/\b(?:ekspresi|pernyataan)\s+MASA\b/i.test(t) && /\bTENAGA\b/i.test(t)) return true;
+  if (/\bmenyelaraskan\s+MASA\b/i.test(t)) return true;
+  if (/\bMASA\s*\([^)]+\)/i.test(t) && /\bTENAGA\b/i.test(t) && /\bRUANG\b/i.test(t)) return true;
+  if (/\bpenyelarasan\s+antara\b/i.test(t) && /\bMASA\b/.test(t) && /\bTENAGA\b/.test(t)) return true;
+  if (/\bMASA\b/.test(t) && /\bTENAGA\b/.test(t) && /\bCAHAYA\b/.test(t)) return true;
+  if (/\*MASA\*/.test(t) && /\*TENAGA\*/.test(t)) return true;
+  if (/\bseperti\s+MASA\b/i.test(t)) return true;
+  if (/\bmembawa\s+TENAGA\b/i.test(t)) return true;
+  if (/\bMASA\s+yang\s+bergerak\b/i.test(t) && /\bTENAGA\b/i.test(t)) return true;
+  if (/\b(?:Dalam\s+)?ilmu\s+HISAL\b/i.test(t)) return true;
+  if (/\bHISAL\s+Alamtologi\b/i.test(t)) return true;
+  if (/\bpermukaan\s+kiub\b/i.test(t)) return true;
+  if (/\bangka\s+kesempurnaan\s+proses\b/i.test(t)) return true;
   if (/\bhukum\s+Z\b/i.test(t)) return true;
   if (/\bpola,\s*kadar,\s*pasangan,\s*(?:dan\s+)?keseimbangan\b/i.test(t)) return true;
   if (/\b(?:titik\s+pertemuan|Hukum\s+Peleraian|ritual\s+penyelarasan)\b/i.test(t)) {
@@ -129,6 +153,45 @@ export function paragraphIsConstitutionalFrameworkLeak(paragraph: string): boole
   if (/ayat\s+kecil\s+dari\s+Al-?Quran/i.test(t)) return true;
   if (/hikmah\s+yang\s+ditanam/i.test(t)) return true;
   return CONSTITUTIONAL_PRINCIPLE_REGEX.test(t);
+}
+
+/** α arithmetic sermon — HISAL / AIDIL / TAJU on 3+4=7 turns (not spider biology). */
+export function paragraphIsSimpleArithmeticPhilosophyLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/\b(?:HISAL|ilmu\s+HISAL)\b/i.test(t)) return true;
+  if (/\bAIDIL\b/i.test(t)) return true;
+  if (/\b(?:TAJU|Tujuh\s+Angka\s+Jaringan)\b/i.test(t)) return true;
+  if (/\bP\.?\s*alt\b/i.test(t)) return true;
+  if (/\bpermukaan\s+kiub\b/i.test(t)) return true;
+  if (/\bpermukaan\s*→\s*laluan\s*→\s*bekas(?:\s*→\s*kiub)?\b/i.test(t)) return true;
+  if (/\bkeenam-enam\s+permukaan\b/i.test(t)) return true;
+  if (/\bangka\s+kesempurnaan\s+proses\b/i.test(t)) return true;
+  if (/\btahap\s+fungsi\b/i.test(t)) return true;
+  if (/\bbaris\s+penyelesaian\b/i.test(t)) return true;
+  if (/\bwaqf\b/i.test(t)) return true;
+  if (/\bdua\s+arah\s+cahaya\b/i.test(t)) return true;
+  if (/^Ia\s+bukan\s+sekadar\s+angka\b/i.test(t)) return true;
+  if (/^Itu\s+bukan\s+sekadar\s+hasil\s+tambah\b/i.test(t)) return true;
+  if (/^Ini\s+bukan\s+sekadar\s+penambahan\s+angka\b/i.test(t)) return true;
+  if (/\bIni\s+bukan\s+sekadar\s+angka\b/i.test(t)) return true;
+  if (/\balam\s+semesta\b/i.test(t) && /\b(?:matematik|angka)\b/i.test(t)) return true;
+  if (/\bhukum\s+kesetiaan\b/i.test(t)) return true;
+  if (/\bpenuh\s+adab\b/i.test(t)) return true;
+  if (/\bsetiap\s+langkah\s+mencerminkan\s+keseimbangan\b/i.test(t)) return true;
+  if (/\bbukan\s+sekadar\s+(?:hasil\s+tambah|penambahan\s+angka)\b/i.test(t)) return true;
+  if (/\bcara\s+kira\s+AIDIL\b/i.test(t)) return true;
+  if (/\bpasangan\s+yang\s+sempurna\b/i.test(t)) return true;
+  if (/\bproses\s+gabungan\s+yang\s+nyata\b/i.test(t)) return true;
+  if (/\bproses\s+yang\s+tertib\b/i.test(t) && /\b1\s*→\s*2\b/.test(t)) return true;
+  if (/\b1\s*→\s*2\s*→\s*3\b/.test(t)) return true;
+  if (/\bstruktur\s+utuh\b/i.test(t) && /\bbatu-batu\b/i.test(t)) return true;
+  if (/^Tetapi\s+untuk\s+soalan\s+ini,\s*jawapannya\s+tetap\s+jelas\b/i.test(t)) return true;
+  if (/\bselagi\s+akal\s+dan\s+adab\s+berjalan\s+bersama\b/i.test(t)) return true;
+  if (/\bbukan\s+hanya\s+kuantiti\b/i.test(t) && /\btanda\b/i.test(t) && /\b3\s*\+\s*4\b/.test(t)) {
+    return true;
+  }
+  return false;
 }
 
 /** Dual-lane essay skeleton — "Secara zahir / syar'i" performance, not tutor prose. */
@@ -402,6 +465,34 @@ export function paragraphIsOrdinalSyllabusLeak(paragraph: string): boolean {
   return ordinals.length >= 2;
 }
 
+/** Explain-Back Phase 1A gambar hidup — forbidden on α konvensional (Answer Constitution v2). */
+export function paragraphIsExplainBackPhase1ALeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/^Secara ilmu konvensional/i.test(t)) return false;
+  if (/^From a conventional/i.test(t)) return false;
+  if (/^Conventionally,/i.test(t)) return false;
+  if (/^(?:Pagi tadi|This morning|Earlier today|Tadi pagi),/i.test(t)) return true;
+  if (/\b(?:di halaman anda|meja sarapan anda|rumah seterusnya|in your (?:garden|kitchen|home|yard))\b/i.test(t)) {
+    return true;
+  }
+  if (/^Bayi yang sedang tidur/i.test(t)) return true;
+  if (/^Roti di meja sarapan/i.test(t)) return true;
+  if (/^Imagine (?:you|a morning)/i.test(t)) return true;
+  return false;
+}
+
+/** β L5 tamparan jiwa — forbidden on α unless user opted into Explain-Back. */
+export function paragraphIsExplainBackSoulStrikeLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/^Pernahkah anda/i.test(t)) return true;
+  if (/^Apakah bentuk yang paling sering/i.test(t)) return true;
+  if (/bukan untuk memilih, tetapi untuk merasa/i.test(t)) return true;
+  if (/bagaimana bentuk itu membantu awak berdiri teguh/i.test(t)) return true;
+  return false;
+}
+
 /** Long philosophical essay — nature metaphor + constitutional layers on practical asks. */
 export function paragraphIsPhilosophicalEssayLeak(paragraph: string): boolean {
   const t = paragraph.trim();
@@ -463,6 +554,12 @@ export function paragraphIsCoachingScriptClosing(paragraph: string): boolean {
   if (/\bdeepen our understanding of leadership\b/i.test(t)) return true;
   if (/\bnon-technical roles like teaching\b/i.test(t)) return true;
   if (/^You don't need to be perfect to begin/i.test(t)) return true;
+  if (/^Adakah\s+anda\s+pernah\s+mengalami\s+situasi/i.test(t)) return true;
+  if (/^Bagaimana\s+anda\s+menyeimbangkannya/i.test(t)) return true;
+  if (/^Apakah\s+kesetiaan\s+itu\s+buta/i.test(t)) return true;
+  if (/Dalam\s+konteks\s+hari\s+ini,\s+Hang\s+Tuah\s+mengajak\s+kita\s+bertanya/i.test(t)) {
+    return true;
+  }
   return false;
 }
 
@@ -631,8 +728,13 @@ export function paragraphIsDashSummaryLeak(paragraph: string): boolean {
 /** Universal voice paragraph strip — shared with output guard. */
 export function paragraphShouldStripForUniversalVoice(
   paragraph: string,
-  options: { faithOk: boolean; alamtologiOk: boolean },
+  options: { faithOk: boolean; alamtologiOk: boolean; technicalKonvensionalDisplay?: boolean },
 ): boolean {
+  if (options.technicalKonvensionalDisplay) {
+    if (paragraphIsMarkdownBulletForest(paragraph)) return false;
+    if (paragraphIsNumberedSyllabusLeak(paragraph)) return false;
+    if (/^#{1,6}\s+/m.test(paragraph.trim())) return false;
+  }
   if (paragraphIsEmojiOnlyOpener(paragraph)) return true;
   if (paragraphIsPhilosophicalEssayLeak(paragraph)) return true;
   if (paragraphIsConstitutionalValuesEssayLeak(paragraph)) return true;
@@ -810,6 +912,169 @@ export function stripScienceFaithInline(text: string): string {
     .map((para) => stripScienceFaithParagraph(para.trim()))
     .filter(Boolean)
     .join('\n\n')
+    .trim();
+}
+
+/** Single sentence with poetic MASA/TENAGA framework weave (not conventional "masa" = time). */
+function sentenceIsFrameworkWeaveLeak(sentence: string): boolean {
+  const s = sentence.trim();
+  if (!s) return false;
+  if (/\bseperti\s+MASA\b/i.test(s)) return true;
+  if (/\bmembawa\s+TENAGA\b/i.test(s)) return true;
+  if (/\bMASA\s+yang\s+bergerak\b/i.test(s)) return true;
+  if (/\bTENAGA\s+yang\s+telah\s+terkumpul\b/i.test(s)) return true;
+  if (/\bMASA\s*(?:→|->|—|–)\s*TENAGA\b/i.test(s)) return true;
+  if (/\b(?:satu|setiap)\s+MASA\s+yang\b/i.test(s)) return true;
+  if (/\b(?:ekspresi|pernyataan)\s+MASA\b/i.test(s) && /\bTENAGA\b/i.test(s)) return true;
+  if (/\bmenyelaraskan\s+MASA\b/i.test(s)) return true;
+  if (/\bMASA\s*\([^)]+\)/i.test(s) && /\bTENAGA\b/i.test(s) && /\bRUANG\b/i.test(s)) return true;
+  if (/\bpenyelarasan\s+antara\b/i.test(s) && /\bMASA\b/.test(s) && /\bTENAGA\b/.test(s)) return true;
+  if (/\bMASA\b/.test(s) && /\bTENAGA\b/.test(s) && /\bCAHAYA\b/.test(s)) return true;
+  if (/\*MASA\*/.test(s) && /\*TENAGA\*/.test(s)) return true;
+  if (/\bMASA\b/.test(s) && /\bTENAGA\b/.test(s) && /\bRUANG\b/.test(s)) return true;
+  return false;
+}
+
+/** Strip framework-weave sentences; keep conventional history/science facts in the same paragraph. */
+export function stripFrameworkWeaveSentences(text: string): string {
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => !sentenceIsFrameworkWeaveLeak(sentence))
+    .join(' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+/** Science/health tier-1 poetic closers — keep facts, drop covenant essay lines. */
+export function stripKonvensionalAlamtologiTailInline(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .map((para) => {
+      let out = para.trim();
+      if (!out) return '';
+      out = out.replace(/\s*[,;]?\s*(?:Dan\s+)?(?:dalam\s+)?pandangan\s+Alamtologi[\s\S]*$/i, '');
+      out = out
+        .replace(/[^.!?]*\bMASA\s*(?:→|->|—|–)\s*TENAGA\s*(?:→|->|—|–)\s*MASA\b[^.!?]*[.!?]+/gi, ' ')
+        .replace(/[^.!?]*\b(?:ekspresi|pernyataan)\s+MASA\b[^.!?]*\bTENAGA\b[^.!?]*[.!?]+/gi, ' ')
+        .replace(/[^.!?]*\bseperti\s+MASA\b[^.!?]*\bTENAGA\b[^.!?]*[.!?]+/gi, ' ')
+        .replace(/[^.!?]*\bseperti\s+MASA\b[^.!?]*[.!?]+/gi, ' ')
+        .replace(/[^.!?]*\bmembawa\s+TENAGA\b[^.!?]*[.!?]+/gi, ' ')
+        .replace(/[^.!?]*\bmenyelaraskan\s+MASA\b[^.!?]*[.!?]+/gi, ' ')
+        .replace(/[^.!?]*\bMASA\s*\([^)]+\)[^.!?]*\bRUANG\b[^.!?]*[.!?]+/gi, ' ')
+        .replace(/[^.!?]*\bpandangan\s+Alamtologi\b[^.!?]*[.!?]+/gi, ' ')
+        .replace(/[^.!?]*\b(?:Dalam|Dari)\s+(?:lensa|perspektif|konteks|pandangan)\s+Alamtologi\b[^.!?]*[.!?]+/gi, ' ')
+        .replace(/[^.!?]*\bIni\s+bukan\s+sekadar\s+perubahan\s+(?:bentuk|rupa)[^.!?]*[.!?]+/gi, ' ')
+        .replace(/[^.!?]*\bhukum\s+keabadian\s+(?:jirim\s+(?:dan|&)\s+)?tenaga\b[^.!?]*[.!?]+/gi, ' ');
+      out = stripFrameworkWeaveSentences(out);
+      return out.replace(/[ \t]{2,}/g, ' ').trim();
+    })
+    .filter(Boolean)
+    .join('\n\n')
+    .trim();
+}
+
+/** Science α — "bukan sekadar" + conservation-law essay tail (not textbook mechanism). */
+export function paragraphIsSciencePhilosophyEssayLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/\b(?:Proses\s+ini|Ia)\s+bukan\s+sekadar\s+reaksi\s+kimia\b/i.test(t)) return true;
+  if (/\b(?:Ini|Ia|Proses\s+ini)\s+bukan\s+sekadar\s+perubahan\s+rupa\b/i.test(t)) return true;
+  if (/\bhukum\s+keabadian\s+(?:jirim\s+(?:dan|&)\s+)?tenaga\b/i.test(t)) return true;
+  if (
+    /\btenaga\s+ditambah\b/i.test(t)
+    && /→/.test(t)
+    && /\b(?:gerakan\s+molekul|susunan\s+ruang|sifat\s+zat)\b/i.test(t)
+  ) {
+    return true;
+  }
+  if (/\bTiada\s+zat\s+lenyap\s+atau\s+dicipta\b/i.test(t) && /\bhukum\s+keabadian\b/i.test(t)) {
+    return true;
+  }
+  if (/\bbukan\s+sekadar\b/i.test(t) && /\b(?:MASA|TENAGA|RUANG)\b/i.test(t)) return true;
+  if (/\bmenyelaraskan\s+MASA\b/i.test(t)) return true;
+  if (/\b(?:bukan\s+mekanisme\s+pasif|sistem\s+hidup\s+yang\s+aktif)\b/i.test(t) && /\b(?:MASA|TENAGA|RUANG)\b/i.test(t)) {
+    return true;
+  }
+  return false;
+}
+
+/** Model refuses inline image/video despite user request — drop and let media repair inject tags. */
+export function paragraphIsMediaRefusalLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/\btidak\s+(?:boleh|dapat)\s+menunjukkan\s+(?:gambar|imej|video)/i.test(t)) return true;
+  if (/\btidak\s+(?:boleh|dapat)\s+memaparkan\s+(?:gambar|imej|video)/i.test(t)) return true;
+  if (/\bSayangnya,?\s+saya\s+tidak\s+dapat\s+menunjukkan\b/i.test(t)) return true;
+  if (/\b(?:I\s+)?cannot\s+(?:directly\s+)?(?:show|display)\s+(?:an?\s+)?(?:image|images|video|videos)/i.test(t)) {
+    return true;
+  }
+  if (/\bsaya\s+boleh\s+(?:berikan|cadangkan)\s+pautan/i.test(t) && /\b(?:gambar|video|Google\s+Images)\b/i.test(t)) {
+    return true;
+  }
+  if (/\bAdakah\s+anda\s+ingin\s+saya\s+bantu\s+(?:sediakan\s+)?pautan/i.test(t)) return true;
+  return false;
+}
+
+/** Model redirects to Google/keyword search instead of inline media tags. */
+export function paragraphIsMediaKeywordRedirectLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/\bkata\s+kunci\s+(?:seperti|bagai)/i.test(t)) return true;
+  if (/\b(?:animasi\s+3D|diagram\s+fotosintesis|chloroplast\s+structure)\b/i.test(t)
+    && /\b(?:cari|google|youtube|tonton)\b/i.test(t)) {
+    return true;
+  }
+  if (/\banda\s+boleh\s+mencari\s+dengan\s+(?:mudah|tepat)/i.test(t)) return true;
+  if (/^\s*[-*•]\s+/m.test(t) && /\b(?:animasi\s+3D|diagram\s+fotosintesis|chloroplast\s+structure)\b/i.test(t)) {
+    return true;
+  }
+  return false;
+}
+
+export function outputHasKonvensionalFrameworkLeak(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/\bMASA\b/.test(t) && /\bTENAGA\b/.test(t) && /\bRUANG\b/.test(t)) return true;
+  if (/\bMASA\b/.test(t) && /\bTENAGA\b/.test(t) && /\bCAHAYA\b/.test(t)) return true;
+  if (/\bpenyelarasan\s+antara\b/i.test(t) && /\bMASA\b/.test(t) && /\bTENAGA\b/.test(t)) return true;
+  if (/\*MASA\*/.test(t) && /\*TENAGA\*/.test(t)) return true;
+  if (/\bmenyelaraskan\s+MASA\b/i.test(t)) return true;
+  if (/\bDari\s+sudut\s+Alamtologi\b/i.test(t)) return true;
+  if (/\bpandangan\s+Alamtologi\b/i.test(t)) return true;
+  return false;
+}
+
+export function outputHasMediaRefusal(text: string): boolean {
+  return text
+    .split(/\n{2,}/)
+    .some((para) => paragraphIsMediaRefusalLeak(para.trim()));
+}
+
+/** Strip media-refusal paragraphs on turns that requested gambar/video. */
+export function stripMediaRefusalInline(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .filter((para) => {
+      const t = para.trim();
+      if (!t) return false;
+      if (paragraphIsMediaRefusalLeak(t)) return false;
+      if (paragraphIsMediaKeywordRedirectLeak(t)) return false;
+      return true;
+    })
+    .join('\n\n')
+    .trim();
+}
+
+/** Drop science philosophy essay paragraphs on konvensional α turns. */
+export function stripSciencePhilosophyEssayInline(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .filter((para) => !paragraphIsSciencePhilosophyEssayLeak(para.trim()))
+    .join('\n\n')
+    .replace(/[^.!?]*\bIni\s+bukan\s+sekadar\s+perubahan\s+(?:bentuk|rupa)[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bhukum\s+keabadian\s+(?:jirim\s+(?:dan|&)\s+)?tenaga\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 

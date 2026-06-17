@@ -99,6 +99,15 @@ import {
   shouldRunUniversalTeachingRecall,
 } from '../adam/adam-universal-recall-router';
 import {
+  filterContextMessagesForKnowledgeMode,
+  knowledgeModeToRecallExportSurface,
+} from '../adam/adam-brain-recall-filter';
+import {
+  knowledgeModeAllowsAlamtologiStack,
+  resolveAdamKnowledgeMode,
+  type AdamKnowledgeMode,
+} from '../adam/adam-knowledge-mode';
+import {
   readMoment,
   buildMomentBlock,
 } from './adam-moment-reader.service';
@@ -155,6 +164,8 @@ export type BuildSmartContextOptions = {
   founderTeachingFreshUpload?: boolean;
   /** Student fast path — skip epistemic overlay and track summary (founder teaching parity). */
   studentStreamlined?: boolean;
+  /** Dedicated knowledge surface — gates recall export (Phase 2). */
+  knowledgeMode?: AdamKnowledgeMode;
 };
 
 export async function buildSmartContext(
@@ -172,6 +183,15 @@ export async function buildSmartContext(
   const teachingFreshUpload = options?.founderTeachingFreshUpload === true;
   const teachingLearnerTurn = options?.founderTeachingLearnerTurn === true;
   const studentStreamlined = options?.studentStreamlined === true;
+  const recallProbe =
+    options?.recallProbeMessage?.trim()
+    || (newMessage.length > 4096 ? newMessage.slice(0, 4096) : newMessage);
+  const knowledgeMode = options?.knowledgeMode ?? resolveAdamKnowledgeMode({
+    userMessage:              recallProbe,
+    isFounder:                participant.role === 'founder',
+    founderTeachingAbsorption: teachingAbsorption,
+  });
+  const allowAlamtologiRecall = knowledgeModeAllowsAlamtologiStack(knowledgeMode);
   const personSubject = resolvePersonContextSubject(newMessage, participant, isGuestTrial);
   const knownPersons = listKnownPersonRefs();
 
@@ -388,11 +408,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
     });
   }
 
-  const recallProbe =
-    options?.recallProbeMessage?.trim()
-    || (newMessage.length > 4096 ? newMessage.slice(0, 4096) : newMessage);
-
-  if (!teachingAbsorption && needsBookCanonLock(recallProbe)) {
+  if (!teachingAbsorption && allowAlamtologiRecall && needsBookCanonLock(recallProbe)) {
     messages.push({ role: 'user', content: buildBookCanonContextBlock() });
     messages.push({
       role: 'assistant',
@@ -400,7 +416,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
     });
   }
 
-  if (!teachingAbsorption && isAlamtologiCurriculumOverviewQuery(recallProbe)) {
+  if (!teachingAbsorption && allowAlamtologiRecall && isAlamtologiCurriculumOverviewQuery(recallProbe)) {
     messages.push({ role: 'user', content: buildCurriculumOverviewSealedBlock() });
     messages.push({
       role: 'assistant',
@@ -416,7 +432,8 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
   let universalRecallLoaded = false;
 
   if (
-    !teachingFreshUpload
+    allowAlamtologiRecall
+    && !teachingFreshUpload
     && needsBookAwareTeachingRecall(recallProbe)
     && !founderAsksPersonalBiography(recallProbe)
   ) {
@@ -480,15 +497,21 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
       isGuestTrial,
     })
   ) {
-    const universalRecall = await runUniversalTeachingRecall(recallProbe);
+    const universalRecall = await runUniversalTeachingRecall(
+      recallProbe,
+      FOUNDER_USER_ID,
+      knowledgeModeToRecallExportSurface(knowledgeMode),
+    );
     if (universalRecall) {
       universalRecallLoaded = true;
       messages.push({ role: 'user', content: universalRecall });
       messages.push({
         role: 'assistant',
-        content: participant.role === 'founder'
-          ? 'Bismillahirahmanirrahim. P.alt, saya muat episod pengajaran relevan — saya sintesis A+B=C, bukan salin meterai.'
-          : STUDENT_NEUTRAL_CONTEXT_ACKS.teachingRecall,
+        content: knowledgeMode === 'konvensional'
+          ? 'Saya pegang sintesis universal dari episod Brain C — tanpa label kerangka atau transkrip P.alt.'
+          : participant.role === 'founder'
+            ? 'Bismillahirahmanirahim. P.alt, saya muat episod pengajaran relevan — saya sintesis A+B=C, bukan salin meterai.'
+            : STUDENT_NEUTRAL_CONTEXT_ACKS.teachingRecall,
       });
     }
   }
@@ -535,7 +558,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
   }
 
   if (participant.role === 'founder') {
-    if (!teachingAbsorption && shouldLoadFounderDeepBlocks(newMessage)) {
+    if (!teachingAbsorption && allowAlamtologiRecall && shouldLoadFounderDeepBlocks(newMessage)) {
       const [
         stageDashboard,
         vaultBlock,
@@ -721,15 +744,17 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
       : 'Bismillahirahmanirrahim. Baik — saya akan jawab dalam bahasa yang ditetapkan pada giliran ini, bukan Bahasa Inggeris secara lalai.',
   });
 
-  const quranBlock = buildQuranCorpusPromptBlock(newMessage);
-  if (quranBlock) {
-    messages.push({ role: 'user', content: quranBlock });
-    messages.push({
-      role: 'assistant',
-      content: participant.role === 'student'
-        ? STUDENT_NEUTRAL_CONTEXT_ACKS.quranCorpus
-        : 'Bismillahirahmanirrahim. Verified ayat received — Rasm Uthmani with Pickthall English. I will quote ayat only from this corpus, without tafsir in brackets, and compare all other knowledge under Alamtologi with Quran as supreme (LAW_002).',
-    });
+  if (knowledgeMode === 'konstitusi') {
+    const quranBlock = buildQuranCorpusPromptBlock(newMessage);
+    if (quranBlock) {
+      messages.push({ role: 'user', content: quranBlock });
+      messages.push({
+        role: 'assistant',
+        content: participant.role === 'student'
+          ? STUDENT_NEUTRAL_CONTEXT_ACKS.quranCorpus
+          : 'Bismillahirahmanirrahim. Verified ayat received — Rasm Uthmani with Pickthall English. I will quote ayat only from this corpus, without tafsir in brackets, and compare all other knowledge under Alamtologi with Quran as supreme (LAW_002).',
+      });
+    }
   }
 
   if (isMalayReplyLocale(mirrorResult.detectedLocale)) {
@@ -761,6 +786,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
   }
   if (
     !teachingAbsorption
+    && allowAlamtologiRecall
     && outputLockChapter
     && chapterHasConstitutionalBackbone(outputLockChapter)
   ) {
@@ -774,5 +800,5 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
   }
 
   messages.push({ role: 'user', content: userContent });
-  return coalesceLlmMessages(messages);
+  return filterContextMessagesForKnowledgeMode(coalesceLlmMessages(messages), knowledgeMode);
 }

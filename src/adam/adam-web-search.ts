@@ -16,10 +16,13 @@ import { parseQuranAyahRefs } from '../quran/quran-ayah-parser';
 import { isUserEntityCorrectionMessage } from './adam-factual-grounding';
 import {
   isAdamLightChatTurn,
+  isAdamPracticalAdvisoryTurn,
+  isAdamSimpleArithmeticTurn,
   isAdamSimpleFactualTurn,
   isAdamSubstantiveTurn,
   stripLeadingAdamSalutation,
 } from './adam-response-generation';
+import { messageAsksRoleAndSkills } from './adam-official-source-enrich';
 import { isDirectTechnicalHowToQuestion } from './adam-direct-technical-law';
 import { isTechnicalPrecisionQuestion } from './adam-universal-voice';
 import { extractDomainsFromMessageUrls } from './adam-official-source-enrich';
@@ -73,6 +76,7 @@ const VERIFIED_DATA_STAT_ASK =
 
 export function isVerifiedDataStatAsk(message: string): boolean {
   const body = stripLeadingAdamSalutation(message.trim());
+  if (isAdamSimpleArithmeticTurn(body)) return false;
   return VERIFIED_DATA_STAT_ASK.test(body);
 }
 
@@ -163,13 +167,21 @@ export function buildVerifiedDataStatSearchSites(message: string): string[] | un
   return domains.length > 0 ? domains : undefined;
 }
 
-/** DashScope site focus for global health/career factual asks — improves RN hit rate on intl. */
+/** DashScope site focus for career factual asks — prefer official hosts by locale/topic. */
 export function buildFactualCareerSearchSites(message: string): string[] | undefined {
   const body = stripLeadingAdamSalutation(message.trim());
-  if (!/\b(?:registered nurse|nursing|nurse|midwife|healthcare career)\b/i.test(body)) {
-    return undefined;
+  const careerAsk = messageAsksRoleAndSkills(body) || isAdamPracticalAdvisoryTurn(body);
+  if (!careerAsk) return undefined;
+  if (/\b(?:registered nurse|nursing|nurse|midwife|healthcare career|jururawat)\b/i.test(body)) {
+    return ['healthcareers.nhs.uk', 'nhs.uk', 'who.int'];
   }
-  return ['healthcareers.nhs.uk', 'nhs.uk', 'who.int'];
+  if (/\b(?:guru|sekolah|murid|pendidikan|kurikulum|karier|peranan|kemahiran)\b/i.test(body)) {
+    return ['moe.gov.my', 'gov.my'];
+  }
+  if (/\b(?:salam|berapa|apakah|jelaskan|terangkan)\b/i.test(body)) {
+    return ['gov.my', 'moe.gov.my'];
+  }
+  return ['gov.uk', 'nhs.uk', 'who.int'];
 }
 
 /** DashScope search strategy for stat prefetch — agent on intl (max returns China-index hits). */
@@ -252,6 +264,9 @@ export function getWebSearchGateReason(
 
   const text = message.trim();
   if (!text) return null;
+
+  /** α word-problem arithmetic — no web search (3 epal + 4, jika ada 3 epal, …). */
+  if (isAdamSimpleArithmeticTurn(text)) return null;
 
   const brainFirstSkip = !options?.studentFounderParity
     && shouldSkipSearchWhenRecallHitStableTopic({

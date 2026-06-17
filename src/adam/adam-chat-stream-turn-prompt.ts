@@ -24,6 +24,10 @@ import {
 import { extractRecentUserTurns, extractRecentAssistantTurns, resolveTechnicalPrecisionTurn } from './adam-factual-grounding';
 import { shouldStudentUseSearchFirstFlow } from './adam-search-first';
 import { buildQwenLanguageLock } from './adam-language-guard';
+import {
+  buildTutorSessionLanguageLock,
+  buildTutorWebSearchPrompt,
+} from './adam-tutor-law';
 import { buildMacBridgeContextBlock } from '../agent/mac-bridge-context';
 import { userHasMacBridgeTier } from './adam-mac-bridge-access.service';
 import { prependCoreToSystem } from '../qxk24brain/adam-core';
@@ -139,22 +143,25 @@ export async function buildTurnPromptAndSearchGate(input: {
     founderTeachingSynthesis,
     amaTamatBlock:        isTutorLane || isNiagaLane ? undefined : amaTamatBlock,
     studentKnowledgeTier,
+    knowledgeMode: turnContext.knowledgeMode,
     tutorProfile:         isTutorLane ? options.tutorProfile : undefined,
     niagaProfile:         isNiagaLane ? options.niagaProfile : undefined,
-    webSearchPrompt:      webSearchEnabledThisTurn && founderTeachingSynthesis
-      ? getAdamWebSearchPrompt(isFounder, {
-        founderTeachingSynthesis: true,
-        userMessage: messageForAdam,
-        recentUserMessages: recentUserTurns,
-      })
-      : webSearchEnabledThisTurn
+    webSearchPrompt:      webSearchEnabledThisTurn && isTutorLane
+      ? buildTutorWebSearchPrompt(options.tutorProfile, studentSearchFirst)
+      : webSearchEnabledThisTurn && founderTeachingSynthesis
         ? getAdamWebSearchPrompt(isFounder, {
+          founderTeachingSynthesis: true,
           userMessage: messageForAdam,
           recentUserMessages: recentUserTurns,
-          searchPrefetched: studentSearchFirst,
-          verifiedDataStat: webSearchGateReason === 'verified_data_stat',
         })
-        : undefined,
+        : webSearchEnabledThisTurn
+          ? getAdamWebSearchPrompt(isFounder, {
+            userMessage: messageForAdam,
+            recentUserMessages: recentUserTurns,
+            searchPrefetched: studentSearchFirst,
+            verifiedDataStat: webSearchGateReason === 'verified_data_stat',
+          })
+          : undefined,
   });
 
   let systemPrompt = isTutorLane || isNiagaLane
@@ -196,9 +203,12 @@ export async function buildTurnPromptAndSearchGate(input: {
     systemPrompt = journal.systemPrompt;
   }
 
-  systemPrompt = `${buildQwenLanguageLock({
-    journalPhase: mode === 'JOURNAL_GEN' && isFounder ? 'draft' : undefined,
-  })}\n\n${systemPrompt}`;
+  const languageLock = isTutorLane
+    ? buildTutorSessionLanguageLock(options.tutorProfile)
+    : buildQwenLanguageLock({
+      journalPhase: mode === 'JOURNAL_GEN' && isFounder ? 'draft' : undefined,
+    });
+  systemPrompt = `${languageLock}\n\n${systemPrompt}`;
 
   return {
     systemPrompt,

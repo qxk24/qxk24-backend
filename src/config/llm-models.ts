@@ -128,6 +128,8 @@ export function resolveQwenEnableThinking(
     founderTeachingAbsorption?: boolean;
     isStudent?: boolean;
     lightChat?: boolean;
+    /** α simple factual — stream L1 tokens immediately (no silent reasoning phase). */
+    simpleFactualTurn?: boolean;
     /** Search-first factual — prefetch already waited; stream answer tokens immediately. */
     searchFirstSynthesis?: boolean;
   },
@@ -140,6 +142,8 @@ export function resolveQwenEnableThinking(
   if (options?.founderTeachingAbsorption) return false;
   // User consumer — no silent reasoning buffer before first visible chunk (v2.1 UX)
   if (options?.isStudent) return false;
+  // α count / who / when — same live-token UX as students (Founder chat)
+  if (options?.simpleFactualTurn) return false;
   // Gold Standard / search-first — user already waited on prefetch; stream prose live
   if (options?.searchFirstSynthesis) return false;
   return DEEP_MODES.includes(mode);

@@ -49,7 +49,7 @@ function tutorUpgradeUrl(level: TutorSubscriptionLevel = 'secondary'): string {
 }
 
 /** Seed QA account (adam-student.types) — tutor demo without Stripe on production. */
-const TUTOR_QA_BYPASS_USER_IDS = new Set(['pelajar-test', 'sabrina']);
+const TUTOR_QA_BYPASS_USER_IDS = new Set(['pelajar-test', 'sabrina', 'ali']);
 
 function isTutorQaBypass(userId: string): boolean {
   return isTutorQaBypassUser(userId);
@@ -115,7 +115,7 @@ export async function resolveTutorSubscriptionAccess(
       tier:        'NONE',
       tutorLevel:  checkoutLevel,
       code:        'TUTOR_SUBSCRIPTION_REQUIRED',
-      message:     `Subscribe to ADAM Tutor (${levelLabel}) — $${checkoutPricing.monthly.toFixed(2)}/month USD, all subjects.`,
+      message:     `Langgan ADAM Tutor (${levelLabel}) melalui kod daftar — /adam/tutor/daftar`,
       upgradeUrl:  tutorUpgradeUrl(checkoutLevel),
       monthlyAmount: checkoutPricing.monthly,
       currency:      checkoutPricing.currency,

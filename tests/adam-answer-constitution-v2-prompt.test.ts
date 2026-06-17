@@ -41,7 +41,7 @@ describe('Answer Constitution v2 — prompt wiring', () => {
     expect(ADAM_EXPLAIN_BACK_LAW).toMatch(/ANSWER CONSTITUTION v2/i);
   });
 
-  it('User β prompt: no mandatory neutral closing in universal scholar block', () => {
+  it('User α substantive science: alpha law, not explain-back block', () => {
     const prompt = buildAdamChatSystemPrompt({
       mode:                 'TEACHING',
       isFounder:            false,
@@ -50,9 +50,11 @@ describe('Answer Constitution v2 — prompt wiring', () => {
       studentKnowledgeTier: 1,
       userMessage:          'Apa itu fotosintesis?',
     });
-    expect(prompt).toContain('ANSWER PROFILE: ADAM-β');
-    expect(prompt).toMatch(/β L5 mandatory tamparan/i);
-    expect(prompt).not.toMatch(/mandatory neutral closing question on substantive turns/i);
+    expect(prompt).toContain('ANSWER PROFILE: ADAM-α');
+    expect(prompt).toContain('ADAM-α — FAKTA DULU');
+    expect(prompt).not.toContain('ADAM EXPLAIN-BACK LAW (Founder seal');
+    expect(prompt).toMatch(/MODE 1.*100% ILMU KONVENSIONAL/i);
+    expect(prompt).not.toMatch(/CONSTITUTIONAL KNOWLEDGE HOLD/i);
   });
 
   it('User α simple factual: alpha law in stack, not full explain-back block', () => {
@@ -68,6 +70,36 @@ describe('Answer Constitution v2 — prompt wiring', () => {
     expect(prompt).toMatch(/L5.*optional/i);
     expect(prompt).toContain('ADAM-α — FAKTA DULU');
     expect(prompt).not.toContain('ADAM EXPLAIN-BACK LAW (Founder seal');
+  });
+
+  it('User α biology count: SIMPLE FACTUAL forbids Alamtologi/RUANG framing', () => {
+    const prompt = buildAdamChatSystemPrompt({
+      mode:                 'TEACHING',
+      isFounder:            false,
+      participantName:      'Ahmad',
+      founderStudentsBlock: '',
+      studentKnowledgeTier: 1,
+      userMessage:          'Berapa banyak kaki labah-labah? Macam mana awak tahu?',
+    });
+    expect(prompt).toMatch(/SIMPLE FACTUAL TURN/i);
+    expect(prompt).toMatch(/FORBIDDEN Alamtologi labels, RUANG\/MASA\/TENAGA framing/i);
+  });
+
+  it('Founder α arithmetic: SIMPLE ARITHMETIC forbids HISAL sermon', () => {
+    const prompt = buildAdamChatSystemPrompt({
+      mode:                 'TEACHING',
+      isFounder:            true,
+      participantName:      'Masa Bayu',
+      founderStudentsBlock: '',
+      userMessage:          'Kalau saya ada 3 epal dan kawan bagi 4 lagi, berapa jumlah epal?',
+    });
+    expect(prompt).toMatch(/UNIVERSAL α MODE/i);
+    expect(prompt).toMatch(/ilmu konvensional/i);
+    expect(prompt).toMatch(/SIMPLE FACTUAL TURN/i);
+    expect(prompt).toMatch(/SIMPLE ARITHMETIC TURN/i);
+    expect(prompt).toMatch(/OUTPUT SHAPE \(strict\)/i);
+    expect(prompt).toMatch(/allowlist/i);
+    expect(prompt).toMatch(/JANGAN sebut "Alamtologi"/i);
   });
 
   it('User α practical advisory: search mandatory + full voice (v2.1)', () => {

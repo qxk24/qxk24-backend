@@ -23,6 +23,7 @@
 
 import { ENV } from '../config/environments';
 import { getAdamLanguageDirective } from './adam-language';
+import { stripStudentBismillahOpener } from './adam-student-output-law';
 
 /** Compact BM law — full list remains in adam-language-prompts for founder turns. */
 export const ADAM_STUDENT_BM_LAW_COMPACT = `
@@ -85,6 +86,92 @@ export function studentDisplayFirstName(fullName: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
+/** Warm opener — "Hai Ahmad," on substantive student replies (mandatory when name known). */
+export function formatStudentHaiGreeting(participantName?: string): string {
+  const first = participantName?.trim()
+    ? studentDisplayFirstName(participantName.trim())
+    : '';
+  return first ? `Hai ${first},` : 'Hai,';
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function answerHasVisualDrawBlock(text: string): boolean {
+  return /<adam-visual-draw>[\s\S]*?<\/adam-visual-draw>/i.test(text) || /```/.test(text);
+}
+
+function stripBismillahBeforeGreetingBody(text: string): string {
+  return text
+    .replace(/^\s*Bismillah(?:irahmanirrahim)?\.?\s*(?:\r?\n\s*)+/i, '')
+    .replace(/^\s*Bismillah(?:irahmanirrahim)?\.?\s+(?=[A-ZÀ-ÿ"(\[])/i, '')
+    .trimStart();
+}
+
+/** Prepend Hai + name when the answer block has no greeting yet. */
+export function ensureStudentHaiGreeting(answer: string, participantName?: string): string {
+  const t = answer.trim();
+  if (!t) return t;
+
+  const first = participantName?.trim() ? studentDisplayFirstName(participantName.trim()) : '';
+  const greeting = formatStudentHaiGreeting(participantName);
+  let result = t;
+
+  if (answerHasVisualDrawBlock(t) && /^Hai\b/i.test(t)) {
+    result = t;
+  } else if (/^(?:Hai|Hello|Hi|Salam|Assalamu|Waalaikum)\b/i.test(t)) {
+    if (first && /^Hai[,!\s]/i.test(t) && !new RegExp(`^Hai\\s+${escapeRegExp(first)}\\b`, 'i').test(t)) {
+      const rest = stripBismillahBeforeGreetingBody(t.replace(/^Hai[,!\s]+/i, '').trim());
+      const restNorm = /^[A-Z]/.test(rest) ? rest.charAt(0).toLowerCase() + rest.slice(1) : rest;
+      result = `${greeting} ${restNorm}`;
+    }
+  } else if (first && new RegExp(`^${escapeRegExp(first)}[,\\s]`, 'i').test(t)) {
+    const rest = stripBismillahBeforeGreetingBody(
+      t.replace(new RegExp(`^${escapeRegExp(first)}[,\\s]+`, 'i'), '').trim(),
+    );
+    const restNorm = /^[A-Z]/.test(rest) ? rest.charAt(0).toLowerCase() + rest.slice(1) : rest;
+    result = `${greeting} ${restNorm}`;
+  } else {
+    const rest = stripBismillahBeforeGreetingBody(
+      /^[A-Z]/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t,
+    );
+    result = answerHasVisualDrawBlock(rest) ? `${greeting}\n\n${rest}` : `${greeting} ${rest}`;
+  }
+
+  return stripStudentBismillahOpener(result);
+}
+
+/** Remove repeated Hai + name when model greets twice after Bismillah strip. */
+export function dedupeStudentHaiGreeting(answer: string, participantName?: string): string {
+  const first = participantName?.trim() ? studentDisplayFirstName(participantName.trim()) : '';
+  if (!first) {
+    return answer.replace(/^(Hai\s+QA,\s*)Hai\s+QA,\s*/i, 'Hai QA, ');
+  }
+  let out = answer;
+  const inlineDup = new RegExp(
+    `^(Hai\\s+${escapeRegExp(first)},\\s*)Hai\\s+${escapeRegExp(first)},\\s*`,
+    'i',
+  );
+  out = out.replace(inlineDup, `Hai ${first}, `);
+  const duplicateRe = new RegExp(
+    `^(Hai\\s+${escapeRegExp(first)},\\s*(?:\\r?\\n\\s*)+)Hai\\s+${escapeRegExp(first)},\\s*`,
+    'i',
+  );
+  out = out.replace(duplicateRe, `Hai ${first}, `);
+  return out;
+}
+
+/** True when repair only prepends Hai + name to the streamed body. */
+export function isStudentGreetingOnlyRepair(rawStream: string, repaired: string): boolean {
+  const raw = rawStream.trim();
+  const rep = repaired.trim();
+  if (!raw || !rep || raw === rep) return false;
+  if (!/^Hai\b/i.test(rep)) return false;
+  const head = raw.slice(0, Math.min(80, raw.length)).toLowerCase();
+  return rep.toLowerCase().includes(head);
+}
+
 /**
  * Mandatory per-turn block — ADAM must name the student once on substantive replies.
  * Replaces the weak one-line "Pelajar semasa: …" buried in the stack.
@@ -96,8 +183,8 @@ export function buildStudentAddressLaw(participantName: string): string {
 STUDENT ADDRESS (wajib / mandatory this turn):
 The person speaking now: ${full || 'pelajar'} · call them: ${first}
 
-- Substantive answer: say "${first}" ONCE naturally in the first sentence if it fits — never force a poetic opener.
-  Examples: "${first}, peranan ini…" · "For this role, ${first}, the core duties are…"
+- Substantive answer: open with "Hai ${first}," once, then verified facts in flowing prose.
+  Example: "Hai ${first}, langit kelihatan biru…" · "Hai ${first}, kalau awak ada 3 epal…"
 - Salam / thanks only: brief warmth with optional "${first}" — no lecture.
 - FORBIDDEN: kau, kamu, engkau. Use ${first} or neutral phrasing ("Soalan ini…").
 - FORBIDDEN openers: "${first}, soalan ini menyentuh…", "bukan sekadar jawatan", "Mari kita lihat dari tiga lapisan".

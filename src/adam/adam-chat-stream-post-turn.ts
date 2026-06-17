@@ -15,6 +15,7 @@
  * ============================================================
  */
 
+import { isStudentGreetingOnlyRepair } from './adam-student-constitution';
 import { FOUNDER_USER_ID } from './adam-student.types';
 import { founderWantsJournalSeal } from './adam-chat-response-parser';
 import { processFounderJournalSeal } from './adam-journal.service';
@@ -60,6 +61,9 @@ export async function finishAdamChatTurn(input: {
   sectionJournalComplete: boolean;
   sectionDraftMap?:       Partial<Record<JournalSectionId, string>>;
   sanitizedRepairApplied?: boolean;
+  arithmeticAlphaRepairApplied?: boolean;
+  visualDrawRepairApplied?: boolean;
+  studentGreetingRepairApplied?: boolean;
   preserveStreamBody?:     boolean;
   turnBrainMeta?:         AdamTurnBrainMeta;
   modelChoice: {
@@ -144,6 +148,10 @@ export async function finishAdamChatTurn(input: {
   });
   finalResponse = relayResult.finalResponse;
 
+  const rawForGreeting = input.turnBrainMeta?.rawModelStream?.trim() ?? '';
+  const studentGreetingRepairApplied = input.studentGreetingRepairApplied === true
+    || (rawForGreeting.length > 0 && isStudentGreetingOnlyRepair(rawForGreeting, finalResponse));
+
   const k24Address = await generateK24Address(shell.mode);
   const messageId = await saveMessage(
     shell.resolvedSessionId,
@@ -181,6 +189,9 @@ export async function finishAdamChatTurn(input: {
     principleApplied: parsed.principleApplied,
     response:         finalResponse,
     sanitizedRepair:  input.sanitizedRepairApplied === true,
+    arithmeticAlphaRepair: input.arithmeticAlphaRepairApplied === true,
+    visualDrawRepair: input.visualDrawRepairApplied === true,
+    studentGreetingRepair: studentGreetingRepairApplied,
     preserveStreamBody: input.preserveStreamBody === true,
     mode:             shell.mode,
     needsConsult:     parsed.consult.needsConsult && !shell.isFounder,

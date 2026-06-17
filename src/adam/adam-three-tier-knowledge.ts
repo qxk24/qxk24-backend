@@ -34,3 +34,22 @@ export {
   userOptedIntoQuranTier,
   type StudentKnowledgeTier,
 } from './adam-universal-scholar';
+
+export {
+  ADAM_KNOWLEDGE_MODE_MANIFEST,
+  buildAdamKnowledgeModeManifest,
+  buildAdamKnowledgeModeTurnOverlay,
+  knowledgeModeAllowsAlamtologiStack,
+  knowledgeModeAllowsConstitutionalLayer5,
+  resolveAdamKnowledgeMode,
+  shouldBufferAdamStreamUntilRepair,
+  type AdamKnowledgeMode,
+} from './adam-knowledge-mode';
+
+export {
+  buildKonvensionalRecallFromRawBlock,
+  contextBlockIsAlamtologiBrainRecall,
+  filterContextMessagesForKnowledgeMode,
+  knowledgeModeToRecallExportSurface,
+  type BrainRecallExportSurface,
+} from './adam-brain-recall-filter';

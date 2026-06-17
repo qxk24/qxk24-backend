@@ -20,8 +20,11 @@
  */
 
 import type { ADAMChatMode } from './adam.types';
+import { detectLanguage } from './adam-language-mirror.service';
 import { isAdamLightChatTurn } from './adam-response-generation';
 import { studentDisplayFirstName } from './adam-student-constitution';
+import { getFastModel } from '../config/llm-models';
+import { llmCompleteUserPrompt } from '../llm/llm-client';
 
 export type AdamTutorLevel = 'primary' | 'secondary' | 'university';
 
@@ -127,7 +130,7 @@ ADAM TUTOR — TEACHER INTRODUCTION (mandatory):
 - English opening example: "${englishOpen}"
 - Grammar: never write "saya bimbing faham" (broken). Use full sentences: "Saya akan bimbing anda sampai faham."
 - Never use kau/kamu/engkau — use the student's name or "anda".
-- Preferred session language: ${tutorLanguageInstruction(lang)}
+- Fixed session language: ${tutorLanguageInstruction(lang)} — never switch because the student's reply is short, numeric, or in another language.
 - After the first introduction, use "${title}" naturally when needed — do not repeat the full intro every turn.
 `.trim();
 }
@@ -317,10 +320,11 @@ You are ADAM — a universal, patient classroom teacher (Cikgu / Teacher) for sc
 You guide understanding of conventional subjects and assignments in any country, curriculum, or language.
 You are NOT ADAM Learn, NOT a philosopher of Alamtologi, NOT a homework answer machine.
 
-IDENTITY LINE (match student language — use Cikgu or Teacher):
-- Malay: "Saya Cikgu ADAM. Saya akan bimbing anda sampai faham — saya tidak akan beri jawapan siap; anda perlu buat latihan sendiri."
-- English: "I'm Teacher ADAM. I'll guide you until you understand — I won't give finished answers; you need to do the practice yourself."
+IDENTITY LINE (use session profile language — Cikgu or Teacher):
+- Malay session: "Saya Cikgu ADAM. Saya akan bimbing anda sampai faham — saya tidak akan beri jawapan siap; anda perlu buat latihan sendiri."
+- English session: "I'm Teacher ADAM. I'll guide you until you understand — I won't give finished answers; you need to do the practice yourself."
 - Universal: no Bismillah opener; no "Salam, Pelajar." — use the student's name or "anda".
+- When profile language is set, keep that language for the whole session — do NOT mirror a short student answer in another language.
 `.trim();
 
 export const ADAM_TUTOR_ZERO_ANSWER_LAW = `
@@ -373,6 +377,7 @@ SATU AYAT, SATU MAKSUD:
 - Elak istilah Alamtologi / rohani / puisi: Mishkāt, IZWA, RUANG, AMA, Leraian, constitutional, kelengkungan cahaya, dan seumpamanya.
 - *Italik* hanya untuk operasi matematik (*tambah*, *tolak*, *darab*, *bahagi*) — bukan untuk kesan dramatik.
 - Satu bahasa sepanjang jawapan — jangan campur BM + Inggeris dalam ayat penutup.
+- Selepas pelajar jawab soalan anda (nombor, persamaan, ayat pendek), teruskan dalam bahasa sesi — jangan tukar ke Inggeris.
 
 PANJANG AYAT (ikut tahap):
 - Primary: maksimum ~12 perkataan setiap ayat.
@@ -561,6 +566,11 @@ const TUTOR_VERIFY_LEAK_BLOCK =
 
 /** Poetic / Alamtologi vocabulary that must not appear in Tutor replies. */
 const TUTOR_PLAIN_LANGUAGE_BLEED = [
+  /\balamtologi\b/i,
+  /\bama\s*124\b/i,
+  /\bama\s*\(\s*1\s*\)/i,
+  /\btaju\b/i,
+  /\bqxk24\b/i,
   /\bnafas\s+masuk\b/i,
   /\bniche\b/i,
   /\bMishk[āaā]?t\b/i,
@@ -576,6 +586,36 @@ const TUTOR_PLAIN_LANGUAGE_BLEED = [
   /\bperlembagaan\s+alamtologi\b/i,
   /\bPhase\s+1[AB]\b/i,
   /\bnafas\s+(?:keluar|diam)\b/i,
+  /\bseven\s+principle\b/i,
+  /\btujuh\s+prinsip\b/i,
+];
+
+/** English menu bleed when session profile is Malay. */
+const TUTOR_ENGLISH_SESSION_BLEED = [
+  /\bWould you like to\b/i,
+  /\bExplore what\b/i,
+  /\bConnect it to\b/i,
+  /\bOr relate it to\b/i,
+  /\bLet me know,\s*and I'll guide\b/i,
+  /\bYou do the thinking\b/i,
+  /\bI hold the light\b/i,
+  /\bperfect number\b/i,
+  /\bstep by step,\s*clearly and patiently\b/i,
+  /\bGood(?:\s+job|\s+try|\s+work)\b/i,
+  /\bWell done\b/i,
+  /\bThat(?:'| i)s (?:correct|right|not quite|almost)\b/i,
+  /\bNot quite\b/i,
+  /\bLet me explain\b/i,
+  /\bLet's (?:look|try|continue|move)\b/i,
+  /\bThe next step\b/i,
+  /\bTry again\b/i,
+  /\bRemember that\b/i,
+  /\bYou (?:wrote|got|answered)\b/i,
+  /\bI see (?:you|that)\b/i,
+  /\bActually,\b/i,
+  /\bCorrect!\b/i,
+  /\bWrong\b/i,
+  /\bKeep going\b/i,
 ];
 
 const TUTOR_ENGLISH_CLOSING_LEAK =
@@ -775,16 +815,248 @@ function fixTutorBrokenMalayIntro(text: string): string {
   return out;
 }
 
+function fixTutorPelajarOpener(
+  text: string,
+  participantName?: string,
+  profile?: AdamTutorProfile,
+): string {
+  const lang = normalizeTutorLanguage(profile?.language);
+  const first = participantName?.trim()
+    ? studentDisplayFirstName(participantName.trim())
+    : '';
+  if (!first) return text;
+
+  if (lang === 'malay') {
+    return text
+      .replace(/^Pelajar,\s*/i, `${first}, `)
+      .replace(/^Salam,\s*Pelajar\.?\s*/im, `Salam, ${first}. `);
+  }
+  return text
+    .replace(/^Student,\s*/i, `${first}, `)
+    .replace(/^Hello,\s*Student\.?\s*/im, `Hello, ${first}. `);
+}
+
+function tutorReplyHasEnglishMenuBleed(text: string): boolean {
+  if (TUTOR_ENGLISH_SESSION_BLEED.some((re) => {
+    re.lastIndex = 0;
+    return re.test(text);
+  })) {
+    return true;
+  }
+  return TUTOR_PLAIN_LANGUAGE_BLEED.some((re) => {
+    re.lastIndex = 0;
+    return re.test(text);
+  });
+}
+
+/** True when a Malay-session reply is mostly English prose (common after numeric student answers). */
+export function tutorReplyIsPredominantlyEnglish(text: string): boolean {
+  const sample = text.replace(/```[\s\S]*?```/g, ' ')
+    .replace(/\|[^|\n]+\|/g, ' ')
+    .trim();
+  if (sample.length < 48) return false;
+
+  const detected = detectLanguage(sample);
+  if (detected.detectedLocale === 'en' && detected.confidence >= 0.82) {
+    return true;
+  }
+
+  const lower = sample.toLowerCase();
+  const englishHits = (lower.match(
+    /\b(?:good|well|correct|wrong|let|try|explain|step|answer|actually|remember|almost|great|nice|think|write|you|the|that|this|what|when|then|now|next|first|second|third)\b/g,
+  ) ?? []).length;
+  const malayHits = (lower.match(
+    /\b(?:yang|dengan|untuk|adalah|tidak|soalan|jawapan|pelajar|betul|jika|langkah|cikgu|anda|kamu|kenapa|operasi|tambah|tolak|darab|bahagi|tempat|tulis|faham|terima kasih|bagus|hampir|mari|kita|satu|dua|tiga|empat|lima|enam|tujuh|lapan|sembilan|sepuluh)\b/g,
+  ) ?? []).length;
+
+  return englishHits >= 4 && englishHits > malayHits * 1.4;
+}
+
+function tutorReplyViolatesMalaySession(
+  text: string,
+  profile?: AdamTutorProfile,
+): boolean {
+  const lang = normalizeTutorLanguage(profile?.language);
+  if (lang !== 'malay') return false;
+  if (tutorReplyHasEnglishMenuBleed(text)) return true;
+  return tutorReplyIsPredominantlyEnglish(text);
+}
+
+function tutorReplyViolatesSessionLanguage(
+  text: string,
+  profile?: AdamTutorProfile,
+): boolean {
+  return tutorReplyViolatesMalaySession(text, profile);
+}
+
+/** Malay recovery when model replies in English or offers Alamtologi menus. */
+export function buildTutorAmbiguousInputReply(
+  userMessage: string,
+  profile?: AdamTutorProfile,
+  participantName?: string,
+): string {
+  const lang = normalizeTutorLanguage(profile?.language);
+  const title = tutorTeacherTitle(lang);
+  const first = participantName?.trim()
+    ? studentDisplayFirstName(participantName.trim())
+    : '';
+  const trimmed = userMessage.trim();
+
+  if (lang === 'malay') {
+    const open = first ? `Salam, ${first}.` : 'Salam.';
+    if (/^\d+$/.test(trimmed)) {
+      return `${open} Anda tulis nombor **${trimmed}** sahaja.
+
+Nak explore maksud nombor **${trimmed}** dalam matematik (contoh: faktor, gandaan)?
+Atau ada persamaan / soalan sekolah yang berkaitan nombor ini?
+
+Pilih satu arah — saya pandu langkah demi langkah. **Anda** fikir; saya **${title}** bimbing.`;
+    }
+    return `${open} Saya **${title} ADAM**. Tulis soalan pelajaran anda — matematik, sains, atau subjek sekolah/universiti — dan saya bimbing langkah demi langkah tanpa beri jawapan siap.`;
+  }
+
+  const open = first ? `Hello, ${first}.` : 'Hello.';
+  if (/^\d+$/.test(trimmed)) {
+    return `${open} You wrote just the number **${trimmed}**.
+
+Would you like to explore what **${trimmed}** means in maths (factors, multiples)?
+Or is there a school equation or question tied to this number?
+
+Pick one direction — **${title} ADAM** will guide step by step. You think; I hold the light.`;
+  }
+  return `${open} I'm **${title} ADAM**. Share your school or university question — I'll guide step by step without giving finished answers.`;
+}
+
+/** Malay fallback when model re-explains in English after the student answered. */
+export function buildTutorMalayFollowUpRecovery(
+  userMessage: string,
+  profile?: AdamTutorProfile,
+  participantName?: string,
+): string {
+  const title = tutorTeacherTitle(normalizeTutorLanguage(profile?.language));
+  const first = participantName?.trim()
+    ? studentDisplayFirstName(participantName.trim())
+    : '';
+  const open = first ? `Salam, ${first}.` : 'Salam.';
+  const trimmed = userMessage.trim();
+  const answerLine = trimmed
+    ? `Terima kasih atas jawapan **${trimmed}**.`
+    : 'Terima kasih atas jawapan anda.';
+
+  return `${open} ${answerLine}
+
+Mari kita teruskan **satu langkah sahaja** — fokus tempat **Sa** (satuan) dulu, bukan keseluruhan penyelesaian.
+Tulis digit atau operasi untuk langkah itu di baris:
+→ ______
+
+Kemudian terangkan dalam **satu ayat** kenapa operasi itu betul. **${title}** tunggu — anda fikir; saya bimbing.`;
+}
+
+const TUTOR_MALAY_REPAIR_SYSTEM = `
+You rewrite ADAM Tutor (Cikgu) classroom replies into Bahasa Melayu Malaysia (DBP) only.
+Preserve markdown tables, monospace blocks, bold, and structure exactly.
+Keep one micro-step teaching — never reveal final answers the student must find.
+Malaysian vocabulary only — not Indonesian.
+Output the rewritten reply only — no preamble.
+`.trim();
+
+/** Post-stream — rewrite English tutor drift back to BM while keeping teaching structure. */
+export async function repairTutorMalaySessionLanguage(
+  text: string,
+  profile?: AdamTutorProfile,
+): Promise<string> {
+  if (!text?.trim()) return text;
+  if (normalizeTutorLanguage(profile?.language) !== 'malay') return text;
+  if (!tutorReplyViolatesMalaySession(text, profile)) return text;
+
+  try {
+    const repaired = await llmCompleteUserPrompt(
+      TUTOR_MALAY_REPAIR_SYSTEM,
+      `Rewrite this Cikgu ADAM teaching reply entirely in Bahasa Melayu Malaysia. Keep tables and layout.\n\n${text}`,
+      getFastModel(),
+      Math.min(4096, Math.max(1200, Math.ceil(text.length * 1.2))),
+    );
+    const trimmed = repaired.trim();
+    if (
+      trimmed.length >= text.length * 0.35
+      && !tutorReplyIsPredominantlyEnglish(trimmed)
+    ) {
+      console.log('[adam:tutor-language] repaired English drift to BM', {
+        charsBefore: text.length,
+        charsAfter:  trimmed.length,
+      });
+      return trimmed;
+    }
+  } catch (err) {
+    console.warn('[adam:tutor-language] BM repair failed', err);
+  }
+  return text;
+}
+
+export function enforceTutorSessionLanguage(
+  text: string,
+  profile?: AdamTutorProfile,
+  userMessage?: string,
+  participantName?: string,
+): string {
+  const fixedOpener = fixTutorPelajarOpener(text, participantName, profile);
+  if (!tutorReplyViolatesMalaySession(fixedOpener, profile)) {
+    return fixedOpener;
+  }
+  if (tutorReplyHasEnglishMenuBleed(fixedOpener)) {
+    return buildTutorAmbiguousInputReply(userMessage ?? '', profile, participantName);
+  }
+  return buildTutorMalayFollowUpRecovery(userMessage ?? '', profile, participantName);
+}
+
+/** Tutor lane — profile language overrides ambiguous numeric/symbol input. */
+export function buildTutorSessionLanguageLock(profile?: AdamTutorProfile): string {
+  const lang = normalizeTutorLanguage(profile?.language);
+  return `
+[TUTOR LANGUAGE LOCK — SESSION FIXED FOR ENTIRE CONVERSATION]
+Session profile language: ${lang} (FIXED — do not switch mid-session).
+${tutorLanguageInstruction(lang)}
+Every turn must use the session profile language — including when the student answers your question with a number, equation, symbol, or short phrase in another language.
+Do NOT mirror the student's reply language on follow-up turns. If you opened in Malay, keep explaining in Malay.
+If the student sends only a number, symbol, or emoji with no language cue, reply in the session profile language — NOT English by default.
+Never offer Alamtologi, AMA, TAJU, QXK24, or founder frameworks as topic options.
+Never mix English option menus into a Malay session.
+[/TUTOR LANGUAGE LOCK]
+`.trim();
+}
+
+/** Tutor web search — silent for student UI; conventional academics only. */
+export function buildTutorWebSearchPrompt(
+  profile?: AdamTutorProfile,
+  prefetched = false,
+): string {
+  const langLine = tutorLanguageInstruction(normalizeTutorLanguage(profile?.language));
+  const prefetchLine = prefetched
+    ? 'Web search results may appear in [WEB SEARCH RESULTS] above — use only conventional facts from those hits.'
+    : 'Web search may run for factual classroom topics only.';
+  return `
+ADAM TUTOR — WEB SEARCH (silent — student does not see search UI):
+${prefetchLine}
+- Conventional school/university subjects ONLY — no Alamtologi, AMA, TAJU, or founder frameworks.
+- ${langLine}
+- Weave verified facts in plain classroom language — no citation dump, no search narration.
+- If search is empty, continue teaching conventionally — do not invent studies or URLs.
+`.trim();
+}
+
 /** Full tutor post-stream pipeline — plain language first, then zero-answer. */
 export function enforceTutorReplyGuards(
   text: string,
   profile?: AdamTutorProfile,
+  userMessage?: string,
+  participantName?: string,
 ): string {
   const openers = stripTutorUniversalOpeners(text);
   const intro = fixTutorBrokenMalayIntro(openers);
   const terms = fixTutorMalayPlaceValueTerms(intro, profile);
   const plain = enforceTutorPlainLanguageGuard(terms, profile);
-  return enforceTutorZeroAnswerGuard(plain, profile, text);
+  const language = enforceTutorSessionLanguage(plain, profile, userMessage, participantName);
+  return enforceTutorZeroAnswerGuard(language, profile, text);
 }
 
 export function tutorReplyLeakedFinalAnswer(text: string): boolean {

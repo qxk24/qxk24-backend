@@ -28,6 +28,7 @@ import { isAmaBrainV2Enabled } from '../lib/ama/ama-brain-integration.service';
 import { resolveTamatLayer5Block } from '../lib/ama/tamat-generator';
 import { getOrCreateMaster } from '../qxk24brain/qxk24brain.engine';
 import { FOUNDER_USER_ID } from './adam-student.types';
+import { resolveAdamKnowledgeMode, type AdamKnowledgeMode } from './adam-knowledge-mode';
 import { detectContextRecallLoaded } from './adam-universal-recall-router';
 import {
   buildStudentContinuityBridge,
@@ -78,6 +79,7 @@ export interface AdamTurnContextFetch {
   earlyWebSearchReason: string | null;
   brainRecallLoaded: boolean;
   brainRecallStable: boolean;
+  knowledgeMode: AdamKnowledgeMode;
 }
 
 export async function fetchAdamTurnContext(input: {
@@ -108,7 +110,15 @@ export async function fetchAdamTurnContext(input: {
     participant,
     userMessage,
   } = shell;
-  const { founderTeachingLearnerTurn, founderTeachingAbsorption } = teachingFlags;
+  const { founderTeachingLearnerTurn, founderTeachingAbsorption, founderTeachingInquiry, founderTeachingSynthesis } = teachingFlags;
+
+  const knowledgeMode = resolveAdamKnowledgeMode({
+    userMessage:              messageForAdam,
+    isFounder,
+    founderTeachingAbsorption,
+    founderTeachingInquiry,
+    founderTeachingSynthesis,
+  });
 
   const contextStarted = Date.now();
   const needContinuityBridge = !isFounder
@@ -150,6 +160,7 @@ export async function fetchAdamTurnContext(input: {
         founderTeachingAbsorption,
         founderTeachingLearnerTurn,
         founderTeachingFreshUpload: shell.teaching.fileNames.length > 0,
+        knowledgeMode,
         studentStreamlined: !isFounder && (
           isAdamLightChatTurn(normalizedMessage)
           || isAdamSimpleFactualTurn(normalizedMessage)
@@ -232,6 +243,7 @@ export async function fetchAdamTurnContext(input: {
     earlyWebSearchReason: postRecallWebSearchReason ?? earlyWebSearchReason,
     brainRecallLoaded,
     brainRecallStable,
+    knowledgeMode,
   };
 }
 

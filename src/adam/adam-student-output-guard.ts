@@ -31,6 +31,10 @@ import {
   paragraphIsLabeledSkillLine,
   paragraphIsEmojiSkillChecklist,
   paragraphIsTier1EssayLeak,
+  paragraphIsExplainBackPhase1ALeak,
+  paragraphIsExplainBackSoulStrikeLeak,
+  paragraphIsUnsolicitedFaithSermon,
+  paragraphIsUnsolicitedTier1FaithWeave,
   paragraphIsMarkdownBulletForest,
   paragraphIsNumberedSyllabusLeak,
   paragraphShouldStripForUniversalVoice,
@@ -43,12 +47,23 @@ import {
   stripPlanTesterAddress,
   paragraphIsBmPracticalEssayLeak,
   stripSciencePoeticInline,
+  stripSciencePhilosophyEssayInline,
+  paragraphIsSciencePhilosophyEssayLeak,
+  paragraphIsMediaRefusalLeak,
+  paragraphIsMediaKeywordRedirectLeak,
+  stripMediaRefusalInline,
+  outputHasKonvensionalFrameworkLeak,
+  outputHasMediaRefusal,
   stripScienceFaithInline,
+  stripKonvensionalAlamtologiTailInline,
+  stripFrameworkWeaveSentences,
   stripLifeStressFaithInline,
   stripSunomNotation,
   stripConsumerMarkdownEmphasis,
   studentForbiddenPronounAlternation,
   paragraphIsBismillahOpenerOnly,
+  paragraphIsConstitutionalFrameworkLeak,
+  paragraphIsSimpleArithmeticPhilosophyLeak,
   stripStudentBismillahOpener,
 } from './adam-student-output-law';
 import { userOpenedFaithDoor } from './adam-universal-voice';
@@ -58,34 +73,58 @@ import {
   userRequestedPracticalDepth,
   appendUniversalScholarTier1DoorIfMissing,
   stripMisplacedPracticalCareerDoor,
+  paragraphIsAlamtologiPromotionLeak,
+  stripAlamtologiPromotionInline,
   UNIVERSAL_SCHOLAR_DOOR_EN,
 } from './adam-universal-scholar';
+import { repairPracticalAdvisoryGoldShape } from './adam-practical-advisory-gold';
+import { normalizeGoldStandardFollowUpClosing } from './adam-gold-standard';
 import {
   isAdamConsumerPlainTurn,
   isAdamContinuationDepthTurn,
   isAdamLightChatTurn,
   isAdamPracticalAdvisoryTurn,
   isAdamSimpleFactualTurn,
+  isAdamSimpleArithmeticTurn,
   isAdamScienceNatureSynthesisTurn,
+  isAdamHistorySynthesisTurn,
+  isAdamTechnicalKonvensionalDisplayTurn,
+  isAdamLinearAlgebraTurn,
+  isAdamSubstantiveTurn,
+  isAdamVisualDrawTurn,
   isAdamCompareTurn,
   isAdamLifeWellbeingTurn,
   threadRootIsPracticalAdvisory,
 } from './adam-response-generation';
 import { isAdamCurrentAffairsTurn, isVerifiedDataStatAsk } from './adam-web-search';
-import { resolveAdamAnswerProfile } from './adam-answer-profile';
+import { resolveAdamAnswerProfile, userOptedIntoStudentExplainBackBeta } from './adam-answer-profile';
 import { repairAlphaStatSurface } from './adam-alpha-output-guard';
+import { collapseSimpleArithmeticAlphaOutput, isArithmeticAlphaCollapsedRepair } from './adam-arithmetic-alpha-guard';
+import { repairVisualDrawOutput, paragraphIsGeometryPoeticLeak, isVisualDrawCollapsedRepair } from './adam-visual-draw-guard';
+import { repairTechnicalDiagramOutput } from './adam-technical-diagram-guard';
+import { isAdamMediaSearchTurn } from './adam-media-search';
+import { ensureStudentHaiGreeting, isStudentGreetingOnlyRepair, dedupeStudentHaiGreeting } from './adam-student-constitution';
+import { detectLanguage } from './adam-language-mirror.service';
+import { sanitizeMalaysiaBmDrift } from './adam-malaysia-bm-guard';
 import {
   isTechnicalPrecisionQuestion,
   outputLooksLikeStructuredSpec,
   userAskedForConstitutionalStructure,
   userAskedForStructuredSpecification,
+  userAskedForAlamtologi,
 } from './adam-universal-voice';
+import { isAdamGeneralKonvensionalTurn, shouldStripKonvensionalFrameworkLeaks } from './adam-knowledge-mode';
 
-/** Strip billboard framework labels on tier 1 — inline only, never drop paragraphs. */
+/** Strip billboard framework labels on tier 1 — drop leaky paragraphs on α simple factual. */
 const FRAMEWORK_LEAK =
-  /\b(?:Dalam\s+(?:lensa|perspektif)\s+Alamtologi|Dari\s+perspektif\s+Alamtologi|From\s+an\s+Alamtologi\s+perspective|Alamtologi\s+menyatakan|framework\s+Alamtologi|hukum\s+Z)\b/gi;
+  /\b(?:Dalam\s+(?:lensa|perspektif|konteks|pandangan)\s+Alamtologi|Dari\s+(?:sudut|perspektif)\s+Alamtologi|From\s+an\s+Alamtologi\s+perspective|pandangan\s+Alamtologi|perspektif\s+Alamtologi|konteks\s+Alamtologi|(?:Dalam\s+)?ilmu\s+HISAL|HISAL\s+Alamtologi|Alamtologi\s+menyatakan|framework\s+Alamtologi|\bAlamtologi\b|cara\s+kira\s+AIDIL|\bAIDIL\b|\bTAJU\b|Tujuh\s+Angka\s+Jaringan|P\.?\s*alt|pengajaran\s+P\.?\s*alt|\bwaqf\b|hukum\s+Z|keseimbangan\s+antara\s+RUANG\s+dan\s+MASA|reka\s+bentuk\s+alam|permukaan\s+kiub|keenam-enam\s+permukaan|angka\s+kesempurnaan\s+proses|tahap\s+fungsi|baris\s+penyelesaian|pasangan\s+yang\s+sempurna|bukan\s+sekadar\s+penambahan\s+angka|MASA\s*(?:→|->)\s*TENAGA|ekspresi\s+MASA)\b/gi;
 
-function stripFrameworkBillboards(text: string, userMessage: string): string {
+/** α simple factual — drop whole paragraphs that are constitutional billboards, not inline-only. */
+export function stripFrameworkBillboards(
+  text: string,
+  userMessage: string,
+  recentUserMessages: string[] = [],
+): string {
   if (userMessage && userAskedForConstitutionalStructure(userMessage)) {
     return text;
   }
@@ -95,13 +134,35 @@ function stripFrameworkBillboards(text: string, userMessage: string): string {
   if (userMessage && /\b(?:alamtologi|peringkat\s+2|sudut\s+konstitusi)\b/i.test(userMessage)) {
     return text;
   }
+  const dropLeakyParagraphs = isAdamSimpleFactualTurn(userMessage)
+    || isAdamSimpleArithmeticTurn(userMessage)
+    || shouldStripKonvensionalFrameworkLeaks(userMessage, recentUserMessages);
   return text
     .split(/\n{2,}/)
     .map((para) => {
       const trimmed = para.trim();
-      if (!trimmed || paragraphIsUniversalScholarDoorOffer(trimmed)) return para;
+      if (!trimmed) return para;
+      if (isAdamGeneralKonvensionalTurn(userMessage) && paragraphIsAlamtologiPromotionLeak(trimmed)) {
+        return '';
+      }
+      if (paragraphIsUniversalScholarDoorOffer(trimmed)) return para;
+      if (dropLeakyParagraphs && paragraphIsConstitutionalFrameworkLeak(trimmed)) {
+        const partial = stripFrameworkWeaveSentences(trimmed);
+        if (partial.length >= 40 && !paragraphIsConstitutionalFrameworkLeak(partial)) {
+          return partial;
+        }
+        return '';
+      }
+      if (
+        dropLeakyParagraphs
+        && isAdamSimpleArithmeticTurn(userMessage)
+        && paragraphIsSimpleArithmeticPhilosophyLeak(trimmed)
+      ) {
+        return '';
+      }
       return para.replace(FRAMEWORK_LEAK, '');
     })
+    .filter((para) => para.trim().length > 0)
     .join('\n\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -159,6 +220,9 @@ const SCRIPTED_CLOSINGS: RegExp[] = [
   /Apakah\s+ada\s+satu\s+situasi\s+spesifik/i,
   /bukan\s+untuk\s+memberi\s+jawapan\s+cepat/i,
   /apa\s+yang\s+sedang\s+bergerak\s+di\s+dalam\s+hatimu/i,
+  /Adakah\s+anda\s+pernah\s+mengalami\s+situasi/i,
+  /Bagaimana\s+anda\s+menyeimbangkannya/i,
+  /Apakah\s+kesetiaan\s+itu\s+buta/i,
 ];
 
 const STUDENT_MATH_SLOT = '\x00STUDENT_MATH_';
@@ -233,10 +297,20 @@ export function sanitizeStudentOutputSync(
   userMessage = '',
   recentUserMessages: string[] = [],
   recentAssistantMessages: string[] = [],
+  participantName?: string,
+  options?: { enforceStudentGreeting?: boolean },
 ): string {
   // ADAM-α stat turns — meta/orphan strip only; never run tier-1 paragraph gutting.
-  if (isVerifiedDataStatAsk(userMessage)) {
+  if (isVerifiedDataStatAsk(userMessage) && !isAdamSimpleArithmeticTurn(userMessage)) {
     return repairAlphaStatSurface(text, userMessage);
+  }
+
+  if (
+    isAdamVisualDrawTurn(userMessage)
+    && !userAskedForAlamtologi(userMessage)
+    && !userAskedForConstitutionalStructure(userMessage)
+  ) {
+    return repairVisualDrawOutput(text, userMessage, participantName);
   }
 
   const { text: stashed, slots } = stashStudentMathBlocks(text);
@@ -255,13 +329,20 @@ export function sanitizeStudentOutputSync(
     userAskedForStructuredSpecification(userMessage)
     || outputLooksLikeStructuredSpec(stashed);
   const profile = resolveAdamAnswerProfile({
-    message:            userMessage,
+    message:                  userMessage,
     recentUserMessages,
+    recentAssistantMessages,
+    isFounder:                false,
+  });
+  const betaOptedIn = userOptedIntoStudentExplainBackBeta({
+    message:                  userMessage,
+    recentUserMessages,
+    recentAssistantMessages,
+    isFounder:                false,
   });
   const tier1BriefEssayStrip = profile === 'alpha'
+    && !betaOptedIn
     && !preserveCareerStructure
-    && !isAdamContinuationDepthTurn(userMessage)
-    && !userRequestedPracticalDepth(userMessage)
     && !isAdamLightChatTurn(userMessage)
     && !isAdamPracticalAdvisoryTurn(userMessage)
     && !practicalThread
@@ -269,6 +350,14 @@ export function sanitizeStudentOutputSync(
       strictPlainConsumer
       || isAdamSimpleFactualTurn(userMessage)
       || isAdamCurrentAffairsTurn(userMessage)
+      || isAdamCompareTurn(userMessage)
+      || isAdamScienceNatureSynthesisTurn(userMessage)
+      || isAdamHistorySynthesisTurn(userMessage)
+      || isAdamVisualDrawTurn(userMessage)
+      || (
+        isAdamSubstantiveTurn(userMessage)
+        && !userRequestedPracticalDepth(userMessage)
+      )
     );
   const preservePracticalSkillsStructure = isAdamPracticalAdvisoryTurn(userMessage)
     && !isAdamContinuationDepthTurn(userMessage)
@@ -281,9 +370,11 @@ export function sanitizeStudentOutputSync(
     || isAdamLifeWellbeingTurn(userMessage)
     || isAdamCompareTurn(userMessage)
     || isAdamScienceNatureSynthesisTurn(userMessage)
+    || isAdamHistorySynthesisTurn(userMessage)
   );
 
-  const preserveStructuredMarkdown = constitutionalStructureOk || structuredSpecOk;
+  const technicalKonvensionalDisplay = isAdamTechnicalKonvensionalDisplayTurn(userMessage);
+  const preserveStructuredMarkdown = constitutionalStructureOk || structuredSpecOk || technicalKonvensionalDisplay;
 
   let out = stripStudentBismillahOpener(stashed)
     .replace(/\bmemperkuat\b/gi, 'menguatkan')
@@ -307,6 +398,7 @@ export function sanitizeStudentOutputSync(
   if (tier1BriefEssayStrip && !practicalThread) {
     out = stripSciencePoeticInline(out);
     if (isAdamScienceNatureSynthesisTurn(userMessage)) {
+      out = stripSciencePhilosophyEssayInline(out);
       out = stripScienceFaithInline(out);
     }
   }
@@ -318,7 +410,16 @@ export function sanitizeStudentOutputSync(
   out = stripCurrentAffairsCoachingTail(out, userMessage);
   out = sanitizeStudentForbiddenPronouns(out);
   if (!lightChat) {
-    out = stripFrameworkBillboards(out, userMessage);
+    if (isAdamGeneralKonvensionalTurn(userMessage)) {
+      out = stripAlamtologiPromotionInline(out);
+    }
+    out = stripFrameworkBillboards(out, userMessage, recentUserMessages);
+    if (shouldStripKonvensionalFrameworkLeaks(userMessage, recentUserMessages)) {
+      out = stripKonvensionalAlamtologiTailInline(out);
+    }
+    if (isAdamGeneralKonvensionalTurn(userMessage)) {
+      out = stripAlamtologiPromotionInline(out);
+    }
   }
 
   const paragraphs = out.split(/\n{2,}/);
@@ -340,11 +441,72 @@ export function sanitizeStudentOutputSync(
     if (tier1BriefEssayStrip && (paragraphIsTier1EssayLeak(trimmed) || paragraphIsBmPracticalEssayLeak(trimmed))) {
       continue;
     }
+    if (tier1BriefEssayStrip && paragraphIsExplainBackPhase1ALeak(trimmed)) {
+      continue;
+    }
+    if (tier1BriefEssayStrip && paragraphIsExplainBackSoulStrikeLeak(trimmed)) {
+      continue;
+    }
     if (
-      (preserveCareerStructure || preservePracticalSkillsStructure)
+      tier1BriefEssayStrip
+      && isAdamScienceNatureSynthesisTurn(userMessage)
+      && paragraphIsSciencePhilosophyEssayLeak(trimmed)
+    ) {
+      continue;
+    }
+    if (isAdamMediaSearchTurn(userMessage) && paragraphIsMediaRefusalLeak(trimmed)) {
+      continue;
+    }
+    if (isAdamMediaSearchTurn(userMessage) && paragraphIsMediaKeywordRedirectLeak(trimmed)) {
+      continue;
+    }
+    if (tier1BriefEssayStrip && !faithOk && paragraphIsUnsolicitedFaithSermon(trimmed)) {
+      continue;
+    }
+    if (tier1BriefEssayStrip && !faithOk && paragraphIsUnsolicitedTier1FaithWeave(trimmed)) {
+      continue;
+    }
+    if (
+      tier1BriefEssayStrip
+      && !userAskedForAlamtologi(userMessage)
+      && !userAskedForConstitutionalStructure(userMessage)
+      && /\bAlamtologi\b/i.test(trimmed)
+    ) {
+      continue;
+    }
+    if (
+      (tier1BriefEssayStrip || shouldStripKonvensionalFrameworkLeaks(userMessage, recentUserMessages))
+      && paragraphIsConstitutionalFrameworkLeak(trimmed)
+    ) {
+      continue;
+    }
+    if (
+      isAdamGeneralKonvensionalTurn(userMessage)
+      && paragraphIsAlamtologiPromotionLeak(trimmed)
+    ) {
+      continue;
+    }
+    if (
+      isAdamSimpleArithmeticTurn(userMessage)
+      && paragraphIsSimpleArithmeticPhilosophyLeak(trimmed)
+    ) {
+      continue;
+    }
+    if (
+      isAdamLinearAlgebraTurn(userMessage)
+      && paragraphIsSimpleArithmeticPhilosophyLeak(trimmed)
+    ) {
+      continue;
+    }
+    if (isAdamVisualDrawTurn(userMessage) && paragraphIsGeometryPoeticLeak(trimmed)) {
+      continue;
+    }
+    if (
+      (preserveCareerStructure || preservePracticalSkillsStructure || technicalKonvensionalDisplay)
       && (
         paragraphIsMarkdownBulletForest(trimmed)
         || paragraphIsNumberedSyllabusLeak(trimmed)
+        || /^#{1,6}\s+/m.test(trimmed)
         || paragraphIsCareerTimelineBlock(trimmed)
         || paragraphIsLabeledSkillLine(trimmed)
         || paragraphIsEmojiSkillChecklist(trimmed)
@@ -359,6 +521,7 @@ export function sanitizeStudentOutputSync(
       faithOk,
       alamtologiOk: userAskedForConstitutionalStructure(userMessage)
         || /\b(?:alamtologi|MASA|TENAGA|RUANG|prinsip)\b/i.test(userMessage),
+      technicalKonvensionalDisplay,
     })) continue;
     if (!paragraphIsUniversalScholarDoorOffer(trimmed)
       && SCRIPTED_CLOSINGS.some((re) => re.test(trimmed))) continue;
@@ -394,9 +557,14 @@ export function sanitizeStudentOutputSync(
   let polished = polishStudentOutputSurface(
     kept.join('\n\n').trim(),
     technicalOk,
-    preserveStructuredMarkdown || preservePracticalSkillsStructure,
+    preserveStructuredMarkdown || preservePracticalSkillsStructure || technicalKonvensionalDisplay,
   );
-  if (!preserveStructuredMarkdown && !preservePracticalSkillsStructure) {
+  if (
+    !preserveStructuredMarkdown
+    && !preservePracticalSkillsStructure
+    && !technicalKonvensionalDisplay
+    && !isAdamVisualDrawTurn(userMessage)
+  ) {
     polished = stripConsumerMarkdownEmphasis(polished);
   }
   if (tier1BriefEssayStrip && polished.includes('Would you like more on skills and tools')) {
@@ -424,10 +592,41 @@ export function sanitizeStudentOutputSync(
   if (!usePracticalCareerDoor) {
     polished = stripMisplacedPracticalCareerDoor(polished, userMessage, recentUserMessages);
   }
-  if (!lightChat) {
+  if (!lightChat && !isAdamVisualDrawTurn(userMessage)) {
     polished = normalizeConsumerParagraphBreaks(polished);
   }
-  return stripStudentBismillahOpener(polished);
+  if (isAdamPracticalAdvisoryTurn(userMessage) || practicalThread) {
+    polished = repairPracticalAdvisoryGoldShape(polished, userMessage);
+  }
+  polished = normalizeGoldStandardFollowUpClosing(polished, userMessage);
+  if (
+    isAdamSimpleArithmeticTurn(userMessage)
+    && !userAskedForAlamtologi(userMessage)
+    && !userAskedForConstitutionalStructure(userMessage)
+  ) {
+    polished = collapseSimpleArithmeticAlphaOutput(polished, userMessage, participantName);
+  }
+  if (
+    isAdamVisualDrawTurn(userMessage)
+    && !userAskedForAlamtologi(userMessage)
+    && !userAskedForConstitutionalStructure(userMessage)
+  ) {
+    polished = repairVisualDrawOutput(polished, userMessage, participantName);
+  }
+  if (technicalKonvensionalDisplay) {
+    polished = repairTechnicalDiagramOutput(polished, userMessage);
+  }
+  if (isAdamMediaSearchTurn(userMessage)) {
+    polished = stripMediaRefusalInline(polished);
+  }
+  if (options?.enforceStudentGreeting && !lightChat && polished.trim() && !isAdamVisualDrawTurn(userMessage)) {
+    polished = ensureStudentHaiGreeting(polished, participantName);
+    polished = dedupeStudentHaiGreeting(polished, participantName);
+  }
+  polished = stripStudentBismillahOpener(polished);
+  const speakerLocale = detectLanguage(userMessage).detectedLocale;
+  polished = sanitizeMalaysiaBmDrift(polished, speakerLocale);
+  return polished;
 }
 
 /** Post-stream hook — sync sanitize only. Layer 5 governs voice at generation. */
@@ -436,8 +635,17 @@ export async function repairStudentOutputLeak(
   studentMessage: string,
   recentUserMessages: string[] = [],
   recentAssistantMessages: string[] = [],
+  participantName?: string,
+  enforceStudentGreeting = false,
 ): Promise<string> {
-  return sanitizeStudentOutputSync(text, studentMessage, recentUserMessages, recentAssistantMessages);
+  return sanitizeStudentOutputSync(
+    text,
+    studentMessage,
+    recentUserMessages,
+    recentAssistantMessages,
+    participantName,
+    { enforceStudentGreeting },
+  );
 }
 
 /** Founder-style student default — surface leak strip only, no LLM rewrite. */
@@ -446,8 +654,17 @@ export function applyStudentSurfaceOutputRepair(
   studentMessage: string,
   recentUserMessages: string[] = [],
   recentAssistantMessages: string[] = [],
+  participantName?: string,
+  enforceStudentGreeting = false,
 ): string {
-  return sanitizeStudentOutputSync(text, studentMessage, recentUserMessages, recentAssistantMessages);
+  return sanitizeStudentOutputSync(
+    text,
+    studentMessage,
+    recentUserMessages,
+    recentAssistantMessages,
+    participantName,
+    { enforceStudentGreeting },
+  );
 }
 
 /** Min fraction of streamed chars guards must keep before replacing the live stream. */
@@ -461,10 +678,20 @@ function countOutputParagraphs(text: string): number {
 }
 
 /** True when post-stream repair dropped substantive paragraphs from the live stream. */
-export function studentStreamBodyWasGutted(rawModelStream: string, surface: string): boolean {
+export function studentStreamBodyWasGutted(
+  rawModelStream: string,
+  surface: string,
+  userMessage = '',
+): boolean {
   const raw = stripStudentBismillahOpener(rawModelStream.trim());
   const surf = stripStudentBismillahOpener(surface.trim());
   if (!raw || !surf || surf === raw) return false;
+  if (userMessage && isArithmeticAlphaCollapsedRepair(raw, surf, userMessage)) {
+    return false;
+  }
+  if (userMessage && isVisualDrawCollapsedRepair(raw, surf, userMessage)) {
+    return false;
+  }
   const rawLen = raw.length;
   const retainRatio = rawLen > 0 ? surf.length / rawLen : 1;
   const rawParas = countOutputParagraphs(raw);
@@ -487,6 +714,9 @@ export interface ResolveStudentStreamSurfaceOptions {
   allowBriefTier1Repair?: boolean;
   /** Stat/fakta — never swap stream for a gutted guard surface. */
   preserveStreamBody?: boolean;
+  /** Technical turn — raw stream has framework leak or media refusal; always use repaired surface. */
+  forceSanitized?: boolean;
+  userMessage?: string;
 }
 
 /** @deprecated Tier-1 role answers keep streamed structure — only strip poetic leaks, never force brief replace. */
@@ -511,6 +741,18 @@ export function resolveStudentStreamSurface(
   const surf = stripStudentBismillahOpener(surface.trim());
   if (!surf || surf === raw) {
     return { fullResponse: raw, streamReplace: null };
+  }
+  if (options?.forceSanitized) {
+    return { fullResponse: surf, streamReplace: surf };
+  }
+  if (options?.userMessage && isArithmeticAlphaCollapsedRepair(raw, surf, options.userMessage)) {
+    return { fullResponse: surf, streamReplace: surf };
+  }
+  if (options?.userMessage && isVisualDrawCollapsedRepair(raw, surf, options.userMessage)) {
+    return { fullResponse: surf, streamReplace: surf };
+  }
+  if (isStudentGreetingOnlyRepair(raw, surf)) {
+    return { fullResponse: surf, streamReplace: surf };
   }
   const rawLen = raw.length;
   const retainRatio = rawLen > 0 ? surf.length / rawLen : 1;

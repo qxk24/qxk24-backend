@@ -21,12 +21,25 @@ import {
   isBmLexiconLoaded,
 } from '../malay-malaysia/bm-lexicon.service';
 import type { SupportedLocale } from './adam-language-mirror.service';
+import {
+  restoreAdamVisualDrawBlocks,
+  stashAdamVisualDrawBlocks,
+} from './adam-visual-draw-guard';
+import {
+  restoreAdamTechnicalDiagramBlocks,
+  stashAdamTechnicalDiagramBlocks,
+} from './adam-technical-diagram-guard';
+import {
+  restoreAdamChatMediaBlocks,
+  stashAdamChatMediaBlocks,
+} from './adam-media-guard';
 
 /** Injected into language-mirror block for Malay turns. */
 export const MALAYSIA_BM_LANGUAGE_DIRECTIVE = `
 BAHASA MELAYU MALAYSIA (DBP) — BUKAN BAHASA INDONESIA:
 - Tulis Bahasa Melayu Malaysia sahaja. Jangan campur perkataan Indonesia.
 - Contoh wajib: kerana (bukan karena), boleh (bukan bisa), sudah (bukan udah), perlu (bukan butuh),
+  keperluan (bukan kebutuhan), pelbagai (bukan berbagai),
   teknikal (bukan teknis), berkesan (bukan efektif), cekap (bukan efisien), praktikal (bukan praktis).
 - Dilarang: enggak, nggak, banget, gimana, kayak, dong, sih, aja, deh, memberikan, mengatakan.
 - Ejaan DBP: semak reduplikasi — beramai-ramai (bukan berramai-ramai); jangan gandakan konsonan tidak perlu.
@@ -44,10 +57,19 @@ const FALLBACK_INDONESIAN_DRIFT_REPLACEMENTS: ReadonlyArray<[RegExp, string]> = 
   [/\b(enggak|nggak|gak)\b/gi, 'tidak'],
   [/\budah\b/gi, 'sudah'],
   [/\bbutuh\b/gi, 'perlu'],
+  [/\bkebutuhan\b/gi, 'keperluan'],
+  [/\bberbagai\b/gi, 'pelbagai'],
+  [/\bteknis\b/gi, 'teknikal'],
+  [/\bpraktis\b/gi, 'praktikal'],
+  [/\befektif\b/gi, 'berkesan'],
+  [/\befisien\b/gi, 'cekap'],
+  [/\bsisa perut\b/gi, 'najis'],
+  [/\bmemberikan\b/gi, 'memberi'],
+  [/\bmengatakan\b/gi, 'berkata'],
 ];
 
 const FALLBACK_INDONESIAN_DRIFT_MARKERS =
-  /\b(karena|dikarenakan|bisa|gimana|banget|enggak|nggak|gak|udah|butuh)\b/i;
+  /\b(karena|dikarenakan|bisa|gimana|banget|enggak|nggak|gak|udah|butuh|kebutuhan|berbagai|teknis|praktis|efektif|efisien|memberikan|mengatakan)\b/i;
 
 export function isMalayReplyLocale(locale: SupportedLocale | string): boolean {
   return locale === 'ms' || locale === 'mixed-ms-en';
@@ -72,21 +94,26 @@ export function sanitizeMalaysiaBmDrift(
     return text;
   }
 
-  let out = isBmLexiconLoaded()
-    ? applyBmLexiconReplacements(text)
-    : text;
-  if (!isBmLexiconLoaded()) {
-    for (const [pattern, replacement] of FALLBACK_INDONESIAN_DRIFT_REPLACEMENTS) {
-      out = out.replace(pattern, replacement);
-    }
+  let out = text;
+  if (isBmLexiconLoaded()) {
+    out = applyBmLexiconReplacements(out);
+  }
+  for (const [pattern, replacement] of FALLBACK_INDONESIAN_DRIFT_REPLACEMENTS) {
+    out = out.replace(pattern, replacement);
   }
   out = fixBmBerPrefixReduplicationSpelling(out);
 
-  return out
-    .replace(/\s{2,}/g, ' ')
-    .replace(/\s+([,.;:!?])/g, '$1')
-    .replace(/([(\[])\s+/g, '$1')
+  const drawVault = stashAdamVisualDrawBlocks(out);
+  const diagramVault = stashAdamTechnicalDiagramBlocks(drawVault.prose);
+  const mediaVault = stashAdamChatMediaBlocks(diagramVault.prose);
+  out = mediaVault.prose
+    .replace(/[ \t\u00A0]{2,}/g, ' ')
+    .replace(/[ \t]+([,.;:!?])/g, '$1')
+    .replace(/([(\[])[ \t]+/g, '$1')
     .trim();
+  out = restoreAdamTechnicalDiagramBlocks(out, diagramVault.blocks);
+  out = restoreAdamChatMediaBlocks(out, mediaVault.blocks);
+  return restoreAdamVisualDrawBlocks(out, drawVault.blocks);
 }
 
 export function containsIndonesianDrift(text: string): boolean {

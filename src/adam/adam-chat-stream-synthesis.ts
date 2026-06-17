@@ -47,13 +47,16 @@ import {
 import { resolveAdamTurnDisplayForSave } from './adam-stream-display-merge';
 import { alphaStatPersistedStreamBody } from './adam-stat-stream-preserve';
 import { evidenceHasGoldStandardArticle } from './adam-alpha-output-guard';
-import { isAdamLightChatTurn } from './adam-response-generation';
+import { isAdamLightChatTurn, isAdamSimpleFactualTurn, isAdamTechnicalKonvensionalDisplayTurn } from './adam-response-generation';
+import { isAdamMediaSearchTurn } from './adam-media-search';
+import { outputHasAdamChatMedia } from './adam-media-guard';
 import { isAdamCurrentAffairsTurn, isFactualAdamWebSearchGateReason, isVerifiedDataStatAsk } from './adam-web-search';
 import {
   enforceTutorReplyGuards,
   isAdamTutorMode,
 } from './adam-tutor-law';
 import type { WorkspaceRecord } from './adam-workspace.service';
+import { shouldBufferAdamStreamUntilRepair } from './adam-knowledge-mode';
 import { detectContextRecallLoaded } from './adam-universal-recall-router';
 
 export async function executeAdamSynthesisTurn(input: {
@@ -73,7 +76,7 @@ export async function executeAdamSynthesisTurn(input: {
     uploadIds,
   } = shell;
   const { founderTeachingLearnerTurn } = teachingFlags;
-  const { contextMessages, contextMs, needContinuityBridge } = turnContext;
+  const { contextMessages, contextMs, needContinuityBridge, knowledgeMode } = turnContext;
 
   const promptBundle = await buildTurnPromptAndSearchGate({
     shell,
@@ -138,6 +141,7 @@ export async function executeAdamSynthesisTurn(input: {
       founderTeachingAbsorption: founderTeachingLearnerTurn,
       isStudent:                 !isFounder,
       lightChat,
+      simpleFactualTurn:         isAdamSimpleFactualTurn(userMessage),
       searchFirstSynthesis:      goldStandardSearchFirst,
     },
   );
@@ -162,6 +166,8 @@ export async function executeAdamSynthesisTurn(input: {
     );
   }
 
+  const bufferUntilRepair = shouldBufferAdamStreamUntilRepair(userMessage, knowledgeMode);
+
   const streamOnce = createAdamLlmStreamOnce({
     modelChoice,
     maxTokens,
@@ -171,7 +177,7 @@ export async function executeAdamSynthesisTurn(input: {
     userMessage,
     precisionActive: precisionTurn.isActive,
     webSearchGateReason,
-    bufferChunksUntilRepair: false,
+    bufferChunksUntilRepair: bufferUntilRepair,
     onEvent,
   });
 
@@ -182,6 +188,9 @@ export async function executeAdamSynthesisTurn(input: {
   let repairMs = 0;
   let syncRepairMs = 0;
   let sanitizedRepairApplied = false;
+  let arithmeticAlphaRepairApplied = false;
+  let visualDrawRepairApplied = false;
+  let studentGreetingRepairApplied = false;
   let rawModelStreamForBrain = '';
   let webSearchUsedThisTurn = false;
   let preserveStreamBody = false;
@@ -243,7 +252,11 @@ export async function executeAdamSynthesisTurn(input: {
       const rawModelStream = streamResult.text;
       rawModelStreamForBrain = rawModelStream;
       streamMs = Date.now() - streamStarted;
-      onEvent('adam_stream_idle', JSON.stringify({ sessionId: resolvedSessionId }));
+      if (!bufferUntilRepair) {
+        onEvent('adam_stream_idle', JSON.stringify({ sessionId: resolvedSessionId }));
+      } else {
+        onEvent('adam_repairing', JSON.stringify({ sessionId: resolvedSessionId }));
+      }
 
       const searchEvidence = searchBundle.prefetchedSearchResults.length > 0
         ? searchBundle.prefetchedSearchResults
@@ -261,11 +274,16 @@ export async function executeAdamSynthesisTurn(input: {
         searchDroppedByFilter: streamResult.searchDroppedByFilter
           || searchBundle.prefetchedSearchDropped,
         extractedFacts: searchBundle.extractedFacts,
+        mediaHits: searchBundle.mediaHits,
       });
       fullResponse = repairResult.fullResponse;
       repairMs = repairResult.repairMs;
       syncRepairMs = repairResult.syncRepairMs;
       sanitizedRepairApplied = repairResult.sanitizedRepairApplied;
+      arithmeticAlphaRepairApplied = repairResult.arithmeticAlphaRepairApplied;
+      visualDrawRepairApplied = repairResult.visualDrawRepairApplied;
+      studentGreetingRepairApplied = repairResult.studentGreetingRepairApplied;
+
       const alphaStatTurn = isVerifiedDataStatAsk(userMessage);
       const searchRan = searchBundle.prefetchedSearchUsed && !searchBundle.prefetchedSearchDropped;
 
@@ -275,7 +293,28 @@ export async function executeAdamSynthesisTurn(input: {
       } else {
         fullResponse = resolveAdamTurnDisplayForSave(rawModelStream, fullResponse, {
           forceReplace: sanitizedRepairApplied && isAdamCurrentAffairsTurn(userMessage),
+          userMessage,
+          arithmeticAlphaRepair: arithmeticAlphaRepairApplied,
+          visualDrawRepair: visualDrawRepairApplied,
+          studentGreetingRepair: studentGreetingRepairApplied,
         });
+      }
+
+      if (bufferUntilRepair && fullResponse?.trim()) {
+        onEvent('adam_stream_done', JSON.stringify({
+          sessionId:            resolvedSessionId,
+          replace:              true,
+          response:             fullResponse,
+          sanitizedRepair:      true,
+          briefTier1Repair:     true,
+          technicalMediaRepair:   outputHasAdamChatMedia(fullResponse)
+            || isAdamTechnicalKonvensionalDisplayTurn(userMessage)
+            || isAdamMediaSearchTurn(userMessage),
+        }));
+      }
+
+      if (bufferUntilRepair) {
+        onEvent('adam_stream_idle', JSON.stringify({ sessionId: resolvedSessionId }));
       }
     }
   }
@@ -310,6 +349,8 @@ export async function executeAdamSynthesisTurn(input: {
       const scrubbed = enforceTutorReplyGuards(
         fullResponse,
         shell.options.tutorProfile,
+        shell.userMessage,
+        shell.participant.userName,
       );
       if (scrubbed !== fullResponse) {
         fullResponse = scrubbed;
@@ -343,6 +384,9 @@ export async function executeAdamSynthesisTurn(input: {
     sectionJournalComplete,
     sectionDraftMap,
     sanitizedRepairApplied,
+    arithmeticAlphaRepairApplied,
+    visualDrawRepairApplied,
+    studentGreetingRepairApplied,
     preserveStreamBody,
     modelChoice,
     workspace,

@@ -31,6 +31,8 @@ export const SEED_STUDENT_ACCOUNTS: readonly SeedStudentAccount[] = [
   { userId: 'pelajar-test', name: 'Pelajar Test', accountLane: 'pelajar' },
   /** QA / demo — ADAM Tutor lane. Password: STUDENT_PASSWORD_SABRINA in env. */
   { userId: 'sabrina', name: 'Sabrina', accountLane: 'pelajar' },
+  /** QA tutor tester — Password: STUDENT_PASSWORD_ALI or Ali1234 in env. */
+  { userId: 'ali', name: 'Ali', accountLane: 'pelajar' },
 ];
 
 export type StudentUserId = string;

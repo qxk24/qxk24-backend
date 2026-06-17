@@ -470,7 +470,7 @@ const STAT_PATH_HINT_RE =
 
 /** Government / health authority hosts — prefer for global factual career answers. */
 const OFFICIAL_PUBLIC_REFERENCE_HOST_RE =
-  /(?:^|\.)gov\.uk$|(?:^|\.)nhs\.uk$|healthcareers\.nhs\.uk|(?:^|\.)who\.int$|(?:^|\.)cdc\.gov$|(?:^|\.)nih\.gov$|(?:^|\.)edu$/i;
+  /(?:^|\.)gov\.uk$|(?:^|\.)gov\.my$|(?:^|\.)moe\.gov\.my$|(?:^|\.)nhs\.uk$|healthcareers\.nhs\.uk|(?:^|\.)who\.int$|(?:^|\.)cdc\.gov$|(?:^|\.)nih\.gov$|(?:^|\.)edu$/i;
 
 /** Third-party doc hosts — never primary for institutional enrollment stats. */
 const THIRD_PARTY_AGGREGATOR_HOST_RE =
@@ -631,6 +631,23 @@ export function snippetHasGoldStandardBody(snippet: string | undefined | null): 
   return false;
 }
 
+const ROLE_SKILL_GROUNDING_RE =
+  /\b(?:role|roles|skill|skills|responsibilit|duties|duty|qualification|competen|peranan|kemahiran|tanggungjawab|guru|teacher|nurse|nursing|membimbing|mengajar|pendidikan|kurikulum|PdPc|pentaksiran)\b/i;
+
+/**
+ * Lower bar than Gold Standard — career/role pages or dense snippets usable for synthesis.
+ * Prevents search-first turns from skipping synthesis when no enrollment stat exists.
+ */
+export function snippetHasSynthesisGroundingBody(snippet: string | undefined | null): boolean {
+  if (snippetHasGoldStandardBody(snippet)) return true;
+  if (!snippet?.trim()) return false;
+  const trimmed = snippet.trim().replace(/&nbsp;/gi, ' ');
+  if (trimmed.length < 120) return false;
+  if (!ROLE_SKILL_GROUNDING_RE.test(trimmed)) return false;
+  const blocks = trimmed.split(/\n{2,}/).map((b) => b.trim()).filter((b) => b.length > 40);
+  return blocks.length >= 1 && trimmed.length >= 120;
+}
+
 function hitNeedsGoldStandardArticleFetch(hit: LlmSearchResult): boolean {
   const url = hit.url?.trim();
   if (!url) return false;
@@ -664,7 +681,8 @@ export function primaryEvidenceDomain(
       }
     }
   }
-  for (const hit of evidence) {
+  const ranked = [...evidence].sort((a, b) => evidenceHostPriority(b.url) - evidenceHostPriority(a.url));
+  for (const hit of ranked) {
     const url = hit.url?.trim();
     if (!url) continue;
     try {
@@ -674,6 +692,19 @@ export function primaryEvidenceDomain(
     }
   }
   return null;
+}
+
+function evidenceHostPriority(url: string | undefined | null): number {
+  if (!url?.trim()) return 0;
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    if (OFFICIAL_PUBLIC_REFERENCE_HOST_RE.test(host)) return 100;
+    if (/\.edu\.my$/i.test(host) && !/^news\./i.test(host)) return 60;
+    if (/^news\./i.test(host)) return 10;
+    return 40;
+  } catch {
+    return 0;
+  }
 }
 
 function extractStatSnippetFromText(text: string, window = 360): string | null {
@@ -933,7 +964,14 @@ export function extractArticleParagraphsFromHtml(
 /** User asks role definition + skills — prefer child pages like /skills-required/. */
 export function messageAsksRoleAndSkills(message: string): boolean {
   const body = stripLeadingAdamSalutation(message.trim());
-  return /\b(?:what\s+(?:is|does|are)|skills?\s+(?:do\s+i\s+need|required|needed)|role|responsibilit)/i.test(body);
+  if (/\b(?:what\s+(?:is|does|are)|skills?\s+(?:do\s+i\s+need|required|needed)|role|responsibilit)/i.test(body)) {
+    return true;
+  }
+  if (/\b(?:apakah\s+peranan|peranan\s+(?:seorang|guru|pekerja)|kemahiran\s+apa|kemahiran\s+(?:yang\s+)?diperlukan|tanggungjawab)\b/i.test(body)) {
+    return true;
+  }
+  return /\b(?:peranan|kemahiran)\b/i.test(body)
+    && /\b(?:guru|jururawat|nurse|pekerjaan|jawatan|karier|career|sekolah)\b/i.test(body);
 }
 
 function rankChildLinksForMessage(links: string[], userMessage: string): string[] {
@@ -1160,7 +1198,9 @@ export async function enrichSearchHitsUntilStatFigure(
 
   const evidenceHasFullArticle = (): boolean =>
     rankHitsForStatPageEnrich(merged, userMessage)
-      .some((hit) => hit.pageFetched === true && snippetHasGoldStandardBody(hit.snippet));
+      .some((hit) => hit.pageFetched === true
+        && (snippetHasGoldStandardBody(hit.snippet)
+          || snippetHasSynthesisGroundingBody(hit.snippet)));
 
   if (evidenceHasFullArticle()) {
     return { hits: merged, figureFound: evidenceHasSubjectFigure(), articleFound: true };
@@ -1189,7 +1229,10 @@ export async function enrichSearchHitsUntilStatFigure(
     const mergedNext = mergePageFetchedHit(merged, pageHit);
     merged.splice(0, merged.length, ...mergedNext);
     fetchedUrls.add(pageHit.url?.trim() ?? url);
-    if (pageHit.pageFetched && snippetHasGoldStandardBody(pageHit.snippet)) {
+    if (pageHit.pageFetched && (
+      snippetHasGoldStandardBody(pageHit.snippet)
+      || snippetHasSynthesisGroundingBody(pageHit.snippet)
+    )) {
       return {
         hits:         merged,
         figureFound:  evidenceHasSubjectFigure(),
@@ -1212,7 +1255,10 @@ export async function enrichSearchHitsUntilStatFigure(
     const mergedNext = mergePageFetchedHit(merged, pageHit);
     merged.splice(0, merged.length, ...mergedNext);
     fetchedUrls.add(pageHit.url?.trim() ?? url);
-    if (pageHit.pageFetched && snippetHasGoldStandardBody(pageHit.snippet)) {
+    if (pageHit.pageFetched && (
+      snippetHasGoldStandardBody(pageHit.snippet)
+      || snippetHasSynthesisGroundingBody(pageHit.snippet)
+    )) {
       return {
         hits:         merged,
         figureFound:  evidenceHasSubjectFigure(),

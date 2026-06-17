@@ -22,8 +22,14 @@ import {
   runStudentSearchPrefetch,
 } from './adam-search-first';
 import { shouldForceWebSearchForGateReason } from './adam-web-search';
-import { emitAdamSearchDoneEvent } from './adam-chat-search-events';
+import { emitAdamSearchDoneEvent, emitAdamMediaReadyEvent } from './adam-chat-search-events';
+import {
+  buildPrefetchedMediaContextBlock,
+  isAdamMediaSearchTurn,
+  runAdamMediaSearch,
+} from './adam-media-search';
 import type { LlmMessage, LlmSearchResult } from '../llm/llm-types';
+import type { AdamMediaSearchHit } from './adam-media-search';
 import type { SSEEventType } from './adam.types';
 import type { AdamTurnContextFetch } from './adam-chat-stream-turn-context';
 
@@ -34,9 +40,10 @@ export interface TurnSearchPrefetchResult {
   prefetchedSearchUsed: boolean;
   prefetchedSearchDropped: boolean;
   extractedFacts: string;
+  mediaHits: AdamMediaSearchHit[];
 }
 
-export { emitAdamSearchDoneEvent } from './adam-chat-search-events';
+export { emitAdamSearchDoneEvent, emitAdamMediaReadyEvent } from './adam-chat-search-events';
 
 export async function injectTurnSearchPrefetch(input: {
   systemPrompt: string;
@@ -72,6 +79,7 @@ export async function injectTurnSearchPrefetch(input: {
       prefetchedSearchUsed,
       prefetchedSearchDropped,
       extractedFacts: '',
+      mediaHits: [],
     };
   }
 
@@ -122,12 +130,26 @@ export async function injectTurnSearchPrefetch(input: {
     {
       searchDropped:  prefetchedSearchDropped,
       extractedFacts: prefetch.extractedFacts,
+      userMessage,
     },
   )}`;
+
+  let mediaHits: AdamMediaSearchHit[] = [];
+  if (isAdamMediaSearchTurn(userMessage)) {
+    mediaHits = await runAdamMediaSearch({
+      userMessage,
+      searchHits: prefetchedSearchResults,
+    });
+    if (mediaHits.length > 0) {
+      systemPrompt = `${systemPrompt}\n\n${buildPrefetchedMediaContextBlock(mediaHits)}`;
+      emitAdamMediaReadyEvent(onEvent, mediaHits);
+    }
+  }
 
   console.log('[adam:search-first] prefetch complete', JSON.stringify({
     sessionId: resolvedSessionId,
     hits:      prefetchedSearchResults.length,
+    mediaHits: mediaHits.length,
     extractedFactsLines: prefetch.extractedFacts
       ? prefetch.extractedFacts.split('\n').filter(Boolean).length
       : 0,
@@ -144,6 +166,7 @@ export async function injectTurnSearchPrefetch(input: {
     prefetchedSearchUsed,
     prefetchedSearchDropped,
     extractedFacts: prefetch.extractedFacts,
+    mediaHits,
   };
 }
 

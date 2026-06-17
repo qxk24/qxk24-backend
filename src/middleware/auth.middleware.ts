@@ -18,6 +18,7 @@
 import { Context, Next } from 'hono';
 import { verify } from 'jsonwebtoken';
 import { ENV } from '../config/environments';
+import { resolvePlatformAdminAccess } from '../platform/platform-admin.service';
 
 export interface QXK24TokenPayload {
   userId:       string;
@@ -110,6 +111,51 @@ export async function requireFounder(
       success: false,
       error: 'Founder access required.',
       kernel: 'ALAMTOLOGI'
+    }, 403);
+  }
+
+  await next();
+}
+
+/** Founder JWT/static token, or invited QIUBBX platform admin (e.g. Kod Daftar operators). */
+export async function requireFounderOrPlatformAdmin(
+  c: Context,
+  next: Next,
+): Promise<Response | void> {
+  const bearer = c.req.header('Authorization')?.split(' ')[1];
+  const founderKey = c.req.header('X-Founder-Key');
+
+  if (bearer) {
+    try {
+      const decoded = verify(bearer, ENV.JWT_SECRET) as QXK24TokenPayload;
+      c.set('qxk24User', decoded);
+      if (isFounderPayload(decoded)) {
+        await next();
+        return;
+      }
+      const access = await resolvePlatformAdminAccess({
+        userId:    decoded.userId,
+        isFounder: false,
+      });
+      if (access.isPlatformAdmin && access.canAccess) {
+        await next();
+        return;
+      }
+    } catch {
+      // Fall through to static founder token checks
+    }
+  }
+
+  const validBearer =
+    bearer && bearer === ENV.QXK24_PRODUCTION_BEARER_TOKEN;
+  const validFounderKey =
+    founderKey && founderKey === ENV.FOUNDER_SECRET_KEY;
+
+  if (!validBearer && !validFounderKey) {
+    return c.json({
+      success: false,
+      error:   'Admin access required.',
+      kernel:  'ALAMTOLOGI',
     }, 403);
   }
 

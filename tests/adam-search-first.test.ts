@@ -46,6 +46,7 @@ import {
   shouldForceWebSearchForGateReason,
 } from '../src/adam/adam-web-search';
 import { isTechnicalFollowUpMessage, resolveTechnicalPrecisionTurn } from '../src/adam/adam-factual-grounding';
+import { isAdamSimpleArithmeticTurn } from '../src/adam/adam-response-generation';
 import { webSearchPromptNeedsMemoryOverride } from '../src/adam/adam-student-prompts';
 
 describe('buildAdamSearchDisplayQuery', () => {
@@ -273,6 +274,16 @@ describe('getWebSearchGateReason student factual standard', () => {
     })).toBe('verified_data_stat');
   });
 
+  it('does not web-search α arithmetic word-problems (epal, jumlah)', () => {
+    const partial = 'Jika awak ada 3 epal, dan kawan';
+    expect(isAdamSimpleArithmeticTurn(partial)).toBe(true);
+    expect(getWebSearchGateReason(partial, { studentFounderParity: true })).toBeNull();
+    expect(getWebSearchGateReason(partial, { isFounder: true })).toBeNull();
+    const full = 'Kalau saya ada 3 epal dan kawan bagi 4 lagi, berapa jumlah epal?';
+    expect(getWebSearchGateReason(full, { studentFounderParity: true })).toBeNull();
+    expect(shouldStudentUseSearchFirstFlow(false, getWebSearchGateReason(full, { studentFounderParity: true }))).toBe(false);
+  });
+
   it('never skips search on brain recall for student factual turns', () => {
     const photosynthesis = getWebSearchGateReason('Terangkan bagaimana fotosintesis berlaku', {
       studentFounderParity: true,
@@ -315,6 +326,12 @@ describe('isVerifiedDataStatAsk', () => {
   it('detects KPTM enrollment asks after Salam QA salutation', () => {
     expect(isVerifiedDataStatAsk('Salam QA. Berapa ramai pelajar KPTM?')).toBe(true);
     expect(isVerifiedDataStatAsk('Salam QA. Berapa jumlah pelajar di KPTM?')).toBe(true);
+  });
+
+  it('does not treat α word-problem arithmetic as verified enrollment stat', () => {
+    expect(
+      isVerifiedDataStatAsk('Kalau saya ada 3 epal dan kawan bagi 4 lagi, berapa jumlah epal?'),
+    ).toBe(false);
   });
 });
 

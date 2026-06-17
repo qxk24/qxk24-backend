@@ -59,6 +59,13 @@ function optionalInt(key: string, fallback: number): number {
   return isNaN(parsed) ? fallback : parsed;
 }
 
+function optionalFloat(key: string, fallback: number): number {
+  const raw = process.env[key];
+  if (!raw) return fallback;
+  const parsed = parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 const UPLOAD_MAX_FILE_MB = optionalInt('UPLOAD_MAX_FILE_MB', 50);
 const UPLOAD_MAX_EXTRACT_CHARS = optionalInt('UPLOAD_MAX_EXTRACT_CHARS', 120000);
 /** Cap PDF pages parsed in-process (prevents pdf.js heap blow-ups on scan-heavy PDFs). */
@@ -351,6 +358,10 @@ export const ENV = {
   ADAM_TUTOR_PRIMARY_MONTHLY_USD:    optionalInt('ADAM_TUTOR_PRIMARY_MONTHLY_USD', 13),
   ADAM_TUTOR_SECONDARY_MONTHLY_USD:  optionalInt('ADAM_TUTOR_SECONDARY_MONTHLY_USD', 15),
   ADAM_TUTOR_UNIVERSITY_MONTHLY_USD: optionalInt('ADAM_TUTOR_UNIVERSITY_MONTHLY_USD', 17),
+  /** USD → MYR display rate for closed Tutor channel (Malaysia) */
+  ADAM_USD_MYR_RATE: optionalFloat('ADAM_USD_MYR_RATE', 0),
+  /** Cache TTL for live USD/MYR fetch (ms). Default 15 min. */
+  ADAM_USD_MYR_CACHE_MS: optionalInt('ADAM_USD_MYR_CACHE_MS', 900_000),
   STRIPE_PRICE_ID_CREDITS_50:   optional('STRIPE_PRICE_ID_CREDITS_50', ''),
   STRIPE_PRICE_ID_CREDITS_250:  optional('STRIPE_PRICE_ID_CREDITS_250', ''),
   STRIPE_PRICE_ID_CREDITS_1000: optional('STRIPE_PRICE_ID_CREDITS_1000', ''),
@@ -390,6 +401,11 @@ export const ENV = {
 
   /** Device Bridge — route Builder MCP through subscriber local daemon (alm-mcp mac-bridge) */
   ADAM_MAC_BRIDGE_ENABLED: optional('ADAM_MAC_BRIDGE_ENABLED', 'false') === 'true',
+
+  /** Licensed stock / archive media APIs for ADAM technical chat (optional keys). */
+  ADAM_PEXELS_API_KEY:      optional('ADAM_PEXELS_API_KEY', ''),
+  ADAM_PIXABAY_API_KEY:     optional('ADAM_PIXABAY_API_KEY', ''),
+  ADAM_UNSPLASH_ACCESS_KEY: optional('ADAM_UNSPLASH_ACCESS_KEY', ''),
 
   // Derived
   IS_PRODUCTION:  process.env.NODE_ENV === 'production',

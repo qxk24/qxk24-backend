@@ -286,7 +286,7 @@ describe('buildFullVerifiedStatReply', () => {
     expect(reply).toMatch(/2015/);
     expect(reply).toMatch(/PPB/);
     expect(reply!.split('\n\n').length).toBeGreaterThanOrEqual(6);
-    expect(reply).toMatch(/Perlu saya terangkan lagi bahagian lain\?/);
+    expect(reply).toMatch(/Mahu saya jelaskan lebih lanjut\?/);
   });
 });
 
@@ -311,9 +311,11 @@ describe('buildGoldStandardSynthesisInstruction — ADAM full voice', () => {
     expect(block).toMatch(/GOLD STANDARD — ADAM FULL VOICE/i);
     expect(block).toMatch(/OFFICIAL PAGE — FULL TEXT/i);
     expect(block).toMatch(/highly organised, flexible/i);
-    expect(block).toMatch(/Do NOT truncate to a short summary/i);
+    expect(block).toMatch(/PRACTICAL ADVISORY BODY RULES/i);
+    expect(block).toMatch(/MINIMUM 6 substantive body paragraphs/i);
+    expect(block).toMatch(/Skills you'?ll need \(from official nursing guidance\)/i);
     expect(block).toMatch(/What does a registered nurse do.*verified via web search/i);
-    expect(block).toMatch(/Would you like me to explain another part in more detail/i);
+    expect(block).toMatch(/Would you like me to explain further/i);
   });
 });
 
@@ -341,7 +343,7 @@ describe('buildGoldStandardSearchReply — career factual (RN)', () => {
     expect(reply).toMatch(/highly organised, flexible/i);
     expect(reply).toMatch(/A good adult nurse is also highly observant/i);
     expect(reply).toMatch(/Communication and interpersonal skills/i);
-    expect(reply).toMatch(/Would you like me to explain another part in more detail\?/);
+    expect(reply).toMatch(/Would you like me to explain further\?/);
     expect(reply!.split('\n\n').length).toBeGreaterThanOrEqual(6);
     const bodyAfterOpener = reply!.split('\n\n').slice(1, -1);
     expect(bodyAfterOpener[0]).toMatch(/highly organised, flexible/i);
@@ -417,7 +419,7 @@ describe('applyDefaultGoldStandardReplySurface — default for α search-first t
     expect(out).toMatch(/18,000.*verified via web search/i);
     expect(out).toMatch(/Alor Setar/);
     expect(out).toMatch(/62,000.*graduan/i);
-    expect(out).toMatch(/Perlu saya terangkan lagi bahagian lain/i);
+    expect(out).toMatch(/Mahu saya jelaskan lebih lanjut/i);
   });
 
   it('applies verified opener and follow-up on α turns with search hits but no full article', async () => {
@@ -438,7 +440,7 @@ describe('applyDefaultGoldStandardReplySurface — default for α search-first t
     });
     expect(out).toMatch(/Berapa cc enjin Perodua Viva.*verified via web search/i);
     expect(out).toMatch(/Perodua Viva uses a 1\.0-litre engine/i);
-    expect(out).toMatch(/Perlu saya terangkan lagi bahagian lain/i);
+    expect(out).toMatch(/Mahu saya jelaskan lebih lanjut/i);
   });
 
   it('leaves β explain-back replies unchanged — soul-touching close stays in synthesis', async () => {

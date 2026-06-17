@@ -18,6 +18,10 @@
  * swap it for an unrelated summary. Sync with alm-web/adam-message-merge.ts.
  */
 
+import { isArithmeticAlphaCollapsedRepair } from './adam-arithmetic-alpha-guard';
+import { isVisualDrawCollapsedRepair } from './adam-visual-draw-guard';
+import { isStudentGreetingOnlyRepair } from './adam-student-constitution';
+
 const STREAM_REPLACE_MIN_RATIO = 0.52;
 
 function normalizeStreamBody(text: string): string {
@@ -78,14 +82,33 @@ function shouldAcceptStreamReplace(
   return streamBodyMostlyPreserved(prev, next);
 }
 
+export interface AdamTurnDisplayMergeOptions {
+  forceReplace?: boolean;
+  userMessage?: string;
+  arithmeticAlphaRepair?: boolean;
+  visualDrawRepair?: boolean;
+  studentGreetingRepair?: boolean;
+}
+
 /** Body to persist and emit — never save a repair that gutted the live stream. */
 export function resolveAdamTurnDisplayForSave(
   streamed: string,
   repaired: string,
-  options?: { forceReplace?: boolean },
+  options?: AdamTurnDisplayMergeOptions,
 ): string {
   const prev = streamed.trim();
   const next = repaired.trim();
+
+  if (
+    options?.arithmeticAlphaRepair
+    || options?.visualDrawRepair
+    || options?.studentGreetingRepair
+    || (options?.userMessage && isArithmeticAlphaCollapsedRepair(prev, next, options.userMessage))
+    || (options?.userMessage && isVisualDrawCollapsedRepair(prev, next, options.userMessage))
+    || isStudentGreetingOnlyRepair(prev, next)
+  ) {
+    return next || prev;
+  }
 
   if (options?.forceReplace) {
     if (!next) return prev;

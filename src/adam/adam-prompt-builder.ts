@@ -53,13 +53,30 @@ import {
   buildAdamAnswerProfileHeader,
   buildAdamAnswerVoiceOverlay,
   resolveAdamAnswerProfile,
+  type AdamAnswerProfile,
 } from './adam-answer-profile';
+import {
+  buildAdamKnowledgeModeManifest,
+  buildAdamKnowledgeModeTurnOverlay,
+  knowledgeModeAllowsAlamtologiStack,
+  knowledgeModeAllowsConstitutionalLayer5,
+  resolveAdamKnowledgeMode,
+  ADAM_GENERAL_KONVENSIONAL_ONLY_LAW,
+  isAdamGeneralKonvensionalTurn,
+  isAdamGeneralProseKonvensionalTurn,
+  type AdamKnowledgeMode,
+} from './adam-knowledge-mode';
 import { ADAM_DEFAULT_GOLD_STANDARD_PIPELINE } from './adam-search-first';
 import {
   isAdamContinuationDepthTurn,
   isAdamConsumerPlainTurn,
   isAdamPracticalAdvisoryTurn,
   isAdamSimpleFactualTurn,
+  isAdamSimpleArithmeticTurn,
+  isAdamLinearAlgebraTurn,
+  isAdamHistorySynthesisTurn,
+  isAdamTechnicalKonvensionalDisplayTurn,
+  isAdamVisualDrawTurn,
   isAdamTeachingDepthTurn,
   threadRootIsPracticalAdvisory,
 } from './adam-response-generation';
@@ -74,10 +91,17 @@ import {
   ADAM_CONSTITUTIONAL_STRUCTURE_FORMAT,
   ADAM_PRACTICAL_ADVISORY_TURN,
   ADAM_SIMPLE_FACTUAL_TURN,
+  ADAM_SIMPLE_ARITHMETIC_TURN,
+  ADAM_LINEAR_ALGEBRA_TURN,
+  ADAM_HISTORY_SYNTHESIS_TURN,
+  ADAM_TECHNICAL_KONVENSIONAL_DISPLAY_TURN,
+  ADAM_GENERAL_PROSE_KONVENSIONAL_TURN,
+  ADAM_VISUAL_DRAW_TURN,
+  ADAM_UNIVERSAL_ALPHA_TURN,
   ADAM_STRUCTURED_SPEC_FORMAT,
   resolveEffectiveAnswerStyle,
 } from './adam-answer-style';
-import { userAskedForConstitutionalStructure, userAskedForStructuredSpecification } from './adam-universal-voice';
+import { userAskedForConstitutionalStructure, userAskedForStructuredSpecification, userAskedForAlamtologi } from './adam-universal-voice';
 import {
   ADAM_WARMTH_VOICE,
   ADAM_WARMTH_VOICE_TEACHING_LEARNER,
@@ -91,6 +115,7 @@ import {
   ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE,
   ADAM_UNIVERSAL_SCHOLAR_CHARTER,
   ADAM_UNIVERSAL_SCHOLAR_MALAY_LAYOUT,
+  ADAM_UNIVERSAL_SCHOLAR_MALAY_TECHNICAL_LAYOUT,
   ADAM_UNIVERSAL_SCHOLAR_TIER1_HOLD,
   buildThreeTierTurnOverlay,
   type StudentKnowledgeTier,
@@ -217,6 +242,8 @@ export interface AdamChatSystemPromptParams {
   tutorProfile?:           AdamTutorProfile;
   /** ADAM Niaga lane — Malaysia SME business profile */
   niagaProfile?:           import('./adam-niaga-law').AdamNiagaBusinessProfile;
+  /** Dedicated knowledge surface — resolved per turn when omitted */
+  knowledgeMode?:          AdamKnowledgeMode;
 }
 
 /**
@@ -243,6 +270,29 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
   const teachingInquiry = params.founderTeachingInquiry === true;
   const teachingSynthesis = params.founderTeachingSynthesis === true;
   const teachingLearnerTurn = teachingAbsorption || teachingInquiry || teachingSynthesis;
+
+  const answerProfile = params.userMessage?.trim()
+    ? resolveAdamAnswerProfile({
+      message:                  params.userMessage,
+      recentUserMessages:       params.recentUserMessages ?? [],
+      recentAssistantMessages:  params.recentAssistantMessages ?? [],
+      isFounder:                params.isFounder,
+    })
+    : 'light' as AdamAnswerProfile;
+
+  const knowledgeMode = params.knowledgeMode ?? (params.userMessage?.trim()
+    ? resolveAdamKnowledgeMode({
+      userMessage:              params.userMessage,
+      recentUserMessages:       params.recentUserMessages ?? [],
+      recentAssistantMessages:  params.recentAssistantMessages ?? [],
+      isFounder:                params.isFounder,
+      founderTeachingAbsorption: teachingAbsorption,
+      founderTeachingInquiry:   teachingInquiry,
+      founderTeachingSynthesis: teachingSynthesis,
+      answerProfile,
+      studentKnowledgeTier:     params.studentKnowledgeTier,
+    })
+    : 'konvensional');
 
   const characterBlock = params.isFounder && teachingLearnerTurn
     ? ADAM_CHARACTER_TEACHING_LEARNER
@@ -321,10 +371,30 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     parts.push(ADAM_CURRENT_AFFAIRS_TURN);
   }
 
-  if (!params.isFounder && params.userMessage) {
-    if (isAdamSimpleFactualTurn(params.userMessage)) {
+  if (params.userMessage?.trim()) {
+    if (
+      isAdamSimpleFactualTurn(params.userMessage)
+      && !userAskedForAlamtologi(params.userMessage)
+      && !userAskedForConstitutionalStructure(params.userMessage)
+    ) {
+      parts.push(ADAM_UNIVERSAL_ALPHA_TURN);
       parts.push(ADAM_SIMPLE_FACTUAL_TURN);
-    } else if (isAdamPracticalAdvisoryTurn(params.userMessage)) {
+      if (isAdamLinearAlgebraTurn(params.userMessage)) {
+        parts.push(ADAM_LINEAR_ALGEBRA_TURN);
+      } else if (isAdamSimpleArithmeticTurn(params.userMessage)) {
+        parts.push(ADAM_SIMPLE_ARITHMETIC_TURN);
+      }
+      if (isAdamHistorySynthesisTurn(params.userMessage)) {
+        parts.push(ADAM_HISTORY_SYNTHESIS_TURN);
+      }
+      if (isAdamVisualDrawTurn(params.userMessage)) {
+        parts.push(ADAM_VISUAL_DRAW_TURN);
+      }
+    }
+  }
+
+  if (!params.isFounder && params.userMessage) {
+    if (isAdamPracticalAdvisoryTurn(params.userMessage)) {
       parts.push(ADAM_PRACTICAL_ADVISORY_TURN);
     } else if (isAdamContinuationDepthTurn(params.userMessage)) {
       parts.push(ADAM_STUDENT_CONTINUATION_DEPTH_TURN);
@@ -338,8 +408,12 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     || isAdamCurrentAffairsTurn(params.userMessage)
     || threadRootIsPracticalAdvisory(params.recentUserMessages ?? [], params.userMessage)
   ));
-  if (!params.isFounder && !teachingLearnerTurn) {
+  if (!params.isFounder && !teachingLearnerTurn && knowledgeMode !== 'alamtologi') {
     parts.push(ADAM_UNIVERSAL_SCHOLAR_CHARTER);
+  }
+
+  if (!teachingLearnerTurn && params.userMessage?.trim()) {
+    parts.push(buildAdamKnowledgeModeManifest(knowledgeMode));
   }
   if (!params.isFounder && !teachingLearnerTurn && consumerPlain) {
     parts.push(`
@@ -363,12 +437,26 @@ UNIVERSAL SCHOLAR VOICE (User turn — default):
   if (!params.isFounder && !teachingLearnerTurn && params.userMessage?.trim()) {
     const locale = detectLanguage(params.userMessage.trim()).detectedLocale;
     if (locale === 'ms' || locale === 'mixed-ms-en') {
-      parts.push(ADAM_UNIVERSAL_SCHOLAR_MALAY_LAYOUT);
+      if (isAdamTechnicalKonvensionalDisplayTurn(params.userMessage)) {
+        parts.push(ADAM_UNIVERSAL_SCHOLAR_MALAY_TECHNICAL_LAYOUT);
+      } else {
+        parts.push(ADAM_UNIVERSAL_SCHOLAR_MALAY_LAYOUT);
+      }
+    }
+    if (isAdamTechnicalKonvensionalDisplayTurn(params.userMessage)) {
+      parts.push(ADAM_TECHNICAL_KONVENSIONAL_DISPLAY_TURN);
+    } else if (isAdamGeneralProseKonvensionalTurn(params.userMessage)) {
+      parts.push(ADAM_GENERAL_PROSE_KONVENSIONAL_TURN);
     }
   }
 
-  // Philosophy / narrative voice — founder only; never on consumer plain turns
-  if (!teachingLearnerTurn && !consumerPlain && params.isFounder) {
+  // Philosophy / narrative voice — founder only; not on konvensional or consumer plain turns
+  if (
+    !teachingLearnerTurn
+    && !consumerPlain
+    && params.isFounder
+    && knowledgeMode !== 'konvensional'
+  ) {
     if (voice === 'philosophy') {
       parts.push(ADAM_PHILOSOPHER_TEACHER_IDENTITY, ADAM_NARRATIVE_DELIVERY);
     } else if (voice === 'natural') {
@@ -380,8 +468,13 @@ UNIVERSAL SCHOLAR VOICE (User turn — default):
   const modeBlock = MODE_PROMPTS[params.mode];
   if (modeBlock) parts.push(modeBlock);
 
-  // Layer 5 Response Generation — not during Teaching learner/synthesis or journal gen
-  if (!teachingLearnerTurn && params.mode !== 'JOURNAL_GEN' && !consumerPlain) {
+  // Layer 5 Response Generation — constitutional modes only; not konvensional / teaching learner / journal
+  if (
+    !teachingLearnerTurn
+    && params.mode !== 'JOURNAL_GEN'
+    && !consumerPlain
+    && knowledgeModeAllowsConstitutionalLayer5(knowledgeMode)
+  ) {
     parts.push(ADAM_LAYER5_CORE);
     if (params.isFounder) {
       parts.push(ADAM_LAYER5_FOUNDER);
@@ -445,10 +538,10 @@ UNIVERSAL SCHOLAR VOICE (User turn — default):
         parts.push(FOUNDER_TEACHING_BUILDER_PROMPT);
       }
     } else {
-      appendExplainBackPedagogy(parts, params, teachingLearnerTurn);
+      appendExplainBackPedagogy(parts, params, teachingLearnerTurn, knowledgeMode, answerProfile);
     }
   } else {
-    appendExplainBackPedagogy(parts, params, teachingLearnerTurn);
+    appendExplainBackPedagogy(parts, params, teachingLearnerTurn, knowledgeMode, answerProfile);
   }
 
   // ── 7. Memory honesty — always last (web-search override wins on student search turns)
@@ -470,23 +563,36 @@ UNIVERSAL SCHOLAR VOICE (User turn — default):
   return parts.filter(Boolean).join('\n\n');
 }
 
+function appendConstitutionalKnowledgeStack(parts: string[]): void {
+  parts.push(ADAM_CONSTITUTIONAL_KNOWLEDGE_HOLD);
+  parts.push(ALAMTOLOGI_BOOK_CANON);
+  parts.push(ADAM_TEORI_MASABAYU);
+  parts.push(ADAM_KNOWLEDGE_PURIFICATION_LAW);
+  parts.push(ADAM_ALAMTOLOGI_LAWS);
+  parts.push(ADAM_EPISTEMOLOGICAL_POSITION);
+  parts.push(ADAM_FOUNDER_NARRATIVE);
+}
+
 /** Answer Constitution pedagogy (α / β) — User + Founder consumer; not Tutor/Niaga/Journal/Teaching learner. See docs/ADAM_ANSWER_CONSTITUTION.md §VI. */
 function appendExplainBackPedagogy(
   parts: string[],
   params: AdamChatSystemPromptParams,
   teachingLearnerTurn: boolean,
+  knowledgeMode: AdamKnowledgeMode,
+  profile: AdamAnswerProfile,
 ): void {
   if (teachingLearnerTurn) return;
 
   const userMessage = params.userMessage ?? '';
-  const profile = resolveAdamAnswerProfile({
-    message:             userMessage,
-    recentUserMessages:  params.recentUserMessages ?? [],
-  });
 
   if (profile === 'light') return;
 
   parts.push(ADAM_DEFAULT_GOLD_STANDARD_PIPELINE);
+  parts.push(buildAdamKnowledgeModeTurnOverlay(knowledgeMode, profile));
+
+  if (!params.isFounder && knowledgeMode === 'konvensional' && isAdamGeneralKonvensionalTurn(userMessage)) {
+    parts.push(ADAM_GENERAL_KONVENSIONAL_ONLY_LAW);
+  }
 
   const header = buildAdamAnswerProfileHeader(profile);
   if (header) parts.push(header);
@@ -518,14 +624,8 @@ function appendExplainBackPedagogy(
     if (params.studentContinuityBridge) parts.push(params.studentContinuityBridge);
     if (params.workspacePrompt) parts.push(params.workspacePrompt);
     if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
-    if (studentTier >= 2 && !practicalRoot && profile === 'beta') {
-      parts.push(ADAM_CONSTITUTIONAL_KNOWLEDGE_HOLD);
-      parts.push(ALAMTOLOGI_BOOK_CANON);
-      parts.push(ADAM_TEORI_MASABAYU);
-      parts.push(ADAM_KNOWLEDGE_PURIFICATION_LAW);
-      parts.push(ADAM_ALAMTOLOGI_LAWS);
-      parts.push(ADAM_EPISTEMOLOGICAL_POSITION);
-      parts.push(ADAM_FOUNDER_NARRATIVE);
+    if (knowledgeModeAllowsAlamtologiStack(knowledgeMode) && studentTier >= 2 && !practicalRoot && profile === 'beta') {
+      appendConstitutionalKnowledgeStack(parts);
     } else {
       parts.push(ADAM_UNIVERSAL_SCHOLAR_TIER1_HOLD);
     }
@@ -533,13 +633,15 @@ function appendExplainBackPedagogy(
   }
 
   if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
-  parts.push(ADAM_CONSTITUTIONAL_KNOWLEDGE_HOLD);
-  parts.push(ALAMTOLOGI_BOOK_CANON);
-  parts.push(ADAM_TEORI_MASABAYU);
-  parts.push(ADAM_KNOWLEDGE_PURIFICATION_LAW);
-  parts.push(ADAM_ALAMTOLOGI_LAWS);
-  parts.push(ADAM_EPISTEMOLOGICAL_POSITION);
-  parts.push(ADAM_FOUNDER_NARRATIVE);
+
+  if (knowledgeMode === 'konvensional') {
+    return;
+  }
+
+  if (knowledgeModeAllowsAlamtologiStack(knowledgeMode)) {
+    appendConstitutionalKnowledgeStack(parts);
+  }
+
   parts.push(ADAM_FOUNDER_BIOGRAPHY_IDENTITY_LAW);
   parts.push(params.founderStudentsBlock);
   if (params.mode !== 'JOURNAL_GEN') parts.push(FOUNDER_JOURNAL_SEAL_HINT);

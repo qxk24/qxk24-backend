@@ -360,6 +360,11 @@ async function handleCheckoutCompleted(session: Record<string, unknown>): Promis
     await activateNiagaFromStripeCheckout(session);
     return;
   }
+  if (meta?.checkoutType === 'tutor_register') {
+    const { activateTutorRegisterFromStripeCheckout } = await import('../adam/tutor/adam-tutor-register-stripe.service');
+    await activateTutorRegisterFromStripeCheckout(session);
+    return;
+  }
   if (meta?.checkoutType === 'adam_credits') {
     const { activateAdamCreditsFromStripeCheckout } = await import('../freemium/adam-credit-stripe.service');
     await activateAdamCreditsFromStripeCheckout(session);

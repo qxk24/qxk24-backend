@@ -66,7 +66,7 @@ TIER 1 (default — follow ANSWER PROFILE when injected below; otherwise Univers
 - EXPLAIN-BACK when [UNIVERSAL TEACHING RECALL] in context on β turns — Phase 1A → 1B → synthesis; never copy P.alt transcript.
 - JOB / CAREER / SKILLS threads (α): search-verified facts first; full ADAM voice + penjiwaan OK; L5 organic close:
   Career fork EN: "${UNIVERSAL_SCHOLAR_DOOR_EN}" · BM: "${UNIVERSAL_SCHOLAR_DOOR_BM}"
-  Or Gold Standard follow-up: "Would you like me to explain another part in more detail?" / "Perlu saya terangkan lagi bahagian lain?"
+  Or Gold Standard follow-up: "Would you like me to explain further?" / "Mahu saya jelaskan lebih lanjut?"
 - Skip L5 on: salam, thanks, yes/no acks, light chat, α short factual already complete at L1.
 
 TIER 2 (only after user accepts the door — yes / tell me more / more detail):
@@ -102,6 +102,16 @@ BAHASA MELAYU — SUSUNAN OUTPUT (sama kemas seperti English):
 - Jawapan ringkas → 1–2 perenggan. Soalan penjelasan → 3–4 perenggan kemas — bukan esei panjang tanpa pecah.
 - α: tutup hanya jika L5 menambah nilai. β: tutup dengan SATU soalan tamparan jiwa (wajib) — bukan menu kerjaya pada topik sains.
 - DBP Malaysia — ayat mudah dibaca seperti artikel surat khabar, bukan gaya akademik berat.
+`.trim();
+
+/** BM technical layout — science / history / algebra (overrides prose-only MALAY_LAYOUT when injected). */
+export const ADAM_UNIVERSAL_SCHOLAR_MALAY_TECHNICAL_LAYOUT = `
+BAHASA MELAYU — PAPARAN TEKNIKAL (bukan esei prosa):
+- Guna blok bertajuk ### (Bahan-bahan / Proses / Hasil / Punca utama).
+- Senarai bernombor 1. 2. 3. untuk langkah atau input; bullet * untuk output ringkas.
+- **Bold** untuk istilah kunci; satu ayat definisi inti sebelum senarai.
+- Akhiri dengan **Ringkasnya:** satu baris rumusan — bukan perenggan meta.
+- DILARANG: esei "Pertama," "Kedua," "Ketiga," prosa panjang tanpa tajuk, Alamtologi/MASA/TENAGA.
 `.trim();
 
 /** Tier-1 policy — canonical sequence lives in ADAM_EXPLAIN_BACK_LAW (Universal Scholar surface). */
@@ -149,6 +159,7 @@ function matchesAny(text: string, patterns: RegExp[]): boolean {
 export function paragraphIsUniversalScholarDoorOffer(paragraph: string): boolean {
   const t = paragraph.trim();
   if (!t) return false;
+  if (paragraphIsAlamtologiPromotionLeak(t)) return false;
   // Philosophy / faith escalation doors — never keep
   if (/\b(?:clarity|responsibility|service|stewardship|spiritual accountability|spiritual perspective)\b/i.test(t)) {
     return false;
@@ -158,8 +169,9 @@ export function paragraphIsUniversalScholarDoorOffer(paragraph: string): boolean
   }
   if (/\bdeeper purpose\b/i.test(t)) return false;
   // Bullet menus — never keep (except Gold Standard / organic practical closings)
-  if (/^Would you like me to\b/i.test(t) && !/explain another part in more detail/i.test(t)) return false;
-  if (/^Would you like me to explain another part in more detail/i.test(t)) return true;
+  if (/^Would you like me to\b/i.test(t) && !/explain (?:another part in more detail|further)/i.test(t)) return false;
+  if (/^Would you like me to explain (?:another part in more detail|further)/i.test(t)) return true;
+  if (/^Mahu saya jelaskan lebih lanjut/i.test(t)) return true;
   if (/^Perlu saya terangkan lagi bahagian lain/i.test(t)) return true;
   if (/\bFocus on one\b/i.test(t) && /\bmore depth\b/i.test(t)) return false;
   if (/\b(?:skills and tools|career path|real-world example|kemahiran dan alat|laluan kerjaya|contoh dunia sebenar)\b/i.test(t)) {
@@ -182,17 +194,52 @@ export function paragraphIsUniversalScholarDoorOffer(paragraph: string): boolean
   if (/\bMahukah\b/i.test(t) && /\b(?:perspektif lain|penjelasan lanjut)\b/i.test(t)) {
     return true;
   }
-  // Legacy explicit Alamtologi opt-in doors
-  if (
-    /\bAdakah\s+anda\s+ingin\b/i.test(t)
-    && /\b(?:sudut\s+Alamtologi|perspektif\s+Alamtologi|peringkat\s+2|ilmu\s+Alamtologi)\b/i.test(t)
-  ) return true;
-  if (
-    /\bJika\s+anda\s+ingin\b/i.test(t)
-    && /\b(?:sudut\s+Alamtologi|perspektif\s+Alamtologi|Alamtologi)\b/i.test(t)
-    && /\b(?:jelaskan|lihat|terokai)\b/i.test(t)
-  ) return true;
   return false;
+}
+
+/** Alamtologi tier promotion — forbidden on General konvensional lane. */
+export function paragraphIsAlamtologiPromotionLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/\b(?:sudut|perspektif|pandangan|konteks)\s+Alamtologi\b/i.test(t)) return true;
+  if (/\b(?:ilmu|framework)\s+Alamtologi\b/i.test(t) && /\b(?:ingin|mahu|terokai|lihat|jelaskan)\b/i.test(t)) {
+    return true;
+  }
+  if (
+    /\b(?:Adakah|Mahukah|Jika)\s+(?:anda|awak)\s+ingin\b/i.test(t)
+    && /\b(?:melihat|lihat|terokai)\s+sudut\b/i.test(t)
+  ) {
+    return true;
+  }
+  if (/\b(?:teruskan\s+pada|ke\s+)?peringkat\s+[23]\b/i.test(t)) return true;
+  if (/\bperingkat\s+[23]\b/i.test(t) && /\b(?:ingin|mahu|atau|jelaskan|terokai)\b/i.test(t)) {
+    return true;
+  }
+  if (
+    /\b(?:Adakah|Mahukah|Jika)\s+(?:anda|awak)\s+ingin\b/i.test(t)
+    && /\bAlamtologi\b/i.test(t)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Strip Alamtologi promotion doors and labels from general konvensional output. */
+export function stripAlamtologiPromotionInline(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .filter((para) => !paragraphIsAlamtologiPromotionLeak(para.trim()))
+    .join('\n\n')
+    .replace(
+      /[^.!?]*\b(?:sudut|perspektif|pandangan)\s+Alamtologi\b[^.!?]*[.!?]+/gi,
+      ' ',
+    )
+    .replace(/[^.!?]*\b(?:melihat|lihat|terokai)\s+sudut\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\b(?:teruskan\s+pada|ke\s+)?peringkat\s+[23]\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bperingkat\s+[23]\b[^.!?]*\bAlamtologi\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 /** Practical career fork — role/skills threads only (not science, health, or office-holders). */
@@ -342,20 +389,6 @@ export function resolveStudentKnowledgeTier(
   if (userOptedIntoQuranTier(current)) tier = 3;
   else if (userOptedIntoAlamtologiTier(current)) tier = 2;
   else if (userAcceptedUniversalScholarDoor(current, recentAssistantMessages)) tier = 2;
-  else {
-    for (let i = recentUserMessages.length - 1; i >= 0; i -= 1) {
-      const msg = recentUserMessages[i]?.trim() ?? '';
-      if (!msg) continue;
-      if (userOptedIntoQuranTier(msg)) {
-        tier = 3;
-        break;
-      }
-      if (userOptedIntoAlamtologiTier(msg)) {
-        tier = 2;
-        break;
-      }
-    }
-  }
 
   if (practicalRoot && tier === 3 && !userOpenedFaithDoor(current)) {
     tier = 2;

@@ -17,10 +17,11 @@
 
 import type { LlmSearchResult } from '../llm/llm-types';
 import type { AdamAnswerProfile } from './adam-answer-profile';
-import { GRADUATE_STAT_SENTENCE_RE, snippetHasGoldStandardBody } from './adam-official-source-enrich';
+import { GRADUATE_STAT_SENTENCE_RE, snippetHasGoldStandardBody, snippetHasSynthesisGroundingBody } from './adam-official-source-enrich';
 import {
   extractEnrollmentFigureFromEvidence,
   findRichestStatEvidenceHit,
+  findRichestSynthesisEvidenceHit,
 } from './adam-alpha-stat-evidence';
 import {
   buildAlphaStatFigureLedOpener,
@@ -28,6 +29,13 @@ import {
   repairOpenerDomainTailOrphan,
   stripLeadingDomainTailOrphan,
 } from './adam-alpha-stat-opener';
+import { isAdamPracticalAdvisoryTurn } from './adam-response-generation';
+import { buildPracticalAdvisorySynthesisBodyRules } from './adam-practical-advisory-gold';
+import {
+  buildMarketPricingSynthesisInstruction,
+  isAdamMarketPricingTurn,
+  userMessagePrefersBahasaMalaysia,
+} from './adam-market-pricing';
 
 function splitEnrollmentAndGraduateBlocks(snippet: string): string[] {
   const blocks = snippet.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
@@ -91,23 +99,65 @@ export function evidenceHasGoldStandardArticle(
   evidence: LlmSearchResult[],
   userMessage: string,
 ): boolean {
-  const hit = findRichestStatEvidenceHit(evidence, userMessage);
-  return hit?.pageFetched === true && snippetHasGoldStandardBody(hit.snippet);
+  const hit = findRichestSynthesisEvidenceHit(evidence, userMessage);
+  if (!hit) return false;
+  const snippet = hit.snippet?.trim() ?? '';
+  if (isAdamPracticalAdvisoryTurn(userMessage)) {
+    if (hit.pageFetched) {
+      return snippetHasGoldStandardBody(snippet) || snippetHasSynthesisGroundingBody(snippet);
+    }
+    return snippet.length >= 120 && snippetHasSynthesisGroundingBody(snippet);
+  }
+  return hit.pageFetched === true && snippetHasGoldStandardBody(snippet);
 }
 
-export const GOLD_STANDARD_FOLLOW_UP_BM = 'Perlu saya terangkan lagi bahagian lain?';
-export const GOLD_STANDARD_FOLLOW_UP_EN = 'Would you like me to explain another part in more detail?';
+/** Universal depth invitation — not Alamtologi "other parts" framing. */
+export const GOLD_STANDARD_FOLLOW_UP_BM = 'Mahu saya jelaskan lebih lanjut?';
+export const GOLD_STANDARD_FOLLOW_UP_EN = 'Would you like me to explain further?';
+
+/** @deprecated Replaced by universal follow-up — kept for normalize/legacy detection. */
+export const LEGACY_GOLD_STANDARD_FOLLOW_UP_BM = 'Perlu saya terangkan lagi bahagian lain?';
+/** @deprecated Replaced by universal follow-up — kept for normalize/legacy detection. */
+export const LEGACY_GOLD_STANDARD_FOLLOW_UP_EN = 'Would you like me to explain another part in more detail?';
+
+export const GOLD_STANDARD_FOLLOW_UP_RE = new RegExp(
+  [
+    GOLD_STANDARD_FOLLOW_UP_BM,
+    GOLD_STANDARD_FOLLOW_UP_EN,
+    LEGACY_GOLD_STANDARD_FOLLOW_UP_BM,
+    LEGACY_GOLD_STANDARD_FOLLOW_UP_EN,
+  ]
+    .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|'),
+  'i',
+);
 
 /** Canonical Gold Standard closing — invitation to continue, not a deferred-search offer. */
 export function buildGoldStandardFollowUpQuestion(userMessage: string): string {
-  const prefersBm = /\b(?:salam|berapa|maklumat|jumlah|ceritakan|siapa|bagikan|kenapa|mengapa|jelaskan|terangkan|sejarah|apakah)\b/i.test(
-    userMessage,
-  );
-  return prefersBm ? GOLD_STANDARD_FOLLOW_UP_BM : GOLD_STANDARD_FOLLOW_UP_EN;
+  return userMessagePrefersBahasaMalaysia(userMessage)
+    ? GOLD_STANDARD_FOLLOW_UP_BM
+    : GOLD_STANDARD_FOLLOW_UP_EN;
+}
+
+/** Replace legacy Alamtologi-framed closings with the universal invitation. */
+export function normalizeGoldStandardFollowUpClosing(text: string, userMessage: string): string {
+  const closing = buildGoldStandardFollowUpQuestion(userMessage);
+  let out = text.trim();
+  for (const legacy of [
+    LEGACY_GOLD_STANDARD_FOLLOW_UP_BM,
+    LEGACY_GOLD_STANDARD_FOLLOW_UP_EN,
+    GOLD_STANDARD_FOLLOW_UP_EN,
+    GOLD_STANDARD_FOLLOW_UP_BM,
+  ]) {
+    if (legacy !== closing && out.includes(legacy)) {
+      out = out.split(legacy).join(closing);
+    }
+  }
+  return out;
 }
 
 export function appendGoldStandardFollowUp(reply: string, userMessage: string): string {
-  const trimmed = reply.trim();
+  const trimmed = normalizeGoldStandardFollowUpClosing(reply.trim(), userMessage);
   if (!trimmed) return trimmed;
   const closing = buildGoldStandardFollowUpQuestion(userMessage);
   if (trimmed.includes(closing)) return trimmed;
@@ -119,10 +169,16 @@ export function extractGoldStandardOfficialPageBody(
   evidence: LlmSearchResult[],
   userMessage: string,
 ): { body: string; url: string | null } | null {
-  const hit = findRichestStatEvidenceHit(evidence, userMessage);
-  if (!hit?.pageFetched) return null;
+  const hit = findRichestSynthesisEvidenceHit(evidence, userMessage);
+  if (!hit) return null;
   const body = hit.snippet?.trim().replace(/&nbsp;/gi, ' ');
   if (!body || body.length < 80) return null;
+  if (isAdamPracticalAdvisoryTurn(userMessage)) {
+    if (!hit.pageFetched && body.length < 120) return null;
+    if (!snippetHasSynthesisGroundingBody(body) && !snippetHasGoldStandardBody(body)) return null;
+  } else if (!hit.pageFetched) {
+    return null;
+  }
   return { body, url: hit.url?.trim() ?? null };
 }
 
@@ -135,6 +191,10 @@ export function buildGoldStandardSynthesisInstruction(
   evidence: LlmSearchResult[] = [],
   extractedFacts = '',
 ): string | null {
+  if (isAdamMarketPricingTurn(userMessage)) {
+    return buildMarketPricingSynthesisInstruction(userMessage, evidence, extractedFacts);
+  }
+
   const page = extractGoldStandardOfficialPageBody(evidence, userMessage);
   if (!page) return null;
   const figure = extractEnrollmentFigureFromEvidence(evidence, extractedFacts, userMessage);
@@ -142,20 +202,34 @@ export function buildGoldStandardSynthesisInstruction(
     ? buildAlphaStatFigureLedOpener(userMessage, figure, evidence)
     : buildVerifiedSourceOpener(userMessage, evidence);
   const closing = buildGoldStandardFollowUpQuestion(userMessage);
-  return [
+  const practicalAdvisory = isAdamPracticalAdvisoryTurn(userMessage);
+  const lines = [
     '[GOLD STANDARD — ADAM FULL VOICE]',
     'Official source page fetched in full. Write ADAM\'s complete answer — flowing, dense, natural — grounded ONLY in the official text below.',
+    'Every paragraph MUST carry substantive facts from the page — duties, skills, qualifications, contexts. Do NOT answer from model memory alone.',
     '',
     `1) Open with this line verbatim:\n${opener}`,
-    '2) Body: include ALL substantive facts from [OFFICIAL PAGE — FULL TEXT] — role, duties, skills, figures, context. Write in full ADAM voice. Do NOT truncate to a short summary. Do NOT paste mechanically; weave every substantive point from the official page.',
-    `3) Close with this line verbatim:\n${closing}`,
-    '',
-    'FORBIDDEN: thin summaries, skipping whole sections, DashScope snippets without page content, "menurut sumber carian", meta labels about search.',
+  ];
+  if (practicalAdvisory) {
+    lines.push(buildPracticalAdvisorySynthesisBodyRules(userMessage));
+    lines.push(`2) Close with this line verbatim:\n${closing}`);
+    lines.push('');
+    lines.push('FORBIDDEN: thin summaries, skipping skills section, aphorism-only stubs, DashScope snippets without page content.');
+  } else {
+    lines.push(
+      '2) Body: include ALL substantive facts from [OFFICIAL PAGE — FULL TEXT] — role, duties, skills, figures, context. Write in full ADAM voice. Do NOT truncate to a short summary. Do NOT paste mechanically; weave every substantive point from the official page.',
+      `3) Close with this line verbatim:\n${closing}`,
+      '',
+      'FORBIDDEN: thin summaries, skipping whole sections, DashScope snippets without page content, "menurut sumber carian", meta labels about search.',
+    );
+  }
+  lines.push(
     '',
     '[OFFICIAL PAGE — FULL TEXT]',
     page.body,
     ...(page.url ? [`Source URL: ${page.url}`] : []),
-  ].join('\n');
+  );
+  return lines.join('\n');
 }
 
 /** Persisted α stat body — opener/follow-up only; never strip streamed paragraphs. */
@@ -184,6 +258,9 @@ export function applyGoldStandardSurfaceReply(
 ): string {
   let out = text.trim();
   if (!out) return out;
+  if (isAdamMarketPricingTurn(userMessage)) {
+    return normalizeGoldStandardFollowUpClosing(out, userMessage);
+  }
   const figure = extractEnrollmentFigureFromEvidence(evidence, extractedFacts, userMessage);
   const opener = figure
     ? buildAlphaStatFigureLedOpener(userMessage, figure, evidence)
@@ -238,6 +315,10 @@ export function applyDefaultGoldStandardReplySurface(input: {
   if (!trimmed || profile === 'light') return trimmed;
 
   if (profile === 'beta') return trimmed;
+
+  if (isAdamMarketPricingTurn(userMessage)) {
+    return normalizeGoldStandardFollowUpClosing(trimmed, userMessage);
+  }
 
   return preserveAlphaStatStreamBody(
     trimmed,

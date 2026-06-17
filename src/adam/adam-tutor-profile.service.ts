@@ -39,6 +39,14 @@ const QA_TUTOR_DEFAULT_PROFILES: Readonly<Record<string, AdamTutorProfile>> = {
     yearLabel:   'Year 10',
     localeNote:  'KSSM',
   },
+  ali: {
+    level:       'secondary',
+    curriculum:  'national',
+    language:    'malay',
+    countryCode: 'MY',
+    yearLabel:   'Tingkatan 4',
+    localeNote:  'KSSM',
+  },
 };
 
 export function qaTutorDefaultProfile(userId: string): AdamTutorProfile | null {

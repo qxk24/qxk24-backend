@@ -20,6 +20,7 @@ import {
   buildStudentGuidedPerspectiveFallback,
   isAdamLightChatTurn,
   isAdamSubstantiveTurn,
+  isAdamVisualDrawTurn,
 } from './adam-response-generation';
 import { detectLanguage } from './adam-language-mirror.service';
 import { sanitizeEastAsianScriptLeaks } from './adam-language-guard';
@@ -37,6 +38,10 @@ import {
   isJournalManuscriptDisplay,
   inferJournalSectionFromAdamResponse,
 } from './adam-journal-section-detect';
+import { ensureStudentHaiGreeting } from './adam-student-constitution';
+import { isAdamTutorMode } from './adam-tutor-law';
+import { repairVisualDrawOutput } from './adam-visual-draw-guard';
+import { stripStudentBismillahOpener } from './adam-student-output-law';
 import type { AdamChatTurnShell, JournalGenContext } from './adam-chat-stream.types';
 
 export interface ParsedAdamTurnBlocks {
@@ -145,6 +150,30 @@ export function buildFinalResponseForSave(input: {
         mode:      input.shell.mode,
       });
     }
+  }
+
+  if (
+    !isAdamLightChatTurn(input.shell.userMessage)
+    && !isAdamTutorMode(input.shell.mode)
+    && !isAdamVisualDrawTurn(input.shell.userMessage)
+    && finalResponse?.trim()
+  ) {
+    finalResponse = ensureStudentHaiGreeting(
+      finalResponse,
+      input.shell.participant.userName,
+    );
+  }
+
+  if (isAdamVisualDrawTurn(input.shell.userMessage)) {
+    finalResponse = repairVisualDrawOutput(
+      finalResponse,
+      input.shell.userMessage,
+      input.shell.participant.userName,
+    );
+  }
+
+  if (!input.shell.isFounder && !isAdamTutorMode(input.shell.mode) && finalResponse?.trim()) {
+    finalResponse = stripStudentBismillahOpener(finalResponse);
   }
 
   return finalResponse;
