@@ -108,9 +108,9 @@ describe('ADAMGuru session ids', () => {
 });
 
 describe('ADAMGuru — student search gate', () => {
-  it('substantive kelas teaching asks trigger factual grounding search', () => {
+  it('substantive kelas teaching asks answer from knowledge — no blanket search', () => {
     expect(
       getWebSearchGateReason('Terangkan struktur jantung', { userUmumChannelGate: true }),
-    ).toBe('factual_question');
+    ).toBeNull();
   });
 });

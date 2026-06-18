@@ -118,9 +118,8 @@ export function formatPrefetchedSearchHitLine(hit: LlmSearchResult, index: numbe
 }
 
 /**
- * Canonical search-first pipeline — prefetch web search before synthesis on every
- * factual gate reason (stats, specs, science, news, substantive explain-back).
- * Applies to all participants (student, founder, guest).
+ * Canonical search-first pipeline — prefetch web search before synthesis only when
+ * the turn gate requires live verified facts (stats, news, specs, official career).
  */
 export function shouldUsersUseSearchFirstFlow(
   _isFounder: boolean,

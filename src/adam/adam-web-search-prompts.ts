@@ -20,17 +20,18 @@
 import { ADAM_CHAT_MATH_NOTATION } from './adam-math-prompt';
 
 export const ADAM_SEARCH_WHEN_TO = `
-WHEN TO SEARCH:
-- Any factual claim, scientific topic, historical event, current news, statistics, or study
-- Any comparison between ideas, schools of thought, or data points
-- Any question where real-world evidence would strengthen or verify the answer
-- Any topic where the person clearly wants to know what the world currently says
+WHEN TO SEARCH (live web prefetch — this turn only when gate enabled):
+- Current office-holders, breaking news, dated statistics, official enrollment figures
+- Technical specs, dosage, rates, comparisons that need verified numbers
+- Career role/skills from official bodies (NHS, MOE, .gov) when the question asks duties or qualifications
+- User explicitly asks to search, verify, or get the latest data
 
-WHEN NOT TO SEARCH:
+WHEN NOT TO SEARCH (answer from established curriculum / konvensional knowledge):
+- Pedagogy and curriculum concepts (KBAT, Bloom, PdPc, classroom theory)
+- General "apa itu / terangkan" explanations of stable textbook topics (science, history concepts)
+- Coaching, reflection, emotional support, greetings, book brainstorming
 - Pure Quran ayat — use [QURAN CORPUS] instead
 - Pure Alamtologi constitutional principles already established in this session
-- Personal reflection, opinion, or emotional support questions
-- Simple greetings or acknowledgements
 `.trim();
 
 export const ADAM_CITATION_HONESTY = `

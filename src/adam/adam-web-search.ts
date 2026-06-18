@@ -21,18 +21,17 @@ import {
   isAdamPracticalAdvisoryTurn,
   isAdamRelationalPersonalTurn,
   isAdamSimpleArithmeticTurn,
-  isAdamSimpleFactualTurn,
   isAdamTeachingDepthTurn,
-  isAdamTechnicalKonvensionalDisplayTurn,
   isAdamUserCoachingHelpTurn,
   isAdamUserGuidanceCoachingTurn,
   stripLeadingAdamSalutation,
 } from './adam-response-generation';
 import { userUmumPerlaksanaanTurnActive } from './adam-universal-scholar';
-import { messageAsksRoleAndSkills } from './adam-official-source-enrich';
+import { isAdamPedagogyKonvensionalTurn } from './adam-domain-detectors';
+import { isAdamMarketPricingTurn } from './adam-market-pricing';
 import { isDirectTechnicalHowToQuestion } from './adam-direct-technical-law';
 import { isTechnicalPrecisionQuestion } from './adam-universal-voice';
-import { extractDomainsFromMessageUrls } from './adam-official-source-enrich';
+import { extractDomainsFromMessageUrls, messageAsksRoleAndSkills } from './adam-official-source-enrich';
 import { buildFounderWebSearchPrompt, buildStudentWebSearchPrompt } from './adam-web-search-prompts';
 import { extractDashScopeApiHost, isDashScopeIntlHost } from '../llm/dashscope-search';
 
@@ -320,16 +319,16 @@ export function getWebSearchGateReason(
       options?.recentUserMessages ?? [],
     )) return null;
     if (PURE_REFLECTION.test(text)) return null;
+    if (isAdamPedagogyKonvensionalTurn(text)) return null;
     if (isAdamCurrentAffairsTurn(text)) return 'current_affairs';
     if (isVerifiedDataStatAsk(text)) return 'verified_data_stat';
     if (options?.technicalFollowUp) return 'technical_follow_up';
-    if (isTechnicalPrecisionQuestion(text)) return 'technical_precision';
     if (isUserEntityCorrectionMessage(text)) return 'entity_correction';
+    if (isAdamTeachingDepthTurn(text)) return null;
+    if (isTechnicalPrecisionQuestion(text)) return 'technical_precision';
     if (isAdamPracticalAdvisoryTurn(text)) return 'factual_question';
-    if (isAdamTechnicalKonvensionalDisplayTurn(text)) return 'factual_question';
-    if (isAdamSimpleFactualTurn(text)) return 'factual_question';
     if (isDirectTechnicalHowToQuestion(text)) return 'factual_question';
-    if (isAdamTeachingDepthTurn(text)) return 'factual_question';
+    if (isAdamMarketPricingTurn(text)) return 'factual_question';
     return null;
   }
 
@@ -351,17 +350,25 @@ export function getWebSearchGateReason(
 
   if (options?.technicalFollowUp) return 'technical_follow_up';
 
-  if (isTechnicalPrecisionQuestion(text)) return 'technical_precision';
-
   if (isUserEntityCorrectionMessage(text)) return 'entity_correction';
+  if (isAdamTeachingDepthTurn(text)) return null;
+  if (isTechnicalPrecisionQuestion(text)) return 'technical_precision';
 
   if (text.length < 8) return null;
 
   if (isAdamLightChatTurn(text)) return null;
   if (isAdamLayer1WritingChatTurn(text)) return null;
   if (PURE_REFLECTION.test(text)) return null;
-  if (isAdamSimpleFactualTurn(text)) return 'factual_question';
+  if (isAdamPedagogyKonvensionalTurn(text)) return null;
+  if (isAdamCurrentAffairsTurn(text)) return 'current_affairs';
+  if (isVerifiedDataStatAsk(text)) return 'verified_data_stat';
+  if (options?.technicalFollowUp) return 'technical_follow_up';
+  if (isUserEntityCorrectionMessage(text)) return 'entity_correction';
+  if (isAdamTeachingDepthTurn(text)) return null;
+  if (isTechnicalPrecisionQuestion(text)) return 'technical_precision';
+  if (isAdamPracticalAdvisoryTurn(text)) return 'factual_question';
   if (isDirectTechnicalHowToQuestion(text)) return 'factual_question';
+  if (isAdamMarketPricingTurn(text)) return 'factual_question';
 
   if (parseQuranAyahRefs(text).length > 0) return null;
 
@@ -371,7 +378,7 @@ export function getWebSearchGateReason(
     FOUNDER_SESSION_REF.test(text)
   ) return null;
 
-  return 'factual_question';
+  return null;
 }
 
 export function shouldEnableWebSearchForMessage(message: string): boolean {

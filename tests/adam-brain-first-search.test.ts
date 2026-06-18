@@ -22,7 +22,7 @@ import {
 describe('brain-first search (P2)', () => {
   const earthQ = 'Apa bentuk bumi dan kenapa kelihatan bulat?';
 
-  it('does not skip search on user umum when Brain C recall loaded (live grounding wins)', () => {
+  it('skips search on stable curriculum explains even when Brain C recall loaded', () => {
     expect(shouldSkipSearchWhenRecallHitStableTopic({
       message:           earthQ,
       brainRecallLoaded: true,
@@ -30,7 +30,7 @@ describe('brain-first search (P2)', () => {
     expect(getWebSearchGateReason(earthQ, {
       userUmumChannelGate: true,
       brainRecallLoaded:    true,
-    })).toBe('factual_question');
+    })).toBeNull();
   });
 
   it('still searches on current affairs despite recall', () => {
@@ -54,11 +54,11 @@ describe('brain-first search (P2)', () => {
     })).not.toBeNull();
   });
 
-  it('searches when no recall (first encounter)', () => {
+  it('skips search on first encounter stable curriculum explain', () => {
     expect(getWebSearchGateReason(earthQ, {
       userUmumChannelGate: true,
       brainRecallLoaded:    false,
-    })).toBe('factual_question');
+    })).toBeNull();
   });
 
   it('still searches institutional stats despite Brain C recall', () => {

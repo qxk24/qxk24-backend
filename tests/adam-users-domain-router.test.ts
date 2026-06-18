@@ -46,6 +46,12 @@ describe('resolveAdamUsersDomainFacet — global subjects', () => {
     expect(resolveAdamUsersDomainFacet('Apa itu imbangan duga dalam perakaunan?')).toBe('accounting');
   });
 
+  it('routes pedagogy and KBAT to academic', () => {
+    expect(resolveAdamUsersDomainFacet('Apa itu KBAT?')).toBe('academic');
+    expect(resolveAdamUsersDomainFacet('Explain Bloom taxonomy in classroom practice.')).toBe('academic');
+    expect(resolveAdamUsersDomainFacet('Terangkan PdPc dalam KSSM.')).toBe('academic');
+  });
+
   it('routes health and environment', () => {
     expect(resolveAdamUsersDomainFacet('What does WHO say about mental health hygiene?')).toBe('health');
     expect(resolveAdamUsersDomainFacet('Explain climate change and the Paris agreement.')).toBe('environment');

@@ -155,6 +155,16 @@ export function isAdamHomeVocationalTurn(message: string): boolean {
   return HOME_VOCATIONAL_SUBJECT.test(t);
 }
 
+/** School pedagogy / curriculum concepts — KBAT, Bloom, PdPc (classroom voice, not soul essay). */
+const PEDAGOGY_KONVENSIONAL_SUBJECT =
+  /\b(?:KBAT|kemahiran\s+berfikir\s+aras\s+tinggi|HOTS|higher\s+order\s+thinking|Bloom(?:'s)?\s+taxonomy|taksonomi\s+(?:bloom|kognitif)|aras\s+kognitif|kognitif\s+(?:domain|taraf)|PdPc|pentaksiran\s+berasaskan\s+sekolah|PBL|project[-\s]based\s+learning|pembelajaran\s+berasaskan\s+projek|scaffolding|differentiated\s+instruction|andragogi|pedagogi|pedagogy|kurikulum\s+standard|KSSM|KSSR|21st\s+century\s+skills|kemahiran\s+abad\s+21|jaminan\s+kualiti\s+pembelajaran|J-QAF)\b/i;
+
+export function isAdamPedagogyKonvensionalTurn(message: string): boolean {
+  const t = body(message);
+  if (!t || isAdamLightChatTurn(t)) return false;
+  return PEDAGOGY_KONVENSIONAL_SUBJECT.test(t);
+}
+
 /** Global civics — any constitution / government system. */
 const CIVICS_GLOBAL_SUBJECT =
   /\b(?:constitution|perlembagaan|democracy|demokrasi|parliament|parlimen|congress|senate|judiciary|kehakiman|executive|eksekutif|legislature|cabang\s+kuasa|separation\s+of\s+powers|voting|undi|election|pilihan\s+raya|ballot|human\s+rights|hak\s+asasi|civil\s+rights|rule\s+of\s+law|supreme\s+court|mahkamah\s+persekutuan|federal\s+government|local\s+government|kerajaan\s+tempatan|municipal|citizenship|kewarganegaraan|referendum|coalition\s+government|kerajaan\s+perikatan)\b/i;

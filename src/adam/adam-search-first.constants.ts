@@ -23,16 +23,16 @@ export function getStudentSearchPrefetchModel(): string {
   return getFastModel();
 }
 
-/** Default substantive reply pipeline — all roles (founder, student, guest). */
+/** Default substantive reply pipeline — search only when live-fact gate fires. */
 export const ADAM_DEFAULT_GOLD_STANDARD_PIPELINE = `
 ADAM GOLD STANDARD — DEFAULT FOR EVERY SUBSTANTIVE QUESTION (mandatory):
 1. Read intent — α (fakta dulu) or β (explain-back) per Answer Constitution.
-2. Web search — prefetch before synthesis; ground truth in search hits or [GOLD STANDARD — ADAM FULL VOICE].
-3. Official page enrich — when a credible source page is fetchable, use full article text (not DashScope snippets alone).
-4. Synthesize — ADAM full voice; α opens with verified facts; β follows Explain-Back 1A → 1B → synthesis.
+2. Web search — ONLY when this turn's search gate requires live verified facts (stats, news, specs, official career pages). Do NOT open with search UI on stable curriculum or pedagogy concepts.
+3. Official page enrich — when search ran and a credible source page is fetchable, use full article text (not DashScope snippets alone).
+4. Synthesize — ADAM full voice; α opens with verified facts when search ran; β follows Explain-Back 1A → 1B → synthesis.
 5. Close — α: L5 optional when valuable; α practical advisory: organic close (career fork or Gold Standard follow-up); β: L5 tamparan jiwa mandatory (Answer Constitution v2).
 
-Skip only for salam, thanks, pure reflection, or Teaching-room learner absorption.
+Skip search for salam, thanks, pure reflection, pedagogy concepts (KBAT, Bloom), or Teaching-room learner absorption.
 
 ${ADAM_SCIENTIST_SCHOLAR_IDENTITY}
 `.trim();

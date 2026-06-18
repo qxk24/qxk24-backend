@@ -38,14 +38,14 @@ describe('adam-web-search-prompts (Fasa 3)', () => {
 
   it('student agent prompt includes when-to and citation once each', () => {
     const prompt = buildStudentWebSearchPrompt('agent_default');
-    expect(countOccurrences(prompt, 'WHEN TO SEARCH:')).toBe(1);
+    expect(countOccurrences(prompt, 'WHEN TO SEARCH')).toBe(1);
     expect(countOccurrences(prompt, 'CITATION HONESTY')).toBe(1);
     expect(prompt).toMatch(/same ADAM voice as with P\.alt/i);
   });
 
   it('prefetched overlay omits when-to (search already ran)', () => {
     const prompt = buildStudentWebSearchPrompt('prefetched');
-    expect(prompt).not.toContain('WHEN TO SEARCH:');
+    expect(prompt).not.toMatch(/WHEN TO SEARCH \(live web prefetch/);
     expect(countOccurrences(prompt, 'CITATION HONESTY')).toBe(1);
     expect(prompt).toMatch(/natural ADAM voice/i);
     expect(prompt).not.toMatch(/:=\s*[01]/);
@@ -67,7 +67,7 @@ describe('adam-web-search-prompts (Fasa 3)', () => {
 
   it('founder teaching absorption overlay is wired', () => {
     const prompt = buildFounderWebSearchPrompt('teaching_absorption');
-    expect(prompt).toMatch(/teaching absorption/);
+    expect(prompt).toMatch(/absorption|explain-back/i);
     expect(countOccurrences(prompt, 'CITATION HONESTY')).toBe(1);
   });
 
@@ -79,13 +79,13 @@ describe('adam-web-search-prompts (Fasa 3)', () => {
     expect(prompt).not.toMatch(/STUDENT REPLY PIPELINE/);
   });
 
-  it('getAdamWebSearchPrompt — student uses founder agent prompt (speed parity)', () => {
+  it('getAdamWebSearchPrompt — student uses Users agent prompt when gate open', () => {
     const prompt = getAdamWebSearchPrompt(false, {
-      userMessage: 'Apa punca manusia mengidap diabetes?',
+      userMessage: 'Siapa presiden Malaysia sekarang?',
     });
     expect(prompt).toMatch(/DashScope agent mode/i);
     expect(prompt).toMatch(/WHEN TO SEARCH/);
-    expect(prompt).toMatch(/founder turn/i);
+    expect(prompt).toMatch(/Users turn/i);
     expect(prompt).not.toMatch(/EXPLANATORY SCIENCE/);
     expect(prompt).not.toMatch(/TECHNICAL PRECISION — search is MANDATORY/);
   });
@@ -105,7 +105,7 @@ describe('adam-web-search-prompts (Fasa 3)', () => {
       userMessage:      'Jumlah pelajar KPTM',
     });
     expect(prompt).toMatch(/INSTITUTIONAL STATISTICS/i);
-    expect(prompt).toMatch(/Poly-Tech Mara/i);
+    expect(prompt).toMatch(/Disambiguate acronyms/i);
   });
 
   it('getAdamWebSearchPrompt — student life turn still founder-shaped', () => {

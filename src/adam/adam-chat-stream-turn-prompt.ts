@@ -155,15 +155,15 @@ export async function buildTurnPromptAndSearchGate(input: {
     turnGate:      turnContext.river.gate,
     tutorProfile:         isTutorLane ? options.tutorProfile : undefined,
     niagaProfile:         isNiagaLane ? options.niagaProfile : undefined,
-    webSearchPrompt:      webSearchEnabledThisTurn && isTutorLane
+    webSearchPrompt:      webSearchEnabledThisTurn && webSearchGateReason && isTutorLane
       ? buildTutorWebSearchPrompt(options.tutorProfile, usersSearchFirst)
-      : webSearchEnabledThisTurn && founderTeachingSynthesis
+      : webSearchEnabledThisTurn && webSearchGateReason && founderTeachingSynthesis
         ? getAdamWebSearchPrompt(isFounder, {
           founderTeachingSynthesis: true,
           userMessage: messageForAdam,
           recentUserMessages: recentUserTurns,
         })
-        : webSearchEnabledThisTurn
+        : webSearchEnabledThisTurn && webSearchGateReason
           ? getAdamWebSearchPrompt(isFounder, {
             userMessage: messageForAdam,
             recentUserMessages: recentUserTurns,

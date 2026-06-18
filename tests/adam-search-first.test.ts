@@ -285,27 +285,25 @@ describe('getWebSearchGateReason student factual standard', () => {
     expect(shouldUsersUseSearchFirstFlow(false, getWebSearchGateReason(full, { usersFounderParity: true }))).toBe(false);
   });
 
-  it('never skips search on brain recall for student factual turns', () => {
+  it('does not search stable curriculum explains even when brain recall loaded', () => {
     const photosynthesis = getWebSearchGateReason('Terangkan bagaimana fotosintesis berlaku', {
       usersFounderParity: true,
       brainRecallLoaded: true,
     });
-    expect(photosynthesis).not.toBeNull();
-    expect(isFactualAdamWebSearchGateReason(photosynthesis)).toBe(true);
+    expect(photosynthesis).toBeNull();
 
     const mitochondria = getWebSearchGateReason('Apa itu mitochondria?', {
       usersFounderParity: true,
       brainRecallLoaded: true,
     });
-    expect(mitochondria).not.toBeNull();
-    expect(isFactualAdamWebSearchGateReason(mitochondria)).toBe(true);
+    expect(mitochondria).toBeNull();
   });
 
-  it('searches for founder even when Brain C recall is loaded — Gold Standard default', () => {
+  it('founder skips search on stable explain asks even when Brain C recall is loaded', () => {
     expect(getWebSearchGateReason('Terangkan kenapa manusia perlu tidur setiap malam', {
       isFounder: true,
       brainRecallLoaded: true,
-    })).toBe('factual_question');
+    })).toBeNull();
   });
 
   it('detects enrollment stats after Salam QA salutation', () => {

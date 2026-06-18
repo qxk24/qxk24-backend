@@ -311,6 +311,7 @@ export function sanitizeUsersOutputSync(
 
   if (
     !usersTechnicalDirect
+    && !bookWritingTurn
     && (
       isAdamTeachingDepthTurn(userMessage)
       || isAdamScienceNatureSynthesisTurn(userMessage)
@@ -335,6 +336,7 @@ export function sanitizeUsersOutputSync(
     && !isAdamCompareTurn(userMessage);
   const stripScienceAlphaExplainBack = profile === 'alpha'
     && !betaOptedIn
+    && !bookWritingTurn
     && isAdamScienceNatureSynthesisTurn(userMessage);
 
   const kept = proseCraftTurn
@@ -362,6 +364,7 @@ export function sanitizeUsersOutputSync(
   let joined = (Array.isArray(kept) ? kept : []).join('\n\n').trim();
   if (
     !usersTechnicalDirect
+    && !bookWritingTurn
     && (
       isAdamTeachingDepthTurn(userMessage)
       || isAdamScienceNatureSynthesisTurn(userMessage)

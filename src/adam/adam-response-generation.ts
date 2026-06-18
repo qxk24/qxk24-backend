@@ -368,6 +368,18 @@ export function isAdamLayer1BookWritingTurn(
     || threadRootIsBookWritingDiscussion(recentUserMessages, currentMessage);
 }
 
+/** User explicitly asked for philosophical / poetic / melancholic book voice — off by default. */
+const PHILOSOPHICAL_BOOK_VOICE_ASK =
+  /\b(?:gaya\s+(?:falsafah|puitis|melankolik|reflektif|khutbah)|bahasa\s+(?:falsafah|puitis|melankolik|khutbah)|tone\s+(?:philosophical|poetic|melancholic|reflective)|refleksi\s+mendalam|khutbah\s+jiwa|esai\s+(?:puitis|jiwa|melankolik|falsafah)|nada\s+(?:puitis|melankolik|falsafah|reflektif)|metafora\s+(?:banyak|berlapis|dalam|hiperbola)|philosophical\s+(?:tone|style|voice)|poetic\s+(?:tone|style|voice)|melancholic\s+(?:tone|style)|soulful\s+(?:tone|prose))\b/i;
+
+export function userRequestedPhilosophicalBookVoice(
+  message: string,
+  recentUserMessages: string[] = [],
+): boolean {
+  const thread = [...recentUserMessages, message].map((m) => m.trim()).filter(Boolean);
+  return thread.some((m) => PHILOSOPHICAL_BOOK_VOICE_ASK.test(m));
+}
+
 /** Layer 2 product-server redirect — forbidden on all Users (Layer 1) turns. */
 export function paragraphIsAdamProductRedirectLeak(paragraph: string): boolean {
   const t = paragraph.trim();

@@ -179,10 +179,10 @@ describe('Technical follow-up detection', () => {
 });
 
 describe('User umum channel search gate', () => {
-  it('enables factual_question on teaching asks — skips salam only', () => {
+  it('skips search on stable teaching explains — still searches live stats', () => {
     expect(
       getWebSearchGateReason('Boleh terangkan tentang beras', { userUmumChannelGate: true }),
-    ).toBe('factual_question');
+    ).toBeNull();
     expect(
       getWebSearchGateReason('SALAM', { usersFounderParity: true }),
     ).toBeNull();

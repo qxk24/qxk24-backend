@@ -86,18 +86,27 @@ describe('getWebSearchGateReason — User umum channel', () => {
     expect(getWebSearchGateReason('Siapa presiden sekarang?', USER_UMUM)).toBe('current_affairs');
   });
 
-  it('searches on teaching-depth science ask (factual_question, not blanket substantive)', () => {
-    expect(getWebSearchGateReason('Apa itu fotosintesis?', USER_UMUM)).toBe('factual_question');
+  it('skips web search on pedagogy and curriculum concepts', () => {
+    expect(getWebSearchGateReason('Apa itu KBAT?', USER_UMUM)).toBeNull();
+    expect(getWebSearchGateReason('Terangkan taksonomi Bloom.', USER_UMUM)).toBeNull();
+    expect(
+      shouldUsersUseSearchFirstFlow(false, getWebSearchGateReason('Apa itu KBAT?', USER_UMUM)),
+    ).toBe(false);
+  });
+
+  it('skips web search on stable textbook explain asks', () => {
+    expect(getWebSearchGateReason('Apa itu fotosintesis?', USER_UMUM)).toBeNull();
     expect(
       shouldUsersUseSearchFirstFlow(
         false,
         getWebSearchGateReason('Apa itu fotosintesis?', USER_UMUM),
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
-  it('legacy path without userUmumChannelGate still ends at factual_question fallback', () => {
-    expect(getWebSearchGateReason('Apa itu fotosintesis?')).toBe('factual_question');
+  it('legacy path without userUmumChannelGate skips blanket substantive search', () => {
+    expect(getWebSearchGateReason('Apa itu fotosintesis?')).toBeNull();
+    expect(getWebSearchGateReason('Terangkan kenapa manusia perlu tidur setiap malam')).toBeNull();
   });
 });
 
@@ -111,6 +120,7 @@ describe('prompt builder — book writing discussion overlay', () => {
       founderStudentsBlock: '',
     });
     expect(prompt).toContain('BOOK WRITING (this turn)');
+    expect(prompt).toContain('FORMAL / ILMIAH');
     expect(prompt).toContain('FORBIDDEN: ADAM Jurnal');
     expect(prompt).not.toContain('MANUSCRIPT EXPORT (this turn)');
   });

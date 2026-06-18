@@ -318,4 +318,19 @@ describe('User umum perlaksanaan — companion until done', () => {
     expect(out).toMatch(/konsep|struktur|Mencari Damai/i);
     expect(out).toMatch(/Cadangan:/i);
   });
+
+  it('strips melancholic cosmos-book essay on formal science book thread', () => {
+    const leak = [
+      'Tajuk Rahsia Alam Semesta dan Manusia bukan sekadar judul, ia adalah satu seruan halus dari jiwa.',
+      'Atom karbon dalam nafas kita pernah berada di pusat supernova — warisan hidupnya yang menangis dalam tubuh manusia.',
+      'Mari kita teruskan perjalanan ini bukan dengan kepala yang penuh soalan, tetapi dengan dada yang terbuka.',
+      'Adakah anda mahu saya mulakan dengan struktur bab?',
+    ].join('\n\n');
+    const root = 'Saya ingin menulis buku Rahsia Alam Semesta dan Manusia. Boleh berikan pendahuluan?';
+    const out = sanitizeUsersOutputSync(leak, 'Ya, kembangkan pendahuluan', [root]);
+    expect(out).not.toMatch(/seruan halus dari jiwa/i);
+    expect(out).not.toMatch(/warisan hidupnya/i);
+    expect(out).toMatch(/merancang buku|tema|bab/i);
+    expect(out).toMatch(/^1\./m);
+  });
 });

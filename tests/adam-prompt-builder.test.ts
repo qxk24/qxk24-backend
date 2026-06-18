@@ -85,6 +85,51 @@ describe('buildAdamChatSystemPrompt — unified ADAM (student = founder voice)',
     expect(prompt).not.toContain('TEACHING DEPTH (this turn)');
   });
 
+  it('injects pedagogy classroom voice for KBAT — not melancholic soul essay', () => {
+    const prompt = buildAdamChatSystemPrompt({
+      mode:                 'TEACHING',
+      isFounder:            false,
+      participantName:      'Ahmad',
+      founderStudentsBlock: '',
+      usersKnowledgeTier: 1,
+      userMessage:          'Apa itu KBAT dan bagaimana lima arasnya?',
+    });
+    expect(prompt).toContain('PEDAGOGY / KURIKULUM TURN');
+    expect(prompt).toMatch(/guru kelas|BUKAN esei melankolik/i);
+    expect(prompt).toContain('USERS DOMAIN — ACADEMIC');
+  });
+
+  it('book writing defaults to formal-ilmiah — not science-teaching melancholic essay', () => {
+    const ask =
+      'Saya ingin menulis buku Rahsia Alam Semesta dan Manusia. Boleh berikan pendahuluan?';
+    const prompt = buildAdamChatSystemPrompt({
+      mode:                 'TEACHING',
+      isFounder:            false,
+      participantName:      'IIRS',
+      founderStudentsBlock: '',
+      usersKnowledgeTier: 1,
+      userMessage:          ask,
+    });
+    expect(prompt).toContain('BOOK WRITING (this turn)');
+    expect(prompt).toContain('LAYER 1 BOOK WRITING — FORMAL / ILMIAH');
+    expect(prompt).not.toContain('TEACHING DEPTH (this turn)');
+    expect(prompt).not.toContain('TEKNIKAL + ESEI = C');
+  });
+
+  it('book writing philosophy voice only on explicit opt-in', () => {
+    const ask = 'Saya menulis buku tentang damai — guna gaya falsafah melankolik untuk pendahuluan.';
+    const prompt = buildAdamChatSystemPrompt({
+      mode:                 'TEACHING',
+      isFounder:            false,
+      participantName:      'IIRS',
+      founderStudentsBlock: '',
+      usersKnowledgeTier: 1,
+      userMessage:          ask,
+    });
+    expect(prompt).toContain('PHILOSOPHY OPT-IN');
+    expect(prompt).not.toContain('LAYER 1 BOOK WRITING — FORMAL / ILMIAH');
+  });
+
   it('founder stack still includes conversation guardrails', () => {
     const prompt = buildAdamChatSystemPrompt({
       mode:            'TEACHING',

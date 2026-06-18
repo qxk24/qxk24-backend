@@ -33,6 +33,7 @@ import {
   isAdamLanguagesTurn,
   isAdamMathematicsTurn,
   isAdamMoralEthicsTurn,
+  isAdamPedagogyKonvensionalTurn,
 } from './adam-domain-detectors';
 import {
   isAdamCivicsGovernmentTurn,
@@ -85,7 +86,7 @@ const BIOETHICS_DOMAIN =
   /\b(?:CRISPR|crispr-cas9|penyuntingan\s+gen|genome\s+edit|gene\s+edit|germline|sel\s+somatik|somatic\s+(?:cell\s+)?edit|bioetika|bioethics|embrio\s+manusia|human\s+embryo|designer\s+baby|bayi\s+rekaan)\b/i;
 
 const ACADEMIC_DOMAIN =
-  /\b(?:IMRaD|metodologi\s+penyelidikan|research\s+method|literature\s+review|kertas\s+kerja|thesis|disertasi|jurnal\s+akademik|peer\s+review|hipotesis|hypothesis|abstrak\s+jurnal|rujukan\s+APA|sitasi|plagiarisme|plagiarism|kajian\s+literatur|systematic\s+review|disertasi\s+phd|penulisan\s+akademik)\b/i;
+  /\b(?:IMRaD|metodologi\s+penyelidikan|research\s+method|literature\s+review|kertas\s+kerja|thesis|disertasi|jurnal\s+akademik|peer\s+review|hipotesis|hypothesis|abstrak\s+jurnal|rujukan\s+APA|sitasi|plagiarisme|plagiarism|kajian\s+literatur|systematic\s+review|disertasi\s+phd|penulisan\s+akademik|KBAT|kemahiran\s+berfikir\s+aras\s+tinggi|HOTS|higher\s+order\s+thinking|Bloom(?:'s)?\s+taxonomy|taksonomi\s+bloom|pedagogi|pedagogy|PdPc|KSSM|KSSR)\b/i;
 
 const FORMAL_LAYOUT_FACETS: ReadonlySet<AdamUsersDomainFacet> = new Set([
   'economics',
@@ -164,7 +165,7 @@ function resolveDomainFromBody(body: string): AdamUsersDomainFacet {
   if (isAdamMathematicsTurn(t)) return 'mathematics';
   if (isAdamLanguagesTurn(t)) return 'languages';
   if (TECHNOLOGY_DOMAIN.test(t)) return 'technology';
-  if (ACADEMIC_DOMAIN.test(t)) return 'academic';
+  if (ACADEMIC_DOMAIN.test(t) || isAdamPedagogyKonvensionalTurn(t)) return 'academic';
   if (isAdamArtsMusicTurn(t)) return 'arts-music';
   if (isAdamMoralEthicsTurn(t)) return 'moral-ethics';
   return 'general';

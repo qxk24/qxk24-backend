@@ -73,20 +73,23 @@ describe('Life emotion turns — delivery overlay', () => {
     expect(isLifeEmotionTurn('Berapa tork Viva Elite?')).toBe(false);
   });
 
-  it('founder still runs search gate for life emotion substantive turns', () => {
-    expect(getWebSearchGateReason('Kenapa saya rasa cemas sebelum tidur?')).toBe('factual_question');
+  it('founder skips search on life emotion substantive turns without live-fact gate', () => {
+    expect(getWebSearchGateReason('Kenapa saya rasa cemas sebelum tidur?')).toBeNull();
   });
 
-  it('user umum channel searches on factual teaching — skips life wellbeing coaching', () => {
+  it('user umum channel skips search on life wellbeing and stable curriculum explains', () => {
     expect(
       getWebSearchGateReason('Kenapa saya rasa cemas sebelum tidur?', { userUmumChannelGate: true }),
     ).toBeNull();
     expect(
       getWebSearchGateReason('Apa itu komunikasi?', { userUmumChannelGate: true }),
-    ).toBe('factual_question');
+    ).toBeNull();
     expect(
       getWebSearchGateReason('Kenapa langit kelihatan biru pada waktu petang?', { userUmumChannelGate: true }),
-    ).toBe('factual_question');
+    ).toBeNull();
+    expect(
+      getWebSearchGateReason('Apa itu KBAT?', { userUmumChannelGate: true }),
+    ).toBeNull();
   });
 
   it('student still searches for specs, corrections, and explicit ask', () => {

@@ -29,6 +29,7 @@ import {
   isAdamLayer1ManuscriptExportTurn,
   isAdamLayer1BookWritingTurn,
   isAdamPracticalAdvisoryTurn,
+  userRequestedPhilosophicalBookVoice,
   isAdamSimpleArithmeticTurn,
   isAdamSimpleFactualTurn,
   isAdamSubstantiveTurn,
@@ -634,12 +635,22 @@ function outputIsResidualEnglishBookStub(
   return en >= 2 && bm < 2;
 }
 
+/** Melancholic / hyperbolic book-writing essay — default formal voice should drop these. */
+export function paragraphIsMelancholicBookWritingLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/^(?:\d+[.)]|\-)\s/.test(t)) return false;
+  if (/^(?:#{1,6}\s|\*\*Cadangan|\*\*Konsep|\*\*Struktur)/.test(t)) return false;
+  return /\b(?:seruan halus dari jiwa|bukan sekadar judul|tangga cahaya|titisan embun|napas dari pendahuluan|ombak yang tidak berhenti|benih bukan hanya di permukaan|memori langit yang menangis|warisan hidupnya|bisikan halus|bergetar seperti senar gitar|pintu masuk yang tenang|bukan untuk mempercepat penulisan|sahabat yang duduk di bawah langit|kelanjutan napas|lapisan yang lebih subur|penyerahan: bukan|undangan ke kedalaman jiwa|soalan di hati|ruang di mana akal dibuka, rasa dihidupkan, dan ruh diingatkan|khutbah jiwa|esai puitis|metafora air|sungai yang dalam|jiwa yang ingin kembali ke asal)\b/i.test(t);
+}
+
 /** Poetic preamble before practical steps — drop whole paragraph. */
 export function paragraphIsUserUmumPoeticPreambleLeak(paragraph: string): boolean {
   const t = paragraph.trim();
   if (!t) return false;
   if (/^(?:\d+[.)]|\-)\s/.test(t)) return false;
   if (/^(?:Pertama|Kedua|Ketiga),/i.test(t)) return false;
+  if (paragraphIsMelancholicBookWritingLeak(t)) return true;
   if (paragraphIsUserUmumCoachingFrameworkLeak(t)) return true;
   if (/\bbukan sekadar\b/i.test(t)) {
     // α biology/count depth — hukum alam, taksonomi (Answer Constitution v2; not coaching preamble).
@@ -793,6 +804,8 @@ export function repairUserUmumCompanionOutput(
       outputHasUserUmumBookFrameworkLeak(out)
       || outputHasEnglishPoeticBookEssayLeak(out, userMessage, recentUserMessages)
       || outputIsResidualEnglishBookStub(out, userMessage, recentUserMessages)
+      || (!userRequestedPhilosophicalBookVoice(userMessage, recentUserMessages)
+        && out.split(/\n{2,}/).some((p) => paragraphIsMelancholicBookWritingLeak(p)))
       || /\b(?:Would you like|interwoven threads|hold the space|Let me begin|thank you, your request|Damai sebagai)\b/i.test(out)
       || (
         !/^\s*\d+[.)]\s/m.test(out)

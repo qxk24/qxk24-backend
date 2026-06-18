@@ -40,6 +40,7 @@ import {
   ADAM_MEMORY_HONESTY_WEB_SEARCH_OVERRIDE,
   LAYER1_CHAT_ONLY_PROMPT,
   ADAM_LAYER1_BOOK_WRITING_DISCUSSION_TURN,
+  ADAM_LAYER1_BOOK_WRITING_CADANGAN_TURN,
   USERS_MODE_PROMPT,
   webSearchPromptNeedsMemoryOverride,
 } from './adam-users-prompts';
@@ -61,6 +62,7 @@ import {
   ADAM_ALGORITHM_TEACHING_OUTPUT_LOCK,
 } from './adam-users-constitution';
 import { buildUsersDomainPromptBlock, buildUsersDomainFormalLayoutBlock, buildUsersDomainUniversalProseBlock } from './adam-users-domain-prompts';
+import { isAdamPedagogyKonvensionalTurn } from './adam-domain-detectors';
 import {
   resolveAdamUsersDomainFacet,
   usersDomainUsesTeachingPack,
@@ -112,6 +114,7 @@ import {
   isAdamLayer1BookWritingTurn,
   isAdamLayer1ManuscriptExportTurn,
   threadRootIsPracticalAdvisory,
+  userRequestedPhilosophicalBookVoice,
 } from './adam-response-generation';
 import {
   ADAM_PROSE_CRAFT_ESSAY_LAYOUT,
@@ -134,6 +137,9 @@ import {
   ADAM_HISTORY_SYNTHESIS_TURN,
   ADAM_TECHNICAL_KONVENSIONAL_DISPLAY_TURN,
   ADAM_GENERAL_PROSE_KONVENSIONAL_TURN,
+  ADAM_PEDAGOGY_CLASSROOM_TURN,
+  ADAM_LAYER1_BOOK_WRITING_FORMAL_TURN,
+  ADAM_LAYER1_BOOK_WRITING_PHILOSOPHY_TURN,
   ADAM_VISUAL_DRAW_TURN,
   ADAM_UNIVERSAL_ALPHA_TURN,
   ADAM_STRUCTURED_SPEC_FORMAT,
@@ -443,6 +449,10 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     parts.push(ADAM_CURRENT_AFFAIRS_TURN);
   }
 
+  if (params.userMessage?.trim() && isAdamPedagogyKonvensionalTurn(params.userMessage)) {
+    parts.push(ADAM_PEDAGOGY_CLASSROOM_TURN);
+  }
+
   if (params.userMessage?.trim()) {
     const founderAlphaKonvensional = params.isFounder
       && answerProfile === 'alpha'
@@ -508,6 +518,9 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     const domainTeachingPack = params.turnGate
       ? params.turnGate.flags.domainTeachingPack
       : usersDomainUsesTeachingPack(domainFacet);
+    const bookWritingTurn = isAdamLayer1BookWritingTurn(recentUser, params.userMessage);
+    const bookPhilosophyOptIn = bookWritingTurn
+      && userRequestedPhilosophicalBookVoice(params.userMessage, recentUser);
 
     const pushUsersShapeBlocks = () => {
       const userMsg = params.userMessage ?? '';
@@ -538,16 +551,24 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
 
     if (isAdamProseCraftTurn(params.userMessage)) {
       parts.push(ADAM_PROSE_CRAFT_TURN);
-    } else if (isAdamLayer1BookWritingTurn(recentUser, params.userMessage)
-      || isAdamLayer1ManuscriptExportTurn(params.userMessage)) {
+    } else if (bookWritingTurn || isAdamLayer1ManuscriptExportTurn(params.userMessage)) {
       parts.push(ADAM_LAYER1_BOOK_WRITING_DISCUSSION_TURN);
+      if (bookPhilosophyOptIn) {
+        parts.push(ADAM_LAYER1_BOOK_WRITING_PHILOSOPHY_TURN);
+      } else {
+        parts.push(ADAM_LAYER1_BOOK_WRITING_FORMAL_TURN);
+      }
       parts.push(ADAM_USER_UMUM_COMPANION_VOICE_HOLD);
     }
     if (perlaksanaanTurn) {
       parts.push(ADAM_USER_UMUM_PERLAKSANAAN_TURN);
     } else if (cadanganTurn) {
-      parts.push(ADAM_USER_UMUM_CADANGAN_TURN);
-    } else if (domainTeachingPack) {
+      if (bookWritingTurn) {
+        parts.push(ADAM_LAYER1_BOOK_WRITING_CADANGAN_TURN);
+      } else {
+        parts.push(ADAM_USER_UMUM_CADANGAN_TURN);
+      }
+    } else if (domainTeachingPack && !bookWritingTurn) {
       const domainBlock = buildUsersDomainPromptBlock(domainFacet);
       if (domainBlock) parts.push(domainBlock);
       if (params.answerPlan?.answerShape?.formalDataLayout) {
@@ -596,8 +617,11 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
       } else if (isAdamContinuationDepthTurn(params.userMessage)) {
         parts.push(ADAM_USERS_CONTINUATION_DEPTH_TURN);
       } else if (
-        isAdamTeachingDepthTurn(params.userMessage)
-        || isAdamScienceNatureSynthesisTurn(params.userMessage)
+        !bookWritingTurn
+        && (
+          isAdamTeachingDepthTurn(params.userMessage)
+          || isAdamScienceNatureSynthesisTurn(params.userMessage)
+        )
       ) {
         parts.push(ADAM_USERS_TEACHING_DEPTH_TURN);
         parts.push(ADAM_USERS_TEACHING_STRUCTURED_LAYOUT);
@@ -653,31 +677,35 @@ UNIVERSAL SCHOLAR VOICE (User turn — default):
 
   if (!params.isFounder && !teachingLearnerTurn && params.userMessage?.trim()) {
     const locale = detectLanguage(params.userMessage.trim()).detectedLocale;
+    const bookWritingLocale = isAdamLayer1BookWritingTurn(
+      params.recentUserMessages ?? [],
+      params.userMessage,
+    );
     const usersDirectRoute = params.turnGate
       ? params.turnGate.flags.usersTechnicalFinalize
       : Boolean(params.answerPlan && isUsersTechnicalPlan(params.answerPlan));
-    const usersTechnicalLegacy = !params.turnGate && !usersDirectRoute && (
+    const usersTechnicalLegacy = !bookWritingLocale && !params.turnGate && !usersDirectRoute && (
       isAdamTechnicalKonvensionalDisplayTurn(params.userMessage)
       || isAdamTeachingDepthTurn(params.userMessage)
       || isAdamScienceNatureSynthesisTurn(params.userMessage)
       || isAdamCompareTurn(params.userMessage)
     );
     if (locale === 'ms' || locale === 'mixed-ms-en') {
-      if (!usersDirectRoute && usersTechnicalLegacy) {
+      if (!usersDirectRoute && usersTechnicalLegacy && !bookWritingLocale) {
         parts.push(ADAM_UNIVERSAL_SCHOLAR_MALAY_TECHNICAL_LAYOUT);
       } else if (!usersDirectRoute && isAdamProseCraftTurn(params.userMessage)) {
         parts.push(ADAM_PROSE_CRAFT_ESSAY_LAYOUT);
-      } else if (!usersDirectRoute) {
+      } else if (!usersDirectRoute && !bookWritingLocale) {
         parts.push(ADAM_UNIVERSAL_SCHOLAR_MALAY_LAYOUT);
       }
     }
     if (usersDirectRoute) {
       // Users answerPlan route — DIRECT_TECHNICAL blocks only (no Ringkasnya essence law).
-    } else if (usersTechnicalLegacy) {
+    } else if (usersTechnicalLegacy && !bookWritingLocale) {
       parts.push(ADAM_TECHNICAL_KONVENSIONAL_DISPLAY_TURN);
     } else if (isAdamProseCraftTurn(params.userMessage)) {
       // ADAM_PROSE_CRAFT_TURN already injected — no hybrid bullet layout.
-    } else if (isAdamGeneralProseKonvensionalTurn(params.userMessage)) {
+    } else if (!bookWritingLocale && isAdamGeneralProseKonvensionalTurn(params.userMessage)) {
       parts.push(ADAM_GENERAL_PROSE_KONVENSIONAL_TURN);
     }
   }
@@ -897,9 +925,16 @@ ADAM GOLD STANDARD — ALGORITHM TEACHING (mandatory):
       params.recentUserMessages ?? [],
     );
     parts.push(USERS_MODE_PROMPT);
-    if (isAdamLayer1BookWritingTurn(params.recentUserMessages ?? [], userMessage)
-      || isAdamLayer1ManuscriptExportTurn(userMessage)) {
+    const bookWritingTail = isAdamLayer1BookWritingTurn(params.recentUserMessages ?? [], userMessage);
+    const bookPhilosophyTail = bookWritingTail
+      && userRequestedPhilosophicalBookVoice(userMessage, params.recentUserMessages ?? []);
+    if (bookWritingTail || isAdamLayer1ManuscriptExportTurn(userMessage)) {
       parts.push(ADAM_LAYER1_BOOK_WRITING_DISCUSSION_TURN);
+      if (bookPhilosophyTail) {
+        parts.push(ADAM_LAYER1_BOOK_WRITING_PHILOSOPHY_TURN);
+      } else {
+        parts.push(ADAM_LAYER1_BOOK_WRITING_FORMAL_TURN);
+      }
       parts.push(ADAM_USER_UMUM_COMPANION_VOICE_HOLD);
     }
     if (profile === 'beta') {
