@@ -14,16 +14,16 @@
 
 import { describe, expect, it } from '@jest/globals';
 import { buildAdamChatSystemPrompt } from '../src/adam/adam-prompt-builder';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 import {
   paragraphIsConstitutionalValuesEssayLeak,
   paragraphIsUnsolicitedFaithSermon,
-} from '../src/adam/adam-student-output-law';
+} from '../src/adam/adam-users-output-law';
 import {
   UNIVERSAL_SCHOLAR_DOOR_EN,
   buildThreeTierTurnOverlay,
   paragraphIsUniversalScholarDoorOffer,
-  resolveStudentKnowledgeTier,
+  resolveUsersKnowledgeTier,
   userOptedIntoQuranTier,
 } from '../src/adam/adam-universal-scholar';
 
@@ -48,15 +48,15 @@ describe('Universal Scholar practical thread guards', () => {
   it('does not treat spiritual accountability acceptance as Quran tier', () => {
     expect(userOptedIntoQuranTier('Yes, spiritual accountability')).toBe(false);
     const prior = `Day-to-day analyst work.\n\n${UNIVERSAL_SCHOLAR_DOOR_EN}`;
-    expect(resolveStudentKnowledgeTier('Yes, spiritual accountability', [DATA_ANALYST_Q], [prior])).toBe(2);
-    expect(resolveStudentKnowledgeTier('Nak rujukan ayat Quran', [DATA_ANALYST_Q], [prior])).toBe(3);
+    expect(resolveUsersKnowledgeTier('Yes, spiritual accountability', [DATA_ANALYST_Q], [prior])).toBe(2);
+    expect(resolveUsersKnowledgeTier('Nak rujukan ayat Quran', [DATA_ANALYST_Q], [prior])).toBe(3);
   });
 
   it('strips values-trifold and faith essays on practical thread follow-ups', () => {
     expect(paragraphIsConstitutionalValuesEssayLeak(REPLY2_MANIFESTO)).toBe(true);
     expect(paragraphIsUnsolicitedFaithSermon(REPLY4_FAITH)).toBe(true);
 
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       `They use SQL daily.\n\n${REPLY2_MANIFESTO}\n\n${REPLY4_FAITH}\n\n${BAD_DOOR}`,
       'Yes, tell me more',
       [DATA_ANALYST_Q],
@@ -76,7 +76,7 @@ describe('Universal Scholar practical thread guards', () => {
       recentUserMessages:      [DATA_ANALYST_Q],
       recentAssistantMessages: [`Overview.\n\n${UNIVERSAL_SCHOLAR_DOOR_EN}`],
       founderStudentsBlock:    '',
-      studentKnowledgeTier:    2,
+      usersKnowledgeTier:    2,
     });
     expect(prompt).toMatch(/PRACTICAL ADVISORY TIER-2/i);
     expect(prompt).toMatch(/ACTIVE TIER THIS TURN: 2 — PRACTICAL DEPTH/i);

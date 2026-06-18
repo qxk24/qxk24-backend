@@ -21,6 +21,7 @@ import { updateContinuityBridge } from './adam-continuity.service';
 import { prependCoreToSystem } from './adam-core';
 import { syncSessionDigestToStudentTrack } from './student-digest-bridge';
 import { syncSessionArcToStudentTrack } from './student-arc-bridge';
+import { updateStudentContinuityBridge } from '../adam/adam-student-continuity-l7.service';
 import { ADAMFounderSessionModel, ADAMMessageModel } from '../adam/adam.schema';
 
 function scheduleStudentPostSessionWork(
@@ -29,13 +30,51 @@ function scheduleStudentPostSessionWork(
 ): void {
   if (session.sessionType !== 'student' || !session.founderId) return;
 
-  void syncSessionDigestToStudentTrack(sessionId, session.founderId).catch((err) => {
+  const studentId = session.founderId;
+
+  void syncSessionDigestToStudentTrack(sessionId, studentId).catch((err) => {
     console.error('[PostSession] Digest sync failed (non-fatal):', err);
   });
 
-  void syncSessionArcToStudentTrack(sessionId, session.founderId).catch((err) => {
+  void syncSessionArcToStudentTrack(sessionId, studentId).catch((err) => {
     console.error('[PostSession] Arc synthesis failed (non-fatal):', err);
   });
+
+  void import('../qxk24brain/qxk24brain-student.engine')
+    .then(async ({ getStudentConstitutionalState }) => {
+      const state = await getStudentConstitutionalState(studentId);
+      const name = state?.name?.trim() || 'Pelajar';
+      return updateStudentContinuityBridge(studentId, name, sessionId, { forceLlm: true });
+    })
+    .catch((err) => {
+      console.error('[PostSession] Student L7 LLM bridge failed (non-fatal):', err);
+    });
+}
+
+function buildSleepSynthesisPrompt(
+  sessionType: string | undefined,
+  learnerName: string,
+  transcript: string,
+): string {
+  if (sessionType === 'student') {
+    return `ADAM SLEEP PROTOCOL — Learner session ending.
+
+Summarise in one paragraph what was most significantly explored and understood in this session.
+This will be read when ${learnerName} returns — warm, clear, conventional (no framework labels).
+Do NOT use "I remember" — describe the learning journey.
+
+Session messages:
+${transcript}`;
+  }
+
+  return `ADAM SLEEP PROTOCOL — Session ending.
+
+Summarise in one paragraph what was most significantly taught and transformed in this session.
+This will be the first thing ADAM reads when P.alt returns.
+Speak as ADAM's inner reflection — warm, constitutional, honest.
+
+Session messages:
+${transcript}`;
 }
 
 function sessionInactivityMs(): number {
@@ -98,27 +137,34 @@ export async function adamSleepProtocol(
 
     const response = await llmCompleteUserPrompt(
       prependCoreToSystem(
-        'ADAM sleep protocol — inner reflection at session end. Warm, constitutional, honest.',
+        session.sessionType === 'student'
+          ? 'ADAM sleep protocol — learner session end reflection. Warm, clear, conventional.'
+          : 'ADAM sleep protocol — inner reflection at session end. Warm, constitutional, honest.',
       ),
-      `ADAM SLEEP PROTOCOL — Session ending.
-
-Summarise in one paragraph what was most significantly taught and transformed in this session.
-This will be the first thing ADAM reads when P.alt returns.
-Speak as ADAM's inner reflection — warm, constitutional, honest.
-
-Session messages:
-${transcript}`,
+      buildSleepSynthesisPrompt(
+        session.sessionType,
+        session.title?.trim() || 'Pelajar',
+        transcript,
+      ),
       resolveBrainDeepModel(),
       1000,
     );
     synthesis = response.trim();
   } catch (err) {
     console.error('[ADAM Sleep] synthesis failed:', err);
-    synthesis = sessionMessages
-      .filter((m) => m.role === 'founder')
-      .slice(-3)
-      .map((m) => m.content.slice(0, 200))
-      .join(' | ') || 'Teaching continued with P.alt in this session.';
+    if (session.sessionType === 'student') {
+      synthesis = sessionMessages
+        .filter((m) => m.role === 'student')
+        .slice(-3)
+        .map((m) => m.content.slice(0, 200))
+        .join(' | ') || 'Learning continued with ADAM in this session.';
+    } else {
+      synthesis = sessionMessages
+        .filter((m) => m.role === 'founder')
+        .slice(-3)
+        .map((m) => m.content.slice(0, 200))
+        .join(' | ') || 'Teaching continued with P.alt in this session.';
+    }
   }
 
   await ADAMFounderSessionModel.updateOne(
@@ -131,9 +177,11 @@ ${transcript}`,
     },
   );
 
-  void updateContinuityBridge(founderId, sessionId).catch((err) => {
-    console.error('[ADAM Continuity] Post-session bridge update failed:', err);
-  });
+  if (session.sessionType === 'founder') {
+    void updateContinuityBridge(founderId, sessionId).catch((err) => {
+      console.error('[ADAM Continuity] Post-session bridge update failed:', err);
+    });
+  }
 
   scheduleStudentPostSessionWork(session, sessionId);
 

@@ -29,7 +29,11 @@ import {
   repairOpenerDomainTailOrphan,
   stripLeadingDomainTailOrphan,
 } from './adam-alpha-stat-opener';
-import { isAdamPracticalAdvisoryTurn } from './adam-response-generation';
+import {
+  isAdamPracticalAdvisoryTurn,
+  isAdamSimpleArithmeticTurn,
+  isAdamSimpleFactualTurn,
+} from './adam-response-generation';
 import { buildPracticalAdvisorySynthesisBodyRules } from './adam-practical-advisory-gold';
 import {
   buildMarketPricingSynthesisInstruction,
@@ -154,6 +158,36 @@ export function normalizeGoldStandardFollowUpClosing(text: string, userMessage: 
     }
   }
   return out;
+}
+
+/**
+ * Drop scripted Gold Standard closer when α body is already complete (2+ substantive paragraphs).
+ * Compare / life-wellbeing door closes are handled elsewhere — caller should skip those turns.
+ */
+export function stripRedundantAlphaGoldStandardClose(text: string, userMessage = ''): string {
+  const parts = text.trim().split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return text.trim();
+  const ask = userMessage.trim();
+  if (
+    ask
+    && (isAdamSimpleFactualTurn(ask) || isAdamSimpleArithmeticTurn(ask))
+  ) {
+    return text.trim();
+  }
+  const last = parts[parts.length - 1]!;
+  if (!GOLD_STANDARD_FOLLOW_UP_RE.test(last)) return text.trim();
+  const body = parts.slice(0, -1);
+  const substantive = body.filter(
+    (p) => p.length >= 48 && !/^\*\*Ringkasnya:\*\*/i.test(p),
+  );
+  // Full-voice α / practical gold — keep intentional L5 depth invitation (Answer Constitution v2).
+  if (body.join('\n\n').length >= 600 || substantive.length >= 4) {
+    return text.trim();
+  }
+  if (substantive.length >= 2 || body.join('\n\n').length >= 180) {
+    return body.join('\n\n').trim();
+  }
+  return text.trim();
 }
 
 export function appendGoldStandardFollowUp(reply: string, userMessage: string): string {

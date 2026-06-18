@@ -6,12 +6,7 @@
  * Platform    : Backend (TypeScript)
  * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
- * Created     : 2026-06-14
- * ============================================================
- * CONSTITUTIONAL DECLARATION:
- * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
- * belongs to no human. It flows like water to all.
+ * Created     : 2026-06-17
  * ============================================================
  */
 
@@ -21,22 +16,25 @@ import { describe, expect, it } from '@jest/globals';
 import { resolveAdamTurnDisplayForSave } from '../src/adam/adam-stream-display-merge';
 
 describe('resolveAdamTurnDisplayForSave', () => {
-  it('keeps streamed teaching explain-back when repair swaps unrelated summary', () => {
+  it('keeps repaired body when konvensional video tag was injected', () => {
     const streamed = [
-      'Bismillahirahmanirahim.',
-      'P.alt, ABA ialah asas pola X — segi empat sama sisi dan kiub.',
-      'Huraian penuh hukum berkaitan dibawa ke Bab 3.',
-    ].join(' ');
-    const repaired = [
-      'Bismillahirahmanirahim.',
-      'P.alt, Bab 2 Formula XYZ ialah Faktor (X, Y, Z) — X pelaku, Y Pencipta, Z medan.',
-    ].join(' ');
-    expect(resolveAdamTurnDisplayForSave(streamed, repaired)).toBe(streamed);
-  });
-
-  it('accepts inquiry append on streamed explain-back', () => {
-    const streamed = `${'P.alt, ABA ialah asas pola X. '.repeat(15)}`;
-    const withInquiry = `${streamed}\n\n**[TEACHING INQUIRY — SITUASI NYATA]**\n\n1. Situasi nyata?`;
-    expect(resolveAdamTurnDisplayForSave(streamed, withInquiry)).toBe(withInquiry.trim());
+      'Hai QA, fotosintesis ialah proses biokimia di mana tumbuhan hijau menghasilkan glukosa.',
+      '',
+      '<adam-technical-diagram>flowchart LR\nA-->B\n</adam-technical-diagram>',
+      '',
+      '<adam-chat-image url="https://upload.wikimedia.org/wikipedia/commons/8/84/Fotosintesis.jpg" alt="Fotosintesis" />',
+      '',
+      'Cahaya matahari bukan sekadar sumber tenaga fizikal.',
+      '',
+      'Mahu saya jelaskan lebih lanjut?',
+    ].join('\n');
+    const repaired = streamed.replace(
+      /(<adam-chat-image\b[^>]*\/?>)/i,
+      '$1\n\n<adam-chat-video url="https://www.youtube.com/watch?v=53v-bKx53Lo" title="Fotosintesis" />',
+    );
+    const out = resolveAdamTurnDisplayForSave(streamed, repaired, {
+      userMessage: 'Apa itu fotosintesis?',
+    });
+    expect(out).toMatch(/<adam-chat-video\b[^>]*53v-bKx53Lo/i);
   });
 });

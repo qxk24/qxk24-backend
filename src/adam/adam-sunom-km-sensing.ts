@@ -27,7 +27,7 @@ export type KmPeringkat = 'sa' | 'du' | 'ga' | 'pa' | 'ma' | 'na' | 'tu';
 export type KmEmotionalLoad = 'low' | 'medium' | 'high';
 
 export interface KmSensingSnapshot {
-  /** KM peringkat — complexity of student turn. */
+  /** KM peringkat — complexity of Users turn. */
   peringkat: KmPeringkat;
   /** KM is always passive 90° view per HISAL Bab 6. */
   sudutPasif90: true;
@@ -100,7 +100,7 @@ export function readKmStudentSensing(
   };
 }
 
-/** Optional system prompt block — KM sudut pasif for student turns. */
+/** Optional system prompt block — KM sudut pasif for Users turns. */
 export function buildKmSensingPromptBlock(
   message: string,
   recentUserMessages: string[] = [],

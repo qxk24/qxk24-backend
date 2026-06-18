@@ -28,7 +28,7 @@ export {
   ADAM_SYSTEM_PROMPT,
   CONSULT_PHRASE,
   FOUNDER_STUDENTS_AWARENESS,
-  STUDENT_MODE_PROMPT,
+  USERS_MODE_PROMPT,
 } from './adam-system-prompts';
 
 export {

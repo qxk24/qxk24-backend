@@ -68,6 +68,6 @@ export function detectContextRecallLoaded(
   messages: ReadonlyArray<{ content?: string }>,
 ): boolean {
   return messages.some((m) =>
-    /\[(?:UNIVERSAL TEACHING RECALL|KONVENSIONAL BRAIN RECALL|P\.ALT TEACHING RECORDS)/i.test(m.content ?? ''),
+    /\[(?:UNIVERSAL TEACHING RECALL|KONVENSIONAL BRAIN RECALL|P\.ALT TEACHING RECORDS|CONSTITUTIONAL BACKBONE|METERAI — Formula XYZ)/i.test(m.content ?? ''),
   );
 }

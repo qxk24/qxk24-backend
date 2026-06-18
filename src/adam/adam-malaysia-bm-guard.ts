@@ -20,6 +20,7 @@ import {
   getBmLexiconDriftMarkerPattern,
   isBmLexiconLoaded,
 } from '../malay-malaysia/bm-lexicon.service';
+import { ADAM_BM_VOICE_IDENTITY } from './adam-language-prompts';
 import type { SupportedLocale } from './adam-language-mirror.service';
 import {
   restoreAdamVisualDrawBlocks,
@@ -36,15 +37,14 @@ import {
 
 /** Injected into language-mirror block for Malay turns. */
 export const MALAYSIA_BM_LANGUAGE_DIRECTIVE = `
-BAHASA MELAYU MALAYSIA (DBP) — BUKAN BAHASA INDONESIA:
-- Tulis Bahasa Melayu Malaysia sahaja. Jangan campur perkataan Indonesia.
-- Contoh wajib: kerana (bukan karena), boleh (bukan bisa), sudah (bukan udah), perlu (bukan butuh),
+BAHASA MELAYU MALAYSIA — BUKAN BAHASA INDONESIA:
+${ADAM_BM_VOICE_IDENTITY}
+- Elak drift Indonesia: kerana (bukan karena), boleh (bukan bisa), sudah (bukan udah), perlu (bukan butuh),
   keperluan (bukan kebutuhan), pelbagai (bukan berbagai),
   teknikal (bukan teknis), berkesan (bukan efektif), cekap (bukan efisien), praktikal (bukan praktis).
 - Dilarang: enggak, nggak, banget, gimana, kayak, dong, sih, aja, deh, memberikan, mengatakan.
-- Ejaan DBP: semak reduplikasi — beramai-ramai (bukan berramai-ramai); jangan gandakan konsonan tidak perlu.
-- Rujukan: surat khabar Malaysia, buku teks sekolah Malaysia, DBP.
-- SUSUNAN: 1–4 perenggan pendek (sama kemas seperti jawapan English) — bukan senarai bullet, bernombor, atau esei Pertama/Kedua/Ketiga.
+- Ejaan Malaysia: semak reduplikasi — beramai-ramai (bukan berramai-ramai); jangan gandakan konsonan tidak perlu.
+- SUSUNAN: perenggan mengalir — boleh pendek atau panjang ikut nada soalan; bukan skeleton Pertama/Kedua/Ketiga.
 `.trim();
 
 /** Fallback when lexicon file is unavailable — core Indonesian drift only. */

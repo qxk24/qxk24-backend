@@ -26,7 +26,7 @@ import {
 } from '../src/adam/adam-factual-grounding';
 import { enrichSunomVerificationInput } from '../src/adam/adam-sunom-pipeline';
 import { sanitizeSunomVerifiedOutput } from '../src/adam/adam-sunom-verification';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 import type { LlmSearchResult } from '../src/llm/llm-types';
 
 const BRAND_HARDCODE = /PERODUA|VIVA|660\s*cc|K3-VE|EJ-VE/i;
@@ -45,7 +45,7 @@ interface PipelineInput {
 async function runStudentVerificationPipeline(input: PipelineInput): Promise<string> {
   const recent = input.recentUserMessages ?? [];
   const precision = resolveTechnicalPrecisionTurn(input.userMessage, recent);
-  let out = sanitizeStudentOutputSync(input.rawModelOutput, input.userMessage, recent);
+  let out = sanitizeUsersOutputSync(input.rawModelOutput, input.userMessage, recent);
   out = prependSearchUnavailableNotice(out, {
     technicalTurn:    precision.isActive,
     searchWasDropped: input.searchDropped === true,

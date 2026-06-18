@@ -16,6 +16,7 @@ import { describe, expect, it } from '@jest/globals';
 import { repairAdamChatImageTagUrls } from '../src/adam/adam-media-guard';
 import {
   imageUrlLooksBroken,
+  isDisplayableChatImageUrl,
   normalizeAdamChatImageUrl,
   wikimediaThumbToDirectUrl,
 } from '../src/adam/adam-chat-image-url';
@@ -45,5 +46,13 @@ describe('adam-chat-image-url', () => {
     const direct = 'https://upload.wikimedia.org/wikipedia/commons/5/55/Photosynthesis_en.svg';
     expect(normalizeAdamChatImageUrl(direct)).toBe(direct);
     expect(imageUrlLooksBroken(direct)).toBe(false);
+  });
+
+  it('rejects pdf and youtube thumbnail urls for chat images', () => {
+    const pdf = 'https://example.com/ebook-fotosintesis.pdf';
+    const ytThumb = 'https://i.ytimg.com/vi/UPBMG5EYydo/hqdefault.jpg';
+    expect(isDisplayableChatImageUrl(pdf)).toBe(false);
+    expect(isDisplayableChatImageUrl(ytThumb)).toBe(false);
+    expect(imageUrlLooksBroken(pdf)).toBe(true);
   });
 });

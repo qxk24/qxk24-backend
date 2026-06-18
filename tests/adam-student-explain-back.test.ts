@@ -23,7 +23,7 @@ import {
   ADAM_EXPLAIN_BACK_LAW,
 } from '../src/adam/adam-student-explain-back-law';
 import { buildAdamChatSystemPrompt } from '../src/adam/adam-prompt-builder';
-import { paragraphIsConstitutionalFrameworkLeak } from '../src/adam/adam-student-output-law';
+import { paragraphIsConstitutionalFrameworkLeak } from '../src/adam/adam-users-output-law';
 
 describe('ADAM_EXPLAIN_BACK_LAW (universal)', () => {
   it('applies to Founder, students, guests — not Teaching learner only', () => {
@@ -105,7 +105,7 @@ describe('student prompt assembly — pedagogy before constitutional hold', () =
       isFounder:            false,
       participantName:      'QA',
       founderStudentsBlock: '',
-      studentKnowledgeTier: 1,
+      usersKnowledgeTier: 1,
     });
     const explainIdx = prompt.indexOf('ADAM EXPLAIN-BACK LAW');
     const tier1HoldIdx = prompt.indexOf('UNIVERSAL SCHOLAR TIER-1');
@@ -123,7 +123,7 @@ describe('student prompt assembly — pedagogy before constitutional hold', () =
       isFounder:            false,
       participantName:      'QA',
       founderStudentsBlock: '',
-      studentKnowledgeTier: 2,
+      usersKnowledgeTier: 2,
     });
     const explainIdx = prompt.indexOf('ADAM EXPLAIN-BACK LAW');
     const holdIdx = prompt.indexOf('ADAM CONSTITUTIONAL HOLD');

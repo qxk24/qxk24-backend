@@ -24,12 +24,12 @@
 
 import { describe, expect, it } from '@jest/globals';
 import { buildAdamChatSystemPrompt } from '../src/adam/adam-prompt-builder';
-import { ADAM_UNIFIED_SURFACE_HYGIENE } from '../src/adam/adam-student-output-law';
+import { ADAM_UNIFIED_SURFACE_HYGIENE } from '../src/adam/adam-users-output-law';
 import { buildAnswerStylePromptBlock } from '../src/adam/adam-answer-style';
 import { ADAM_LAYER5_CORE } from '../src/adam/adam-response-generation';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 import {
   runStudentVoicePipeline,
   STUDENT_VOICE_INVARIANT_PATTERNS,
@@ -77,7 +77,7 @@ describe('Voice regression — prompt stack (Fasa 0–4 contracts)', () => {
       isFounder:            false,
       participantName:      'Ahmad',
       founderStudentsBlock: '',
-      studentKnowledgeTier: 2,
+      usersKnowledgeTier: 2,
     });
     expect(tier2).toMatch(/ACTIVE TIER THIS TURN: 2/);
     expect(tier2).toContain('TEORI MASABAYU');
@@ -99,6 +99,35 @@ describe('Voice regression — prompt stack (Fasa 0–4 contracts)', () => {
     expect(founderPrompt).toMatch(/Bismillahirahmanirrahim/i);
     expect(founderPrompt).not.toContain('STUDENT OUTPUT LAW (L1)');
     expect(founderPrompt).toContain(ADAM_LAYER5_CORE.slice(0, 30));
+  });
+
+  it('founder β Formula XYZ uses teaching recall primacy (not web-first empirical pedagogy)', () => {
+    const founderPrompt = buildAdamChatSystemPrompt({
+      mode:                 'TEACHING',
+      isFounder:            true,
+      participantName:      'Masa Bayu',
+      founderStudentsBlock: '',
+      userMessage:          'Terangkan napadu dan ruang masa Bab 5 Formula XYZ.',
+      brainRecallLoaded:    true,
+    });
+    expect(founderPrompt).toMatch(/TEACHING RECALL PRIMACY/i);
+    expect(founderPrompt).toMatch(/CONSTITUTIONAL BACKBONE/i);
+    expect(founderPrompt).not.toMatch(/FOUNDER EMPIRICAL PEDAGOGY/i);
+    expect(founderPrompt).not.toMatch(/PHASE 1A — GAMBARAN HIDUP \(mandatory first\)/);
+  });
+
+  it('founder β non-Formula turn keeps empirical pedagogy for measurable science', () => {
+    const founderPrompt = buildAdamChatSystemPrompt({
+      mode:                 'TEACHING',
+      isFounder:            true,
+      participantName:      'Masa Bayu',
+      founderStudentsBlock: '',
+      userMessage:          'Jelaskan mekanisme fotosintesis C3 dan C4 dengan kedalaman saintifik — institusi, formula, pembolehubah terukur.',
+    });
+    expect(founderPrompt).toMatch(/FOUNDER EMPIRICAL DEPTH/i);
+    expect(founderPrompt).toMatch(/FOUNDER EMPIRICAL PEDAGOGY/i);
+    expect(founderPrompt).toMatch(/FOUNDER TECHNICAL STRUCTURE/i);
+    expect(founderPrompt).not.toMatch(/TEACHING RECALL PRIMACY/i);
   });
 });
 
@@ -137,7 +166,7 @@ describe('Voice regression — warm tutor passes through', () => {
     const raw =
       'Kesabaran ialah tema besar dalam Quran.\n\n'
       + 'Allah berfirman about patience in Surah Al-Baqarah 2:153.';
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       raw,
       'Apa ayat Quran tentang kesabaran?',
     );

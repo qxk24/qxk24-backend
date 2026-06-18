@@ -83,38 +83,6 @@ export const ADAM_SERVER_CATALOG: AdamServerCatalogEntry[] = [
     ],
   },
   {
-    id:          AdamServerId.BUKU,
-    slug:        'buku',
-    name:        'ADAM Buku',
-    tagline:     'Platform penulisan buku berpandu profesional',
-    marketValue: 'RM 3,000 – RM 10,000 setiap buku di pasaran',
-    roiMinimum:  '38×',
-    previewNote: 'Lihat struktur Bab 1 sahaja — tidak boleh teruskan atau eksport.',
-    tiers: [
-      {
-        tier:           AdamServerTier.STARTER,
-        label:          'Writer',
-        monthlyMYR:     79,
-        limitSummary:   '1 buku aktif + soalan tanpa had pada server',
-        targetAudience: 'Penulis bebas, akademik',
-      },
-      {
-        tier:           AdamServerTier.PROFESSIONAL,
-        label:          'Author',
-        monthlyMYR:     199,
-        limitSummary:   '3 buku serentak + semakan editorial',
-        targetAudience: 'Penulis aktif, korporat',
-      },
-      {
-        tier:           AdamServerTier.INSTITUTION,
-        label:          'Publisher',
-        monthlyMYR:     599,
-        limitSummary:   'Tanpa had buku + 3 akaun pengguna',
-        targetAudience: 'Penerbit, institusi',
-      },
-    ],
-  },
-  {
     id:          AdamServerId.KOD,
     slug:        'kod',
     name:        'ADAM Kod & Aplikasi',

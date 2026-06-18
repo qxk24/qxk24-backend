@@ -20,11 +20,11 @@
  * Alamtologi/Quran = bloodstream (internal), never the nametag.
  */
 
-import { studentExplicitlyRequestsQuran } from './adam-student-prompts';
+import { usersExplicitlyRequestsQuran } from './adam-users-prompts';
 
 /** User explicitly invited faith, Quran, or Islamic framing in this turn. */
 export function userOpenedFaithDoor(message: string): boolean {
-  return studentExplicitlyRequestsQuran(message);
+  return usersExplicitlyRequestsQuran(message);
 }
 
 /** User explicitly asked about Alamtologi or the constitutional framework. */
@@ -112,7 +112,7 @@ DEPTH AND EVIDENCE (substantive pipeline):
 
 FLOW LIKE WATER (life, emotion, relationships):
 - Short paragraphs only (2–4 complete sentences each). One idea per paragraph. Blank line between paragraphs.
-- Read aloud naturally — plain BM Malaysia, not poetry performance or lecture headers.
+- Read aloud naturally — BM Malaysia yang indah, lembut, bijaksana, penuh adab — not poetry performance or lecture headers.
 - Never markdown tables, layer matrices (Fizikal/Emosi/Ruhani), emoji section breaks, or numbered ritual scripts on these turns.
 
 TECHNICAL PRECISION (mandatory — all measurable / verifiable topics):
@@ -250,9 +250,11 @@ export const STUDENT_NEUTRAL_CONTEXT_ACKS = {
   quranCorpus:
     'Verified ayat received. I will quote only from this corpus, without tafsir in brackets.',
   bmLexicon:
-    'BM Malaysia lexicon received. I will use DBP-aligned forms only — not Indonesian drift.',
+    'BM Malaysia lexicon received. I will speak with flowing adab — beautiful, gentle, wise — and avoid Indonesian drift.',
   teachingRecall:
     'Relevant teaching episodes loaded. I will synthesise A+B=C in my own words — conventional grounding first, then insight — without framework labels or copy-paste.',
   inquiryRecallMiss:
     'No indexed Brain C episode yet for this question. I will ground in conventional evidence and search when needed — not invent depth from model memory alone. This turn may grow Brain C after synthesis.',
+  wake:
+    'I carry what we explored last time — ready to continue our learning journey.',
 } as const;

@@ -23,8 +23,8 @@ import {
   isAdamPracticalAdvisoryTurn,
   isAdamTeachingDepthTurn,
 } from '../src/adam/adam-response-generation';
-import { paragraphIsPhilosophicalEssayLeak } from '../src/adam/adam-student-output-law';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { paragraphIsPhilosophicalEssayLeak } from '../src/adam/adam-users-output-law';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 
 const ROLE_QUESTION =
   'Apakah peranan sebagai seorang Senior Adviser Corporate Conglomerate & Global Strategic Development.';
@@ -57,7 +57,7 @@ describe('ADAM practical advisory turns', () => {
 
   it('strips philosophical essay paragraphs from role answers', () => {
     expect(paragraphIsPhilosophicalEssayLeak('Bayangkan sebatang pokok mangga.')).toBe(true);
-    const out = sanitizeStudentOutputSync(PHILOSOPHICAL_REPLY, ROLE_QUESTION);
+    const out = sanitizeUsersOutputSync(PHILOSOPHICAL_REPLY, ROLE_QUESTION);
     expect(out).not.toMatch(/pokok mangga/i);
     expect(out).not.toMatch(/Alamtologi menyatakan/i);
     expect(out).not.toMatch(/Saya sedia duduk bersama/i);

@@ -31,8 +31,8 @@ import {
   STUDENT_ENTITY_CORRECTION_FALLBACK,
 } from '../../src/adam/adam-response-generation';
 import { sanitizeAdamProseDashBridges } from '../../src/adam/adam-prose-sanitize';
-import { repairStudentOutputLeak } from '../../src/adam/adam-student-output-guard';
-import { buildStudentForbiddenPronounRegex } from '../../src/adam/adam-student-output-law';
+import { repairUsersOutputLeak } from '../../src/adam/adam-users-output-guard';
+import { buildStudentForbiddenPronounRegex } from '../../src/adam/adam-users-output-law';
 import type { LlmSearchResult } from '../../src/llm/llm-types';
 
 export interface StudentVoicePipelineInput {
@@ -72,7 +72,7 @@ export async function runStudentVoicePipeline(
   const entityCorrection = resolveUserEntityCorrectionTurn(input.userMessage, recent);
   const raw = input.rawModelOutput;
 
-  let out = await repairStudentOutputLeak(raw, input.userMessage, recent, recentAssistant);
+  let out = await repairUsersOutputLeak(raw, input.userMessage, recent, recentAssistant);
 
   if (precision.isActive) {
     out = prependSearchUnavailableNotice(out, {
@@ -106,7 +106,7 @@ export async function runStudentVoicePipeline(
   }
 
   if (!out?.trim() && raw.trim()) {
-    const recovered = await repairStudentOutputLeak(raw, input.userMessage, recent, recentAssistant);
+    const recovered = await repairUsersOutputLeak(raw, input.userMessage, recent, recentAssistant);
     const recoveredFinal = finalizeVerificationGatedOutput(
       recovered,
       input.userMessage,

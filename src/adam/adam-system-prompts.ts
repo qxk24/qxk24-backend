@@ -30,10 +30,10 @@ export {
 } from './adam-knowledge-prompts';
 
 export {
-  STUDENT_MODE_PROMPT,
+  USERS_MODE_PROMPT,
   ADAM_MEMORY_HONESTY_RULE,
   ADAM_ZPD_GUIDANCE_RULE,
-} from './adam-student-prompts';
+} from './adam-users-prompts';
 
 export {
   ADAM_BAHASA_MELAYU_LAW,

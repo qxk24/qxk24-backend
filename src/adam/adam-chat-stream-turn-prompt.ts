@@ -22,7 +22,7 @@ import {
   isVerifiedDataStatAsk,
 } from './adam-web-search';
 import { extractRecentUserTurns, extractRecentAssistantTurns, resolveTechnicalPrecisionTurn } from './adam-factual-grounding';
-import { shouldStudentUseSearchFirstFlow } from './adam-search-first';
+import { shouldUsersUseSearchFirstFlow } from './adam-search-first';
 import { buildQwenLanguageLock } from './adam-language-guard';
 import {
   buildTutorSessionLanguageLock,
@@ -32,7 +32,8 @@ import { buildMacBridgeContextBlock } from '../agent/mac-bridge-context';
 import { userHasMacBridgeTier } from './adam-mac-bridge-access.service';
 import { prependCoreToSystem } from '../qxk24brain/adam-core';
 import { buildAdamChatSystemPrompt } from './adam-system-prompts';
-import { resolveStudentKnowledgeTier } from './adam-three-tier-knowledge';
+import { contextHasRelationalVoice } from './adam-relational-voice';
+import { resolveUsersKnowledgeTier } from './adam-three-tier-knowledge';
 import { buildFounderStudentsAwarenessBlockAsync } from './adam-student-registry.service';
 import { enrichSystemPromptForJournalGen } from './adam-chat-stream-journal-turn';
 import type { JournalGenContext } from './adam-chat-stream.types';
@@ -51,8 +52,8 @@ export interface TurnPromptAndSearchGate {
   webSearchEnabledThisTurn: boolean;
   webSearchGateReason: string | null;
   enableWebSearch: boolean;
-  studentSearchFirst: boolean;
-  studentKnowledgeTier: ReturnType<typeof resolveStudentKnowledgeTier> | undefined;
+  usersSearchFirst: boolean;
+  usersKnowledgeTier: ReturnType<typeof resolveUsersKnowledgeTier> | undefined;
 }
 
 export async function buildTurnPromptAndSearchGate(input: {
@@ -78,7 +79,7 @@ export async function buildTurnPromptAndSearchGate(input: {
   } = teachingFlags;
   const {
     contextMessages,
-    studentContinuityBridge,
+    usersContinuityBridge,
     amaTamatBlock,
     testerSystemPrefix,
   } = turnContext;
@@ -115,14 +116,16 @@ export async function buildTurnPromptAndSearchGate(input: {
       : getWebSearchGateReason(userMessage, {
         isFounder,
         technicalFollowUp: precisionTurn.isFollowUp && !isVerifiedDataStatAsk(messageForAdam),
-        studentFounderParity: !isFounder,
+        userUmumChannelGate: !isFounder && !isTutorLane && !isNiagaLane && !isResearchLane,
         brainRecallLoaded: turnContext.brainRecallLoaded,
+        recentUserMessages: recentUserTurns,
+        recentAssistantMessages: recentAssistantTurns,
       });
 
   const enableWebSearch = Boolean(webSearchGateReason);
-  const studentSearchFirst = shouldStudentUseSearchFirstFlow(isFounder, webSearchGateReason);
-  const studentKnowledgeTier = !isFounder && !isTutorLane && !isNiagaLane && !isResearchLane
-    ? resolveStudentKnowledgeTier(messageForAdam, recentUserTurns, recentAssistantTurns)
+  const usersSearchFirst = shouldUsersUseSearchFirstFlow(isFounder, webSearchGateReason);
+  const usersKnowledgeTier = !isFounder && !isTutorLane && !isNiagaLane && !isResearchLane
+    ? resolveUsersKnowledgeTier(messageForAdam, recentUserTurns, recentAssistantTurns)
     : isResearchLane ? 2 as const : undefined;
 
   const builtPrompt = buildAdamChatSystemPrompt({
@@ -133,21 +136,27 @@ export async function buildTurnPromptAndSearchGate(input: {
     userMessage:          messageForAdam,
     recentUserMessages:   recentUserTurns,
     recentAssistantMessages: recentAssistantTurns,
+    brainRecallLoaded:    turnContext.brainRecallLoaded,
     workspacePrompt:      isTutorLane || isNiagaLane ? undefined : workspacePrompt,
     founderStudentsBlock: isFounder
       ? await buildFounderStudentsAwarenessBlockAsync()
       : '',
-    studentContinuityBridge: isTutorLane || isNiagaLane ? undefined : studentContinuityBridge,
+    usersContinuityBridge: isTutorLane || isNiagaLane ? undefined : usersContinuityBridge,
+    usersRelationalVoice: !isFounder && !isTutorLane && !isNiagaLane
+      && turnContext.river.gate.flags.relationalVoice
+      && contextHasRelationalVoice(contextMessages),
     founderTeachingAbsorption,
     founderTeachingInquiry,
     founderTeachingSynthesis,
     amaTamatBlock:        isTutorLane || isNiagaLane ? undefined : amaTamatBlock,
-    studentKnowledgeTier,
+    usersKnowledgeTier,
     knowledgeMode: turnContext.knowledgeMode,
+    answerPlan:    turnContext.river.answerPlan,
+    turnGate:      turnContext.river.gate,
     tutorProfile:         isTutorLane ? options.tutorProfile : undefined,
     niagaProfile:         isNiagaLane ? options.niagaProfile : undefined,
     webSearchPrompt:      webSearchEnabledThisTurn && isTutorLane
-      ? buildTutorWebSearchPrompt(options.tutorProfile, studentSearchFirst)
+      ? buildTutorWebSearchPrompt(options.tutorProfile, usersSearchFirst)
       : webSearchEnabledThisTurn && founderTeachingSynthesis
         ? getAdamWebSearchPrompt(isFounder, {
           founderTeachingSynthesis: true,
@@ -158,15 +167,16 @@ export async function buildTurnPromptAndSearchGate(input: {
           ? getAdamWebSearchPrompt(isFounder, {
             userMessage: messageForAdam,
             recentUserMessages: recentUserTurns,
-            searchPrefetched: studentSearchFirst,
+            searchPrefetched: usersSearchFirst,
             verifiedDataStat: webSearchGateReason === 'verified_data_stat',
           })
           : undefined,
   });
 
+  // Layer 0: student consumer gets student core; Founder (including Teaching learner) keeps founder core.
   let systemPrompt = isTutorLane || isNiagaLane
     ? builtPrompt
-    : prependCoreToSystem(builtPrompt, founderTeachingLearnerTurn);
+    : prependCoreToSystem(builtPrompt, !isFounder);
 
   if (macBridgeBlock) {
     systemPrompt = `${systemPrompt}\n\n${macBridgeBlock}`;
@@ -219,7 +229,7 @@ export async function buildTurnPromptAndSearchGate(input: {
     webSearchEnabledThisTurn,
     webSearchGateReason,
     enableWebSearch,
-    studentSearchFirst,
-    studentKnowledgeTier,
+    usersSearchFirst,
+    usersKnowledgeTier,
   };
 }

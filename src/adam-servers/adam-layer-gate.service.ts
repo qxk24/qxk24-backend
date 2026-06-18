@@ -15,7 +15,7 @@
  * ============================================================
  *
  * Layer 1 (open): chat Q&A only — no journal, book, or app generation.
- * Layer 2 (flag): ADAM Jurnal / Buku / Kod — opens after full testing.
+ * Layer 2 (flag): ADAM Jurnal / Kod — opens after full testing.
  */
 
 import type { StreamingApi } from 'hono/utils/stream';
@@ -68,7 +68,6 @@ function blockMessage(
 function reasonLabel(server: AdamServerId): string {
   switch (server) {
     case AdamServerId.JURNAL: return 'jurnal akademik';
-    case AdamServerId.BUKU:   return 'buku atau manuskrip';
     case AdamServerId.KOD:    return 'kod dan aplikasi';
     default:                  return 'output ini';
   }
@@ -77,7 +76,6 @@ function reasonLabel(server: AdamServerId): string {
 function actionLabel(server: AdamServerId): string {
   switch (server) {
     case AdamServerId.JURNAL: return 'menulis atau meneruskan jurnal';
-    case AdamServerId.BUKU:   return 'menulis atau meneruskan buku';
     case AdamServerId.KOD:    return 'membina kod atau aplikasi';
     default:                  return 'menghasilkan output ini';
   }

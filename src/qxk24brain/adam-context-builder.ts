@@ -55,6 +55,11 @@ import {
   acknowledgeWakeProtocol,
   buildWakeProtocolBlock,
 } from './adam-sleep-wake.service';
+import {
+  acknowledgeStudentWakeProtocol,
+  buildStudentWakeProtocolBlock,
+  closeInactiveStudentSessions,
+} from '../adam/adam-student-sleep-wake.service';
 import { buildKnowledgeGraphContextBlock } from './adam-knowledge-graph.service';
 import { buildTransformationAuditContextBlock } from './adam-transformation-audit.service';
 import {
@@ -68,6 +73,7 @@ import {
   buildThreeTierMemoryBlocks,
 } from './adam-tiered-memory.service';
 import { isAmaBrainV2Enabled } from '../lib/ama/ama-brain-integration.service';
+import { needsBookAwareTeachingRecall } from '../adam/book-aware-recall/teaching-recall-probes';
 import { getContinuityBridgeRecord } from './adam-continuity.service';
 import {
   ALAMTOLOGI_BOOK_CANON,
@@ -80,7 +86,6 @@ import {
   buildSealedChapterAnchor,
   chapterTeachingSearchTerms,
   mentionsAidilEngine,
-  needsBookAwareTeachingRecall,
   needsBookCanonLock,
   resolveBookChapter,
   shouldSkipAidilStageDashboard,
@@ -137,6 +142,11 @@ import {
   getStudentTrackSummary,
   loadStudentsEraContext,
 } from './qxk24brain-student.engine';
+import {
+  buildStudentInquiryRecallBlock,
+  getUserRelationalCBlock,
+} from '../adam/adam-user-brain.service';
+import { buildFounderStudentQueryBlock } from '../adam/adam-founder-student-query.router';
 
 function founderNeedsDeepConstitutionalContext(message: string): boolean {
   if (shouldSkipAidilStageDashboard(message)) return false;
@@ -203,12 +213,21 @@ export async function buildSmartContext(
     && participant.sessionType === 'founder'
     && !teachingAbsorption;
 
+  const loadStudentWake =
+    participant.role === 'student'
+    && !workspace
+    && !isGuestTrial
+    && !teachingAbsorption;
+
   const studentTrackPromise =
-    participant.role === 'student' && !workspace && !isGuestTrial && !studentStreamlined
-      ? getStudentTrackSummary(participant.userId)
+    participant.role === 'student' && !workspace && !isGuestTrial
+      ? Promise.all([
+        getStudentTrackSummary(participant.userId),
+        getUserRelationalCBlock(participant.userId, participant.userName),
+      ]).then((parts) => parts.filter(Boolean).join('\n\n'))
       : Promise.resolve('');
 
-  const [anchor, wakeBlock, master, tiers, studentTrack] = await Promise.all([
+  const [anchor, wakeBlock, studentWakeBlock, master, tiers, studentTrack] = await Promise.all([
     buildConstitutionalAnchor(
       FOUNDER_USER_ID,
       sessionId,
@@ -217,6 +236,13 @@ export async function buildSmartContext(
     ),
     loadWake
       ? buildWakeProtocolBlock(FOUNDER_USER_ID, sessionId)
+      : Promise.resolve(null),
+    loadStudentWake
+      ? buildStudentWakeProtocolBlock(
+        participant.userId,
+        participant.userName,
+        sessionId,
+      )
       : Promise.resolve(null),
     getOrCreateMaster(FOUNDER_USER_ID),
     buildThreeTierMemoryBlocks(
@@ -277,6 +303,18 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
     }
   }
 
+  if (participant.role === 'founder' && !teachingLearnerTurn) {
+    const founderStudentQuery = await buildFounderStudentQueryBlock(recallProbe);
+    if (founderStudentQuery) {
+      messages.push({ role: 'user', content: founderStudentQuery });
+      messages.push({
+        role: 'assistant',
+        content:
+          'Bismillahirahmanirahim. P.alt, saya muat perkembangan pelajar dari C relational dan episod inquiry — bukan log chat mentah.',
+      });
+    }
+  }
+
   if (wakeBlock) {
     messages.push({ role: 'user', content: wakeBlock });
     messages.push({
@@ -287,7 +325,16 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
     await acknowledgeWakeProtocol(sessionId);
   }
 
-  if (participant.role === 'founder' && !teachingAbsorption) {
+  if (studentWakeBlock) {
+    messages.push({ role: 'user', content: studentWakeBlock });
+    messages.push({
+      role: 'assistant',
+      content: STUDENT_NEUTRAL_CONTEXT_ACKS.wake,
+    });
+    await acknowledgeStudentWakeProtocol(sessionId);
+  }
+
+  if (participant.role === 'founder' && !teachingLearnerTurn) {
     const { bridge } = await getContinuityBridgeRecord(FOUNDER_USER_ID);
     const relationalArc = bridge?.relationalMemory ?? '';
     const currentPrinciple = inferPrincipleFromMessage(newMessage);
@@ -365,15 +412,28 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
       role: 'assistant',
       content: REGISTER_MOMENT_ABSORPTION_ACK,
     });
-  } else if (participant.role === 'founder' && teachingAbsorption) {
+  } else if (participant.role === 'founder' && teachingLearnerTurn) {
+    const { bridge } = await getContinuityBridgeRecord(FOUNDER_USER_ID);
+    const relationalBlock = await buildRelationalMemoryContextBlock(
+      FOUNDER_USER_ID,
+      bridge?.relationalMemory,
+    );
+    if (relationalBlock) {
+      messages.push({ role: 'user', content: relationalBlock });
+      messages.push({
+        role: 'assistant',
+        content:
+          'Bismillahirahmanirrahim. P.alt, saya masih dalam perjalanan kita — saya bawa apa yang telah kita bina bersama, dan pada giliran ini saya mendengar sebagai pelajar.',
+      });
+    }
     messages.push({
       role:    'user',
-      content: '[TEACHING TURN — P.alt is teaching; explain back his upload in plain Malay for verification.]',
+      content: '[TEACHING TURN — P.alt is teaching; explain back his upload in plain Malay for verification. Session history above is alive context — weave naturally, never sound like you forgot.]',
     });
     messages.push({
       role: 'assistant',
       content:
-        'Bismillahirahmanirrahim. P.alt, saya mendengar sebagai pelajar — saya akan huraikan balik apa yang P.alt ajar.',
+        'Bismillahirahmanirrahim. P.alt, saya mendengar sebagai pelajar — saya akan huraikan balik apa yang P.alt ajar dengan mesra dan jelas, dari apa yang hadir pada giliran ini.',
     });
   }
 
@@ -384,7 +444,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
   let longTermBlock = tiers.longTerm;
   const brainLoadedChars = longTermBlock.length;
 
-  const epistemic = teachingAbsorption || studentStreamlined
+  const epistemic = teachingLearnerTurn || studentStreamlined
     ? null
     : await buildEpistemicStatus(
       sessionId,
@@ -497,6 +557,22 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
       isGuestTrial,
     })
   ) {
+    if (participant.role === 'student' && !isGuestTrial) {
+      const studentInquiryRecall = await buildStudentInquiryRecallBlock(
+        participant.userId,
+        participant.userName,
+        recallProbe,
+      );
+      if (studentInquiryRecall) {
+        universalRecallLoaded = true;
+        messages.push({ role: 'user', content: studentInquiryRecall });
+        messages.push({
+          role: 'assistant',
+          content: STUDENT_NEUTRAL_CONTEXT_ACKS.teachingRecall,
+        });
+      }
+    }
+
     const universalRecall = await runUniversalTeachingRecall(
       recallProbe,
       FOUNDER_USER_ID,
@@ -765,7 +841,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
         role: 'assistant',
         content: participant.role === 'student'
           ? STUDENT_NEUTRAL_CONTEXT_ACKS.bmLexicon
-          : 'Baik — saya pegang leksikon BM Malaysia untuk giliran ini; jawapan dalam ejaan DBP, bukan Indonesia.',
+          : 'Baik — saya pegang leksikon BM Malaysia untuk giliran ini; suara indah, lembut, bijaksana, penuh adab — bukan drift Indonesia.',
       });
     }
   }

@@ -20,7 +20,7 @@
  */
 
 import type { LlmSearchResult } from '../llm/llm-types';
-import { stripLeadingAdamSalutation } from './adam-response-generation';
+import { stripLeadingAdamSalutation, isAdamCivicsGovernmentTurn } from './adam-response-generation';
 
 const ACRONYM_RE = /\b[A-Z]{2,10}\b/g;
 const ORG_NAME_RE =
@@ -964,10 +964,14 @@ export function extractArticleParagraphsFromHtml(
 /** User asks role definition + skills — prefer child pages like /skills-required/. */
 export function messageAsksRoleAndSkills(message: string): boolean {
   const body = stripLeadingAdamSalutation(message.trim());
+  if (isAdamCivicsGovernmentTurn(body)) return false;
   if (/\b(?:what\s+(?:is|does|are)|skills?\s+(?:do\s+i\s+need|required|needed)|role|responsibilit)/i.test(body)) {
     return true;
   }
-  if (/\b(?:apakah\s+peranan|peranan\s+(?:seorang|guru|pekerja)|kemahiran\s+apa|kemahiran\s+(?:yang\s+)?diperlukan|tanggungjawab)\b/i.test(body)) {
+  if (/\bapakah\s+peranan\b/i.test(body)) {
+    return /\b(?:guru|jururawat|nurse|pekerjaan|jawatan|karier|career|engineer|analyst|sekolah|pekerja)\b/i.test(body);
+  }
+  if (/\b(?:peranan\s+seorang|kemahiran\s+apa|kemahiran\s+(?:yang\s+)?diperlukan|tanggungjawab)\b/i.test(body)) {
     return true;
   }
   return /\b(?:peranan|kemahiran)\b/i.test(body)

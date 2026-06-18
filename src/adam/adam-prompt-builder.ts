@@ -16,6 +16,7 @@
  */
 
 import { ENV } from '../config/environments';
+import { isUsersTechnicalPlan, type AdamAnswerPlan } from './adam-answer-plan';
 import {
   ADAM_CHARACTER_CORE,
   ADAM_CHARACTER_TEACHING_LEARNER,
@@ -28,22 +29,43 @@ import {
   listKnownPersonRefs,
   resolvePersonFromMessage,
 } from './person-relational-memory.service';
-import { ADAM_UNIFIED_SURFACE_HYGIENE } from './adam-student-output-law';
+import { ADAM_UNIFIED_SURFACE_HYGIENE } from './adam-users-output-law';
+import {
+  ADAM_EQ_VIRTUE_FOUNDATION,
+  buildAdamEQVirtueTurnOverlay,
+} from './adam-eq-virtues';
 import {
   ADAM_MEMORY_HONESTY_RULE,
   ADAM_MEMORY_HONESTY_RULE_STUDENT,
   ADAM_MEMORY_HONESTY_WEB_SEARCH_OVERRIDE,
   LAYER1_CHAT_ONLY_PROMPT,
-  STUDENT_MODE_PROMPT,
+  ADAM_LAYER1_BOOK_WRITING_DISCUSSION_TURN,
+  USERS_MODE_PROMPT,
   webSearchPromptNeedsMemoryOverride,
-} from './adam-student-prompts';
+} from './adam-users-prompts';
+import { ADAM_RELATIONAL_VOICE_OVERLAY } from './adam-relational-voice';
 import {
   buildStudentAddressLaw,
-  ADAM_STUDENT_BM_LAW_COMPACT,
-  ADAM_STUDENT_CONTINUATION_DEPTH_TURN,
-  ADAM_STUDENT_DELIVERY,
-  ADAM_STUDENT_TEACHING_DEPTH_TURN,
-} from './adam-student-constitution';
+  ADAM_USERS_BM_LAW_COMPACT,
+  ADAM_USERS_CONTINUATION_DEPTH_TURN,
+  ADAM_USERS_DELIVERY,
+  ADAM_USERS_DIRECT_TECHNICAL_TURN,
+  ADAM_USERS_DIRECT_TECHNICAL_LAYOUT,
+  ADAM_UNIVERSAL_SHAPE_DEFINITIONAL,
+  ADAM_UNIVERSAL_SHAPE_COMPARATIVE,
+  ADAM_UNIVERSAL_SHAPE_COMPARATIVE_FORMAL_DATA,
+  ADAM_USERS_TEACHING_DEPTH_TURN,
+  ADAM_USERS_TEACHING_STRUCTURED_LAYOUT,
+  ADAM_USERS_COMPARE_DEPTH_TURN,
+  ADAM_USERS_ALGORITHM_TEACHING_TURN,
+  ADAM_ALGORITHM_TEACHING_OUTPUT_LOCK,
+} from './adam-users-constitution';
+import { buildUsersDomainPromptBlock, buildUsersDomainFormalLayoutBlock, buildUsersDomainUniversalProseBlock } from './adam-users-domain-prompts';
+import {
+  resolveAdamUsersDomainFacet,
+  usersDomainUsesTeachingPack,
+} from './adam-users-domain-router';
+import type { AdamTurnGateDecision } from './turn-gate';
 import {
   ADAM_CONSTITUTIONAL_KNOWLEDGE_HOLD,
   ADAM_EXPLAIN_BACK_LAW,
@@ -66,9 +88,15 @@ import {
   isAdamGeneralProseKonvensionalTurn,
   type AdamKnowledgeMode,
 } from './adam-knowledge-mode';
+import { ADAM_FOUNDER_EMPIRICAL_DEPTH_LAW, ADAM_FOUNDER_CONTINUATION_DEPTH_TURN, ADAM_FOUNDER_EMPIRICAL_PEDAGOGY_OVERRIDE, ADAM_FOUNDER_REPLY_REVISION_LAW, ADAM_FOUNDER_TECHNICAL_STRUCTURE_LAW, isFounderEmpiricalPedagogyTurn } from './adam-founder-empirical-depth';
+import {
+  ADAM_FOUNDER_TEACHING_RECALL_PRIMACY_LAW,
+  isFounderTeachingRecallPrimacyTurn,
+} from './adam-founder-teaching-recall-law';
 import { ADAM_DEFAULT_GOLD_STANDARD_PIPELINE } from './adam-search-first';
 import {
   isAdamContinuationDepthTurn,
+  isFounderReplyRevisionDirective,
   isAdamConsumerPlainTurn,
   isAdamPracticalAdvisoryTurn,
   isAdamSimpleFactualTurn,
@@ -78,8 +106,18 @@ import {
   isAdamTechnicalKonvensionalDisplayTurn,
   isAdamVisualDrawTurn,
   isAdamTeachingDepthTurn,
+  isAdamScienceNatureSynthesisTurn,
+  isAdamCompareTurn,
+  isAdamAlgorithmTeachingTurn,
+  isAdamLayer1BookWritingTurn,
+  isAdamLayer1ManuscriptExportTurn,
   threadRootIsPracticalAdvisory,
 } from './adam-response-generation';
+import {
+  ADAM_PROSE_CRAFT_ESSAY_LAYOUT,
+  ADAM_PROSE_CRAFT_TURN,
+  isAdamProseCraftTurn,
+} from './adam-prose-craft';
 import { ADAM_CURRENT_AFFAIRS_TURN, isAdamCurrentAffairsTurn } from './adam-current-affairs';
 import { ADAM_CONVERSATION_GUARDRAILS } from './adam-identity-prompts';
 import { ADAM_PROSE_DASH_LAW } from './adam-prose-sanitize';
@@ -99,9 +137,11 @@ import {
   ADAM_VISUAL_DRAW_TURN,
   ADAM_UNIVERSAL_ALPHA_TURN,
   ADAM_STRUCTURED_SPEC_FORMAT,
+  ADAM_PHILOSOPHY_VOICE,
   resolveEffectiveAnswerStyle,
 } from './adam-answer-style';
 import { userAskedForConstitutionalStructure, userAskedForStructuredSpecification, userAskedForAlamtologi } from './adam-universal-voice';
+import { ADAM_FOUNDER_ADDRESS_OUTPUT_LAW } from './adam-founder-address-guard';
 import {
   ADAM_WARMTH_VOICE,
   ADAM_WARMTH_VOICE_TEACHING_LEARNER,
@@ -117,12 +157,19 @@ import {
   ADAM_UNIVERSAL_SCHOLAR_MALAY_LAYOUT,
   ADAM_UNIVERSAL_SCHOLAR_MALAY_TECHNICAL_LAYOUT,
   ADAM_UNIVERSAL_SCHOLAR_TIER1_HOLD,
+  ADAM_USER_UMUM_CADANGAN_TURN,
+  ADAM_USER_UMUM_PERLAKSANAAN_TURN,
+  ADAM_USER_UMUM_COMPANION_VOICE_HOLD,
   buildThreeTierTurnOverlay,
-  type StudentKnowledgeTier,
+  userUmumPerlaksanaanTurnActive,
+  resolveUserUmumCadanganTurn,
+  isUserUmumCompanionTurnActive,
+  type UsersKnowledgeTier,
 } from './adam-universal-scholar';
 import { JOURNAL_GEN_MANUAL_MODE_PROMPT } from './adam-journal-manual-prompt';
 import { RD_INDUSTRY_RESEARCH_MODE_PROMPT } from '../rd-industry/rd-industry-research-prompt';
 import {
+  ADAM_MEMORY_HONESTY_TEACHING_LEARNER_RULE,
   FOUNDER_TEACHING_ABSORPTION_PROMPT,
   FOUNDER_TEACHING_FRAMING_LAW,
   FOUNDER_TEACHING_INQUIRY_PROMPT,
@@ -221,7 +268,7 @@ export interface AdamChatSystemPromptParams {
   workspacePrompt?:         string;
   founderStudentsBlock:     string;
   webSearchPrompt?:         string;
-  studentContinuityBridge?: string;
+  usersContinuityBridge?: string;
   /** Founder TEACHING — learner absorption (not constitutional mirror) */
   founderTeachingAbsorption?: boolean;
   /** Founder TEACHING — ilmu konvensional + isu dunia + web search */
@@ -231,7 +278,7 @@ export interface AdamChatSystemPromptParams {
   /** AMA Tamat Kotak 20–22 anchor (Tahap 2 Layer 5) */
   amaTamatBlock?:          string;
   /** 1 = konvensional, 2 = Alamtologi opt-in, 3 = Quran opt-in */
-  studentKnowledgeTier?:  StudentKnowledgeTier;
+  usersKnowledgeTier?:  UsersKnowledgeTier;
   /** Recent user turns — practical thread detection for tier overlay and guards. */
   recentUserMessages?:    string[];
   /** Recent assistant turns — essay-loop detection for tier overlay. */
@@ -244,6 +291,14 @@ export interface AdamChatSystemPromptParams {
   niagaProfile?:           import('./adam-niaga-law').AdamNiagaBusinessProfile;
   /** Dedicated knowledge surface — resolved per turn when omitted */
   knowledgeMode?:          AdamKnowledgeMode;
+  /** Pre-turn answer contract — Users General/Technical v1 */
+  answerPlan?:             AdamAnswerPlan;
+  /** Turn Gate decision — authoritative domain + flags when present */
+  turnGate?:               AdamTurnGateDecision;
+  /** Brain C / backbone / teaching records injected in context this turn */
+  brainRecallLoaded?:      boolean;
+  /** Users turn — relational C / recall / L7 bridge present in context */
+  usersRelationalVoice?: boolean;
 }
 
 /**
@@ -280,19 +335,22 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     })
     : 'light' as AdamAnswerProfile;
 
-  const knowledgeMode = params.knowledgeMode ?? (params.userMessage?.trim()
-    ? resolveAdamKnowledgeMode({
-      userMessage:              params.userMessage,
-      recentUserMessages:       params.recentUserMessages ?? [],
-      recentAssistantMessages:  params.recentAssistantMessages ?? [],
-      isFounder:                params.isFounder,
-      founderTeachingAbsorption: teachingAbsorption,
-      founderTeachingInquiry:   teachingInquiry,
-      founderTeachingSynthesis: teachingSynthesis,
-      answerProfile,
-      studentKnowledgeTier:     params.studentKnowledgeTier,
-    })
-    : 'konvensional');
+  const knowledgeMode = params.knowledgeMode
+    ?? params.turnGate?.flags.knowledgeMode
+    ?? (params.userMessage?.trim()
+      ? resolveAdamKnowledgeMode({
+        userMessage:              params.userMessage,
+        recentUserMessages:       params.recentUserMessages ?? [],
+        recentAssistantMessages:  params.recentAssistantMessages ?? [],
+        isFounder:                params.isFounder,
+        founderTeachingAbsorption: teachingAbsorption,
+        founderTeachingInquiry:   teachingInquiry,
+        founderTeachingSynthesis: teachingSynthesis,
+        answerProfile,
+        usersKnowledgeTier:     params.usersKnowledgeTier,
+        turnGate:                 params.turnGate,
+      })
+      : 'konvensional');
 
   const characterBlock = params.isFounder && teachingLearnerTurn
     ? ADAM_CHARACTER_TEACHING_LEARNER
@@ -318,6 +376,7 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     parts.push(
       ADAM_CONVERSATION_GUARDRAILS,
       ADAM_PROSE_DASH_LAW,
+      ADAM_FOUNDER_ADDRESS_OUTPUT_LAW,
       behaviourBlock,
       warmthBlock,
       ADAM_BAHASA_MELAYU_LAW,
@@ -327,6 +386,7 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     parts.push(
       ADAM_CONVERSATION_GUARDRAILS,
       ADAM_PROSE_DASH_LAW,
+      ADAM_FOUNDER_ADDRESS_OUTPUT_LAW,
       behaviourBlock,
       warmthBlock,
       ADAM_BAHASA_MELAYU_LAW,
@@ -349,15 +409,27 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
       ADAM_PROSE_DASH_LAW,
       behaviourBlock,
       warmthBlock,
-      ADAM_STUDENT_BM_LAW_COMPACT,
+      ADAM_USERS_BM_LAW_COMPACT,
       TEACHING_DIRECTION_LAW,
       ADAM_UNIFIED_SURFACE_HYGIENE,
-      ADAM_STUDENT_DELIVERY,
+      ADAM_USERS_DELIVERY,
       LAYER1_CHAT_ONLY_PROMPT,
     );
   }
 
   parts.push(buildAnswerStylePromptBlock(voice, params.isFounder));
+  parts.push(ADAM_EQ_VIRTUE_FOUNDATION);
+
+  const eqVirtueOverlay = params.userMessage?.trim()
+    ? buildAdamEQVirtueTurnOverlay({
+      factualSurface: params.turnGate
+        ? ['factual', 'arithmetic', 'record-superlative', 'definitional'].includes(
+          params.turnGate.iq.surfaceKind,
+        )
+        : undefined,
+    })
+    : '';
+  if (eqVirtueOverlay) parts.push(eqVirtueOverlay);
 
   if (params.userMessage?.trim() && userAskedForConstitutionalStructure(params.userMessage)) {
     parts.push(ADAM_CONSTITUTIONAL_STRUCTURE_FORMAT);
@@ -372,8 +444,12 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
   }
 
   if (params.userMessage?.trim()) {
+    const founderAlphaKonvensional = params.isFounder
+      && answerProfile === 'alpha'
+      && knowledgeMode === 'konvensional';
     if (
-      isAdamSimpleFactualTurn(params.userMessage)
+      !params.isFounder
+      && isAdamSimpleFactualTurn(params.userMessage)
       && !userAskedForAlamtologi(params.userMessage)
       && !userAskedForConstitutionalStructure(params.userMessage)
     ) {
@@ -390,16 +466,157 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
       if (isAdamVisualDrawTurn(params.userMessage)) {
         parts.push(ADAM_VISUAL_DRAW_TURN);
       }
+    } else if (founderAlphaKonvensional && isAdamSimpleFactualTurn(params.userMessage)) {
+      parts.push(ADAM_UNIVERSAL_ALPHA_TURN);
+      parts.push(ADAM_SIMPLE_FACTUAL_TURN);
+      if (isAdamLinearAlgebraTurn(params.userMessage)) {
+        parts.push(ADAM_LINEAR_ALGEBRA_TURN);
+      } else if (isAdamSimpleArithmeticTurn(params.userMessage)) {
+        parts.push(ADAM_SIMPLE_ARITHMETIC_TURN);
+      }
+      if (isAdamVisualDrawTurn(params.userMessage)) {
+        parts.push(ADAM_VISUAL_DRAW_TURN);
+      }
     }
   }
 
   if (!params.isFounder && params.userMessage) {
-    if (isAdamPracticalAdvisoryTurn(params.userMessage)) {
-      parts.push(ADAM_PRACTICAL_ADVISORY_TURN);
+    const recentAssistant = params.recentAssistantMessages ?? [];
+    const recentUser = params.recentUserMessages ?? [];
+    const perlaksanaanTurn = userUmumPerlaksanaanTurnActive(
+      params.userMessage,
+      recentAssistant,
+      recentUser,
+    );
+    const cadanganTurn = resolveUserUmumCadanganTurn(
+      params.userMessage,
+      recentAssistant,
+      recentUser,
+    );
+    const companionTurn = isUserUmumCompanionTurnActive(
+      params.userMessage,
+      recentAssistant,
+      recentUser,
+    );
+    const usersDirectRoute = params.turnGate
+      ? params.turnGate.flags.usersTechnicalFinalize
+      : Boolean(params.answerPlan && isUsersTechnicalPlan(params.answerPlan));
+    const domainFacet = params.turnGate
+      ? params.turnGate.iq.domainFacet
+      : (params.answerPlan?.usersDomain
+        ?? resolveAdamUsersDomainFacet(params.userMessage, { recentUserMessages: recentUser }));
+    const domainTeachingPack = params.turnGate
+      ? params.turnGate.flags.domainTeachingPack
+      : usersDomainUsesTeachingPack(domainFacet);
+
+    const pushUsersShapeBlocks = () => {
+      const userMsg = params.userMessage ?? '';
+      const shapeIntent = params.answerPlan?.answerShape?.intent;
+      const formalLayout = params.turnGate?.flags.formalDisplayLaw === true
+        || params.answerPlan?.answerShape?.formalDataLayout === true;
+      if (shapeIntent === 'comparative') {
+        parts.push(ADAM_UNIVERSAL_SHAPE_COMPARATIVE);
+        if (formalLayout) {
+          parts.push(ADAM_UNIVERSAL_SHAPE_COMPARATIVE_FORMAL_DATA);
+        }
+      } else if (
+        shapeIntent === 'definitional'
+        || shapeIntent === 'compound'
+        || shapeIntent === 'general'
+        || shapeIntent === 'causal'
+      ) {
+        parts.push(ADAM_UNIVERSAL_SHAPE_DEFINITIONAL);
+      } else if (isAdamCompareTurn(userMsg)) {
+        parts.push(ADAM_UNIVERSAL_SHAPE_COMPARATIVE);
+        if (formalLayout) {
+          parts.push(ADAM_UNIVERSAL_SHAPE_COMPARATIVE_FORMAL_DATA);
+        }
+      } else if (isAdamAlgorithmTeachingTurn(userMsg)) {
+        parts.push(ADAM_USERS_ALGORITHM_TEACHING_TURN);
+      }
+    };
+
+    if (isAdamProseCraftTurn(params.userMessage)) {
+      parts.push(ADAM_PROSE_CRAFT_TURN);
+    } else if (isAdamLayer1BookWritingTurn(recentUser, params.userMessage)
+      || isAdamLayer1ManuscriptExportTurn(params.userMessage)) {
+      parts.push(ADAM_LAYER1_BOOK_WRITING_DISCUSSION_TURN);
+      parts.push(ADAM_USER_UMUM_COMPANION_VOICE_HOLD);
+    }
+    if (perlaksanaanTurn) {
+      parts.push(ADAM_USER_UMUM_PERLAKSANAAN_TURN);
+    } else if (cadanganTurn) {
+      parts.push(ADAM_USER_UMUM_CADANGAN_TURN);
+    } else if (domainTeachingPack) {
+      const domainBlock = buildUsersDomainPromptBlock(domainFacet);
+      if (domainBlock) parts.push(domainBlock);
+      if (params.answerPlan?.answerShape?.formalDataLayout) {
+        const formalBlock = buildUsersDomainFormalLayoutBlock(domainFacet);
+        if (formalBlock) parts.push(formalBlock);
+      }
+      parts.push(ADAM_USERS_TEACHING_DEPTH_TURN);
+      parts.push(ADAM_USERS_TEACHING_STRUCTURED_LAYOUT);
+      if (isAdamCompareTurn(params.userMessage)) {
+        parts.push(ADAM_USERS_COMPARE_DEPTH_TURN);
+      }
+      if (isAdamAlgorithmTeachingTurn(params.userMessage)) {
+        parts.push(ADAM_USERS_ALGORITHM_TEACHING_TURN);
+      }
+      if (usersDirectRoute) {
+        parts.push(ADAM_USERS_DIRECT_TECHNICAL_TURN);
+        pushUsersShapeBlocks();
+      } else {
+        pushUsersShapeBlocks();
+      }
+    } else {
+      const universalProse = buildUsersDomainUniversalProseBlock(domainFacet);
+      if (universalProse) {
+        parts.push(universalProse);
+      } else if (usersDirectRoute) {
+        parts.push(ADAM_USERS_DIRECT_TECHNICAL_TURN);
+        parts.push(ADAM_USERS_DIRECT_TECHNICAL_LAYOUT);
+        const shapeIntent = params.answerPlan?.answerShape?.intent;
+        if (shapeIntent === 'comparative') {
+          parts.push(ADAM_UNIVERSAL_SHAPE_COMPARATIVE);
+          if (params.answerPlan?.answerShape?.formalDataLayout) {
+            parts.push(ADAM_UNIVERSAL_SHAPE_COMPARATIVE_FORMAL_DATA);
+          }
+        } else if (shapeIntent === 'definitional' || shapeIntent === 'compound') {
+          parts.push(ADAM_UNIVERSAL_SHAPE_DEFINITIONAL);
+        } else if (isAdamCompareTurn(params.userMessage)) {
+          parts.push(ADAM_UNIVERSAL_SHAPE_COMPARATIVE);
+        } else if (isAdamAlgorithmTeachingTurn(params.userMessage)) {
+          parts.push(ADAM_USERS_ALGORITHM_TEACHING_TURN);
+        }
+      } else if (isAdamCompareTurn(params.userMessage)) {
+        parts.push(ADAM_USERS_TEACHING_DEPTH_TURN);
+        parts.push(ADAM_USERS_COMPARE_DEPTH_TURN);
+      } else if (isAdamPracticalAdvisoryTurn(params.userMessage)) {
+        parts.push(ADAM_PRACTICAL_ADVISORY_TURN);
+      } else if (isAdamContinuationDepthTurn(params.userMessage)) {
+        parts.push(ADAM_USERS_CONTINUATION_DEPTH_TURN);
+      } else if (
+        isAdamTeachingDepthTurn(params.userMessage)
+        || isAdamScienceNatureSynthesisTurn(params.userMessage)
+      ) {
+        parts.push(ADAM_USERS_TEACHING_DEPTH_TURN);
+        parts.push(ADAM_USERS_TEACHING_STRUCTURED_LAYOUT);
+        if (isAdamAlgorithmTeachingTurn(params.userMessage)) {
+          parts.push(ADAM_USERS_ALGORITHM_TEACHING_TURN);
+        }
+      }
+    }
+    if (companionTurn && !isAdamLayer1BookWritingTurn(recentUser, params.userMessage)) {
+      parts.push(ADAM_USER_UMUM_COMPANION_VOICE_HOLD);
+    }
+  }
+
+  if (params.isFounder && params.userMessage) {
+    if (isFounderReplyRevisionDirective(params.userMessage)) {
+      parts.push(ADAM_FOUNDER_REPLY_REVISION_LAW);
+      parts.push(ADAM_FOUNDER_CONTINUATION_DEPTH_TURN);
     } else if (isAdamContinuationDepthTurn(params.userMessage)) {
-      parts.push(ADAM_STUDENT_CONTINUATION_DEPTH_TURN);
-    } else if (isAdamTeachingDepthTurn(params.userMessage)) {
-      parts.push(ADAM_STUDENT_TEACHING_DEPTH_TURN);
+      parts.push(ADAM_FOUNDER_CONTINUATION_DEPTH_TURN);
     }
   }
 
@@ -436,31 +653,44 @@ UNIVERSAL SCHOLAR VOICE (User turn — default):
 
   if (!params.isFounder && !teachingLearnerTurn && params.userMessage?.trim()) {
     const locale = detectLanguage(params.userMessage.trim()).detectedLocale;
+    const usersDirectRoute = params.turnGate
+      ? params.turnGate.flags.usersTechnicalFinalize
+      : Boolean(params.answerPlan && isUsersTechnicalPlan(params.answerPlan));
+    const usersTechnicalLegacy = !params.turnGate && !usersDirectRoute && (
+      isAdamTechnicalKonvensionalDisplayTurn(params.userMessage)
+      || isAdamTeachingDepthTurn(params.userMessage)
+      || isAdamScienceNatureSynthesisTurn(params.userMessage)
+      || isAdamCompareTurn(params.userMessage)
+    );
     if (locale === 'ms' || locale === 'mixed-ms-en') {
-      if (isAdamTechnicalKonvensionalDisplayTurn(params.userMessage)) {
+      if (!usersDirectRoute && usersTechnicalLegacy) {
         parts.push(ADAM_UNIVERSAL_SCHOLAR_MALAY_TECHNICAL_LAYOUT);
-      } else {
+      } else if (!usersDirectRoute && isAdamProseCraftTurn(params.userMessage)) {
+        parts.push(ADAM_PROSE_CRAFT_ESSAY_LAYOUT);
+      } else if (!usersDirectRoute) {
         parts.push(ADAM_UNIVERSAL_SCHOLAR_MALAY_LAYOUT);
       }
     }
-    if (isAdamTechnicalKonvensionalDisplayTurn(params.userMessage)) {
+    if (usersDirectRoute) {
+      // Users answerPlan route — DIRECT_TECHNICAL blocks only (no Ringkasnya essence law).
+    } else if (usersTechnicalLegacy) {
       parts.push(ADAM_TECHNICAL_KONVENSIONAL_DISPLAY_TURN);
+    } else if (isAdamProseCraftTurn(params.userMessage)) {
+      // ADAM_PROSE_CRAFT_TURN already injected — no hybrid bullet layout.
     } else if (isAdamGeneralProseKonvensionalTurn(params.userMessage)) {
       parts.push(ADAM_GENERAL_PROSE_KONVENSIONAL_TURN);
     }
   }
 
-  // Philosophy / narrative voice — founder only; not on konvensional or consumer plain turns
+  // Philosophy / narrative voice — Founder command only (never student α templates)
   if (
     !teachingLearnerTurn
     && !consumerPlain
     && params.isFounder
-    && knowledgeMode !== 'konvensional'
   ) {
+    parts.push(ADAM_PHILOSOPHER_TEACHER_IDENTITY, ADAM_NARRATIVE_DELIVERY);
     if (voice === 'philosophy') {
-      parts.push(ADAM_PHILOSOPHER_TEACHER_IDENTITY, ADAM_NARRATIVE_DELIVERY);
-    } else if (voice === 'natural') {
-      parts.push(ADAM_NARRATIVE_DELIVERY);
+      parts.push(ADAM_PHILOSOPHY_VOICE);
     }
   }
 
@@ -544,8 +774,19 @@ UNIVERSAL SCHOLAR VOICE (User turn — default):
     appendExplainBackPedagogy(parts, params, teachingLearnerTurn, knowledgeMode, answerProfile);
   }
 
-  // ── 7. Memory honesty — always last (web-search override wins on student search turns)
-  parts.push(params.isFounder ? ADAM_MEMORY_HONESTY_RULE : ADAM_MEMORY_HONESTY_RULE_STUDENT);
+  // ── 7. Memory honesty — always last (Teaching learner uses session-aware law, not gap templates)
+  if (
+    !params.isFounder
+    && params.userMessage
+    && isAdamAlgorithmTeachingTurn(params.userMessage)
+  ) {
+    parts.push(ADAM_ALGORITHM_TEACHING_OUTPUT_LOCK);
+  }
+  if (teachingLearnerTurn) {
+    parts.push(ADAM_MEMORY_HONESTY_TEACHING_LEARNER_RULE);
+  } else {
+    parts.push(params.isFounder ? ADAM_MEMORY_HONESTY_RULE : ADAM_MEMORY_HONESTY_RULE_STUDENT);
+  }
   if (
     !params.isFounder
     && webSearchPromptNeedsMemoryOverride(params.webSearchPrompt)
@@ -584,10 +825,33 @@ function appendExplainBackPedagogy(
   if (teachingLearnerTurn) return;
 
   const userMessage = params.userMessage ?? '';
+  const primacyInput = {
+    userMessage,
+    recentUserMessages:      params.recentUserMessages ?? [],
+    recentAssistantMessages: params.recentAssistantMessages ?? [],
+    brainRecallLoaded:       params.brainRecallLoaded === true,
+  };
+  const founderTeachingPrimacy = params.isFounder === true
+    && isFounderTeachingRecallPrimacyTurn({
+      isFounder:           true,
+      profile,
+      teachingLearnerTurn,
+      ...primacyInput,
+    });
 
   if (profile === 'light') return;
 
-  parts.push(ADAM_DEFAULT_GOLD_STANDARD_PIPELINE);
+  if (!isAdamAlgorithmTeachingTurn(userMessage)) {
+    parts.push(ADAM_DEFAULT_GOLD_STANDARD_PIPELINE);
+  } else {
+    parts.push(`
+ADAM GOLD STANDARD — ALGORITHM TEACHING (mandatory):
+1. Ground in conventional CS knowledge — no web-search meta preamble.
+2. Deliver full lecture shape in ONE reply (all 7 sections) — see ALGORITHM OUTPUT LOCK.
+3. Do NOT use L5 deferred invitation — depth is mandatory in L2–L3 this turn.
+`.trim());
+  }
+
   parts.push(buildAdamKnowledgeModeTurnOverlay(knowledgeMode, profile));
 
   if (!params.isFounder && knowledgeMode === 'konvensional' && isAdamGeneralKonvensionalTurn(userMessage)) {
@@ -599,40 +863,89 @@ function appendExplainBackPedagogy(
   parts.push(buildAdamAnswerVoiceOverlay(profile, params.isFounder));
 
   if (profile === 'alpha') {
-    parts.push(buildAdamAlphaGenerationLaw(userMessage));
+    parts.push(buildAdamAlphaGenerationLaw(userMessage, { isFounder: params.isFounder }));
+  } else if (founderTeachingPrimacy) {
+    parts.push(ADAM_FOUNDER_TEACHING_RECALL_PRIMACY_LAW);
+    if (userAskedForConstitutionalStructure(userMessage)) {
+      parts.push(ADAM_CONSTITUTIONAL_STRUCTURE_FORMAT);
+    }
+  } else if (isFounderEmpiricalPedagogyTurn(params.isFounder === true, profile, teachingLearnerTurn, primacyInput)) {
+    parts.push(ADAM_FOUNDER_EMPIRICAL_PEDAGOGY_OVERRIDE);
   } else {
     parts.push(ADAM_EXPLAIN_BACK_LAW);
   }
 
   if (!params.isFounder) {
-    const studentTier = params.studentKnowledgeTier ?? 1;
+    const usersTier = params.usersKnowledgeTier ?? 1;
     const practicalRoot = threadRootIsPracticalAdvisory(
       params.recentUserMessages ?? [],
       userMessage,
     );
-    parts.push(STUDENT_MODE_PROMPT);
+    const cadanganTurn = resolveUserUmumCadanganTurn(
+      userMessage,
+      params.recentAssistantMessages ?? [],
+      params.recentUserMessages ?? [],
+    );
+    const perlaksanaanTurn = userUmumPerlaksanaanTurnActive(
+      userMessage,
+      params.recentAssistantMessages ?? [],
+      params.recentUserMessages ?? [],
+    );
+    const companionTurn = isUserUmumCompanionTurnActive(
+      userMessage,
+      params.recentAssistantMessages ?? [],
+      params.recentUserMessages ?? [],
+    );
+    parts.push(USERS_MODE_PROMPT);
+    if (isAdamLayer1BookWritingTurn(params.recentUserMessages ?? [], userMessage)
+      || isAdamLayer1ManuscriptExportTurn(userMessage)) {
+      parts.push(ADAM_LAYER1_BOOK_WRITING_DISCUSSION_TURN);
+      parts.push(ADAM_USER_UMUM_COMPANION_VOICE_HOLD);
+    }
     if (profile === 'beta') {
       parts.push(ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE);
-      parts.push(buildThreeTierTurnOverlay(studentTier, {
+      parts.push(buildThreeTierTurnOverlay(usersTier, {
         practicalAdvisoryRoot: practicalRoot,
         recentAssistantMessages: params.recentAssistantMessages ?? [],
+        cadanganMode: cadanganTurn,
+        perlaksanaanMode: perlaksanaanTurn,
       }));
-    } else if (isAdamPracticalAdvisoryTurn(userMessage) || practicalRoot) {
-      parts.push(ADAM_PRACTICAL_ADVISORY_TURN);
+    } else if (!cadanganTurn && (isAdamPracticalAdvisoryTurn(userMessage) || practicalRoot)) {
+      if (usersTier >= 2 && practicalRoot) {
+        parts.push(buildThreeTierTurnOverlay(usersTier, {
+          practicalAdvisoryRoot: true,
+          recentAssistantMessages: params.recentAssistantMessages ?? [],
+          cadanganMode: false,
+          perlaksanaanMode: perlaksanaanTurn,
+        }));
+      } else {
+        parts.push(ADAM_PRACTICAL_ADVISORY_TURN);
+      }
     }
     parts.push(buildStudentAddressLaw(params.participantName));
-    if (params.studentContinuityBridge) parts.push(params.studentContinuityBridge);
+    if (params.usersContinuityBridge) parts.push(params.usersContinuityBridge);
+    if (params.usersRelationalVoice && (params.turnGate?.flags.relationalVoice ?? true)) parts.push(ADAM_RELATIONAL_VOICE_OVERLAY);
     if (params.workspacePrompt) parts.push(params.workspacePrompt);
     if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
-    if (knowledgeModeAllowsAlamtologiStack(knowledgeMode) && studentTier >= 2 && !practicalRoot && profile === 'beta') {
+    if (knowledgeModeAllowsAlamtologiStack(knowledgeMode) && usersTier >= 2 && !practicalRoot && profile === 'beta') {
       appendConstitutionalKnowledgeStack(parts);
     } else {
       parts.push(ADAM_UNIVERSAL_SCHOLAR_TIER1_HOLD);
+    }
+    if (companionTurn && !isAdamLayer1BookWritingTurn(params.recentUserMessages ?? [], userMessage)) {
+      parts.push(ADAM_USER_UMUM_COMPANION_VOICE_HOLD);
     }
     return;
   }
 
   if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
+
+  if (profile === 'beta' && !founderTeachingPrimacy) {
+    parts.push(ADAM_FOUNDER_EMPIRICAL_DEPTH_LAW);
+    if (isFounderEmpiricalPedagogyTurn(params.isFounder === true, profile, teachingLearnerTurn, primacyInput)) {
+      parts.push(ADAM_FOUNDER_TECHNICAL_STRUCTURE_LAW);
+    }
+  }
 
   if (knowledgeMode === 'konvensional') {
     return;

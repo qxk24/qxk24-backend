@@ -21,11 +21,11 @@ import {
   outputHasCircleDrawing,
   isVisualDrawCollapsedRepair,
 } from '../src/adam/adam-visual-draw-guard';
-import { stripConsumerMarkdownEmphasis } from '../src/adam/adam-student-output-law';
+import { stripConsumerMarkdownEmphasis } from '../src/adam/adam-users-output-law';
 import {
-  resolveStudentStreamSurface,
-  sanitizeStudentOutputSync,
-} from '../src/adam/adam-student-output-guard';
+  resolveUsersStreamSurface,
+  sanitizeUsersOutputSync,
+} from '../src/adam/adam-users-output-guard';
 import { resolveAdamTurnDisplayForSave } from '../src/adam/adam-stream-display-merge';
 
 const DRAW_ASK =
@@ -94,14 +94,14 @@ describe('repairVisualDrawOutput', () => {
     expect(out).toMatch(/sudut|sisi lurus/i);
   });
 
-  it('sanitizeStudentOutputSync applies visual draw repair', () => {
-    const out = sanitizeStudentOutputSync(
+  it('sanitizeUsersOutputSync applies visual draw repair', () => {
+    const out = sanitizeUsersOutputSync(
       DRAW_ESSAY_LEAK,
       DRAW_ASK,
       [],
       [],
       'QA',
-      { enforceStudentGreeting: true },
+      { enforceUsersGreeting: true },
     );
     expect(out).toMatch(/^Hai QA,/i);
     expect(outputHasDrawnShapes(out)).toBe(true);
@@ -115,9 +115,9 @@ describe('visual draw stream replace', () => {
     expect(isVisualDrawCollapsedRepair(PRODUCTION_GEOMETRY_LEAK, repaired, DRAW_ASK)).toBe(true);
   });
 
-  it('resolveStudentStreamSurface prefers repaired draw over raw essay', () => {
+  it('resolveUsersStreamSurface prefers repaired draw over raw essay', () => {
     const repaired = repairVisualDrawOutput(PRODUCTION_GEOMETRY_LEAK, DRAW_ASK, 'QA');
-    const resolved = resolveStudentStreamSurface(PRODUCTION_GEOMETRY_LEAK, repaired, {
+    const resolved = resolveUsersStreamSurface(PRODUCTION_GEOMETRY_LEAK, repaired, {
       userMessage: DRAW_ASK,
     });
     expect(outputHasDrawnShapes(resolved.fullResponse)).toBe(true);

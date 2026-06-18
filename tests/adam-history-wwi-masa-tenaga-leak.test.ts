@@ -14,8 +14,8 @@
 
 import { describe, expect, it } from '@jest/globals';
 import { isAdamHistorySynthesisTurn } from '../src/adam/adam-response-generation';
-import { paragraphIsConstitutionalFrameworkLeak } from '../src/adam/adam-student-output-law';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { paragraphIsConstitutionalFrameworkLeak } from '../src/adam/adam-users-output-law';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 
 const WWI_ASK = 'Kenapa Perang Dunia Pertama tercetus?';
 
@@ -40,9 +40,9 @@ describe('history WWI — no MASA/TENAGA framework weave', () => {
     expect(paragraphIsConstitutionalFrameworkLeak(MASA_LEAK_PARA)).toBe(true);
   });
 
-  it('sanitizeStudentOutputSync removes MASA/TENAGA weave but keeps history facts', () => {
-    const out = sanitizeStudentOutputSync(WWI_SAMPLE, WWI_ASK, [], [], 'QA', {
-      enforceStudentGreeting: true,
+  it('sanitizeUsersOutputSync removes MASA/TENAGA weave but keeps history facts', () => {
+    const out = sanitizeUsersOutputSync(WWI_SAMPLE, WWI_ASK, [], [], 'QA', {
+      enforceUsersGreeting: true,
     });
     expect(out).toMatch(/1914|Sarajevo|Archduke/i);
     expect(out).not.toMatch(/\bMASA\b.*\bTENAGA\b|\bTENAGA\b.*\bMASA\b/is);
@@ -55,7 +55,7 @@ describe('history WWI — no MASA/TENAGA framework weave', () => {
       'Senjata moden seperti meriam berat menjadikan peperangan ini lebih mematikan daripada mana-mana konflik sebelumnya.',
       'Semua faktor ini saling menyambung, seperti MASA yang bergerak dari satu keadaan ke keadaan lain, membawa TENAGA yang telah terkumpul, hingga mencapai titik pecah.',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(mixed, WWI_ASK, [], [], 'QA');
+    const out = sanitizeUsersOutputSync(mixed, WWI_ASK, [], [], 'QA');
     expect(out).toMatch(/meriam berat/i);
     expect(out).not.toMatch(/seperti\s+MASA/i);
     expect(out).not.toMatch(/\bTENAGA\b/);

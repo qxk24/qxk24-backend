@@ -15,7 +15,7 @@
  * ============================================================
  */
 
-import { isStudentGreetingOnlyRepair } from './adam-student-constitution';
+import { isUsersGreetingOnlyRepair } from './adam-users-constitution';
 import { FOUNDER_USER_ID } from './adam-student.types';
 import { founderWantsJournalSeal } from './adam-chat-response-parser';
 import { processFounderJournalSeal } from './adam-journal.service';
@@ -33,15 +33,23 @@ import { shouldAppendEpisodicB } from '../lib/ama/ama-episodic-gate';
 import { updateSessionSummary } from '../qxk24brain/adam-anchor.service';
 import { appendWorkspaceUnderstanding } from './adam-workspace.service';
 import { writeStudentStateAfterTurn } from './student-continuity-bridge';
+import { triggerStudentMemoryPostTurn } from './adam-student-memory-post-turn';
 import { deleteTeachingUploads } from './adam-upload.service';
 import { triggerTransformTurn } from './adam-transform-turn';
 import { isGuestUserId } from '../freemium/adam-freemium-guest.service';
-import { resolveStudentKnowledgeTier } from './adam-universal-scholar';
+import { resolveUsersKnowledgeTier } from './adam-universal-scholar';
 import type { JournalGenContext, AdamChatTurnShell } from './adam-chat-stream.types';
 import {
   buildFinalResponseForSave,
   parseAdamTurnBlocks,
 } from './adam-chat-stream-post-finalize';
+import {
+  formatBrainRiverLog,
+  isFounderOceanSink,
+  isStudentOceanSink,
+  riverStageForPostTurn,
+} from './adam-brain-river';
+import type { AdamBrainRiverTurn } from './adam-brain-river';
 import { handleAdamTurnRelays } from './adam-chat-stream-post-relay';
 
 export { persistInteractiveJournalDraft } from './adam-chat-stream-journal-persist';
@@ -63,9 +71,14 @@ export async function finishAdamChatTurn(input: {
   sanitizedRepairApplied?: boolean;
   arithmeticAlphaRepairApplied?: boolean;
   visualDrawRepairApplied?: boolean;
-  studentGreetingRepairApplied?: boolean;
+  proseCraftRepairApplied?: boolean;
+  usersGreetingRepairApplied?: boolean;
+  technicalMediaRepairApplied?: boolean;
+  adamProductRedirectRepairApplied?: boolean;
   preserveStreamBody?:     boolean;
   turnBrainMeta?:         AdamTurnBrainMeta;
+  river?:                 AdamBrainRiverTurn;
+  oceanSink?:             import('./adam-brain-river').AdamOceanSinkKind;
   modelChoice: {
     model:  string;
     tier:   string;
@@ -80,6 +93,8 @@ export async function finishAdamChatTurn(input: {
     sectionJournalComplete,
     modelChoice,
     workspace,
+    river,
+    oceanSink,
   } = input;
   let sectionDraftMap = input.sectionDraftMap;
 
@@ -149,8 +164,8 @@ export async function finishAdamChatTurn(input: {
   finalResponse = relayResult.finalResponse;
 
   const rawForGreeting = input.turnBrainMeta?.rawModelStream?.trim() ?? '';
-  const studentGreetingRepairApplied = input.studentGreetingRepairApplied === true
-    || (rawForGreeting.length > 0 && isStudentGreetingOnlyRepair(rawForGreeting, finalResponse));
+  const usersGreetingRepairApplied = input.usersGreetingRepairApplied === true
+    || (rawForGreeting.length > 0 && isUsersGreetingOnlyRepair(rawForGreeting, finalResponse));
 
   const k24Address = await generateK24Address(shell.mode);
   const messageId = await saveMessage(
@@ -191,7 +206,10 @@ export async function finishAdamChatTurn(input: {
     sanitizedRepair:  input.sanitizedRepairApplied === true,
     arithmeticAlphaRepair: input.arithmeticAlphaRepairApplied === true,
     visualDrawRepair: input.visualDrawRepairApplied === true,
-    studentGreetingRepair: studentGreetingRepairApplied,
+    proseCraftRepair: input.proseCraftRepairApplied === true,
+    usersGreetingRepair: usersGreetingRepairApplied,
+    technicalMediaRepair: input.technicalMediaRepairApplied === true,
+    adamProductRedirectRepair: input.adamProductRedirectRepairApplied === true,
     preserveStreamBody: input.preserveStreamBody === true,
     mode:             shell.mode,
     needsConsult:     parsed.consult.needsConsult && !shell.isFounder,
@@ -207,7 +225,11 @@ export async function finishAdamChatTurn(input: {
     healthBadge,
   }));
 
-  if (shell.isFounder) {
+  if (river) {
+    console.log(formatBrainRiverLog(river, riverStageForPostTurn()));
+  }
+
+  if (isFounderOceanSink(oceanSink ?? 'guest-ephemeral')) {
     const appendEpisodicB = shouldAppendEpisodicB({
       isFounder:       true,
       message:         shell.normalizedMessage,
@@ -247,7 +269,7 @@ export async function finishAdamChatTurn(input: {
     ).catch((err) => console.error('[ADAM Workspace] understanding update:', err));
   }
 
-  if (!shell.isFounder) {
+  if (isStudentOceanSink(oceanSink ?? 'guest-ephemeral')) {
     void writeStudentStateAfterTurn(
       shell.participant.userId,
       shell.participant.userName,
@@ -255,12 +277,20 @@ export async function finishAdamChatTurn(input: {
       shell.userMessage,
     );
 
+    if (!isGuestUserId(shell.participant.userId)) {
+      triggerStudentMemoryPostTurn({
+        sessionId:   shell.resolvedSessionId,
+        studentId:   shell.participant.userId,
+        studentName: shell.participant.userName,
+      });
+    }
+
     const isGuestTrial = isGuestUserId(shell.participant.userId);
     const isTutorLane = shell.participant.sessionType === 'tutor';
     if (!isTutorLane) {
       const recentUser = input.turnBrainMeta?.recentUserMessages ?? [];
       const recentAssistant = input.turnBrainMeta?.recentAssistantMessages ?? [];
-      const tier = resolveStudentKnowledgeTier(
+      const tier = resolveUsersKnowledgeTier(
         shell.normalizedMessage,
         recentUser,
         recentAssistant,
@@ -277,7 +307,8 @@ export async function finishAdamChatTurn(input: {
         webSearchUsed:        input.turnBrainMeta?.webSearchUsed === true,
         isGuestTrial,
         isFounder:            false,
-        studentKnowledgeTier: tier,
+        usersKnowledgeTier: tier,
+        usersDomainFacet:     river?.answerPlan?.usersDomain,
       });
     }
   }

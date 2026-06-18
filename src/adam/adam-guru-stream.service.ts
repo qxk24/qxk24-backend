@@ -125,7 +125,7 @@ export async function streamADAMGuruKelasChat(input: {
     participantName:      participant.userName,
     userMessage:          normalized,
     founderStudentsBlock: '',
-    studentKnowledgeTier: 1,
+    usersKnowledgeTier: 1,
   });
 
   systemPrompt = [

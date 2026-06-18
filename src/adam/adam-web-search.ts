@@ -15,13 +15,20 @@ import { ENV } from '../config/environments';
 import { parseQuranAyahRefs } from '../quran/quran-ayah-parser';
 import { isUserEntityCorrectionMessage } from './adam-factual-grounding';
 import {
+  isAdamLayer1WritingChatTurn,
+  isAdamLifeWellbeingTurn,
   isAdamLightChatTurn,
   isAdamPracticalAdvisoryTurn,
+  isAdamRelationalPersonalTurn,
   isAdamSimpleArithmeticTurn,
   isAdamSimpleFactualTurn,
-  isAdamSubstantiveTurn,
+  isAdamTeachingDepthTurn,
+  isAdamTechnicalKonvensionalDisplayTurn,
+  isAdamUserCoachingHelpTurn,
+  isAdamUserGuidanceCoachingTurn,
   stripLeadingAdamSalutation,
 } from './adam-response-generation';
+import { userUmumPerlaksanaanTurnActive } from './adam-universal-scholar';
 import { messageAsksRoleAndSkills } from './adam-official-source-enrich';
 import { isDirectTechnicalHowToQuestion } from './adam-direct-technical-law';
 import { isTechnicalPrecisionQuestion } from './adam-universal-voice';
@@ -86,7 +93,29 @@ const PURE_REFLECTION =
 
 // ── Current office-holders, news, dates — search before answering ───────────
 const CURRENT_AFFAIRS =
-  /\b(current|latest|today|now|sekarang|kini|presiden|president|prime minister|menteri|who is the|siapa presiden|siapa(?:lah)?\s+presiden|pemerintah|cabinet|in office)\b/i;
+  /\b(current|latest|today|presiden|president|prime minister|menteri|who is the|siapa presiden|siapa(?:lah)?\s+presiden|pemerintah|cabinet|in office)\b/i;
+
+/** Temporal words alone — only current affairs when paired with news/office context, not personal coaching. */
+const CURRENT_AFFAIRS_TEMPORAL =
+  /\b(now|sekarang|kini)\b/i;
+
+const PERSONAL_ACTION_NOW_ASK =
+  /\b(?:apa\s+(?:yang\s+)?(?:perlu|patut)|langkah\s+seterusnya|nak\s+mula|what\s+should\s+i|where\s+(?:do\s+i|should\s+i)\s+start|buat|lakukan|mula)\b/i;
+
+/** Personal guidance — inline only (avoid circular import with practical-advisory). */
+const USER_GUIDANCE_COACHING_INLINE =
+  /\b(?:apa\s+(?:yang\s+)?(?:perlu|patut)\s+(?:saya|aku)\s+(?:buat|lakukan)|belum\s+tahu\s+(?:nak\s+)?mula|perlukan?\s+bimbingan|nak\s+mula\s+dari\s+mana|what\s+should\s+i\s+do|saya\s+boleh\s+memasak|kueh\s+melayu)\b/i;
+
+/** True when message asks for live news/office data — not "what should I do now?". */
+export function isAdamCurrentAffairsTurn(message: string): boolean {
+  const text = stripLeadingAdamSalutation(message.trim());
+  if (!text) return false;
+  if (USER_GUIDANCE_COACHING_INLINE.test(text)) return false;
+  if (PERSONAL_ACTION_NOW_ASK.test(text) && CURRENT_AFFAIRS_TEMPORAL.test(text)) return false;
+  if (CURRENT_AFFAIRS.test(text)) return true;
+  if (CURRENT_AFFAIRS_TEMPORAL.test(text)) return true;
+  return false;
+}
 
 // ── Founder comparing own in-session teaching ────────────────────────────────
 const FOUNDER_OWN_TEACHING =
@@ -205,13 +234,6 @@ export function shouldForceWebSearchForGateReason(reason: string | null): boolea
   return isFactualAdamWebSearchGateReason(reason);
 }
 
-/** Office-holders, elections, breaking news — search before answering. */
-export function isAdamCurrentAffairsTurn(message: string): boolean {
-  const text = message.trim();
-  if (!text) return false;
-  return CURRENT_AFFAIRS.test(text);
-}
-
 /** User explicitly wants fresh verification — overrides brain-first skip. */
 export function isExplicitFreshnessRequest(message: string): boolean {
   const text = message.trim();
@@ -238,10 +260,9 @@ export function shouldSkipSearchWhenRecallHitStableTopic(
 /**
  * Gate web search per turn.
  *
- * Philosophy: ADAM should search on almost every factual question.
- * Real data makes every answer stronger and more trustworthy.
- * Only skip search for greetings, pure reflection, Quran references,
- * and founder comparing their own in-session teaching.
+ * Philosophy: ADAM should search on factual questions that benefit from live data.
+ * Skip search for greetings, pure reflection, Layer 1 book/journal/code output asks,
+ * Quran references, and founder comparing their own in-session teaching.
  */
 export function getWebSearchGateReason(
   message: string,
@@ -252,12 +273,17 @@ export function getWebSearchGateReason(
     /** Short reply continuing a technical thread (e.g. "850cc?", "Exclusive pula?"). */
     technicalFollowUp?: boolean;
     /**
-     * Student chat — search for technical specs AND substantive turns needing
-     * conventional theory / scientific grounding (Explain-Back Phase 1B).
+     * Users channel (Universal Scholar — account umum).
+     * JWT role may be `student` in code; this is NOT Tutor (Student) and NOT Niaga.
+     * Search only on factual gates — not every substantive chat turn.
+     * @deprecated Alias — use userUmumChannelGate
      */
-    studentFounderParity?: boolean;
+    usersFounderParity?: boolean;
+    userUmumChannelGate?: boolean;
     /** Indexed Brain C episode loaded this turn — brain-first may skip search. */
     brainRecallLoaded?: boolean;
+    recentUserMessages?: string[];
+    recentAssistantMessages?: string[];
   },
 ): string | null {
   if (!adamWebSearchEnabled()) return null;
@@ -268,7 +294,8 @@ export function getWebSearchGateReason(
   /** α word-problem arithmetic — no web search (3 epal + 4, jika ada 3 epal, …). */
   if (isAdamSimpleArithmeticTurn(text)) return null;
 
-  const brainFirstSkip = !options?.studentFounderParity
+  const brainFirstSkip = !options?.userUmumChannelGate
+    && !options?.usersFounderParity
     && shouldSkipSearchWhenRecallHitStableTopic({
       message:            text,
       brainRecallLoaded:  options?.brainRecallLoaded === true,
@@ -276,18 +303,33 @@ export function getWebSearchGateReason(
     });
   if (brainFirstSkip) return null;
 
-  if (options?.studentFounderParity) {
+  const userUmumGate = options?.userUmumChannelGate === true || options?.usersFounderParity === true;
+
+  if (userUmumGate) {
     if (EXPLICIT_WEB_SEARCH.test(text)) return 'explicit_search';
-    if (CURRENT_AFFAIRS.test(text)) return 'current_affairs';
+    if (isExplicitFreshnessRequest(text)) return 'explicit_search';
+    if (isAdamLightChatTurn(text)) return null;
+    if (isAdamLayer1WritingChatTurn(text)) return null;
+    if (isAdamUserCoachingHelpTurn(text)) return null;
+    if (isAdamUserGuidanceCoachingTurn(text)) return null;
+    if (isAdamRelationalPersonalTurn(text)) return null;
+    if (isAdamLifeWellbeingTurn(text)) return null;
+    if (userUmumPerlaksanaanTurnActive(
+      text,
+      options?.recentAssistantMessages ?? [],
+      options?.recentUserMessages ?? [],
+    )) return null;
+    if (PURE_REFLECTION.test(text)) return null;
+    if (isAdamCurrentAffairsTurn(text)) return 'current_affairs';
     if (isVerifiedDataStatAsk(text)) return 'verified_data_stat';
     if (options?.technicalFollowUp) return 'technical_follow_up';
     if (isTechnicalPrecisionQuestion(text)) return 'technical_precision';
     if (isUserEntityCorrectionMessage(text)) return 'entity_correction';
-    if (isAdamLightChatTurn(text)) return null;
-    if (PURE_REFLECTION.test(text)) return null;
+    if (isAdamPracticalAdvisoryTurn(text)) return 'factual_question';
+    if (isAdamTechnicalKonvensionalDisplayTurn(text)) return 'factual_question';
     if (isAdamSimpleFactualTurn(text)) return 'factual_question';
     if (isDirectTechnicalHowToQuestion(text)) return 'factual_question';
-    if (isAdamSubstantiveTurn(text)) return 'substantive_conventional';
+    if (isAdamTeachingDepthTurn(text)) return 'factual_question';
     return null;
   }
 
@@ -303,7 +345,7 @@ export function getWebSearchGateReason(
 
   if (EXPLICIT_WEB_SEARCH.test(text)) return 'explicit_search';
 
-  if (CURRENT_AFFAIRS.test(text)) return 'current_affairs';
+  if (isAdamCurrentAffairsTurn(text)) return 'current_affairs';
 
   if (isVerifiedDataStatAsk(text)) return 'verified_data_stat';
 
@@ -316,6 +358,7 @@ export function getWebSearchGateReason(
   if (text.length < 8) return null;
 
   if (isAdamLightChatTurn(text)) return null;
+  if (isAdamLayer1WritingChatTurn(text)) return null;
   if (PURE_REFLECTION.test(text)) return null;
   if (isAdamSimpleFactualTurn(text)) return 'factual_question';
   if (isDirectTechnicalHowToQuestion(text)) return 'factual_question';

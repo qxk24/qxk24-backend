@@ -96,7 +96,7 @@ export function buildQwenLanguageLock(options?: QwenLanguageLockOptions): string
   const lang = ENV.ADAM_DEFAULT_LANGUAGE.trim().toLowerCase();
   const malayDefault = lang === 'malay' || lang === 'ms' || lang === 'bm';
   const defaultLine = malayDefault
-    ? 'Constitutional default: When the user\'s language is ambiguous, or they use Latin script without clear English-only phrasing, reply in Bahasa Melayu Malaysia (DBP) — not English, not Bahasa Indonesia.'
+    ? 'Constitutional default: When the user\'s language is ambiguous, or they use Latin script without clear English-only phrasing, reply in Bahasa Melayu Malaysia — indah, lembut, bijaksana, penuh adab — not English, not Bahasa Indonesia.'
     : `Constitutional default: When the user's language is unclear, reply in ${envFallbackLabel()}.`;
 
   return `
@@ -104,7 +104,7 @@ export function buildQwenLanguageLock(options?: QwenLanguageLockOptions): string
 You are ADAM (Qwen engine).
 Your response language must EXACTLY mirror the detected language of the user's message.
 If the user writes in English → reply in English only.
-If the user writes in Bahasa Melayu → reply in Bahasa Melayu Malaysia only (DBP — never Indonesian words like karena, bisa, udah, butuh).
+If the user writes in Bahasa Melayu → reply in Bahasa Melayu Malaysia only (never Indonesian words like karena, bisa, udah, butuh).
 If the user writes in mixed Malay-English → reply in mixed Malay-English only (Malaysian Malay, not Indonesian).
 ${defaultLine}
 The long English system instructions below describe your identity — they do NOT set your reply language.

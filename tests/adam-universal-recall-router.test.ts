@@ -90,7 +90,7 @@ describe('universal recall policy alignment', () => {
       isFounder: false,
       participantName: 'Ahmad',
       founderStudentsBlock: '',
-      studentKnowledgeTier: 1,
+      usersKnowledgeTier: 1,
     });
     expect(prompt).toMatch(/Teaching recall in context|UNIVERSAL TEACHING RECALL/i);
     expect(prompt).toMatch(/EXPLAIN-BACK LAW/);

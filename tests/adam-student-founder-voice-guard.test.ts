@@ -23,11 +23,11 @@ import {
   paragraphIsFounderTeachingVoiceLeak,
   stripPlanTesterAddress,
   stripSunomNotation,
-} from '../src/adam/adam-student-output-law';
+} from '../src/adam/adam-users-output-law';
 import {
-  resolveStudentStreamSurface,
-  sanitizeStudentOutputSync,
-} from '../src/adam/adam-student-output-guard';
+  resolveUsersStreamSurface,
+  sanitizeUsersOutputSync,
+} from '../src/adam/adam-users-output-guard';
 import { runStudentVoicePipeline } from './helpers/adam-student-voice-pipeline';
 import { UNIVERSAL_SCHOLAR_DOOR_EN, UNIVERSAL_SCHOLAR_DOOR_BM } from '../src/adam/adam-universal-scholar';
 
@@ -112,7 +112,7 @@ describe('paragraphIsEmojiPerformanceOpener', () => {
   });
 });
 
-describe('resolveStudentStreamSurface', () => {
+describe('resolveUsersStreamSurface', () => {
   it('strips Bismillah even when raw stream is kept for structure', () => {
     const raw = [
       'Bismillahirahmanirrahim.',
@@ -120,8 +120,8 @@ describe('resolveStudentStreamSurface', () => {
       '- $I(\\theta)$: intensity at angle θ',
       '- $I_0$: incident intensity',
     ].join('\n\n');
-    const surface = sanitizeStudentOutputSync(raw, 'Explain the Rayleigh formula');
-    const resolved = resolveStudentStreamSurface(raw, surface);
+    const surface = sanitizeUsersOutputSync(raw, 'Explain the Rayleigh formula');
+    const resolved = resolveUsersStreamSurface(raw, surface);
     expect(resolved.fullResponse).not.toMatch(/Bismillah/i);
     expect(resolved.fullResponse).toMatch(/Rayleigh/i);
   });
@@ -131,8 +131,8 @@ describe('resolveStudentStreamSurface', () => {
       'Beras ialah biji padi (Oryza sativa), sumber karbohidrat penting di Asia Tenggara. '
       + 'Ia menjadi makanan ruji berbilion manusia dan membekalkan tenaga harian melalui karbohidrat kompleks, serat, dan vitamin B.';
     const raw = `${good}\n\n${FOUNDER_MENU}`;
-    const surface = sanitizeStudentOutputSync(raw, 'Terangkan beras.');
-    const resolved = resolveStudentStreamSurface(raw, surface);
+    const surface = sanitizeUsersOutputSync(raw, 'Terangkan beras.');
+    const resolved = resolveUsersStreamSurface(raw, surface);
     expect(surface).toMatch(/Oryza sativa/i);
     expect(surface).not.toMatch(/AMA\s+124/i);
     expect(resolved.fullResponse).toBe(surface);
@@ -147,12 +147,12 @@ describe('resolveStudentStreamSurface', () => {
       'Month 7–12: Specialise in one domain — healthcare, retail, or finance.',
       UNIVERSAL_SCHOLAR_DOOR_EN,
     ].join('\n\n');
-    const surface = sanitizeStudentOutputSync(raw, careerPathQuestion, [
+    const surface = sanitizeUsersOutputSync(raw, careerPathQuestion, [
       'What does a data analyst do?',
     ], [
       `Overview.\n\n${UNIVERSAL_SCHOLAR_DOOR_EN}`,
     ]);
-    const resolved = resolveStudentStreamSurface(raw, surface);
+    const resolved = resolveUsersStreamSurface(raw, surface);
     expect(resolved.fullResponse).toBe(surface);
     expect(resolved.streamReplace).toBe(surface);
     expect(surface).toMatch(/Month 1–2/i);
@@ -168,18 +168,18 @@ describe('resolveStudentStreamSurface', () => {
       '- Month 3–4: One portfolio project with public data.',
       '- Month 5–6: Apply for junior analyst roles.',
     ].join('\n\n');
-    const surface = sanitizeStudentOutputSync(raw, careerPathQuestion, [
+    const surface = sanitizeUsersOutputSync(raw, careerPathQuestion, [
       'What does a data analyst do?',
     ]);
     expect(surface).toMatch(/Month 1–2/i);
     expect(surface).toMatch(/Month 5–6/i);
-    const resolved = resolveStudentStreamSurface(raw, surface);
+    const resolved = resolveUsersStreamSurface(raw, surface);
     expect(resolved.fullResponse).toMatch(/Month 3–4/i);
   });
 
   it('drops repeat tier-1 door when assistant already offered one', () => {
     const prior = `Example case.\n\n${UNIVERSAL_SCHOLAR_DOOR_EN}`;
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       `More detail here.\n\n${UNIVERSAL_SCHOLAR_DOOR_EN}`,
       'Yes, tell me more',
       ['What does a data analyst do?'],
@@ -196,7 +196,7 @@ describe('resolveStudentStreamSurface', () => {
       'Phase 1: Excel basics.',
       UNIVERSAL_SCHOLAR_DOOR_EN,
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       careerReply,
       "QA, let's go deeper — career path please",
       ['What does a data analyst do?'],
@@ -211,17 +211,17 @@ describe('resolveStudentStreamSurface', () => {
   it('prefers sanitized surface for current-affairs even when much shorter', () => {
     const raw = USER_EXACT_BAD_REPLY;
     const question = 'Siapa presiden Indonesia sekarang?';
-    const surface = sanitizeStudentOutputSync(raw, question);
-    const resolved = resolveStudentStreamSurface(raw, surface, { preferSanitized: true });
+    const surface = sanitizeUsersOutputSync(raw, question);
+    const resolved = resolveUsersStreamSurface(raw, surface, { preferSanitized: true });
     expect(resolved.fullResponse).toBe(surface);
     expect(resolved.streamReplace).toBe(surface);
     expect(resolved.fullResponse).toMatch(/Prabowo Subianto/);
   });
 });
 
-describe('sanitizeStudentOutputSync', () => {
+describe('sanitizeUsersOutputSync', () => {
   it('rewrites dual-lane labels and strips coaching close from beras reply', () => {
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       BERAS_FRAMEWORK_VOICE,
       'Boleh terangkan tentang beras?',
     );
@@ -235,7 +235,7 @@ describe('sanitizeStudentOutputSync', () => {
   });
 
   it('strips SuNom notation, emoji opener, and QA Unlimited from tongkat ali reply', () => {
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       TONGKAT_ALI_SUNOM_VOICE,
       'Apakah khasiat tongkat ali?',
     );
@@ -248,7 +248,7 @@ describe('sanitizeStudentOutputSync', () => {
   });
 
   it('strips founder teaching voice from student output', () => {
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       `Jawapan ringkas tentang tekanan darah.\n\n${FOUNDER_MENU}`,
       'Apa itu tekanan darah tinggi?',
     );
@@ -270,7 +270,7 @@ describe('sanitizeStudentOutputSync', () => {
       + 'Would you like me to:\n'
       + 'Focus on one mineral in more depth?\n\n'
       + "I'm here. not to lecture, but to walk with you, step by thoughtful step.";
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       englishCoaching,
       'What minerals harm the human body?',
     );
@@ -289,7 +289,7 @@ describe('sanitizeStudentOutputSync', () => {
       + 'Minerals are dose-dependent. Iron is vital for haemoglobin.\n'
       + '- Example: 200 mg/kg in a child can cause shock.\n\n'
       + 'Just say the word. And we\'ll walk there together.';
-    const out = sanitizeStudentOutputSync(tellMeMore, 'Tell me more about it');
+    const out = sanitizeUsersOutputSync(tellMeMore, 'Tell me more about it');
     expect(out).not.toMatch(/Just say the word/i);
     expect(out).toMatch(/Biological Threshold/i);
     expect(out).toMatch(/haemoglobin/i);
@@ -303,7 +303,7 @@ describe('sanitizeStudentOutputSync', () => {
       + 'dengan fakta yang boleh disandarkan, bukan senarai ringkas.\n\n'
       + 'Dalam kehidupan harian, perkara ini sering menyentuh orang biasa — bukan teori di atas kertas sahaja.\n\n'
       + 'Jika ada satu aspek yang paling relevan bagi anda, itu boleh menjadi titik fokus seterusnya.';
-    const out = sanitizeStudentOutputSync(warmNatural, 'Boleh terangkan bagaimana ini berfungsi?');
+    const out = sanitizeUsersOutputSync(warmNatural, 'Boleh terangkan bagaimana ini berfungsi?');
     expect(out).toMatch(/mekanisme/i);
     expect(out).toMatch(/kehidupan harian/i);
     expect(out.split(/\n\n+/).length).toBeGreaterThanOrEqual(3);
@@ -321,7 +321,7 @@ describe('sanitizeStudentOutputSync', () => {
       'One quiet truth many miss: The most valuable skill is humility.',
       'Would you like more on skills and tools, a career path (e.g., junior → senior), or a real-world example, like how a clinic cut wait times by 22%?',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       bloated,
       'What does a data analyst do, and what skills do I need?',
     );
@@ -355,7 +355,7 @@ describe('sanitizeStudentOutputSync', () => {
       'Itulah ruang di mana ilmu benar-benar berakar, bukan di buku, tetapi di hati dan ingatan yang hidup.',
       UNIVERSAL_SCHOLAR_DOOR_BM,
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       bloated,
       'Apakah peranan guru di sekolah menengah, dan kemahiran apa yang diperlukan?',
     );
@@ -378,7 +378,7 @@ describe('sanitizeStudentOutputSync', () => {
       'You don\'t need to be perfect to begin. You need curiosity, consistency, and compassion.',
       UNIVERSAL_SCHOLAR_DOOR_EN,
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       bloated,
       'What does a registered nurse do, and what skills do I need?',
     );
@@ -399,7 +399,7 @@ describe('sanitizeStudentOutputSync', () => {
       'Core skills:\n- Clinical competence\n- Critical thinking\n- Clear communication',
       UNIVERSAL_SCHOLAR_DOOR_EN,
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       withBullets,
       'What does a registered nurse do, and what skills do I need?',
     );
@@ -418,7 +418,7 @@ describe('sanitizeStudentOutputSync', () => {
       'Core skills: Clinical competence. Critical thinking.',
       UNIVERSAL_SCHOLAR_DOOR_EN,
     ].join('\n\n');
-    const resolved = resolveStudentStreamSurface(raw, flattened);
+    const resolved = resolveUsersStreamSurface(raw, flattened);
     expect(resolved.fullResponse).toBe(raw);
     expect(resolved.streamReplace).toBeNull();
   });
@@ -430,7 +430,7 @@ describe('sanitizeStudentOutputSync', () => {
       'Core skills you will need, not just listed, but lived:\nClinical competence: Anatomy and pharmacology.\nCritical thinking & clinical judgment: Weighing risks and adapting.',
       UNIVERSAL_SCHOLAR_DOOR_EN,
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       bloated,
       'What does a registered nurse do, and what skills do I need?',
     );
@@ -451,7 +451,7 @@ describe('sanitizeStudentOutputSync', () => {
       'These skills grow not only in classrooms, but in quiet moments: the pause before entering a room.',
       UNIVERSAL_SCHOLAR_DOOR_EN,
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       bloated,
       'What does a registered nurse do, and what skills do I need?',
     );
@@ -463,7 +463,7 @@ describe('sanitizeStudentOutputSync', () => {
   });
 
   it('strips coaching close on diabetes question — keeps medical substance', () => {
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       DIABETES_COACHING_VOICE,
       'Bolehkah diabetes jenis 1 atau 2 disembuhkan sepenuhnya?',
     );
@@ -480,7 +480,7 @@ describe('sanitizeStudentOutputSync', () => {
       'From an Alamtologi perspective, this reflects the deep harmony between MASA (timing), TENAGA (energy balance), and RUANG (metabolic space). Remission is the restoration of a living rhythm through disciplined action.',
       'Would you like more on practical tools (meal planning, activity strategies), a realistic 12-week path toward remission, or how to work with your healthcare team to explore this safely?',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(bloated, 'Can type 2 diabetes go into remission?');
+    const out = sanitizeUsersOutputSync(bloated, 'Can type 2 diabetes go into remission?');
     expect(out).toMatch(/type 2 diabetes|remission/i);
     expect(out).toMatch(/DiRECT/i);
     expect(out).not.toMatch(/Alamtologi/i);
@@ -496,7 +496,7 @@ describe('sanitizeStudentOutputSync', () => {
       "It's not just biology, it's a quiet covenant between sun, air, water, and life.",
       'Would you like more on skills and tools, a career path, or a real-world example?',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(bloated, 'Explain photosynthesis in simple terms.');
+    const out = sanitizeUsersOutputSync(bloated, 'Explain photosynthesis in simple terms.');
     expect(out).toMatch(/photosynthesis|glucose/i);
     expect(out).not.toMatch(/quiet covenant/i);
     expect(out).not.toMatch(/skills and tools/i);
@@ -507,7 +507,7 @@ describe('sanitizeStudentOutputSync', () => {
       'Perdana Menteri Malaysia sekarang ialah Dato\' Seri Anwar Ibrahim, dilantik 24 November 2022.',
       'Adakah anda ingin lebih lanjut tentang kemahiran dan alat, laluan kerjaya, atau contoh dunia sebenar berkaitan peranan Perdana Menteri?',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(bloated, 'Siapa perdana menteri Malaysia sekarang?');
+    const out = sanitizeUsersOutputSync(bloated, 'Siapa perdana menteri Malaysia sekarang?');
     expect(out).toMatch(/Anwar Ibrahim/i);
     expect(out).not.toMatch(/kemahiran dan alat/i);
     expect(out).not.toMatch(/laluan kerjaya/i);
@@ -520,7 +520,7 @@ describe('sanitizeStudentOutputSync', () => {
       'And quietly, beneath all technique, there\'s something deeper: Allah says in Surah Ar-Ra\'d 13:28: "Indeed, it is in the remembrance of Allah that hearts find rest."',
       'Would you like more on practical tools (like a 5-minute pre-exam grounding routine), a realistic study rhythm for the week ahead, or how to turn one stressful thought into a helpful question?',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(bloated, 'I feel stressed before exams. What helps?');
+    const out = sanitizeUsersOutputSync(bloated, 'I feel stressed before exams. What helps?');
     expect(out).toMatch(/inhaling for 4 seconds/i);
     expect(out).toMatch(/Sleep strengthens memory/i);
     expect(out).not.toMatch(/\bSurah\b/i);
@@ -535,7 +535,7 @@ describe('sanitizeStudentOutputSync', () => {
       'UI design is about what and how it looks and feels.',
       'Both require respect for the person using the product.',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(body, 'Compare UX designer and UI designer roles.');
+    const out = sanitizeUsersOutputSync(body, 'Compare UX designer and UI designer roles.');
     expect(out).toMatch(/UX design is about/i);
     expect(out).toMatch(/skills for each path/i);
     expect(out).toMatch(/work together on a product team/i);

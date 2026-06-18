@@ -19,10 +19,8 @@
  */
 
 import { appendGoldStandardFollowUp } from './adam-gold-standard';
-import {
-  ensureStudentHaiGreeting,
-  formatStudentHaiGreeting,
-} from './adam-student-constitution';
+import { ensureUsersHaiGreeting } from './adam-users-constitution';
+import { formatUsersHaiGreeting } from './adam-users-greeting';
 import { isAdamSimpleArithmeticTurn, isAdamLinearAlgebraTurn, stripLeadingAdamSalutation } from './adam-response-generation';
 import { paragraphIsUniversalScholarDoorOffer } from './adam-universal-scholar';
 import { userAskedForAlamtologi, userAskedForConstitutionalStructure } from './adam-universal-voice';
@@ -31,10 +29,10 @@ import { userAskedForAlamtologi, userAskedForConstitutionalStructure } from './a
 export const ARITHMETIC_ALPHA_ANSWER_MAX_CHARS = 360;
 
 /** Warm opener — "Hai Ahmad," on α arithmetic (mandatory when name known). */
-export const formatArithmeticAlphaGreeting = formatStudentHaiGreeting;
+export const formatArithmeticAlphaGreeting = formatUsersHaiGreeting;
 
 /** Prepend Hai + name when the answer block has no greeting yet. */
-export const ensureArithmeticAlphaGreeting = ensureStudentHaiGreeting;
+export const ensureArithmeticAlphaGreeting = ensureUsersHaiGreeting;
 
 const BM_CARDINAL =
   /\b(?:satu|dua|tiga|empat|lima|enam|tujuh|lapan|sembilan|sepuluh|one|two|three|four|five|six|seven|eight|nine|ten)\b/i;

@@ -24,10 +24,10 @@ import {
 } from '../src/adam/adam-knowledge-mode';
 import {
   paragraphIsAlamtologiPromotionLeak,
-  resolveStudentKnowledgeTier,
+  resolveUsersKnowledgeTier,
   stripAlamtologiPromotionInline,
 } from '../src/adam/adam-universal-scholar';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 
 const ICE_ASK = 'Apakah yang berlaku apabila ais dipanaskan?';
 
@@ -45,7 +45,7 @@ describe('General konvensional — separated from Alamtologi mode', () => {
 
   it('does not stick tier 2 from prior Alamtologi opt-in in session history', () => {
     expect(
-      resolveStudentKnowledgeTier(ICE_ASK, ['Ya, terangkan sudut Alamtologi tentang air.'], []),
+      resolveUsersKnowledgeTier(ICE_ASK, ['Ya, terangkan sudut Alamtologi tentang air.'], []),
     ).toBe(1);
   });
 
@@ -86,9 +86,9 @@ describe('General konvensional — separated from Alamtologi mode', () => {
     expect(out).not.toMatch(/peringkat\s+2/i);
   });
 
-  it('sanitizeStudentOutputSync removes Alamtologi door on general turn', () => {
-    const out = sanitizeStudentOutputSync(ALAMTOLOGI_DOOR_LEAK, ICE_ASK, [], [], 'QA', {
-      enforceStudentGreeting: true,
+  it('sanitizeUsersOutputSync removes Alamtologi door on general turn', () => {
+    const out = sanitizeUsersOutputSync(ALAMTOLOGI_DOOR_LEAK, ICE_ASK, [], [], 'QA', {
+      enforceUsersGreeting: true,
     });
     expect(out).not.toMatch(/sudut\s+Alamtologi/i);
     expect(out).not.toMatch(/peringkat\s+2/i);

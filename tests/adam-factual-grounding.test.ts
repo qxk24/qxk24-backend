@@ -42,7 +42,7 @@ import {
   extractRecentAssistantTurns,
 } from '../src/adam/adam-factual-grounding';
 import { getAdamWebSearchPrompt, getWebSearchGateReason } from '../src/adam/adam-web-search';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 import {
   isTechnicalPrecisionQuestion,
   messageHasSlashSeparatedDimensions,
@@ -129,12 +129,12 @@ describe('Universal technical grounding', () => {
     expect(shouldForceWebSearchForTechnicalTurn('salam')).toBe(false);
   });
 
-  it('uses founder agent search prompt for students (speed parity)', () => {
+  it('uses agent search prompt for Users (speed parity)', () => {
     const prompt = getAdamWebSearchPrompt(false, {
       userMessage: 'Berapa mg paracetamol untuk kanak-kanak 10 tahun?',
     });
     expect(prompt).toMatch(/DashScope agent mode/i);
-    expect(prompt).toMatch(/founder turn/i);
+    expect(prompt).toMatch(/Users turn/i);
     expect(prompt).not.toMatch(/660 cc|Perodua|Viva/i);
   });
 });
@@ -178,28 +178,28 @@ describe('Technical follow-up detection', () => {
   });
 });
 
-describe('Student founder parity search gate', () => {
-  it('enables substantive_conventional search on teaching asks — skips salam only', () => {
+describe('User umum channel search gate', () => {
+  it('enables factual_question on teaching asks — skips salam only', () => {
     expect(
-      getWebSearchGateReason('Boleh terangkan tentang beras', { studentFounderParity: true }),
-    ).toBe('substantive_conventional');
+      getWebSearchGateReason('Boleh terangkan tentang beras', { userUmumChannelGate: true }),
+    ).toBe('factual_question');
     expect(
-      getWebSearchGateReason('SALAM', { studentFounderParity: true }),
+      getWebSearchGateReason('SALAM', { usersFounderParity: true }),
     ).toBeNull();
     expect(
       getWebSearchGateReason(
         'Salam Adam, Bagikan maklumat jumlah pelajar KPTM',
-        { studentFounderParity: true },
+        { usersFounderParity: true },
       ),
     ).toBe('verified_data_stat');
   });
 
   it('enables search for direct technical specs and entity correction', () => {
     expect(
-      getWebSearchGateReason('Berapa mg paracetamol untuk kanak-kanak?', { studentFounderParity: true }),
+      getWebSearchGateReason('Berapa mg paracetamol untuk kanak-kanak?', { usersFounderParity: true }),
     ).toBe('technical_precision');
     expect(
-      getWebSearchGateReason('Anda salah brand — ini Tongkat Ali', { studentFounderParity: true }),
+      getWebSearchGateReason('Anda salah brand — ini Tongkat Ali', { usersFounderParity: true }),
     ).toBe('entity_correction');
   });
 });
@@ -291,7 +291,7 @@ describe('Universal technical output guard', () => {
     const raw =
       'Dos biasanya sekitar 8000 mg sehari.\n\n'
       + 'Sumber: Lancet Vol. 99 Issue 12.';
-    const out = sanitizeStudentOutputSync(raw, 'Berapa mg vitamin C?');
+    const out = sanitizeUsersOutputSync(raw, 'Berapa mg vitamin C?');
     expect(out).not.toMatch(/8000 mg/);
     expect(out).not.toMatch(/Lancet Vol/i);
   });

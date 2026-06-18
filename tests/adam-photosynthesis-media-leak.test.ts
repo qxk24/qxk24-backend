@@ -13,13 +13,12 @@
 /// <reference types="jest" />
 
 import { describe, expect, it } from '@jest/globals';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 import {
-  resolveStudentStreamSurface,
-} from '../src/adam/adam-student-output-guard';
-import { repairAdamMediaOutput } from '../src/adam/adam-media-guard';
+  resolveUsersStreamSurface,
+} from '../src/adam/adam-users-output-guard';
+import { repairAdamMediaOutput, reorderMediaAfterIntroAbstract } from '../src/adam/adam-media-guard';
 import { extractMediaFromSearchHits } from '../src/adam/adam-media-search';
-import { repairTechnicalDiagramOutput } from '../src/adam/adam-technical-diagram-guard';
 
 const SEARCH_MEDIA_HITS = extractMediaFromSearchHits([
   {
@@ -50,8 +49,8 @@ const BAD = [
 
 describe('photosynthesis — MASA leak + media refusal', () => {
   it('strips MASA/TENAGA/RUANG essay and media refusal', () => {
-    const out = sanitizeStudentOutputSync(BAD, ASK, [], [], 'QA', {
-      enforceStudentGreeting: true,
+    const out = sanitizeUsersOutputSync(BAD, ASK, [], [], 'QA', {
+      enforceUsersGreeting: true,
     });
     expect(out).not.toMatch(/\bMASA\b.*\bTENAGA\b.*\bRUANG\b/s);
     expect(out).not.toMatch(/tidak boleh menunjukkan gambar/i);
@@ -59,16 +58,16 @@ describe('photosynthesis — MASA leak + media refusal', () => {
   });
 
   it('prefers sanitized surface over raw stream on technical turn', () => {
-    const surface = sanitizeStudentOutputSync(BAD, ASK, [], [], 'QA', {
-      enforceStudentGreeting: true,
+    const surface = sanitizeUsersOutputSync(BAD, ASK, [], [], 'QA', {
+      enforceUsersGreeting: true,
     });
-    const resolved = resolveStudentStreamSurface(BAD, surface, { userMessage: ASK });
+    const resolved = resolveUsersStreamSurface(BAD, surface, { userMessage: ASK });
     expect(resolved.fullResponse).not.toMatch(/\bMASA\b/);
   });
 
   it('strips production MASA/CAHAYA weave and media redirect', () => {
-    const out = sanitizeStudentOutputSync(USER_PRODUCTION_BAD, 'Apa itu fotosintesis?', [], [], 'QA', {
-      enforceStudentGreeting: true,
+    const out = sanitizeUsersOutputSync(USER_PRODUCTION_BAD, ASK, [], [], 'QA', {
+      enforceUsersGreeting: true,
     });
     expect(out).not.toMatch(/\*MASA\*/);
     expect(out).not.toMatch(/tidak\s+dapat\s+menunjukkan/i);
@@ -76,15 +75,28 @@ describe('photosynthesis — MASA leak + media refusal', () => {
     expect(out).toMatch(/fotosintesis|klorofil/i);
   });
 
-  it('injects diagram and search-derived media tags', () => {
+  it('injects search-derived media tags when user asked for gambar and video', () => {
     expect(SEARCH_MEDIA_HITS.length).toBeGreaterThan(0);
-    let out = sanitizeStudentOutputSync(USER_PRODUCTION_BAD, 'Apa itu fotosintesis?', [], [], 'QA', {
-      enforceStudentGreeting: true,
+    let out = sanitizeUsersOutputSync(USER_PRODUCTION_BAD, ASK, [], [], 'QA', {
+      enforceUsersGreeting: true,
     });
-    out = repairTechnicalDiagramOutput(out, 'Apa itu fotosintesis?');
-    out = repairAdamMediaOutput(out, 'Apa itu fotosintesis?', SEARCH_MEDIA_HITS);
-    expect(out).toMatch(/<adam-technical-diagram>/i);
+    out = repairAdamMediaOutput(out, ASK, SEARCH_MEDIA_HITS);
     expect(out).toMatch(/<adam-chat-image\b/i);
     expect(out).toMatch(/<adam-chat-video\b/i);
+  });
+
+  it('moves video after intro abstract when model placed it under header only', () => {
+    const raw = [
+      '### Prinsip dan definisi, formula kimia bagi air',
+      '<adam-chat-video url="https://www.youtube.com/watch?v=e6Z_J97ZLOY" title="Apakah formula kimia bagi air?" />',
+      '### Langkah / fasa',
+      '1. Air ialah senyawa anorganik penting; formula kimianya **H₂O** — dua atom hidrogen dan satu atom oksigen.',
+      '2. Ia wujud sebagai pepejal, cecair, dan gas pada suhu permukaan bumi.',
+    ].join('\n\n');
+    const out = reorderMediaAfterIntroAbstract(raw);
+    const videoPos = out.indexOf('<adam-chat-video');
+    const introPos = out.indexOf('Air ialah senyawa');
+    expect(introPos).toBeGreaterThanOrEqual(0);
+    expect(introPos).toBeLessThan(videoPos);
   });
 });

@@ -20,7 +20,6 @@
 import { describe, expect, it } from '@jest/globals';
 import {
   detectServerIntent,
-  matchesBookIntent,
   matchesCodeIntent,
   matchesJournalIntent,
 } from '../src/adam-servers/adam-layer-intent';
@@ -39,10 +38,9 @@ describe('adam-layer-intent', () => {
   it.each([
     'tulis bab 3 buku saya',
     'mulakan buku baru',
-    'Socratic writing untuk manuskrip',
-  ])('detects book intent: %s', (phrase) => {
-    expect(matchesBookIntent(phrase)).toBe(true);
-    expect(detectServerIntent(phrase)).toBe('BUKU');
+    'Boleh bantu penulisan buku Mencari Damai?',
+  ])('book writing stays Layer 1 — no server gate: %s', (phrase) => {
+    expect(detectServerIntent(phrase)).toBeNull();
   });
 
   it.each([

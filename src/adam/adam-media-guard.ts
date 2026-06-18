@@ -19,10 +19,12 @@ import type { AdamMediaSearchHit } from './adam-media-search';
 import { isAdamMediaSearchTurn } from './adam-media-search';
 import {
   imageUrlLooksBroken,
+  isDisplayableChatImageUrl,
   normalizeAdamChatImageUrl,
 } from './adam-chat-image-url';
 import {
   collectTrustedVideoUrls,
+  normalizeAdamChatVideoUrl,
   resolveAdamChatVideoUrl,
 } from './adam-chat-video-url';
 
@@ -91,10 +93,68 @@ function insertAfterBlockIndex(text: string, blockIndex: number, insert: string)
   return parts.join('\n\n').trim();
 }
 
+const MEDIA_TAG_RE = /^<adam-chat-(?:image|video)\b/i;
+const HEADER_RE = /^#{1,6}\s+/;
+
+function splitBodyBlocks(text: string): string[] {
+  return text.trim().split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+}
+
+/** First prose/numbered block long enough to serve as intro abstract. */
+export function firstSubstantiveBlockIndex(parts: string[]): number {
+  for (let i = 0; i < parts.length; i += 1) {
+    const p = parts[i]!;
+    if (HEADER_RE.test(p) || MEDIA_TAG_RE.test(p)) continue;
+    if (/^<adam-technical-diagram/i.test(p)) continue;
+    const numbered = p.replace(/^\d+\.\s+/, '').trim();
+    const body = /^\d+\.\s+/.test(p) ? numbered : p;
+    if (body.length >= 32) return i;
+  }
+  return -1;
+}
+
+/** Move image/video tags to after the first substantive intro paragraph. */
+export function reorderMediaAfterIntroAbstract(text: string): string {
+  const parts = splitBodyBlocks(text);
+  if (parts.length === 0) return text.trim();
+
+  const proseIdx = firstSubstantiveBlockIndex(parts);
+  if (proseIdx < 0) return text.trim();
+
+  const mediaIndices = parts
+    .map((p, i) => (MEDIA_TAG_RE.test(p) ? i : -1))
+    .filter((i) => i >= 0);
+  if (mediaIndices.length === 0) return text.trim();
+
+  const earliestMedia = mediaIndices[0]!;
+  if (earliestMedia > proseIdx) return text.trim();
+
+  const tags = mediaIndices
+    .sort((a, b) => b - a)
+    .map((i) => parts.splice(i, 1)[0]!)
+    .reverse();
+
+  const insertAt = firstSubstantiveBlockIndex(parts) + 1;
+  parts.splice(insertAt, 0, ...tags);
+  return parts.join('\n\n').trim();
+}
+
+function resolveMediaInsertIndex(parts: string[]): number {
+  const proseIdx = firstSubstantiveBlockIndex(parts);
+  if (proseIdx >= 0) return proseIdx + 1;
+  return parts.length;
+}
+
+/** Normalize media placement — abstract prose before video/image tags. */
+export function finalizeAdamChatMediaLayout(text: string): string {
+  return dedupeAdamChatMediaTags(reorderMediaAfterIntroAbstract(text.trim()));
+}
+
 function collectTrustedImageUrls(hits: AdamMediaSearchHit[]): Set<string> {
   const trusted = new Set<string>();
   for (const hit of hits) {
     if (hit.kind !== 'image') continue;
+    if (!isDisplayableChatImageUrl(hit.url)) continue;
     trusted.add(normalizeAdamChatImageUrl(hit.url));
   }
   return trusted;
@@ -105,14 +165,52 @@ function resolveAdamChatImageUrl(
   alt: string,
   hits: AdamMediaSearchHit[],
 ): string {
-  const imageHit = hits.find((h) => h.kind === 'image');
+  const imageHit = hits.find((h) => h.kind === 'image' && isDisplayableChatImageUrl(h.url));
   const trusted = collectTrustedImageUrls(hits);
   if (url) {
     const normalized = normalizeAdamChatImageUrl(url);
-    if (trusted.has(normalized) && !imageUrlLooksBroken(normalized)) return normalized;
+    if (
+      isDisplayableChatImageUrl(normalized)
+      && trusted.has(normalized)
+      && !imageUrlLooksBroken(normalized)
+    ) {
+      return normalized;
+    }
   }
   if (imageHit?.url) return normalizeAdamChatImageUrl(imageHit.url);
-  return url ? normalizeAdamChatImageUrl(url) : '';
+  return '';
+}
+
+function countAdamChatMediaTags(text: string, kind: 'image' | 'video'): number {
+  const re = kind === 'image' ? /<adam-chat-image\b/gi : /<adam-chat-video\b/gi;
+  return (text.match(re) ?? []).length;
+}
+
+export function dedupeAdamChatMediaTags(text: string): string {
+  const seenVideo = new Set<string>();
+  const seenImage = new Set<string>();
+
+  let out = text.replace(/<adam-chat-video\b[^>]*\/?>/gi, (tag) => {
+    const rawUrl = parseTagAttr(tag, 'url');
+    const norm = rawUrl ? normalizeAdamChatVideoUrl(rawUrl) : null;
+    if (!norm) return '';
+    if (seenVideo.has(norm)) return '';
+    seenVideo.add(norm);
+    return tag;
+  });
+
+  out = out.replace(/<adam-chat-image\b[^>]*\/?>/gi, (tag) => {
+    const rawUrl = parseTagAttr(tag, 'url');
+    const norm = rawUrl ? normalizeAdamChatImageUrl(rawUrl) : '';
+    if (!norm || !isDisplayableChatImageUrl(norm)) return tag;
+    if (seenImage.has(norm)) return '';
+    seenImage.add(norm);
+    return tag;
+  });
+
+  return out
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 /** Normalize image tags; swap broken/hallucinated URLs with search-hit URLs. */
@@ -158,20 +256,24 @@ export function repairAdamMediaOutput(
   userMessage: string,
   hits: AdamMediaSearchHit[],
 ): string {
-  if (!isAdamMediaSearchTurn(userMessage)) return text.trim();
+  if (!isAdamMediaSearchTurn(userMessage)) return dedupeAdamChatMediaTags(text.trim());
 
-  let out = repairAdamChatVideoTagUrls(
-    repairAdamChatImageTagUrls(text, userMessage, hits),
+  let out = dedupeAdamChatMediaTags(text);
+
+  out = repairAdamChatVideoTagUrls(
+    repairAdamChatImageTagUrls(out, userMessage, hits),
     userMessage,
     hits,
   );
-  if (hits.length === 0) return out.trim();
+  if (hits.length === 0) return finalizeAdamChatMediaLayout(out.trim());
 
   out = out.trim();
-  const hasImage = CHAT_IMAGE_TAG_RE.test(out);
-  const hasVideo = CHAT_VIDEO_TAG_RE.test(out);
-  CHAT_IMAGE_TAG_RE.lastIndex = 0;
-  CHAT_VIDEO_TAG_RE.lastIndex = 0;
+  const hasImage = countAdamChatMediaTags(out, 'image') > 0;
+  const hasVideo = countAdamChatMediaTags(out, 'video') > 0;
+
+  if (hasImage && hasVideo) {
+    return finalizeAdamChatMediaLayout(out);
+  }
 
   const imageHit = hits.find((h) => h.kind === 'image');
   const videoHit = hits.find((h) => h.kind === 'video');
@@ -186,17 +288,37 @@ export function repairAdamMediaOutput(
     const videoUrl = resolveAdamChatVideoUrl(videoHit.url, trustedUrls, videoHit.url);
     if (videoUrl) tags.push(wrapAdamChatVideoTag(videoUrl, videoHit.title));
   }
-  if (tags.length === 0) return out;
+  if (tags.length === 0) return finalizeAdamChatMediaLayout(out);
+
+  const joined = tags.join('\n');
+
+  // Model already embedded image — append verified video right after it.
+  if (hasImage && !hasVideo && tags.length === 1 && /<adam-chat-video\b/i.test(tags[0]!)) {
+    const afterImage = out.replace(/(<adam-chat-image\b[^>]*\/?>)/i, `$1\n\n${joined}`);
+    if (afterImage !== out) return finalizeAdamChatMediaLayout(afterImage.trim());
+  }
 
   const diagramIdx = out.search(/<adam-technical-diagram>[\s\S]*?<\/adam-technical-diagram>/i);
   if (diagramIdx >= 0) {
     const before = out.slice(0, diagramIdx);
     const after = out.slice(diagramIdx).replace(
       /(<\/adam-technical-diagram>)/i,
-      `$1\n\n${tags.join('\n')}`,
+      `$1\n\n${joined}`,
     );
-    return `${before}${after}`.trim();
+    return finalizeAdamChatMediaLayout(`${before}${after}`.trim());
   }
 
-  return insertAfterBlockIndex(out, 1, tags.join('\n'));
+  return finalizeAdamChatMediaLayout(
+    insertAfterBlockIndex(out, resolveMediaInsertIndex(splitBodyBlocks(out)), joined),
+  );
+}
+
+/** Remove image/video tags when the user did not ask for media this turn. */
+export function stripUnsolicitedAdamChatMedia(text: string, userMessage: string): string {
+  if (isAdamMediaSearchTurn(userMessage)) return text.trim();
+  return text
+    .replace(CHAT_IMAGE_TAG_RE, '')
+    .replace(CHAT_VIDEO_TAG_RE, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }

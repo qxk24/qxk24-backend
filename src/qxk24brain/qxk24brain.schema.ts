@@ -16,6 +16,7 @@
  */
 
 import mongoose, { Schema, Document } from 'mongoose';
+import type { StudentContinuityBridge } from '../adam/student-continuity-l7.types';
 
 const ALAMTOLOGI_PRINCIPLES = [
   'MASA', 'TENAGA', 'AIR', 'API', 'BUMI', 'CAHAYA', 'RUANG', 'MULTI',
@@ -168,6 +169,8 @@ export interface StudentTrack {
   understanding:        string;
   transformationCount:  number;
   masa_last_updated:    Date;
+  /** Per-user relational C — crystallised A+B=C journey (not chat logs). */
+  relationalUnderstanding?: string;
   /** AIDIL knowledge level 1–6 (Teaching Bridge v2 may advance) */
   constitutionalLevel?: number;
   masteredTopics?:      string[];
@@ -179,6 +182,9 @@ export interface StudentTrack {
   relationshipArc?:     string;
   /** Person Relational Memory — distilled how ADAM knows this person */
   relationalSummary?:   string;
+  /** Layer 7 continuity bridge — per-user JSON */
+  usersContinuityBridge?:         StudentContinuityBridge;
+  usersContinuityBridge_updated?: Date;
   /** Facts sealed to this person only (identity isolation) */
   identityAnchors?:     string[];
   /** Last message contact timestamp */
@@ -274,6 +280,16 @@ const AlamtologiBrainMasterSchema = new Schema<AlamtologiBrainMasterDocument>({
     lastSessionSummary:  { type: String, default: '' },
     relationshipArc:     { type: String, default: '' },
     relationalSummary:   { type: String, default: '' },
+    relationalUnderstanding: { type: String, default: '' },
+    usersContinuityBridge: {
+      studentProfile:   { type: String, default: '' },
+      relationshipArc:  { type: String, default: '' },
+      lastSession:      { type: String, default: '' },
+      openThreads:      { type: String, default: '' },
+      nextSteps:        { type: String, default: '' },
+      relationalMemory: { type: String, default: '' },
+    },
+    usersContinuityBridge_updated: { type: Date },
     identityAnchors:     { type: [String], default: [] },
     lastContactAt:       { type: Date },
   }],

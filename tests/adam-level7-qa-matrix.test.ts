@@ -28,7 +28,7 @@ import {
   isAdamTeachingDepthTurn,
 } from '../src/adam/adam-response-generation';
 import { isAdamCurrentAffairsTurn } from '../src/adam/adam-web-search';
-import { resolveStudentKnowledgeTier } from '../src/adam/adam-universal-scholar';
+import { resolveUsersKnowledgeTier } from '../src/adam/adam-universal-scholar';
 import { detectLanguage } from '../src/adam/adam-language-mirror.service';
 import { ADAM_UNIVERSAL_SCHOLAR_MALAY_LAYOUT } from '../src/adam/adam-universal-scholar';
 import {
@@ -87,7 +87,7 @@ describe.each(ADAM_LEVEL7_QA_MATRIX)('Level-7 QA — $categoryLabel · Tahap $le
 
   it(`${caseId(cell)} — knowledge tier`, () => {
     if (cell.expectedTier == null) return;
-    const tier = resolveStudentKnowledgeTier(
+    const tier = resolveUsersKnowledgeTier(
       cell.userMessage,
       cell.priorUserMessages ?? [],
       cell.priorAssistantMessages ?? [],
@@ -123,7 +123,7 @@ describe('ADAM Level-7 QA matrix — prompt blocks', () => {
       participantName:      'Ahmad',
       founderStudentsBlock: '',
       userMessage:          'Apakah ibu negara Malaysia?',
-      studentKnowledgeTier: 1,
+      usersKnowledgeTier: 1,
     });
     expect(prompt).toContain(ADAM_UNIVERSAL_SCHOLAR_MALAY_LAYOUT.slice(0, 40));
   });
@@ -135,7 +135,7 @@ describe('ADAM Level-7 QA matrix — prompt blocks', () => {
       participantName:      'Ahmad',
       founderStudentsBlock: '',
       userMessage:          'What is the capital of France?',
-      studentKnowledgeTier: 1,
+      usersKnowledgeTier: 1,
     });
     expect(prompt).not.toContain('SUSUNAN OUTPUT (sama kemas seperti English)');
   });

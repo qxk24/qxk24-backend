@@ -16,9 +16,9 @@ import { describe, expect, it } from '@jest/globals';
 import { preserveAlphaStatStreamBody } from '../src/adam/adam-alpha-output-guard';
 import { compactAlphaStatVerifiedBody } from '../src/adam/adam-alpha-stat-compact';
 import {
-  resolveStudentStreamSurface,
-  studentStreamBodyWasGutted,
-} from '../src/adam/adam-student-output-guard';
+  resolveUsersStreamSurface,
+  usersStreamBodyWasGutted,
+} from '../src/adam/adam-users-output-guard';
 import { resolveAdamTurnDisplayForSave } from '../src/adam/adam-stream-display-merge';
 import { KPTM_FULL_VOICE_REGRESSION_SAMPLE } from '../src/adam/adam-stat-stream-preserve';
 
@@ -36,20 +36,20 @@ const KPTM_EVIDENCE = [{
   snippet: 'lebih 18,000 orang pelajar | 62,000 graduan',
 }];
 
-describe('studentStreamBodyWasGutted', () => {
+describe('usersStreamBodyWasGutted', () => {
   it('detects when only the closing paragraph remains', () => {
-    expect(studentStreamBodyWasGutted(FULL, CLOSING_ONLY)).toBe(true);
+    expect(usersStreamBodyWasGutted(FULL, CLOSING_ONLY)).toBe(true);
   });
 
   it('allows light meta strip that keeps all paragraphs', () => {
     const light = FULL.replace(/^Jumlah/, 'Angka jumlah');
-    expect(studentStreamBodyWasGutted(FULL, light)).toBe(false);
+    expect(usersStreamBodyWasGutted(FULL, light)).toBe(false);
   });
 });
 
-describe('resolveStudentStreamSurface', () => {
+describe('resolveUsersStreamSurface', () => {
   it('keeps raw stream for stat turns when body was gutted', () => {
-    const resolved = resolveStudentStreamSurface(FULL, CLOSING_ONLY, {
+    const resolved = resolveUsersStreamSurface(FULL, CLOSING_ONLY, {
       preserveStreamBody: true,
     });
     expect(resolved.fullResponse).toBe(FULL);

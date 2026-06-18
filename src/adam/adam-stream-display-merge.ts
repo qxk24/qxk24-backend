@@ -20,7 +20,24 @@
 
 import { isArithmeticAlphaCollapsedRepair } from './adam-arithmetic-alpha-guard';
 import { isVisualDrawCollapsedRepair } from './adam-visual-draw-guard';
-import { isStudentGreetingOnlyRepair } from './adam-student-constitution';
+import { isUsersGreetingOnlyRepair } from './adam-users-constitution';
+import { resolveProseCraftDisplayForSave } from './adam-prose-craft';
+import { outputHasAdamProductRedirectLeak } from './adam-response-generation';
+
+const KONVENSIONAL_MEDIA_TAG_RE = /<adam-(?:chat-image|chat-video|technical-diagram)\b/i;
+
+function repairedAddsKonvensionalMedia(streamed: string, repaired: string): boolean {
+  const prev = streamed.trim();
+  const next = repaired.trim();
+  if (!next || prev === next) return false;
+  if (!KONVENSIONAL_MEDIA_TAG_RE.test(next)) return false;
+  if (!KONVENSIONAL_MEDIA_TAG_RE.test(prev)) return true;
+  for (const kind of ['chat-video', 'chat-image', 'technical-diagram'] as const) {
+    const tag = new RegExp(`<adam-${kind}\\b`, 'i');
+    if (tag.test(next) && !tag.test(prev)) return true;
+  }
+  return false;
+}
 
 const STREAM_REPLACE_MIN_RATIO = 0.52;
 
@@ -87,7 +104,12 @@ export interface AdamTurnDisplayMergeOptions {
   userMessage?: string;
   arithmeticAlphaRepair?: boolean;
   visualDrawRepair?: boolean;
-  studentGreetingRepair?: boolean;
+  usersGreetingRepair?: boolean;
+  technicalMediaRepair?: boolean;
+  /** Users channel — never persist product-server redirect over repaired surface. */
+  adamProductRedirectRepair?: boolean;
+  /** Prose-craft — Hai/asterisk/faith strip must win over streamed essay. */
+  proseCraftRepair?: boolean;
 }
 
 /** Body to persist and emit — never save a repair that gutted the live stream. */
@@ -99,13 +121,21 @@ export function resolveAdamTurnDisplayForSave(
   const prev = streamed.trim();
   const next = repaired.trim();
 
+  if (options?.proseCraftRepair) {
+    return resolveProseCraftDisplayForSave(prev, next);
+  }
+
   if (
     options?.arithmeticAlphaRepair
     || options?.visualDrawRepair
-    || options?.studentGreetingRepair
+    || options?.usersGreetingRepair
+    || options?.technicalMediaRepair
+    || options?.adamProductRedirectRepair
+    || (outputHasAdamProductRedirectLeak(prev) && !outputHasAdamProductRedirectLeak(next))
+    || repairedAddsKonvensionalMedia(prev, next)
     || (options?.userMessage && isArithmeticAlphaCollapsedRepair(prev, next, options.userMessage))
     || (options?.userMessage && isVisualDrawCollapsedRepair(prev, next, options.userMessage))
-    || isStudentGreetingOnlyRepair(prev, next)
+    || isUsersGreetingOnlyRepair(prev, next)
   ) {
     return next || prev;
   }

@@ -18,11 +18,11 @@
 /// <reference types="jest" />
 
 import { describe, expect, it } from '@jest/globals';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 import {
   buildThreeTierTurnOverlay,
   paragraphIsUniversalScholarDoorOffer,
-  resolveStudentKnowledgeTier,
+  resolveUsersKnowledgeTier,
   userOptedIntoAlamtologiTier,
   userOptedIntoQuranTier,
   UNIVERSAL_SCHOLAR_DOOR_EN,
@@ -31,26 +31,26 @@ import { buildAdamChatSystemPrompt } from '../src/adam/adam-prompt-builder';
 
 describe('three-tier knowledge architecture', () => {
   it('defaults to tier 1 on conventional questions', () => {
-    expect(resolveStudentKnowledgeTier('Apa punca diabetes?')).toBe(1);
+    expect(resolveUsersKnowledgeTier('Apa punca diabetes?')).toBe(1);
     expect(buildThreeTierTurnOverlay(1)).toMatch(/ACTIVE TIER THIS TURN: 1/);
   });
 
   it('detects tier 2 opt-in', () => {
     expect(userOptedIntoAlamtologiTier('Ya, saya ingin sudut Alamtologi')).toBe(true);
-    expect(resolveStudentKnowledgeTier('Ya, teruskan dari sudut Alamtologi')).toBe(2);
+    expect(resolveUsersKnowledgeTier('Ya, teruskan dari sudut Alamtologi')).toBe(2);
     expect(buildThreeTierTurnOverlay(2)).toMatch(/ACTIVE TIER THIS TURN: 2/);
   });
 
   it('detects tier 3 opt-in', () => {
     expect(userOptedIntoQuranTier('Ya, saya nak rujukan ayat Quran')).toBe(true);
-    expect(resolveStudentKnowledgeTier('Nak pengesahan dari Quran')).toBe(3);
+    expect(resolveUsersKnowledgeTier('Nak pengesahan dari Quran')).toBe(3);
     expect(buildThreeTierTurnOverlay(3)).toMatch(/ACTIVE TIER THIS TURN: 3/);
   });
 
   it('tier door offers are kept by output guard on practical advisory turns', () => {
     const door = UNIVERSAL_SCHOLAR_DOOR_EN;
     expect(paragraphIsUniversalScholarDoorOffer(door)).toBe(true);
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       `An electrician installs wiring safely.\n\n${door}`,
       'What does an electrician do day to day?',
     );
@@ -59,7 +59,7 @@ describe('three-tier knowledge architecture', () => {
 
   it('broad yes opens tier 2 without saying Alamtologi', () => {
     const adamPrior = `Insulin resistance is central.\n\n${UNIVERSAL_SCHOLAR_DOOR_EN}`;
-    expect(resolveStudentKnowledgeTier('Yes, go deeper', [], [adamPrior])).toBe(2);
+    expect(resolveUsersKnowledgeTier('Yes, go deeper', [], [adamPrior])).toBe(2);
   });
 
   it('student prompt stack includes active tier overlay', () => {
@@ -68,7 +68,7 @@ describe('three-tier knowledge architecture', () => {
       isFounder:            false,
       participantName:      'Ahmad',
       founderStudentsBlock: '',
-      studentKnowledgeTier: 1,
+      usersKnowledgeTier: 1,
       userMessage:          'Apa itu fotosintesis?',
     });
     expect(prompt).toMatch(/ACTIVE TIER THIS TURN: 1/);

@@ -10,6 +10,24 @@
  * ============================================================
  */
 
+const NON_DISPLAYABLE_IMAGE_EXT_RE = /\.(?:pdf|epub|docx?|pptx?|zip|mp4|webm|mov)(?:\?|$)/i;
+const NON_DISPLAYABLE_IMAGE_HOST_RE =
+  /(?:^|\.)youtube\.com$|youtu\.be$|(?:^|\.)vimeo\.com$|i\.ytimg\.com$/i;
+
+/** Chat <img> must be a raster/SVG resource — not PDF, video, or YouTube pages. */
+export function isDisplayableChatImageUrl(url: string): boolean {
+  const u = url.trim();
+  if (!u || !u.startsWith('https://')) return false;
+  if (NON_DISPLAYABLE_IMAGE_EXT_RE.test(u)) return false;
+  try {
+    const host = new URL(u).hostname;
+    if (NON_DISPLAYABLE_IMAGE_HOST_RE.test(host)) return false;
+  } catch {
+    return false;
+  }
+  return true;
+}
+
 /** Wikimedia /thumb/…/800px-… URLs often 400 — use direct commons file. */
 export function wikimediaThumbToDirectUrl(url: string): string | null {
   const m = url.trim().match(
@@ -29,6 +47,7 @@ export function normalizeAdamChatImageUrl(url: string): string {
 export function imageUrlLooksBroken(url: string): boolean {
   const u = url.trim();
   if (!u) return true;
+  if (!isDisplayableChatImageUrl(u)) return true;
   if (/images\.pexels\.com|images\.unsplash\.com|cdn\.pixabay\.com/i.test(u)) return false;
   if (/\/thumb\//i.test(u)) return true;
   if (/\/\d+px-/i.test(u)) return true;

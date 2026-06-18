@@ -27,9 +27,11 @@ import {
   recordTransformEpisode,
 } from '../qxk24brain/adam-teaching-record.service';
 import { FOUNDER_USER_ID } from './adam-student.types';
-import type { StudentKnowledgeTier } from './adam-universal-scholar';
+import type { UsersKnowledgeTier } from './adam-universal-scholar';
+import type { AdamUsersDomainFacet } from './adam-users-domain-router';
 import { ADAM_TRANSFORM_CRYSTALLISATION_LAW } from './adam-transform-crystallisation-law';
 import { triggerInquiryMasterMerge } from './adam-transform-master-merge';
+import { mergeRelationalCToUserBrain } from './adam-user-brain.service';
 import type { TeachingTransformContext } from '../qxk24brain/adam-teaching-record.service';
 import {
   type TransformASource,
@@ -58,7 +60,8 @@ export interface TransformTurnInput {
   isGuestTrial?:         boolean;
   isFounder?:            boolean;
   skipEpisodicAppend?:   boolean;
-  studentKnowledgeTier?: StudentKnowledgeTier;
+  usersKnowledgeTier?: UsersKnowledgeTier;
+  usersDomainFacet?:    AdamUsersDomainFacet;
 }
 
 export interface CrystallisedEpisode {
@@ -284,6 +287,9 @@ export async function runTransformTurn(input: TransformTurnInput): Promise<void>
     teachingIntent:     episode.teachingIntent,
     outcomeSummary:     episode.outcomeSummary,
     relationalTags:     [
+      ...(input.usersDomainFacet && input.usersDomainFacet !== 'general'
+        ? [`domain:${input.usersDomainFacet}`]
+        : []),
       ...episode.relationalTags,
       ...episode.conventionalClaims.map((c) => c.slice(0, 40).toLowerCase()),
     ].slice(0, 12),
@@ -291,10 +297,27 @@ export async function runTransformTurn(input: TransformTurnInput): Promise<void>
     questionHash,
     webSearchUsed:      input.webSearchUsed === true,
     recallHit:          input.recallLoaded === true,
-    tier:               input.studentKnowledgeTier ?? 1,
+    tier:               input.usersKnowledgeTier ?? 1,
   });
 
   console.log('[ADAM Transform] C indexed', doc.recordId, aSource);
+
+  if (input.studentId?.trim()) {
+    void mergeRelationalCToUserBrain(
+      input.studentId,
+      input.studentName ?? 'Pelajar',
+      {
+        recordId:       doc.recordId,
+        episodeSummary: episode.episodeSummary,
+        teachingIntent: episode.teachingIntent,
+        outcomeSummary: episode.outcomeSummary,
+        relationalTags: episode.relationalTags,
+      },
+    ).catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[ADAM User Brain] relational C merge failed:', msg);
+    });
+  }
 
   triggerInquiryMasterMerge({
     founderId,

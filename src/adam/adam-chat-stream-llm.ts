@@ -16,66 +16,14 @@
  */
 
 import { isQwenDataInspectionError, llmStream } from '../llm/llm-client';
-import { repairTechnicalDiagramOutput } from './adam-technical-diagram-guard';
-import { repairAdamMediaOutput, outputHasAdamChatMedia } from './adam-media-guard';
-import {
-  isAdamMediaSearchTurn,
-  type AdamMediaSearchHit,
-} from './adam-media-search';
+import type { AdamMediaSearchHit } from './adam-media-search';
 import type { LlmMessage, LlmSearchResult } from '../llm/llm-types';
-import {
-  isAdamCurrentAffairsTurn,
-  isVerifiedDataStatAsk,
-  shouldForceWebSearchForGateReason,
-} from './adam-web-search';
-import { repairEastAsianScriptLeak } from './adam-language-guard';
-import {
-  buildStudentGreetingFallback,
-  isAdamLightChatTurn,
-  isAdamSimpleFactualTurn,
-  isAdamSimpleArithmeticTurn,
-  isAdamHistoricalBiographyTurn,
-  isAdamScienceNatureSynthesisTurn,
-  isAdamTechnicalKonvensionalDisplayTurn,
-  isAdamVisualDrawTurn,
-} from './adam-response-generation';
-import { isArithmeticAlphaCollapsedRepair } from './adam-arithmetic-alpha-guard';
-import { isVisualDrawCollapsedRepair } from './adam-visual-draw-guard';
-import { ensureStudentHaiGreeting, isStudentGreetingOnlyRepair } from './adam-student-constitution';
-import {
-  buildTutorGreetingFallback,
-  isAdamTutorMode,
-  repairTutorMalaySessionLanguage,
-} from './adam-tutor-law';
-import {
-  applyStudentSurfaceOutputRepair,
-  resolveStudentStreamSurface,
-  studentStreamBodyWasGutted,
-} from './adam-student-output-guard';
-import {
-  outputHasKonvensionalFrameworkLeak,
-  outputHasMediaRefusal,
-} from './adam-student-output-law';
-import { alphaStatPersistedStreamBody } from './adam-stat-stream-preserve';
-import { outputHasScannableListStructure } from './adam-student-output-law';
-import {
-  sanitizeFounderTeachingQuranFormat,
-} from './adam-founder-teaching-prompts';
-import { restoreFounderPaltAddress } from './adam-founder-address-guard';
-import {
-  detectFounderTeachingOutputLeak,
-  repairFounderTeachingOutputLeak,
-  syncSanitizeFounderTeachingOutput,
-} from './adam-founder-teaching-output-guard';
-import { ensureFounderTeachingInquiryClose } from './adam-teaching-inquiry-repair';
-import { ensureFounderTeachingSynthesisSections } from './adam-teaching-synthesis-repair';
-import {
-  adamTeachingMessageHasInquirySection,
-  adamTeachingMessageHasSynthesisSection,
-} from './adam-teaching-state-machine';
-import { repairStaleOfficeHolderOutput } from './adam-current-affairs';
-import { repairFormulaXyzStreamOutput } from './adam-book-aware-recall';
-import { stripMisplacedPracticalCareerDoor } from './adam-universal-scholar';
+import { shouldForceWebSearchForGateReason } from './adam-web-search';
+import { resolveAdamChannel, isFounderChannel, type AdamResolvedChannel } from './adam-channel-router';
+import { repairFounderStreamOutput } from './adam-founder-stream-repair';
+import { repairUsersStreamOutput } from './adam-users-stream-repair';
+import type { AdamAnswerPlan } from './adam-answer-plan';
+import type { AdamTurnGateDecision } from './turn-gate/adam-turn-gate.types';
 import type { ResolvedAdamModel } from '../config/llm-models';
 import type { ADAMChatMode, SSEEventType } from './adam.types';
 import type { AdamChatTurnShell } from './adam-chat-stream.types';
@@ -192,8 +140,14 @@ export interface StreamRepairResult {
   arithmeticAlphaRepairApplied: boolean;
   /** Visual draw canonical ASCII shapes replace long geometry essay stream. */
   visualDrawRepairApplied: boolean;
+  /** Prose-craft — Hai/asterisk/faith strip replaces streamed essay opener. */
+  proseCraftRepairApplied: boolean;
   /** Hai + name prepended — stream UI must replace raw chunks. */
-  studentGreetingRepairApplied: boolean;
+  usersGreetingRepairApplied: boolean;
+  /** Image/video/diagram tags injected or repaired after stream. */
+  technicalMediaRepairApplied: boolean;
+  /** Users channel — Layer 2 product-server redirect stripped from stream. */
+  adamProductRedirectRepairApplied: boolean;
 }
 
 export async function repairAdamStreamOutput(input: {
@@ -203,6 +157,9 @@ export async function repairAdamStreamOutput(input: {
   recentUserTurns: string[];
   recentAssistantTurns?: string[];
   mode: ADAMChatMode;
+  channel?: AdamResolvedChannel;
+  answerPlan?: AdamAnswerPlan;
+  turnGate?: AdamTurnGateDecision;
   searchResults?: LlmSearchResult[];
   searchUsed?: boolean;
   searchDroppedByFilter?: boolean;
@@ -216,299 +173,40 @@ export async function repairAdamStreamOutput(input: {
     recentUserTurns,
     recentAssistantTurns = [],
     mode,
-    searchResults = [],
-    searchUsed = false,
-    searchDroppedByFilter = false,
-    extractedFacts = '',
-    mediaHits = [],
+    channel: inputChannel,
+    answerPlan,
+    turnGate,
   } = input;
-  const {
-    isFounder,
-    userMessage,
-    normalizedMessage,
-    teaching,
-    participant,
-    resolvedSessionId,
-    onEvent,
-  } = shell;
-  const { founderTeachingSynthesis, founderTeachingAbsorption, founderTeachingLearnerTurn } = teachingFlags;
 
-  const repairStarted = Date.now();
-  let syncRepairMs = 0;
-  let sanitizedRepairApplied = false;
-  let arithmeticAlphaRepairApplied = false;
-  let visualDrawRepairApplied = false;
-  let studentGreetingRepairApplied = false;
-  let fullResponse = await repairEastAsianScriptLeak(rawModelStream, userMessage);
+  const channel = inputChannel ?? resolveAdamChannel({
+    isFounder: shell.isFounder,
+    mode,
+    userMessage: shell.userMessage,
+    teachingFlags,
+  });
 
-  if (isFounder) {
-    if (!founderTeachingLearnerTurn) {
-      fullResponse = repairFormulaXyzStreamOutput(fullResponse, userMessage);
-      fullResponse = stripMisplacedPracticalCareerDoor(
-        fullResponse,
-        userMessage,
-        recentUserTurns,
-      );
-    }
-    fullResponse = restoreFounderPaltAddress(fullResponse);
-    if (!founderTeachingLearnerTurn) {
-      fullResponse = repairStaleOfficeHolderOutput(fullResponse, userMessage);
-      if (
-        isAdamSimpleFactualTurn(userMessage)
-        || isAdamSimpleArithmeticTurn(userMessage)
-        || isAdamHistoricalBiographyTurn(userMessage)
-        || isAdamScienceNatureSynthesisTurn(userMessage)
-        || isAdamVisualDrawTurn(userMessage)
-      ) {
-        fullResponse = applyStudentSurfaceOutputRepair(
-          fullResponse,
-          userMessage,
-          recentUserTurns,
-          recentAssistantTurns,
-          participant.userName,
-        );
-      }
-    }
-    if (
-      !founderTeachingLearnerTurn
-      && !isAdamLightChatTurn(userMessage)
-      && !isAdamVisualDrawTurn(userMessage)
-      && fullResponse?.trim()
-    ) {
-      const greeted = ensureStudentHaiGreeting(fullResponse, participant.userName);
-      if (greeted !== fullResponse.trim()) {
-        fullResponse = greeted;
-      }
-    }
-    if (isArithmeticAlphaCollapsedRepair(rawModelStream, fullResponse, userMessage)) {
-      arithmeticAlphaRepairApplied = true;
-      sanitizedRepairApplied = true;
-      onEvent('adam_stream_done', JSON.stringify({
-        sessionId:           resolvedSessionId,
-        replace:             true,
-        sanitizedRepair:     true,
-        arithmeticAlphaRepair: true,
-        briefTier1Repair:    true,
-        response:            fullResponse,
-      }));
-    }
+  if (isFounderChannel(channel)) {
+    return repairFounderStreamOutput({
+      shell,
+      rawModelStream,
+      teachingFlags,
+      recentUserTurns,
+      recentAssistantTurns,
+      channelId: channel.channelId as 'founder-journal' | 'founder-teaching-learner' | 'founder-command',
+      mode,
+      searchResults: input.searchResults,
+      extractedFacts: input.extractedFacts,
+    });
   }
 
-  if (!isFounder && isAdamTutorMode(mode)) {
-    if (!fullResponse?.trim() && isAdamLightChatTurn(userMessage)) {
-      fullResponse = buildTutorGreetingFallback(
-        userMessage,
-        participant.userName,
-        shell.options.tutorProfile,
-      );
-    } else if (fullResponse?.trim()) {
-      const tutorLangStarted = Date.now();
-      fullResponse = await repairTutorMalaySessionLanguage(
-        fullResponse,
-        shell.options.tutorProfile,
-      );
-      syncRepairMs = Date.now() - tutorLangStarted;
-    }
-  } else if (!isFounder) {
-    const syncStarted = Date.now();
-    const alphaStatTurn = isVerifiedDataStatAsk(userMessage);
-
-    if (alphaStatTurn) {
-      fullResponse = alphaStatPersistedStreamBody(rawModelStream);
-      syncRepairMs = Date.now() - syncStarted;
-    } else {
-      let surface = applyStudentSurfaceOutputRepair(
-        fullResponse,
-        userMessage,
-        recentUserTurns,
-        recentAssistantTurns,
-        participant.userName,
-        true,
-      );
-      syncRepairMs = Date.now() - syncStarted;
-      if (!surface.trim() && isAdamLightChatTurn(userMessage)) {
-        surface = buildStudentGreetingFallback(userMessage, participant.userName);
-      }
-      const preferSanitized = isAdamCurrentAffairsTurn(userMessage);
-      const forceSanitized = isAdamTechnicalKonvensionalDisplayTurn(userMessage)
-        && (
-          outputHasKonvensionalFrameworkLeak(rawModelStream)
-          || outputHasMediaRefusal(rawModelStream)
-        );
-      const streamGutted = studentStreamBodyWasGutted(rawModelStream, surface, userMessage);
-      if (streamGutted) {
-        fullResponse = alphaStatPersistedStreamBody(rawModelStream);
-      } else {
-        const resolved = resolveStudentStreamSurface(rawModelStream, surface, {
-          preferSanitized,
-          forceSanitized,
-          preserveStreamBody: false,
-          userMessage,
-        });
-        if (isArithmeticAlphaCollapsedRepair(rawModelStream, resolved.fullResponse, userMessage)) {
-          arithmeticAlphaRepairApplied = true;
-          sanitizedRepairApplied = true;
-        }
-        if (isVisualDrawCollapsedRepair(rawModelStream, resolved.fullResponse, userMessage)) {
-          visualDrawRepairApplied = true;
-          sanitizedRepairApplied = true;
-        }
-        if (forceSanitized && resolved.streamReplace) {
-          sanitizedRepairApplied = true;
-        }
-        const structurePreservingReplace = Boolean(
-          resolved.streamReplace
-          && preferSanitized
-          && (
-            !outputHasScannableListStructure(rawModelStream)
-            || outputHasScannableListStructure(resolved.fullResponse)
-          ),
-        );
-        const arithmeticReplace = Boolean(resolved.streamReplace && arithmeticAlphaRepairApplied);
-        const visualDrawReplace = Boolean(resolved.streamReplace && visualDrawRepairApplied);
-        const technicalRepairReplace = Boolean(resolved.streamReplace && forceSanitized);
-        if (structurePreservingReplace || arithmeticReplace || visualDrawReplace || technicalRepairReplace) {
-          sanitizedRepairApplied = true;
-          onEvent('adam_stream_done', JSON.stringify({
-            sessionId:           resolvedSessionId,
-            replace:               true,
-            sanitizedRepair:       true,
-            arithmeticAlphaRepair: arithmeticReplace,
-            visualDrawRepair:      visualDrawReplace,
-            technicalMediaRepair: technicalRepairReplace,
-            briefTier1Repair:      arithmeticReplace || visualDrawReplace || technicalRepairReplace,
-            structurePreserving:   structurePreservingReplace,
-            response:              resolved.streamReplace,
-          }));
-        }
-        fullResponse = resolved.fullResponse;
-      }
-    }
-  } else if (founderTeachingLearnerTurn) {
-    fullResponse = sanitizeFounderTeachingQuranFormat(fullResponse);
-    fullResponse = syncSanitizeFounderTeachingOutput(fullResponse);
-    const teachingGuardOptions = {
-      allowConventionalSynthesis: founderTeachingSynthesis,
-    };
-    const teachingLeak = detectFounderTeachingOutputLeak(
-      fullResponse,
-      normalizedMessage,
-      teaching.context,
-      teachingGuardOptions,
-    );
-    if (teachingLeak.hasLeak) {
-      fullResponse = await repairFounderTeachingOutputLeak(
-        fullResponse,
-        normalizedMessage,
-        teaching.context,
-        false,
-        teachingGuardOptions,
-      );
-    }
-    if (founderTeachingAbsorption) {
-      const beforeInquiry = fullResponse;
-      fullResponse = ensureFounderTeachingInquiryClose(
-        fullResponse,
-        normalizedMessage,
-        teaching.context,
-      );
-      if (
-        fullResponse !== beforeInquiry
-        && adamTeachingMessageHasInquirySection(fullResponse)
-      ) {
-        console.log('[adam:founder-teaching-inquiry] sync inquiry close applied', {
-          sessionId: resolvedSessionId,
-        });
-      }
-    }
-    if (founderTeachingSynthesis) {
-      const beforeSynthesis = fullResponse;
-      fullResponse = ensureFounderTeachingSynthesisSections(fullResponse);
-      if (
-        fullResponse !== beforeSynthesis
-        && adamTeachingMessageHasSynthesisSection(fullResponse)
-      ) {
-        console.log('[adam:founder-teaching-synthesis] sync section labels applied', {
-          sessionId: resolvedSessionId,
-        });
-      }
-    }
-  }
-
-  if (
-    !founderTeachingLearnerTurn
-    && !isAdamTutorMode(mode)
-    && !isAdamLightChatTurn(userMessage)
-    && fullResponse?.trim()
-    && isStudentGreetingOnlyRepair(rawModelStream, fullResponse)
-    && !arithmeticAlphaRepairApplied
-    && !visualDrawRepairApplied
-  ) {
-    studentGreetingRepairApplied = true;
-    sanitizedRepairApplied = true;
-    onEvent('adam_stream_done', JSON.stringify({
-      sessionId:             resolvedSessionId,
-      replace:               true,
-      sanitizedRepair:       true,
-      studentGreetingRepair: true,
-      response:              fullResponse,
-    }));
-  }
-
-  if (!isFounder && isAdamMediaSearchTurn(userMessage) && fullResponse?.trim()) {
-    const hits = mediaHits;
-    if (hits.length > 0) {
-      const bodyBeforeMedia = fullResponse;
-      fullResponse = repairAdamMediaOutput(fullResponse, userMessage, hits);
-      if (isAdamTechnicalKonvensionalDisplayTurn(userMessage)) {
-        fullResponse = repairTechnicalDiagramOutput(fullResponse, userMessage);
-      }
-      if (
-        fullResponse !== bodyBeforeMedia
-        && (outputHasAdamChatMedia(fullResponse) || sanitizedRepairApplied)
-      ) {
-        onEvent('adam_stream_done', JSON.stringify({
-          sessionId:           resolvedSessionId,
-          replace:             true,
-          sanitizedRepair:     true,
-          technicalMediaRepair: true,
-          briefTier1Repair:    true,
-          response:            fullResponse,
-        }));
-        sanitizedRepairApplied = true;
-      }
-    }
-  }
-
-  if (!fullResponse?.trim()) {
-    if (isFounder) {
-      console.warn('[adam:stream] empty founder response after stream/repair', {
-        sessionId: resolvedSessionId,
-        mode,
-        upload: teaching.fileNames,
-      });
-      fullResponse = [
-        'Bismillahirahmanirrahim.',
-        'P.alt, maaf — pada giliran ini jawapan saya kosong.',
-        'Sila hantar semula bab itu.',
-      ].join(' ');
-    } else if (isAdamLightChatTurn(userMessage)) {
-      fullResponse = buildStudentGreetingFallback(userMessage, participant.userName);
-    } else {
-      console.warn('[adam:stream] empty student response after stream/repair', {
-        sessionId: resolvedSessionId,
-        mode,
-      });
-    }
-  }
-
-  return {
-    fullResponse,
-    repairMs: Date.now() - repairStarted,
-    syncRepairMs,
-    sanitizedRepairApplied,
-    arithmeticAlphaRepairApplied,
-    visualDrawRepairApplied,
-    studentGreetingRepairApplied,
-  };
+  return repairUsersStreamOutput({
+    shell,
+    rawModelStream,
+    channel,
+    recentUserTurns,
+    recentAssistantTurns,
+    mode,
+    answerPlan,
+    turnGate: input.turnGate,
+  });
 }

@@ -23,6 +23,7 @@ import {
 } from '../config/llm-models';
 import { toLlmMessages } from '../llm/llm-client';
 import { sanitizeAdamProseDashBridges } from './adam-prose-sanitize';
+import { isAdamProseCraftTurn } from './adam-prose-craft';
 import { streamAdamJournalResponse } from './adam-chat-stream-journal-turn';
 import {
   finishAdamChatTurn,
@@ -47,7 +48,19 @@ import {
 import { resolveAdamTurnDisplayForSave } from './adam-stream-display-merge';
 import { alphaStatPersistedStreamBody } from './adam-stat-stream-preserve';
 import { evidenceHasGoldStandardArticle } from './adam-alpha-output-guard';
-import { isAdamLightChatTurn, isAdamSimpleFactualTurn, isAdamTechnicalKonvensionalDisplayTurn } from './adam-response-generation';
+import { isAdamLightChatTurn, isAdamSimpleFactualTurn } from './adam-response-generation';
+import { isFounderChannel, isUsersTechnicalChannel } from './adam-channel-router';
+import {
+  ensureUsersProductRedirectFree,
+  outputHasAdamProductRedirectLeak,
+} from './adam-response-generation';
+import {
+  formatBrainRiverLog,
+  riverStageForSynthesis,
+  isStudentOceanSink,
+} from './adam-brain-river';
+import { resolveFounderTurnDisplayForSave } from './adam-founder-stream-repair';
+import { finalizeUsersTechnicalDisplay } from './adam-users-stream-repair';
 import { isAdamMediaSearchTurn } from './adam-media-search';
 import { outputHasAdamChatMedia } from './adam-media-guard';
 import { isAdamCurrentAffairsTurn, isFactualAdamWebSearchGateReason, isVerifiedDataStatAsk } from './adam-web-search';
@@ -56,7 +69,6 @@ import {
   isAdamTutorMode,
 } from './adam-tutor-law';
 import type { WorkspaceRecord } from './adam-workspace.service';
-import { shouldBufferAdamStreamUntilRepair } from './adam-knowledge-mode';
 import { detectContextRecallLoaded } from './adam-universal-recall-router';
 
 export async function executeAdamSynthesisTurn(input: {
@@ -76,7 +88,10 @@ export async function executeAdamSynthesisTurn(input: {
     uploadIds,
   } = shell;
   const { founderTeachingLearnerTurn } = teachingFlags;
-  const { contextMessages, contextMs, needContinuityBridge, knowledgeMode } = turnContext;
+  const { contextMessages, contextMs, needContinuityBridge, knowledgeMode, river, branchPolicy } = turnContext;
+  const channel = river.channel;
+
+  console.log(formatBrainRiverLog(river, riverStageForSynthesis()));
 
   const promptBundle = await buildTurnPromptAndSearchGate({
     shell,
@@ -93,7 +108,7 @@ export async function executeAdamSynthesisTurn(input: {
     precisionTurn,
     enableWebSearch,
     webSearchGateReason,
-    studentSearchFirst,
+    usersSearchFirst,
   } = promptBundle;
 
   if (enableWebSearch) {
@@ -101,7 +116,7 @@ export async function executeAdamSynthesisTurn(input: {
       resolvedSessionId,
       userMessage,
       webSearchGateReason,
-      studentSearchFirst,
+      usersSearchFirst,
       precisionFollowUp: precisionTurn.isFollowUp,
       isGuestTrial,
     });
@@ -120,16 +135,17 @@ export async function executeAdamSynthesisTurn(input: {
 
   const searchBundle = await injectTurnSearchPrefetch({
     systemPrompt:       initialPrompt,
-    studentSearchFirst,
+    usersSearchFirst,
     webSearchGateReason,
     turnContext,
     userMessage,
     llmMessages,
     resolvedSessionId,
+    isFounder,
     onEvent,
   });
 
-  const goldStandardSearchFirst = studentSearchFirst
+  const goldStandardSearchFirst = usersSearchFirst
     && isFactualAdamWebSearchGateReason(webSearchGateReason)
     && searchBundle.prefetchedSearchUsed
     && !searchBundle.prefetchedSearchDropped;
@@ -166,7 +182,7 @@ export async function executeAdamSynthesisTurn(input: {
     );
   }
 
-  const bufferUntilRepair = shouldBufferAdamStreamUntilRepair(userMessage, knowledgeMode);
+  const bufferUntilRepair = branchPolicy.bufferStreamUntilRepair;
 
   const streamOnce = createAdamLlmStreamOnce({
     modelChoice,
@@ -190,7 +206,10 @@ export async function executeAdamSynthesisTurn(input: {
   let sanitizedRepairApplied = false;
   let arithmeticAlphaRepairApplied = false;
   let visualDrawRepairApplied = false;
-  let studentGreetingRepairApplied = false;
+  let proseCraftRepairApplied = false;
+  let usersGreetingRepairApplied = false;
+  let technicalMediaRepairApplied = false;
+  let adamProductRedirectRepairApplied = false;
   let rawModelStreamForBrain = '';
   let webSearchUsedThisTurn = false;
   let preserveStreamBody = false;
@@ -238,9 +257,9 @@ export async function executeAdamSynthesisTurn(input: {
 
     if (!fullResponse) {
       const streamStarted = Date.now();
-      const synthesisWithSearch = enableWebSearch && !studentSearchFirst;
+      const synthesisWithSearch = enableWebSearch && !usersSearchFirst;
       const streamResult = await streamOnce(llmMessages, synthesisWithSearch);
-      if (studentSearchFirst) {
+      if (usersSearchFirst) {
         streamResult.searchResults = searchBundle.prefetchedSearchResults;
         streamResult.searchUsed = searchBundle.prefetchedSearchUsed;
         streamResult.searchDroppedByFilter = searchBundle.prefetchedSearchDropped;
@@ -269,6 +288,9 @@ export async function executeAdamSynthesisTurn(input: {
         recentUserTurns,
         recentAssistantTurns,
         mode,
+        channel,
+        answerPlan: river.answerPlan,
+        turnGate: river.gate,
         searchResults: searchEvidence,
         searchUsed: streamResult.searchUsed || searchBundle.prefetchedSearchUsed,
         searchDroppedByFilter: streamResult.searchDroppedByFilter
@@ -282,7 +304,11 @@ export async function executeAdamSynthesisTurn(input: {
       sanitizedRepairApplied = repairResult.sanitizedRepairApplied;
       arithmeticAlphaRepairApplied = repairResult.arithmeticAlphaRepairApplied;
       visualDrawRepairApplied = repairResult.visualDrawRepairApplied;
-      studentGreetingRepairApplied = repairResult.studentGreetingRepairApplied;
+      proseCraftRepairApplied = repairResult.proseCraftRepairApplied;
+      usersGreetingRepairApplied = repairResult.usersGreetingRepairApplied;
+      technicalMediaRepairApplied = repairResult.technicalMediaRepairApplied;
+      const adamProductRedirectRepairAppliedFromRepair = repairResult.adamProductRedirectRepairApplied;
+      adamProductRedirectRepairApplied = adamProductRedirectRepairAppliedFromRepair;
 
       const alphaStatTurn = isVerifiedDataStatAsk(userMessage);
       const searchRan = searchBundle.prefetchedSearchUsed && !searchBundle.prefetchedSearchDropped;
@@ -290,26 +316,81 @@ export async function executeAdamSynthesisTurn(input: {
       if (alphaStatTurn && searchRan) {
         preserveStreamBody = true;
         fullResponse = alphaStatPersistedStreamBody(rawModelStream);
+      } else if (isFounderChannel(channel)) {
+        fullResponse = resolveFounderTurnDisplayForSave(rawModelStream, fullResponse);
       } else {
         fullResponse = resolveAdamTurnDisplayForSave(rawModelStream, fullResponse, {
           forceReplace: sanitizedRepairApplied && isAdamCurrentAffairsTurn(userMessage),
           userMessage,
           arithmeticAlphaRepair: arithmeticAlphaRepairApplied,
           visualDrawRepair: visualDrawRepairApplied,
-          studentGreetingRepair: studentGreetingRepairApplied,
+          proseCraftRepair: proseCraftRepairApplied,
+          usersGreetingRepair: usersGreetingRepairApplied,
+          technicalMediaRepair: technicalMediaRepairApplied,
+          adamProductRedirectRepair: adamProductRedirectRepairApplied,
         });
+        const dashCleaned = sanitizeAdamProseDashBridges(fullResponse);
+        if (dashCleaned !== fullResponse) {
+          fullResponse = dashCleaned;
+          if (isAdamProseCraftTurn(userMessage)) {
+            proseCraftRepairApplied = true;
+            sanitizedRepairApplied = true;
+            onEvent('adam_stream_done', JSON.stringify({
+              sessionId:       resolvedSessionId,
+              replace:         true,
+              sanitizedRepair: true,
+              proseCraftRepair: true,
+              briefTier1Repair: true,
+              response:        fullResponse,
+            }));
+          }
+        }
+        if (branchPolicy.usersTechnicalFinalize) {
+          const finalized = finalizeUsersTechnicalDisplay({
+            fullResponse,
+            userMessage,
+            channel,
+            participantName: shell.participant.userName,
+            mediaHits: searchBundle.mediaHits,
+            answerPlan: river.answerPlan,
+          });
+          fullResponse = finalized.fullResponse;
+          if (finalized.technicalMediaRepairApplied) {
+            sanitizedRepairApplied = true;
+            technicalMediaRepairApplied = true;
+          }
+        }
       }
 
-      if (bufferUntilRepair && fullResponse?.trim()) {
+      if (!isFounderChannel(channel) && !isAdamTutorMode(mode)) {
+        const beforeProductRedirect = fullResponse;
+        fullResponse = ensureUsersProductRedirectFree(fullResponse, userMessage, recentUserTurns);
+        if (outputHasAdamProductRedirectLeak(beforeProductRedirect) && !outputHasAdamProductRedirectLeak(fullResponse)) {
+          adamProductRedirectRepairApplied = true;
+          sanitizedRepairApplied = true;
+        }
+      }
+
+      const mustReplaceStream = bufferUntilRepair
+        || adamProductRedirectRepairApplied
+        || (
+          outputHasAdamProductRedirectLeak(rawModelStream)
+          && !outputHasAdamProductRedirectLeak(fullResponse)
+        );
+
+      if (mustReplaceStream && fullResponse?.trim()) {
         onEvent('adam_stream_done', JSON.stringify({
           sessionId:            resolvedSessionId,
           replace:              true,
           response:             fullResponse,
           sanitizedRepair:      true,
-          briefTier1Repair:     true,
-          technicalMediaRepair:   outputHasAdamChatMedia(fullResponse)
-            || isAdamTechnicalKonvensionalDisplayTurn(userMessage)
-            || isAdamMediaSearchTurn(userMessage),
+          adamProductRedirectRepair: adamProductRedirectRepairApplied,
+          briefTier1Repair:     bufferUntilRepair || adamProductRedirectRepairApplied,
+          technicalMediaRepair:   !isFounderChannel(channel) && (
+            outputHasAdamChatMedia(fullResponse)
+            || isUsersTechnicalChannel(channel)
+            || isAdamMediaSearchTurn(userMessage, false)
+          ),
         }));
       }
 
@@ -333,9 +414,9 @@ export async function executeAdamSynthesisTurn(input: {
       searchPrefetchMs: searchBundle.searchPrefetchMs,
       searchPrefetchParallel:
         turnContext.searchPrefetchParallel && Boolean(turnContext.searchPrefetchPromise),
-      studentInlineSearch:
-        turnContext.studentInlineSearchOnly || ENV.ADAM_STUDENT_INLINE_SEARCH,
-      studentFounderStyleStream: turnContext.studentInlineSearchOnly,
+      usersInlineSearch:
+        turnContext.usersInlineSearchOnly || ENV.ADAM_STUDENT_INLINE_SEARCH,
+      studentFounderStyleStream: turnContext.usersInlineSearchOnly,
       continuityBridge: needContinuityBridge,
       streamMs,
       repairMs,
@@ -386,11 +467,16 @@ export async function executeAdamSynthesisTurn(input: {
     sanitizedRepairApplied,
     arithmeticAlphaRepairApplied,
     visualDrawRepairApplied,
-    studentGreetingRepairApplied,
+    proseCraftRepairApplied,
+    usersGreetingRepairApplied,
+    technicalMediaRepairApplied,
+    adamProductRedirectRepairApplied,
     preserveStreamBody,
     modelChoice,
     workspace,
-    turnBrainMeta: !isFounder && mode !== 'JOURNAL_GEN'
+    river,
+    oceanSink: branchPolicy.oceanSink,
+    turnBrainMeta: isStudentOceanSink(branchPolicy.oceanSink) && mode !== 'JOURNAL_GEN'
       ? {
         recallLoaded: detectContextRecallLoaded(turnContext.contextMessages),
         webSearchUsed: webSearchUsedThisTurn,

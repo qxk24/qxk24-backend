@@ -16,6 +16,7 @@
  */
 
 import {
+  buildFounderEmptySaveFallback,
   buildStudentGreetingFallback,
   buildStudentGuidedPerspectiveFallback,
   isAdamLightChatTurn,
@@ -38,10 +39,13 @@ import {
   isJournalManuscriptDisplay,
   inferJournalSectionFromAdamResponse,
 } from './adam-journal-section-detect';
-import { ensureStudentHaiGreeting } from './adam-student-constitution';
+import { applyUsersHaiGreetingPolicy } from './adam-users-constitution';
+import { restoreFounderPaltAddress } from './adam-founder-address-guard';
 import { isAdamTutorMode } from './adam-tutor-law';
 import { repairVisualDrawOutput } from './adam-visual-draw-guard';
-import { stripStudentBismillahOpener } from './adam-student-output-law';
+import { isAdamProseCraftTurn, polishProseCraftOutput } from './adam-prose-craft';
+import { stripUsersBismillahOpener } from './adam-users-output-law';
+import { repairAdamProductRedirectLeak, outputHasAdamProductRedirectLeak } from './adam-response-generation';
 import type { AdamChatTurnShell, JournalGenContext } from './adam-chat-stream.types';
 
 export interface ParsedAdamTurnBlocks {
@@ -132,11 +136,7 @@ export function buildFinalResponseForSave(input: {
         sessionId: input.shell.resolvedSessionId,
         mode:      input.shell.mode,
       });
-      finalResponse = [
-        'Bismillahirahmanirrahim.',
-        'P.alt, maaf — pada giliran ini jawapan saya tidak tersimpan.',
-        'Sila hantar semula bab itu.',
-      ].join(' ');
+      finalResponse = buildFounderEmptySaveFallback();
     } else if (isAdamLightChatTurn(input.shell.userMessage)) {
       finalResponse = buildStudentGreetingFallback(
         input.shell.userMessage,
@@ -149,19 +149,27 @@ export function buildFinalResponseForSave(input: {
         sessionId: input.shell.resolvedSessionId,
         mode:      input.shell.mode,
       });
+      finalResponse = buildStudentGuidedPerspectiveFallback(input.shell.userMessage);
     }
   }
 
   if (
-    !isAdamLightChatTurn(input.shell.userMessage)
+    !input.shell.isFounder
+    && !isAdamLightChatTurn(input.shell.userMessage)
     && !isAdamTutorMode(input.shell.mode)
     && !isAdamVisualDrawTurn(input.shell.userMessage)
+    && !isAdamProseCraftTurn(input.shell.userMessage)
     && finalResponse?.trim()
   ) {
-    finalResponse = ensureStudentHaiGreeting(
+    finalResponse = applyUsersHaiGreetingPolicy(
       finalResponse,
       input.shell.participant.userName,
+      input.shell.userMessage,
     );
+  }
+
+  if (input.shell.isFounder && finalResponse?.trim()) {
+    finalResponse = restoreFounderPaltAddress(finalResponse);
   }
 
   if (isAdamVisualDrawTurn(input.shell.userMessage)) {
@@ -173,7 +181,30 @@ export function buildFinalResponseForSave(input: {
   }
 
   if (!input.shell.isFounder && !isAdamTutorMode(input.shell.mode) && finalResponse?.trim()) {
-    finalResponse = stripStudentBismillahOpener(finalResponse);
+    finalResponse = stripUsersBismillahOpener(finalResponse);
+    if (isAdamProseCraftTurn(input.shell.userMessage)) {
+      finalResponse = polishProseCraftOutput(finalResponse, input.shell.userMessage);
+    }
+    if (outputHasAdamProductRedirectLeak(finalResponse)) {
+      finalResponse = repairAdamProductRedirectLeak(
+        finalResponse,
+        input.shell.userMessage,
+        [],
+      );
+    }
+  }
+
+  if (!finalResponse?.trim()) {
+    if (input.shell.isFounder) {
+      finalResponse = buildFounderEmptySaveFallback();
+    } else if (isAdamLightChatTurn(input.shell.userMessage)) {
+      finalResponse = buildStudentGreetingFallback(
+        input.shell.userMessage,
+        input.shell.participant.userName,
+      );
+    } else {
+      finalResponse = buildStudentGuidedPerspectiveFallback(input.shell.userMessage);
+    }
   }
 
   return finalResponse;

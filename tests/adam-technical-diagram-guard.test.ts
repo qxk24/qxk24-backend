@@ -18,6 +18,7 @@ import {
   repairTechnicalDiagramOutput,
   stashAdamTechnicalDiagramBlocks,
   restoreAdamTechnicalDiagramBlocks,
+  stripGenericTechnicalDiagrams,
   wrapTechnicalDiagram,
 } from '../src/adam/adam-technical-diagram-guard';
 
@@ -35,10 +36,32 @@ describe('adam-technical-diagram-guard', () => {
     expect(restored).toMatch(/<adam-technical-diagram>[\s\S]*flowchart/i);
   });
 
-  it('injects photosynthesis fallback diagram', () => {
+  it('does not inject fallback diagram on structured opt-in when model omitted one', () => {
     const prose = 'Fotosintesis ialah proses tumbuhan.\n\n### Bahan';
+    const out = repairTechnicalDiagramOutput(prose, 'Senarai langkah-langkah proses fotosintesis');
+    expect(out).not.toMatch(/<adam-technical-diagram>/);
+  });
+
+  it('does not inject diagram on plain definitional ask', () => {
+    const prose = 'Fotosintesis ialah proses tumbuhan.';
     const out = repairTechnicalDiagramOutput(prose, 'Apa itu fotosintesis?');
-    expect(out).toMatch(/<adam-technical-diagram>/);
-    expect(out).toMatch(/Klorofil|Glukosa/i);
+    expect(out).not.toMatch(/<adam-technical-diagram>/);
+  });
+
+  it('strips generic placeholder diagrams on universal turns', () => {
+    const prose = [
+      'Bubble sort membandingkan elemen.',
+      wrapTechnicalDiagram([
+        'flowchart LR',
+        '  A[Input atau punca]',
+        '  B[Proses]',
+        '  C[Hasil]',
+        '  A --> B --> C',
+      ].join('\n')),
+      'Kerumitan O(n²).',
+    ].join('\n\n');
+    const out = stripGenericTechnicalDiagrams(prose);
+    expect(out).not.toMatch(/<adam-technical-diagram>/i);
+    expect(out).toMatch(/Kerumitan O\(n²\)/i);
   });
 });

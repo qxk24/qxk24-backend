@@ -52,7 +52,7 @@ describe('buildAdamChatSystemPrompt — direct technical routing', () => {
       isFounder:            false,
       participantName:      'Kujaafar',
       founderStudentsBlock: '',
-      studentKnowledgeTier: 1,
+      usersKnowledgeTier: 1,
       userMessage:          'Bagaimana nak buat hyperlink?',
     });
     expect(prompt).toContain('ADAM DIRECT TECHNICAL REPLY');
@@ -67,7 +67,7 @@ describe('buildAdamChatSystemPrompt — direct technical routing', () => {
       isFounder:            false,
       participantName:      'Kujaafar',
       founderStudentsBlock: '',
-      studentKnowledgeTier: 1,
+      usersKnowledgeTier: 1,
       userMessage:          'Apa itu komunikasi?',
     });
     expect(prompt).toContain('ADAM EXPLAIN-BACK LAW');

@@ -16,7 +16,7 @@ import { describe, expect, it } from '@jest/globals';
 import { collapseSimpleArithmeticAlphaOutput, isArithmeticAlphaCollapsedRepair } from '../src/adam/adam-arithmetic-alpha-guard';
 import { isAdamLinearAlgebraTurn } from '../src/adam/adam-response-generation';
 import { resolveAdamTurnDisplayForSave } from '../src/adam/adam-stream-display-merge';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 
 const APPLE_ASK = 'Kalau saya ada 3 epal dan kawan bagi 4 lagi, berapa jumlah epal?';
 
@@ -77,13 +77,13 @@ describe('collapseSimpleArithmeticAlphaOutput — universal allowlist', () => {
     expect(out.split(/\n{2,}/).length).toBeLessThanOrEqual(2);
   });
 
-  it('sanitizeStudentOutputSync applies universal arithmetic collapse', () => {
+  it('sanitizeUsersOutputSync applies universal arithmetic collapse', () => {
     const body = [
       'Kalau awak ada 3 epal, dan kawan awak bagi lagi 4 epal, maka jumlah epal awak sekarang ialah 7.',
       'Novel future framework term XYZ-999 yang belum pernah didaftarkan dalam regex — tetap dibuang kerana bukan jawapan.',
       'Mahu saya jelaskan lebih lanjut?',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(body, APPLE_ASK, [], [], PARTICIPANT);
+    const out = sanitizeUsersOutputSync(body, APPLE_ASK, [], [], PARTICIPANT);
     expect(out).toMatch(/^Hai Ahmad,/i);
     expect(out).toMatch(/ialah 7/i);
     expect(out).not.toMatch(/XYZ-999/);
@@ -95,7 +95,7 @@ describe('collapseSimpleArithmeticAlphaOutput — universal allowlist', () => {
       'Namun, dalam cara kira AIDIL, soalan yang sama membuka pintu kepada pemahaman yang lebih dalam — PL dan PG, waqf.',
       'Mahu saya jelaskan lebih lanjut?',
     ].join('\n\n');
-    const repaired = sanitizeStudentOutputSync(raw, APPLE_ASK, [], [], PARTICIPANT);
+    const repaired = sanitizeUsersOutputSync(raw, APPLE_ASK, [], [], PARTICIPANT);
     expect(isArithmeticAlphaCollapsedRepair(raw, repaired, APPLE_ASK)).toBe(true);
     const saved = resolveAdamTurnDisplayForSave(raw, repaired, { userMessage: APPLE_ASK });
     expect(saved).toBe(repaired);
@@ -125,8 +125,8 @@ describe('linear algebra α — steps kept, philosophy stripped', () => {
   });
 
   it('dedupes inline Hai QA, Hai QA and strips philosophy essay', () => {
-    const out = sanitizeStudentOutputSync(ALGEBRA_PHILOSOPHY_LEAK, ALGEBRA_ASK, [], [], 'QA', {
-      enforceStudentGreeting: true,
+    const out = sanitizeUsersOutputSync(ALGEBRA_PHILOSOPHY_LEAK, ALGEBRA_ASK, [], [], 'QA', {
+      enforceUsersGreeting: true,
     });
     expect(out).not.toMatch(/Hai\s+QA,\s*Hai\s+QA/i);
     expect(out).toMatch(/\$x\s*=\s*4\$|x\s*=\s*4/i);
@@ -138,7 +138,7 @@ describe('linear algebra α — steps kept, philosophy stripped', () => {
   });
 });
 
-describe('sanitizeStudentOutputSync — Hai + name on substantive student replies', () => {
+describe('sanitizeUsersOutputSync — Hai + name on substantive student replies', () => {
   const SKY_ASK = 'Kenapa langit kelihatan biru pada siang hari?';
   const SKY_BODY = [
     'Langit kelihatan biru pada siang hari bukan kerana langit itu sendiri berwarna biru, tetapi kerana cara cahaya matahari berinteraksi dengan atmosfera Bumi.',
@@ -147,13 +147,13 @@ describe('sanitizeStudentOutputSync — Hai + name on substantive student replie
   ].join('\n\n');
 
   it('prepends Hai + name on science synthesis reply', () => {
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       SKY_BODY,
       SKY_ASK,
       [],
       [],
       PARTICIPANT,
-      { enforceStudentGreeting: true },
+      { enforceUsersGreeting: true },
     );
     expect(out).toMatch(/^Hai Ahmad,/i);
     expect(out).toMatch(/penghamburan Rayleigh/i);
@@ -161,21 +161,21 @@ describe('sanitizeStudentOutputSync — Hai + name on substantive student replie
   });
 
   it('resolveAdamTurnDisplayForSave keeps greeting repair over raw stream', () => {
-    const repaired = sanitizeStudentOutputSync(
+    const repaired = sanitizeUsersOutputSync(
       SKY_BODY,
       SKY_ASK,
       [],
       [],
       PARTICIPANT,
-      { enforceStudentGreeting: true },
+      { enforceUsersGreeting: true },
     );
     const saved = resolveAdamTurnDisplayForSave(SKY_BODY, repaired);
     expect(saved).toMatch(/^Hai Ahmad,/i);
     expect(saved).toMatch(/penghamburan Rayleigh/i);
   });
 
-  it('does not add greeting without enforceStudentGreeting (gold sample safe)', () => {
-    const out = sanitizeStudentOutputSync(SKY_BODY, SKY_ASK);
+  it('does not add greeting without enforceUsersGreeting (gold sample safe)', () => {
+    const out = sanitizeUsersOutputSync(SKY_BODY, SKY_ASK);
     expect(out).not.toMatch(/^Hai Ahmad,/i);
     expect(out).toMatch(/^Langit kelihatan biru/i);
   });
@@ -187,18 +187,18 @@ describe('sanitizeStudentOutputSync — Hai + name on substantive student replie
       'Apabila cahaya matahari memasuki atmosfera, ia bertembung dengan zarah-zarah kecil seperti molekul nitrogen dan oksigen. Menurut Teori Rayleigh, cahaya dengan panjang gelombang pendek (seperti biru dan nila) dihamburkan lebih banyak berbanding cahaya dengan panjang gelombang panjang (seperti merah dan jingga).',
       'Mahu saya jelaskan lebih lanjut?',
     ].join('\n\n');
-    const repaired = sanitizeStudentOutputSync(
+    const repaired = sanitizeUsersOutputSync(
       SKY_FULL,
       SKY_ASK,
       [],
       [],
       PARTICIPANT,
-      { enforceStudentGreeting: true },
+      { enforceUsersGreeting: true },
     );
     expect(repaired).toMatch(/^Hai Ahmad,/i);
     expect(repaired).toMatch(/Teori Rayleigh/i);
     const saved = resolveAdamTurnDisplayForSave(SKY_FULL, repaired, {
-      studentGreetingRepair: true,
+      usersGreetingRepair: true,
     });
     expect(saved).toMatch(/^Hai Ahmad,/i);
   });

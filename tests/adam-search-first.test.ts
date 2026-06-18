@@ -34,7 +34,7 @@ import {
   parseExtractedFactsFromPrefetch,
   resolveGoldStandardSearchFirstReply,
   appendPrefetchedSearchContextToPrompt,
-  shouldStudentUseSearchFirstFlow,
+  shouldUsersUseSearchFirstFlow,
 } from '../src/adam/adam-search-first';
 import { getFastModel } from '../src/config/llm-models';
 import {
@@ -46,8 +46,9 @@ import {
   shouldForceWebSearchForGateReason,
 } from '../src/adam/adam-web-search';
 import { isTechnicalFollowUpMessage, resolveTechnicalPrecisionTurn } from '../src/adam/adam-factual-grounding';
-import { isAdamSimpleArithmeticTurn } from '../src/adam/adam-response-generation';
-import { webSearchPromptNeedsMemoryOverride } from '../src/adam/adam-student-prompts';
+import { isAdamSimpleArithmeticTurn, isAdamContinuationDepthTurn } from '../src/adam/adam-response-generation';
+import { resolveAdamThreadSearchTopic } from '../src/adam/adam-search-continuation';
+import { webSearchPromptNeedsMemoryOverride } from '../src/adam/adam-users-prompts';
 
 describe('buildAdamSearchDisplayQuery', () => {
   it('shows focused stat query instead of raw salam message', () => {
@@ -238,7 +239,7 @@ describe('buildPrefetchedSearchContextBlock', () => {
   });
 });
 
-describe('shouldStudentUseSearchFirstFlow', () => {
+describe('shouldUsersUseSearchFirstFlow', () => {
   it('prefetches every factual gate reason — canonical student pipeline', () => {
     for (const reason of [
       'verified_data_stat',
@@ -249,18 +250,18 @@ describe('shouldStudentUseSearchFirstFlow', () => {
       'explicit_search',
     ] as const) {
       expect(isFactualAdamWebSearchGateReason(reason)).toBe(true);
-      expect(shouldStudentUseSearchFirstFlow(false, reason)).toBe(true);
+      expect(shouldUsersUseSearchFirstFlow(false, reason)).toBe(true);
     }
   });
 
   it('does not prefetch when search gate is closed', () => {
-    expect(shouldStudentUseSearchFirstFlow(false, null)).toBe(false);
-    expect(shouldStudentUseSearchFirstFlow(true, null)).toBe(false);
+    expect(shouldUsersUseSearchFirstFlow(false, null)).toBe(false);
+    expect(shouldUsersUseSearchFirstFlow(true, null)).toBe(false);
   });
 
   it('prefetches for founder on factual gates — same Gold Standard pipeline', () => {
-    expect(shouldStudentUseSearchFirstFlow(true, 'factual_question')).toBe(true);
-    expect(shouldStudentUseSearchFirstFlow(true, 'verified_data_stat')).toBe(true);
+    expect(shouldUsersUseSearchFirstFlow(true, 'factual_question')).toBe(true);
+    expect(shouldUsersUseSearchFirstFlow(true, 'verified_data_stat')).toBe(true);
   });
 });
 
@@ -269,7 +270,7 @@ describe('getWebSearchGateReason student factual standard', () => {
 
   it('prefers verified_data_stat over technical_follow_up on enrollment asks', () => {
     expect(getWebSearchGateReason(KPTM_STAT, {
-      studentFounderParity: true,
+      usersFounderParity: true,
       technicalFollowUp: true,
     })).toBe('verified_data_stat');
   });
@@ -277,23 +278,23 @@ describe('getWebSearchGateReason student factual standard', () => {
   it('does not web-search α arithmetic word-problems (epal, jumlah)', () => {
     const partial = 'Jika awak ada 3 epal, dan kawan';
     expect(isAdamSimpleArithmeticTurn(partial)).toBe(true);
-    expect(getWebSearchGateReason(partial, { studentFounderParity: true })).toBeNull();
+    expect(getWebSearchGateReason(partial, { usersFounderParity: true })).toBeNull();
     expect(getWebSearchGateReason(partial, { isFounder: true })).toBeNull();
     const full = 'Kalau saya ada 3 epal dan kawan bagi 4 lagi, berapa jumlah epal?';
-    expect(getWebSearchGateReason(full, { studentFounderParity: true })).toBeNull();
-    expect(shouldStudentUseSearchFirstFlow(false, getWebSearchGateReason(full, { studentFounderParity: true }))).toBe(false);
+    expect(getWebSearchGateReason(full, { usersFounderParity: true })).toBeNull();
+    expect(shouldUsersUseSearchFirstFlow(false, getWebSearchGateReason(full, { usersFounderParity: true }))).toBe(false);
   });
 
   it('never skips search on brain recall for student factual turns', () => {
     const photosynthesis = getWebSearchGateReason('Terangkan bagaimana fotosintesis berlaku', {
-      studentFounderParity: true,
+      usersFounderParity: true,
       brainRecallLoaded: true,
     });
     expect(photosynthesis).not.toBeNull();
     expect(isFactualAdamWebSearchGateReason(photosynthesis)).toBe(true);
 
     const mitochondria = getWebSearchGateReason('Apa itu mitochondria?', {
-      studentFounderParity: true,
+      usersFounderParity: true,
       brainRecallLoaded: true,
     });
     expect(mitochondria).not.toBeNull();
@@ -309,7 +310,7 @@ describe('getWebSearchGateReason student factual standard', () => {
 
   it('detects enrollment stats after Salam QA salutation', () => {
     expect(getWebSearchGateReason('Salam QA. Berapa ramai pelajar KPTM?', {
-      studentFounderParity: true,
+      usersFounderParity: true,
     })).toBe('verified_data_stat');
   });
 });
@@ -338,7 +339,7 @@ describe('isVerifiedDataStatAsk', () => {
 describe('getAdamWebSearchPrompt student fallback', () => {
   it('uses student agent prompt — not founder default', () => {
     const prompt = getAdamWebSearchPrompt(false);
-    expect(prompt).toMatch(/student turn/i);
+    expect(prompt).toMatch(/Users turn/i);
     expect(prompt).not.toMatch(/founder turn/i);
   });
 
@@ -510,5 +511,42 @@ describe('enrichSearchHitsUntilStatFigure', () => {
     } finally {
       global.fetch = originalFetch;
     }
+  });
+});
+
+describe('continuation thread-topic search', () => {
+  it('detects Malay fuller-answer follow-up', () => {
+    expect(isAdamContinuationDepthTurn('bagi jawapan yang lebih lengkap')).toBe(true);
+  });
+
+  it('buildAdamSearchDisplayQuery uses thread topic not thin ask', () => {
+    const q = buildAdamSearchDisplayQuery(
+      'bagi jawapan yang lebih lengkap',
+      'factual_question',
+      {
+        recentAssistantMessages: [
+          'Tentang **napadu** dan **ruang masa** — quantum eraser dan tapak sampah.',
+        ],
+        recentUserMessages: [
+          'Terangkan faktor Masa Bab 5 — napadu, ruang masa, bekas pada masa.',
+        ],
+      },
+    );
+    expect(q).not.toBe('bagi jawapan yang lebih lengkap');
+    expect(q.toLowerCase()).toMatch(/quantum|napadu|childhood|stress/);
+  });
+
+  it('resolveAdamThreadSearchTopic seeds empirical terms from prior reply', () => {
+    const topic = resolveAdamThreadSearchTopic('bagi jawapan yang lebih lengkap', {
+      recentAssistantMessages: ['**napadu** di tapak sampah. **ruang masa** dan quantum eraser.'],
+      recentUserMessages: ['Jelaskan tiga lapisan Faktor Masa.'],
+    });
+    expect(topic.toLowerCase()).toMatch(/quantum|napadu|childhood|stress/);
+  });
+
+  it('buildPrefetchedSearchContextBlock founder zero-hit forbids invented science', () => {
+    const block = buildPrefetchedSearchContextBlock([], { isFounder: true });
+    expect(block).toContain('Founder P.alt');
+    expect(block.toLowerCase()).toContain('do not invent');
   });
 });

@@ -15,8 +15,8 @@
 import { describe, expect, it } from '@jest/globals';
 import { shouldStripKonvensionalFrameworkLeaks } from '../src/adam/adam-knowledge-mode';
 import { isAdamScienceNatureSynthesisTurn } from '../src/adam/adam-response-generation';
-import { stripKonvensionalAlamtologiTailInline } from '../src/adam/adam-student-output-law';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { stripKonvensionalAlamtologiTailInline } from '../src/adam/adam-users-output-law';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 
 const ICE_ASK = 'Apakah yang berlaku apabila ais dipanaskan? Kenapa tidak terus menjadi wap?';
 
@@ -50,9 +50,9 @@ describe('konvensional ice turn — no sticky Alamtologi opt-in', () => {
     expect(out).not.toMatch(/MASA\s*→\s*TENAGA/i);
   });
 
-  it('sanitizeStudentOutputSync removes Alamtologi framework from ice answer', () => {
-    const out = sanitizeStudentOutputSync(ICE_ALAMTOLOGI_LEAK, ICE_ASK, [], [], 'QA', {
-      enforceStudentGreeting: true,
+  it('sanitizeUsersOutputSync removes Alamtologi framework from ice answer', () => {
+    const out = sanitizeUsersOutputSync(ICE_ALAMTOLOGI_LEAK, ICE_ASK, [], [], 'QA', {
+      enforceUsersGreeting: true,
     });
     expect(out).toMatch(/peleburan|cecair/i);
     expect(out).not.toMatch(/pandangan\s+Alamtologi/i);

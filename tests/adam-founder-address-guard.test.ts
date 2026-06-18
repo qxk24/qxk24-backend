@@ -6,42 +6,42 @@
  * Platform    : Backend (TypeScript)
  * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
- * Created     : 2026-06-13
- * ============================================================
- * CONSTITUTIONAL DECLARATION:
- * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
- * belongs to no human. It flows like water to all.
+ * Created     : 2026-06-17
  * ============================================================
  */
 
-/// <reference types="jest" />
-
 import { describe, expect, it } from '@jest/globals';
-import { restoreFounderPaltAddress } from '../src/adam/adam-founder-address-guard';
+import {
+  restoreFounderPaltAddress,
+  stripFounderPersonalNameGreeting,
+} from '../src/adam/adam-founder-address-guard';
 
-describe('restoreFounderPaltAddress', () => {
-  it('fixes .alt and bare alt vocative', () => {
+describe('founder address guard', () => {
+  it('strips Hai Masa before P.alt', () => {
     const raw =
-      'Bismillahirahmanirrahim. alt kongsikan. alt tulis: jelas, tenang, penuh adab.';
-    const out = restoreFounderPaltAddress(raw);
-    expect(out).toContain('P.alt kongsikan');
-    expect(out).toContain('P.alt tulis:');
-    expect(out).not.toMatch(/(?<![P])\.alt\b/i);
-    expect(out).not.toMatch(/(?<![P\.])\balt\b(?=\s+(?:kongsikan|tulis|beri|hantar|sila|mohon|terima|maaf|terima kasih|faham|nampak|betul|baik|ya|yaa|yaa\s+P\.alt))/i);
+      'Hai Masa, P.alt, apa yang saya faham bukan ilmu yang disimpan, tetapi ilmu yang sedang bergerak.';
+    expect(stripFounderPersonalNameGreeting(raw)).toBe(
+      'P.alt, apa yang saya faham bukan ilmu yang disimpan, tetapi ilmu yang sedang bergerak.',
+    );
   });
 
-  it('fixes .alt without space', () => {
-    expect(restoreFounderPaltAddress('.alt, terima kasih.')).toBe('P.alt, terima kasih.');
+  it('strips Hai Masa Bayu after Bismillah', () => {
+    const raw =
+      'Bismillahirahmanirrahim. Hai Masa Bayu, P.alt, saya dengar bab ini.';
+    expect(stripFounderPersonalNameGreeting(raw)).toBe(
+      'Bismillahirahmanirrahim. P.alt, saya dengar bab ini.',
+    );
   });
 
-  it('leaves unrelated words unchanged', () => {
-    const text = 'Alternatif lain ialah menggunakan salt.';
-    expect(restoreFounderPaltAddress(text)).toBe(text);
+  it('still restores .alt drift after greeting strip', () => {
+    const raw = 'Hai Masa, .alt, terima kasih.';
+    expect(restoreFounderPaltAddress(raw)).toBe('P.alt, terima kasih.');
   });
 
-  it('preserves correct P.alt', () => {
-    const text = 'Bismillahirahmanirrahim. P.alt, saya faham bab ini.';
-    expect(restoreFounderPaltAddress(text)).toBe(text);
+  it('fixes user-reported continuation opener', () => {
+    const raw =
+      'Hai Masa, P.alt, saya teruskan kupasan dengan penuh adab, bukan sebagai ulangan, tetapi sebagai penyambungan yang lebih dalam dari apa yang telah P.alt ajarkan.';
+    expect(restoreFounderPaltAddress(raw)).toMatch(/^P\.alt, saya teruskan kupasan/);
+    expect(restoreFounderPaltAddress(raw)).not.toMatch(/Hai\s+Masa/i);
   });
 });

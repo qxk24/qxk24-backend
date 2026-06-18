@@ -211,7 +211,7 @@ export const ENV = {
   /** Max output tokens — founder deep / teaching turns */
   ADAM_FOUNDER_DEEP_MAX_TOKENS: optionalInt('ADAM_FOUNDER_DEEP_MAX_TOKENS', 8192),
   /** Max output tokens — student deep turns */
-  /** Default 8192 — deep student turns use ADAM_FOUNDER_DEEP_MAX_TOKENS in resolveAdamMaxTokens */
+  /** Default 8192 — deep Users turns use ADAM_FOUNDER_DEEP_MAX_TOKENS in resolveAdamMaxTokens */
   ADAM_STUDENT_DEEP_MAX_TOKENS: optionalInt('ADAM_STUDENT_DEEP_MAX_TOKENS', 8192),
   /** Qwen turbo — minimum 4096; never reduce for “speed” (robotic truncated replies) */
   ADAM_QWEN_FAST_MAX_TOKENS: optionalInt('ADAM_QWEN_FAST_MAX_TOKENS', 4096),
@@ -367,7 +367,7 @@ export const ENV = {
   STRIPE_PRICE_ID_CREDITS_1000: optional('STRIPE_PRICE_ID_CREDITS_1000', ''),
 
   /**
-   * Layer 2 — ADAM Jurnal / Buku / Kod servers.
+   * Layer 2 — ADAM Jurnal / Kod servers.
    * false = Lapisan 1 chat-only fully open; server output gated (testing).
    * true  = open server subscriptions after full QA (Founder enables on VPS).
    */
@@ -396,7 +396,7 @@ export const ENV = {
   ADAM_GATEWAY_URL: optional('ADAM_GATEWAY_URL', 'http://127.0.0.1:4010'),
   ADAM_GATEWAY_PLAS_ENABLED: optional('ADAM_GATEWAY_PLAS_ENABLED', 'false') === 'true',
   ADAM_GATEWAY_TIMEOUT_MS: optionalInt('ADAM_GATEWAY_TIMEOUT_MS', 8000),
-  /** When true, block student turns if gateway prescan is unreachable */
+  /** When true, block Users turns if gateway prescan is unreachable */
   ADAM_GATEWAY_PLAS_FAIL_CLOSED: optional('ADAM_GATEWAY_PLAS_FAIL_CLOSED', 'false') === 'true',
 
   /** Device Bridge — route Builder MCP through subscriber local daemon (alm-mcp mac-bridge) */

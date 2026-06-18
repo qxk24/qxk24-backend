@@ -19,8 +19,8 @@
  */
 
 import { appendGoldStandardFollowUp } from './adam-gold-standard';
-import { formatStudentHaiGreeting } from './adam-student-constitution';
-import { paragraphIsExplainBackSoulStrikeLeak } from './adam-student-output-law';
+import { formatUsersHaiGreeting, userAddressedAdamByName } from './adam-users-greeting';
+import { paragraphIsExplainBackSoulStrikeLeak } from './adam-users-output-law';
 import { isAdamVisualDrawTurn } from './adam-response-generation';
 import { userAskedForAlamtologi, userAskedForConstitutionalStructure } from './adam-universal-voice';
 
@@ -123,16 +123,19 @@ export function buildVisualDrawCanonicalAnswer(
   userMessage: string,
   participantName?: string,
 ): string {
-  const greeting = formatStudentHaiGreeting(participantName);
-  let merged = [
+  const greeting = userAddressedAdamByName(userMessage)
+    ? formatUsersHaiGreeting(participantName)
+    : '';
+  const merged = [
     greeting,
-    '',
+    greeting ? '' : null,
     VISUAL_DRAW_SHAPE_BLOCK,
     '',
     buildVisualDrawCoreAnswer(),
-  ].join('\n');
-  merged = appendGoldStandardFollowUp(merged, userMessage);
-  return merged.replace(
+  ].filter((line): line is string => line !== null).join('\n');
+  let mergedOut = merged;
+  mergedOut = appendGoldStandardFollowUp(mergedOut, userMessage);
+  return mergedOut.replace(
     /Mahukah saya jelaskan lebih lanjut\?\s*\n+\s*Mahu saya jelaskan lebih lanjut\?/gi,
     'Mahu saya jelaskan lebih lanjut?',
   );

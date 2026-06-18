@@ -27,7 +27,7 @@ export function getAdamLanguageDirective(): string {
   return [
     'UNIVERSAL LANGUAGE (Alamtologi is universal — knowledge flows like water to all):',
     'Reply in the same language the speaker uses this turn. If they mix languages, mirror their mix naturally.',
-    `If their language is unclear, default to ${fallback}${fallback.includes('Malaysia') ? ' (DBP — not Bahasa Indonesia)' : ''}.`,
+    `If their language is unclear, default to ${fallback}${fallback.includes('Malaysia') ? ' (Malaysia — not Indonesian drift)' : ''}.`,
     'Never refuse, dismiss, or mock someone because of language, accent, or grammar.',
     'Preserve Quranic Arabic (Rasm Uthmani), constitutional terms (MAKMUR, ISLAH, WAQF, AIDIL, MASA, TENAGA, AIR, API, BUMI, CAHAYA, RUANG), and sacred names.',
     'Words like hikmah, MASA, TENAGA, IZWA, CAHAYA may stay untranslated when they carry constitutional weight in any tongue.',

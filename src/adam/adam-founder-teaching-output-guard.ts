@@ -15,7 +15,7 @@
  * ============================================================
  */
 
-import { sanitizeStudentOutputSync } from './adam-student-output-guard';
+import { sanitizeUsersOutputSync } from './adam-users-output-guard';
 import { restoreFounderPaltAddress } from './adam-founder-address-guard';
 
 const INVENTED_TERMS = [
@@ -351,7 +351,7 @@ function repairFounderMathBlocks(text: string): string {
 /** Student sanitizer with math stashed so em-dash / bold rules cannot touch formulas. */
 function sanitizeFounderTeachingInput(text: string): string {
   const { text: stashed, slots } = stashFounderMathBlocks(text);
-  return restoreFounderMathBlocks(sanitizeStudentOutputSync(stashed), slots);
+  return restoreFounderMathBlocks(sanitizeUsersOutputSync(stashed), slots);
 }
 
 /** Fast sync fixes — avoid full LLM rewrite for formatting leaks. */

@@ -20,9 +20,9 @@ import { ENV } from '../config/environments';
 import { isDirectTechnicalHowToQuestion } from './adam-direct-technical-law';
 import { isAdamLightChatTurn, isAdamSubstantiveTurn } from './adam-response-generation';
 import {
-  STUDENT_BRIEF_TIER1_MIN_RETAIN_RATIO,
-  STUDENT_SURFACE_MIN_RETAIN_RATIO,
-} from './adam-student-output-guard';
+  USERS_BRIEF_TIER1_MIN_RETAIN_RATIO,
+  USERS_SURFACE_MIN_RETAIN_RATIO,
+} from './adam-users-output-guard';
 
 export type TransformASource = 'founder' | 'inquiry' | 'conventional' | 'quran';
 
@@ -141,8 +141,8 @@ export function shouldTransformTurn(input: TransformTurnGateInput): boolean {
 
   const raw = input.rawModelStream?.trim() ?? surface;
   const ratio = streamRetainRatio(raw, surface);
-  if (raw.length > 280 && ratio < STUDENT_SURFACE_MIN_RETAIN_RATIO) return false;
-  if (raw.length > 280 && ratio < STUDENT_BRIEF_TIER1_MIN_RETAIN_RATIO && surface.length < 100) {
+  if (raw.length > 280 && ratio < USERS_SURFACE_MIN_RETAIN_RATIO) return false;
+  if (raw.length > 280 && ratio < USERS_BRIEF_TIER1_MIN_RETAIN_RATIO && surface.length < 100) {
     return false;
   }
 

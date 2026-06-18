@@ -47,7 +47,7 @@ describe('Answer Constitution v2 — prompt wiring', () => {
       isFounder:            false,
       participantName:      'Ahmad',
       founderStudentsBlock: '',
-      studentKnowledgeTier: 1,
+      usersKnowledgeTier: 1,
       userMessage:          'Apa itu fotosintesis?',
     });
     expect(prompt).toContain('ANSWER PROFILE: ADAM-α');
@@ -63,7 +63,7 @@ describe('Answer Constitution v2 — prompt wiring', () => {
       isFounder:            false,
       participantName:      'Ahmad',
       founderStudentsBlock: '',
-      studentKnowledgeTier: 1,
+      usersKnowledgeTier: 1,
       userMessage:          'Siapa presiden Indonesia sekarang?',
     });
     expect(prompt).toContain('ANSWER PROFILE: ADAM-α');
@@ -78,7 +78,7 @@ describe('Answer Constitution v2 — prompt wiring', () => {
       isFounder:            false,
       participantName:      'Ahmad',
       founderStudentsBlock: '',
-      studentKnowledgeTier: 1,
+      usersKnowledgeTier: 1,
       userMessage:          'Berapa banyak kaki labah-labah? Macam mana awak tahu?',
     });
     expect(prompt).toMatch(/SIMPLE FACTUAL TURN/i);
@@ -108,7 +108,7 @@ describe('Answer Constitution v2 — prompt wiring', () => {
       isFounder:            false,
       participantName:      'Ahmad',
       founderStudentsBlock: '',
-      studentKnowledgeTier: 1,
+      usersKnowledgeTier: 1,
       userMessage:          'What does a registered nurse do, and what skills do I need?',
     });
     expect(prompt).toContain('ANSWER PROFILE: ADAM-α');

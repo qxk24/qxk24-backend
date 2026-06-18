@@ -60,21 +60,6 @@ export function matchesJournalIntent(message: string): boolean {
   return false;
 }
 
-export function matchesBookIntent(message: string): boolean {
-  const t = message.trim();
-  if (!t) return false;
-  if (/\b(tulis|write|cipta|jana|hasilkan|sambung|continue).{0,40}(buku|book|manuskrip|manuscript)\b/i.test(t)) {
-    return true;
-  }
-  if (/\b(buku|book)\s+(?:baru|new|pertama|first)\b/i.test(t)) return true;
-  if (/\b(?:bab|chapter)\s+\d+.{0,32}(buku|book)\b/i.test(t)) return true;
-  if (/\b(tulis|write).{0,24}(bab|chapter)\b/i.test(t) && /\b(buku|book)\b/i.test(t)) return true;
-  if (/\bsocratic\s+writing\b/i.test(t)) return true;
-  if (/\b(aidil|workspace).{0,32}(buku|book)\b/i.test(t)) return true;
-  if (/\b(eksport|export).{0,24}(buku|book|manuskrip)\b/i.test(t)) return true;
-  return false;
-}
-
 export function matchesCodeIntent(message: string): boolean {
   const t = message.trim();
   if (!t) return false;
@@ -101,6 +86,5 @@ export function detectServerIntent(
 ): AdamServerId | null {
   if (mode === 'JOURNAL_GEN' || matchesJournalIntent(message)) return AdamServerId.JURNAL;
   if (mode === 'BUILDER' || mode === 'AUDIT' || matchesCodeIntent(message)) return AdamServerId.KOD;
-  if (matchesBookIntent(message)) return AdamServerId.BUKU;
   return null;
 }

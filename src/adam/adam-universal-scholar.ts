@@ -18,8 +18,30 @@
  * Consumer surface = general + formal scholar — never doctrine push.
  */
 
-import { threadRootIsPracticalAdvisory, isAdamCompareTurn, isAdamLifeWellbeingTurn } from './adam-response-generation';
-import { userOpenedFaithDoor, userAskedForAlamtologi } from './adam-universal-voice';
+import {
+  threadRootIsPracticalAdvisory,
+  isAdamCompareTurn,
+  isAdamLifeWellbeingTurn,
+  isAdamLightChatTurn,
+  isAdamContinuationDepthTurn,
+  isAdamTeachingDepthTurn,
+  isAdamScienceNatureSynthesisTurn,
+  isAdamLayer1ManuscriptExportTurn,
+  isAdamLayer1BookWritingTurn,
+  isAdamPracticalAdvisoryTurn,
+  isAdamSimpleArithmeticTurn,
+  isAdamSimpleFactualTurn,
+  isAdamSubstantiveTurn,
+  isAdamUserGuidanceCoachingTurn,
+} from './adam-response-generation';
+import { isAdamCurrentAffairsTurn } from './adam-web-search';
+import {
+  resolveAdamUsersDomainFacet,
+  usersDomainUsesUniversalScholarProse,
+} from './adam-users-domain-router';
+import { GOLD_STANDARD_FOLLOW_UP_RE } from './adam-gold-standard';
+import { ADAM_BM_VOICE_IDENTITY } from './adam-language-prompts';
+import { userOpenedFaithDoor, userAskedForAlamtologi, userAskedForConstitutionalStructure } from './adam-universal-voice';
 
 /** Canonical English door — practical fork, not philosophy escalation. */
 export const UNIVERSAL_SCHOLAR_DOOR_EN =
@@ -43,8 +65,193 @@ export const UNIVERSAL_SCHOLAR_LIFE_WELLBEING_DOOR_EN =
 export const UNIVERSAL_SCHOLAR_LIFE_WELLBEING_DOOR_BM =
   'Adakah anda ingin lebih lanjut tentang alat praktikal (contoh rutin tenang sebelum peperiksaan), rentak belajar realistik untuk minggu ini, atau cara menukar satu fikiran stres kepada soalan yang membantu?';
 
+/** Every substantive User turn gets tailored cadangan (not only after N exchanges). */
+export function userUmumCadanganTurnActive(userMessage: string): boolean {
+  const t = userMessage.trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  return true;
+}
+
+/** True when a prior ADAM reply offered tailored cadangan. */
+export function recentAssistantOfferedCadangan(recentAssistantMessages: string[]): boolean {
+  return recentAssistantMessages.some((msg) => assistantMessageHasCadanganBlock(msg));
+}
+
+function assistantMessageHasCadanganBlock(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  return /\*\*(?:Cadangan|Suggestions):\*\*/i.test(t)
+    || /^Cadangan:/im.test(t)
+    || /^Suggestions:/im.test(t);
+}
+
+function assistantWasInPerlaksanaanHelper(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  return /\b(?:langkah\s+seterusnya|next\s+step|Seterusnya,|Berikut\s+(?:draf|contoh|versi|checklist|template)|Here(?:'s| is) (?:a |your )?(?:draft|outline|template|checklist)|Semak\s+(?:draf|hasil)|Mari\s+(?:kita|we)\s+(?:mulakan|teruskan|start|continue))\b/i.test(t);
+}
+
+const USER_CADANGAN_ACCEPT_OPT_IN: RegExp[] = [
+  /^(?:ya|yes|yep|yeah|ok|okay|setuju|boleh|nak|mahu|baik|teruskan|jom|let'?s go)(?:\s*,?\s*(?:setuju|boleh|teruskan|please))?[.!?\s]*$/i,
+  /\b(?:setuju|ambil|pilih|ikut)\s+(?:cadangan|saranan|suggestion)/i,
+  /\b(?:ya,?\s*)?(?:buat|teruskan|mulakan|mula)\s+(?:dengan|langkah|cadangan)/i,
+  /\b(?:sounds good|let'?s do (?:it|that)|go with (?:that|option))\b/i,
+  /\b(?:cadangan|saranan|option|pilihan)\s*(?:1|2|3|pertama|kedua|ketiga)\b/i,
+  /\b(?:yang\s+)?(?:pertama|kedua|ketiga)\s+(?:saja|dulu|please)\b/i,
+];
+
+const USER_PERLAKSANAAN_DIRECTIVE: RegExp[] = [
+  /\b(?:bantu\s+(?:saya\s+)?(?:buat|tulis|sediakan|hasilkan|siapkan|laksanakan)|help\s+me\s+(?:write|draft|build|create|prepare|implement|finish))\b/i,
+  /\b(?:langkah\s+seterusnya|next\s+step|what\s+should\s+i\s+do\s+(?:now|next)|apa\s+(?:yang\s+)?(?:perlu|patut)\s+(?:saya\s+)?(?:buat|lakukan)\s+(?:sekarang|seterusnya))\b/i,
+  /\b(?:tuliskan|draftkan|buatkan|sediakan|hasilkan)\s+(?:draf|ringkasan|checklist|plan|rancangan|ayat|satu\s+ayat)\b/i,
+  /\b(?:saya\s+nak\s+buat|i\s+want\s+to\s+(?:start|build|write|launch|implement))\b/i,
+  /\b(?:ini\s+(?:hasil|draf|versi)|here(?:'s| is)\s+(?:my|the)\s+(?:draft|plan|outline))\b/i,
+  /\b(?:semak|review|periksa|check)\s+(?:draf|draft|plan|rancangan|hasil)\b/i,
+  /\b(?:sudah\s+(?:siap|buat)|done|finished|selesai\s+dengan\s+langkah)\b/i,
+  /\b(?:perinci(?:kan)?\s+(?:nak\s+)?laksanakan|perlukan?\s+perinci|butiran\s+laksana|nak\s+laksanakan)\b/i,
+];
+
+function threadInPerlaksanaanPhase(
+  recentUserMessages: string[],
+  recentAssistantMessages: string[],
+): boolean {
+  const recentUsers = recentUserMessages.slice(-4);
+  const userHadExecutionCue = recentUsers.some((m) => {
+    const u = m.trim();
+    if (!u) return false;
+    if (matchesAny(u, USER_PERLAKSANAAN_DIRECTIVE)) return true;
+    return matchesAny(u, USER_CADANGAN_ACCEPT_OPT_IN)
+      && recentAssistantOfferedCadangan(recentAssistantMessages);
+  });
+  if (!userHadExecutionCue) return false;
+  return recentAssistantMessages.slice(-4).some((m) =>
+    assistantMessageHasCadanganBlock(m) || assistantWasInPerlaksanaanHelper(m),
+  );
+}
+
 /**
- * Permanent consumer gold standard — all student/guest chat (not founder, not tutor/niaga).
+ * User agreed with cadangan or gave execution instructions — stay as companion until done.
+ */
+export function userUmumPerlaksanaanTurnActive(
+  userMessage: string,
+  recentAssistantMessages: string[] = [],
+  recentUserMessages: string[] = [],
+): boolean {
+  const t = userMessage.trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  if (isAdamContinuationDepthTurn(t)) return false;
+  if (isAdamLayer1ManuscriptExportTurn(t)) return false;
+
+  const lastAdam = recentAssistantMessages[recentAssistantMessages.length - 1]?.trim() ?? '';
+  const hadCadangan = recentAssistantOfferedCadangan(recentAssistantMessages);
+  const lastAdamHadCadangan = assistantMessageHasCadanganBlock(lastAdam);
+
+  if (matchesAny(t, USER_PERLAKSANAAN_DIRECTIVE)) return true;
+
+  if (hadCadangan && matchesAny(t, USER_CADANGAN_ACCEPT_OPT_IN)) return true;
+
+  if (lastAdamHadCadangan && /\b(?:cadangan|saranan|option|pilihan)\s*(?:1|2|3|pertama|kedua|ketiga)\b/i.test(t)) {
+    return true;
+  }
+
+  if (threadInPerlaksanaanPhase(recentUserMessages, recentAssistantMessages)) {
+    if (isAdamTeachingDepthTurn(t) && !matchesAny(t, USER_PERLAKSANAAN_DIRECTIVE)) return false;
+    return true;
+  }
+
+  return false;
+}
+
+/** Cadangan vs perlaksanaan — mutually exclusive per turn. */
+export function resolveUserUmumCadanganTurn(
+  userMessage: string,
+  recentAssistantMessages: string[] = [],
+  recentUserMessages: string[] = [],
+): boolean {
+  if (userUmumPerlaksanaanTurnActive(userMessage, recentAssistantMessages, recentUserMessages)) {
+    return false;
+  }
+  const t = userMessage.trim();
+  if (isAdamLayer1ManuscriptExportTurn(t)) return false;
+  if (userAskedForAlamtologi(t) || userAskedForConstitutionalStructure(t)) return false;
+  if (isAdamTeachingDepthTurn(t)) return false;
+  if (isAdamCompareTurn(t)) return false;
+  if (isAdamScienceNatureSynthesisTurn(t)) return false;
+  if (isAdamPracticalAdvisoryTurn(t)) return false;
+  if (threadRootIsPracticalAdvisory(recentUserMessages)) return false;
+  const facet = resolveAdamUsersDomainFacet(t, { recentUserMessages });
+  if (facet !== 'general' && usersDomainUsesUniversalScholarProse(facet)) return false;
+  return userUmumCadanganTurnActive(userMessage);
+}
+
+const USER_UMUM_COMPANION_THREAD =
+  /\b(?:kueh\s+melayu|memasak\s+kueh|penulisan\s+buku|mencari\s+damai|perlukan?\s+bimbingan|perinci.*laksan|nak\s+laksanakan|berniaga|perniagaan)\b/i;
+
+/** Coaching / cadangan / perlaksanaan thread — plain steps, not poetic β essays. */
+export function isUserUmumCompanionTurnActive(
+  userMessage: string,
+  recentAssistantMessages: string[] = [],
+  recentUserMessages: string[] = [],
+): boolean {
+  const t = userMessage.trim();
+  if (userAskedForAlamtologi(t) || userAskedForConstitutionalStructure(t)) return false;
+  if (userUmumPerlaksanaanTurnActive(userMessage, recentAssistantMessages, recentUserMessages)) {
+    return true;
+  }
+  if (resolveUserUmumCadanganTurn(userMessage, recentAssistantMessages, recentUserMessages)) {
+    // α simple factual / arithmetic / current affairs — lively scholar voice, not companion flattening.
+    if (
+      isAdamSimpleFactualTurn(t)
+      || isAdamSimpleArithmeticTurn(t)
+      || isAdamCurrentAffairsTurn(t)
+    ) {
+      return false;
+    }
+    return true;
+  }
+  if (isAdamUserGuidanceCoachingTurn(userMessage)) return true;
+  if (threadInPerlaksanaanPhase(recentUserMessages, recentAssistantMessages)) return true;
+  const thread = [...recentUserMessages.slice(-6), userMessage].join('\n');
+  if (!USER_UMUM_COMPANION_THREAD.test(thread)) return false;
+  if (!t || isAdamLightChatTurn(t)) return false;
+  if (isAdamTeachingDepthTurn(t) && !matchesAny(t, USER_PERLAKSANAAN_DIRECTIVE)) return false;
+  return isAdamSubstantiveTurn(t);
+}
+
+/** Hard voice lock — overrides Explain-Back / poetic β on companion threads. */
+export const ADAM_USER_UMUM_COMPANION_VOICE_HOLD = `
+USER UMUM COMPANION (coaching / cadangan / perlaksanaan — mandatory this turn):
+- Plain warm colleague — NOT philosopher, NOT preacher, NOT Alamtologi billboard.
+- STRUCTURE: max 3-sentence intro → numbered steps (1. 2. 3.) or bullets (-) ONLY.
+- Give concrete next action: draft one sentence, pick one kueh, one checklist line.
+- FORBIDDEN: MASA/TENAGA/CAHAYA/RUANG, liqā', ibadah, gambar hidup, tamparan jiwa, esei puitis.
+- FORBIDDEN: "Pertama," "Kedua," "Ketiga," skeleton — use 1. 2. 3. instead.
+- FORBIDDEN: "Saya tunggu", "Cukup satu ayat", "duduk bersama awak", khutbah penghantaran/penyerahan.
+`.trim();
+
+/** Injected on every substantive User umum turn — think, answer, then tailored cadangan. */
+export const ADAM_USER_UMUM_CADANGAN_TURN = `
+CADANGAN (this turn — substantive User ask):
+- Fahami soalan ini dulu: apa yang user benar-benar perlukan, tahap mereka, dan konteks thread — kemudian jawab penuh dalam suara ADAM yang hangat dan jelas.
+- Panjang dan bentuk ikut keperluan soalan: prosa mendalam, perbandingan, jadual, atau langkah bernombor — apa yang paling membantu pemahaman.
+- Bila sesuai, akhiri dengan **Cadangan:** 2–3 langkah praktikal ikut kefahaman anda — bukan menu "Adakah anda ingin…", bukan "Mahu saya jelaskan lebih lanjut?".
+- DILARANG: MASA/TENAGA/CAHAYA/RUANG billboard, ibadah tanpa diminta user, khutbah penghantaran kosong, "Saya akan duduk bersama awak".
+`.trim();
+
+/** User setuju dengan cadangan atau beri arahan — teman sehingga perlaksanaan selesai. */
+export const ADAM_USER_UMUM_PERLAKSANAAN_TURN = `
+PERLAKSANAAN (this turn — user setuju atau beri arahan):
+- User bersetuju dengan cadangan anda atau minta bantu laksanakan — kekal sebagai teman sehingga selesai.
+- Baca thread — faham di mana user sekarang (contoh: kueh Melayu, buku, berniaga).
+- FORMAT WAJIB: 1 perenggan ringkas (max 3 ayat) → langkah bernombor (1. 2. 3.) atau bullet (-) dengan arahan konkrit SETERUSNYA.
+- Boleh beri draf ayat, checklist, atau contoh teks pendek — bukan khutbah atau esei.
+- DILARANG: MASA/TENAGA/CAHAYA/RUANG, ibadah harian, tamparan jiwa, esei puitis panjang, "Saya akan duduk bersama awak… tunggu".
+- Jangan ulang blok **Cadangan:** penuh — teruskan langkah praktikal seterusnya.
+- Tutup dengan SATU arahan jelas — tanpa tanda soal.
+`.trim();
+
+/**
+ * Permanent consumer gold standard — Users / guest chat (not Founder, not Tutor, not Niaga).
  */
 export const ADAM_UNIVERSAL_SCHOLAR_CHARTER = `
 ADAM UNIVERSAL SCHOLAR — CONSUMER GOLD STANDARD (permanent):
@@ -54,6 +261,7 @@ IDENTITY:
 - You do NOT represent Islam, the Quran, Alamtologi, or any single tradition as your public identity.
 - Brain C holds deep knowledge (including founder teaching) — converted to universal language before speech.
 - Never push doctrine, faith, or framework on anyone. Users come from every background.
+- Relational nature (Founder seal): not one rigid persona — sahabat, ibu, ayah, anak, guru, penasihat as the moment needs; inner model Rasulullah SAW as character conscience, not sermon; for every user regardless of race, religion, or status.
 
 STAGE 2 REPLY FORMULA — A + B = C:
 - A = verified conventional data + Brain C when user opted in
@@ -64,10 +272,10 @@ TIER 1 (default — follow ANSWER PROFILE when injected below; otherwise Univers
 - ADAM-α: L1 inti (fact/code/step) first; layers proportional; L5 optional practical fork only when it adds value.
 - ADAM-β: L1 realiti semasa (three gambar hidup) → L2 conventional → L3 Brain C synthesis; L5 tamparan jiwa mandatory — see EXPLAIN-BACK LAW.
 - EXPLAIN-BACK when [UNIVERSAL TEACHING RECALL] in context on β turns — Phase 1A → 1B → synthesis; never copy P.alt transcript.
-- JOB / CAREER / SKILLS threads (α): search-verified facts first; full ADAM voice + penjiwaan OK; L5 organic close:
-  Career fork EN: "${UNIVERSAL_SCHOLAR_DOOR_EN}" · BM: "${UNIVERSAL_SCHOLAR_DOOR_BM}"
-  Or Gold Standard follow-up: "Would you like me to explain further?" / "Mahu saya jelaskan lebih lanjut?"
-- Skip L5 on: salam, thanks, yes/no acks, light chat, α short factual already complete at L1.
+- JOB / CAREER / SKILLS threads (α): search-verified facts first; full ADAM voice + penjiwaan OK.
+- Every substantive User turn: jawab penuh → **Cadangan:** 2–3 langkah praktikal ikut kefahaman soalan — BUKAN menu soalan susulan.
+- When user agrees with cadangan or gives execution instructions → PERLAKSANAAN companion mode: help step-by-step until done — concrete drafts, checklists, reviews; no new cadangan menu.
+- Skip cadangan on: salam, thanks, yes/no acks, light chat, α short factual already complete at L1.
 
 TIER 2 (only after user accepts the door — yes / tell me more / more detail):
 - User opted into practical depth. Add ONE focused section (150–250 words max) — tools, industry example, vs related role, or ethics-in-practice with facts.
@@ -93,25 +301,25 @@ FORBIDDEN on tier 1:
 - Long coaching menus · naming Alamtologi in the closing invitation · "other perspectives" without a practical fork
 `.trim();
 
-/** Injected when the user writes in BM — same visual structure as English replies. */
+/** Injected when the user writes in BM — accessible hybrid (prose + senarai). */
 export const ADAM_UNIVERSAL_SCHOLAR_MALAY_LAYOUT = `
-BAHASA MELAYU — SUSUNAN OUTPUT (sama kemas seperti English):
-- Guna 1–4 perenggan pendek — 2–4 ayat penuh setiap perenggan. Satu baris kosong antara perenggan.
-- DILARANG: senarai bullet (- item), senarai bernombor (1. 2. 3.), "Pertama," "Kedua," "Ketiga," "Secara ringkas:" + bullet.
-- DILARANG: tajuk markdown (###), jadual lapisan, atau esei tiga bahagian — tulis dalam prosa mengalir.
-- Jawapan ringkas → 1–2 perenggan. Soalan penjelasan → 3–4 perenggan kemas — bukan esei panjang tanpa pecah.
-- α: tutup hanya jika L5 menambah nilai. β: tutup dengan SATU soalan tamparan jiwa (wajib) — bukan menu kerjaya pada topik sains.
-- DBP Malaysia — ayat mudah dibaca seperti artikel surat khabar, bukan gaya akademik berat.
+BAHASA MELAYU — SUSUNAN OUTPUT (mudah dibaca semua peringkat):
+${ADAM_BM_VOICE_IDENTITY}
+- Buka dengan 1 perenggan pendek (1–3 ayat): sapa + inti jawapan — boleh lebih panjang bila user minta kembangkan prosa.
+- Bila ada 3+ punca, langkah, jenis, atau perbandingan → guna bullet (-) atau senarai bernombor (1. 2. 3.) — satu idea setiap baris.
+- Guna ### tajuk bahagian bila ia menjadikan jawapan lebih jelas (formula, contoh, ringkasan).
+- Tutup dengan 1 perenggan ringkas bila sintesis membantu — opsyenal pada α yang sudah lengkap.
+- Campur prosa hangat + senarai — ikut keperluan soalan; elak hutan bullet kering tanpa konteks.
+- DILARANG: "Pertama," "Kedua," "Ketiga," skeleton · "Secara ringkas:" + bullet.
 `.trim();
 
-/** BM technical layout — science / history / algebra (overrides prose-only MALAY_LAYOUT when injected). */
+/** BM technical layout — science / history / algebra (fusion: struktur + prosa). */
 export const ADAM_UNIVERSAL_SCHOLAR_MALAY_TECHNICAL_LAYOUT = `
-BAHASA MELAYU — PAPARAN TEKNIKAL (bukan esei prosa):
-- Guna blok bertajuk ### (Bahan-bahan / Proses / Hasil / Punca utama).
-- Senarai bernombor 1. 2. 3. untuk langkah atau input; bullet * untuk output ringkas.
-- **Bold** untuk istilah kunci; satu ayat definisi inti sebelum senarai.
-- Akhiri dengan **Ringkasnya:** satu baris rumusan — bukan perenggan meta.
-- DILARANG: esei "Pertama," "Kedua," "Ketiga," prosa panjang tanpa tajuk, Alamtologi/MASA/TENAGA.
+BAHASA MELAYU — TEKNIKAL + ESEI = C:
+- Guna ### tajuk bahagian; DALAM setiap bahagian tulis 2–4 ayat prosa hangat (bukan bullet kering sahaja).
+- Senarai 1. 2. 3. dibenarkan untuk langkah proses — boleh diselit dalam perenggan.
+- **Bold** untuk istilah kunci; **Ringkasnya:** satu baris; satu perenggan C (mengapa penting untuk kehidupan).
+- DILARANG: Pertama/Kedua skeleton, Alamtologi/MASA/TENAGA, esei tanpa ###, ### tanpa jiwa.
 `.trim();
 
 /** Tier-1 policy — canonical sequence lives in ADAM_EXPLAIN_BACK_LAW (Universal Scholar surface). */
@@ -341,9 +549,12 @@ export function appendUniversalScholarTier1DoorIfMissing(
   text: string,
   userMessage: string,
   recentAssistantMessages: string[] = [],
+  recentUserMessages: string[] = [],
 ): string {
   const trimmed = text.trim();
   if (!trimmed || outputHasTier1Door(trimmed)) return trimmed;
+  if (userUmumCadanganTurnActive(userMessage)) return trimmed;
+  if (userUmumPerlaksanaanTurnActive(userMessage, recentAssistantMessages, recentUserMessages)) return trimmed;
   if (countRecentUniversalScholarDoors(recentAssistantMessages) >= 1) return trimmed;
   if (userRequestedPracticalDepth(userMessage)) return trimmed;
   if (isAdamCompareTurn(userMessage)) {
@@ -353,6 +564,270 @@ export function appendUniversalScholarTier1DoorIfMissing(
     return `${trimmed}\n\n${resolveLifeWellbeingDoor(userMessage)}`;
   }
   return trimmed;
+}
+
+/** Strip MASA/TENAGA/CAHAYA poetic framework on User umum coaching/cadangan/book turns. */
+export function paragraphIsUserUmumCoachingFrameworkLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/\b(?:sebagai|as)\s+(?:MASA|TENAGA|CAHAYA|RUANG)\b/i.test(t)) return true;
+  if (/\b(?:Damai|peace)\s+sebagai\s+(?:MASA|TENAGA|CAHAYA)\b/i.test(t)) return true;
+  if (/\*\*(?:MASA|TENAGA|CAHAYA|RUANG)\*\*/i.test(t)) return true;
+  if (/\*(?:MASA|TENAGA|CAHAYA|RUANG)\*/i.test(t)) return true;
+  if (/\b(?:MASA|TENAGA|CAHAYA|RUANG)\b/.test(t) && /\b(?:bergerak|hadir|menyala|terlatih|meminta bentuk|sedang hidupi|sedang salurkan|sedang nyatakan)\b/i.test(t)) {
+    return true;
+  }
+  if (/\b(?:liqā|liqa|liqā')\b/i.test(t)) return true;
+  if (/\b(?:ibadah\s+harian|pertemuan antara jiwa|ruang yang siap menerima|dirasai sebagai kehadiran)\b/i.test(t)) return true;
+  if (/\b(?:sebagai saksi|bukan sebagai penasihat|Cukup benar|Cukup satu ayat)\b/i.test(t)) return true;
+  if (/\b(?:hold the space|honouring the quiet|seven breaths|living idea|gentle architecture|finds its own shape)\b/i.test(t)) return true;
+  return /\b(?:Saya\s+(?:akan\s+)?duduk\s+bersama|duduk\s+bersama\s+(?:awak|ayat)|Saya\s+tunggu|Saya\s+sedia\s+bantu\s+awak\s+menulis\s+ayat|I'?m here, not to build)\b/i.test(t);
+}
+
+/** Whole-body check — numbered Bab list can still be a MASA/TENAGA/CAHAYA framework billboard. */
+export function outputHasUserUmumBookFrameworkLeak(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (paragraphIsUserUmumCoachingFrameworkLeak(t)) return true;
+  const frameworkLabels = (t.match(/\b(?:MASA|TENAGA|CAHAYA|RUANG)\b/g) ?? []).length;
+  return frameworkLabels >= 2 && /\b(?:sebagai|as|Konsep|threads|interwoven)\b/i.test(t);
+}
+
+function threadExpectsBmBookHelp(userMessage: string, recentUserMessages: string[] = []): boolean {
+  const thread = [...recentUserMessages, userMessage].join(' ');
+  if (/\b(?:write|book concept|please draft|chapter outline)\b/i.test(thread) && !/\b(?:buku|konsep|struktur|penulisan|bagi)\b/i.test(thread)) {
+    return false;
+  }
+  return /\b(?:buku|konsep|struktur|penulisan|mencari\s+damai|bagi\s+konsep|saya\s+menulis)\b/i.test(thread);
+}
+
+/** English poetic book-coaching essay on a BM book thread. */
+export function outputHasEnglishPoeticBookEssayLeak(
+  text: string,
+  userMessage: string,
+  recentUserMessages: string[] = [],
+): boolean {
+  if (!threadExpectsBmBookHelp(userMessage, recentUserMessages)) return false;
+  const t = text.trim();
+  if (!t) return false;
+  if (/\b(?:Let me begin|not about assembling chapters|wholeness held in balance|Would you like|interwoven threads|thank you, your request)\b/i.test(t)) {
+    return true;
+  }
+  const englishHits = (t.match(/\b(?:the|and|not|but|with|your|this|that|let|here|would|like|because|it's|isn't)\b/gi) ?? []).length;
+  const bmHits = (t.match(/\b(?:awak|anda|buku|bab|saya|kerana|tidak|konsep|struktur|damai)\b/gi) ?? []).length;
+  return englishHits >= 25 && englishHits > bmHits * 1.5;
+}
+
+/** Gutted English stub left after partial strip — not acceptable on BM book thread. */
+function outputIsResidualEnglishBookStub(
+  text: string,
+  userMessage: string,
+  recentUserMessages: string[] = [],
+): boolean {
+  if (!threadExpectsBmBookHelp(userMessage, recentUserMessages)) return false;
+  const t = text.trim();
+  if (!t || t.length < 50) return true;
+  if (/\b(?:konsep|struktur|Cadangan|merancang buku|tema)\b/i.test(t)) return false;
+  if (/\b(?:opening paragraph|draft of the|A draft of the)\b/i.test(t)) return true;
+  const en = (t.match(/\b(?:the|for|your|draft|opening|paragraph|would|like|bab)\b/gi) ?? []).length;
+  const bm = (t.match(/\b(?:awak|anda|buku|konsep|struktur|cadangan|saya|kerana)\b/gi) ?? []).length;
+  return en >= 2 && bm < 2;
+}
+
+/** Poetic preamble before practical steps — drop whole paragraph. */
+export function paragraphIsUserUmumPoeticPreambleLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/^(?:\d+[.)]|\-)\s/.test(t)) return false;
+  if (/^(?:Pertama|Kedua|Ketiga),/i.test(t)) return false;
+  if (paragraphIsUserUmumCoachingFrameworkLeak(t)) return true;
+  if (/\bbukan sekadar\b/i.test(t)) {
+    // α biology/count depth — hukum alam, taksonomi (Answer Constitution v2; not coaching preamble).
+    if (/\b(?:hukum alam|pemerhatian ilmiah|taksonomi|Arachnida|ITIS|World Spider Catalog)\b/i.test(t)) {
+      return false;
+    }
+    return true;
+  }
+  return /\b(?:soalan ini bukan sekadar|penegasan bahawa|dari rasa ke tindakan|titik di mana|pelan kehadiran|bentuk nyata|penghantaran|penyerahan|ujian kejujuran|titik pertemuan|lahir dari dalam|bukan dari luar|segala(?:nya)? tumbuh|satu pertemuan antara|bukan untuk pembaca|sebagai kompas|bukan tentang struktur bab|dirasai sebagai kehadiran|Let me begin|not with templates|quiet gravity|intentional movement|not mere absence of noise|interwoven threads|thank you, your request|Would you like)\b/i.test(t);
+}
+
+function extractBookTitleFromThread(userMessage: string, recentUserMessages: string[] = []): string | null {
+  const thread = [...recentUserMessages, userMessage].join(' ');
+  const quoted = thread.match(/["“]([^"”]+)["”]/)?.[1]?.trim();
+  if (quoted && quoted.length <= 80) return quoted;
+  const starred = thread.match(/\*([^*]{2,80})\*/)?.[1]?.trim();
+  if (starred) return starred;
+  const mencari = thread.match(/\b(Mencari\s+Damai)\b/i)?.[1];
+  if (mencari) return mencari;
+  return null;
+}
+
+function userUmumCompanionFallback(
+  userMessage: string,
+  recentUserMessages: string[] = [],
+): string {
+  if (isAdamLayer1BookWritingTurn(recentUserMessages, userMessage)) {
+    const thread = [...recentUserMessages, userMessage].join(' ');
+    const title = extractBookTitleFromThread(userMessage, recentUserMessages);
+    const wantsStructure = /\b(?:konsep|struktur|rangka|outline)\b/i.test(thread);
+    if (wantsStructure && title) {
+      return [
+        `Hai, saya faham anda mahu konsep dan struktur untuk *${title}*.`,
+        '',
+        '**Konsep:** Buku peribadi tentang mencari damai dalam kehidupan harian — cerita, refleksi, dan latihan ringkas, bukan teori abstrak.',
+        '',
+        '**Struktur cadangan:**',
+        '1. Mengapa anda menulis buku ini',
+        '2. Saat-saat kecil ketika damai hadir',
+        '3. Yang perlu dilepaskan',
+        '4. Damai dalam kesunyian dan dalam hubungan',
+        '5. Pelajaran daripada orang lain',
+        '6. Apabila damai berubah bentuk',
+        '7. Apa yang anda tinggalkan untuk pembaca',
+        '',
+        '**Cadangan:**',
+        '1. Pilih satu bab untuk draf perenggan pembuka (3–5 ayat).',
+        '2. Atau mulakan dengan satu ayat: "Saya menulis ini kerana…" — kita perincikan bersama.',
+      ].join('\n');
+    }
+    if (wantsStructure) {
+      return [
+        'Hai, saya faham anda mahu konsep dan struktur buku ini.',
+        '',
+        '**Konsep:** Nyatakan satu mesej utama — apa yang pembaca akan bawa pulang selepas habis membaca.',
+        '',
+        '**Struktur cadangan:**',
+        '1. Mengapa anda menulis',
+        '2. Permulaan perjalanan',
+        '3. Halangan dan pembelajaran',
+        '4. Perubahan yang dirasai',
+        '5. Penutup — apa yang anda serahkan kepada pembaca',
+        '',
+        '**Cadangan:**',
+        '1. Pilih satu bab untuk draf perenggan pembuka.',
+        '2. Atau tulis satu ayat pembuka — kita perincikan bersama.',
+      ].join('\n');
+    }
+    return [
+      'Saya boleh bantu anda merancang buku ini di sini — tema, struktur bab, dan gaya penulisan.',
+      '1. Nyatakan satu tema atau mesej utama buku anda.',
+      '2. Senaraikan 3–5 bab yang mungkin membawa pembaca ke mesej itu.',
+      '3. Pilih satu bab untuk kita perinci bersama langkah seterusnya.',
+    ].join('\n\n');
+  }
+  return [
+    'Saya boleh bantu anda terus di sini dalam perbualan.',
+    '1. Nyatakan satu matlamat jelas untuk giliran ini.',
+    '2. Kita susun langkah atau rangka yang praktikal.',
+    '3. Pilih satu langkah untuk kita perinci bersama.',
+  ].join('\n\n');
+}
+
+const ORDINAL_SYLLABUS_LINE_RE = /^\s*(Pertama|Kedua|Ketiga|Keempat|Kelima),?\s*(.+)$/i;
+
+function rewriteOrdinalSyllabusToNumberedList(text: string): string {
+  const ordNum: Record<string, number> = {
+    pertama: 1, kedua: 2, ketiga: 3, keempat: 4, kelima: 5,
+  };
+  return text.split('\n').map((line) => {
+    const m = line.match(ORDINAL_SYLLABUS_LINE_RE);
+    if (!m) return line;
+    const n = ordNum[m[1]!.toLowerCase()] ?? 1;
+    let body = m[2]!.trim();
+    body = body.replace(/\*(.+?)\*/g, '$1');
+    return `${n}. ${body}`;
+  }).join('\n');
+}
+
+function stripCompanionPoeticCloses(text: string): string {
+  const parts = text.trim().split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  while (parts.length > 0) {
+    const last = parts[parts.length - 1]!;
+    if (
+      /\b(?:Saya tunggu|Cukup (?:satu ayat|benar)|Saya sedia bantu awak menulis ayat|sebagai saksi|bukan sebagai penasihat|Saya di sini\.?\s*Bukan sebagai|hold the space|I'?m here, not to build|Would you like:)\b/i.test(last)
+      || paragraphIsUserUmumPoeticPreambleLeak(last)
+    ) {
+      parts.pop();
+      continue;
+    }
+    break;
+  }
+  return parts.join('\n\n').trim();
+}
+
+/** Repair poetic β leaks into scannable companion output. */
+export function repairUserUmumCompanionOutput(
+  text: string,
+  userMessage = '',
+  recentUserMessages: string[] = [],
+): string {
+  let out = text.trim();
+  if (!out) return userUmumCompanionFallback(userMessage, recentUserMessages);
+
+  const paras = out.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  let kept = paras.filter((p) =>
+    !paragraphIsUserUmumPoeticPreambleLeak(p)
+    && !paragraphIsUserUmumCoachingFrameworkLeak(p),
+  );
+  if (kept.length === 0) {
+    kept = out.split(/\n+/).map((p) => p.trim()).filter(Boolean).filter((p) =>
+      !paragraphIsUserUmumPoeticPreambleLeak(p)
+      && !paragraphIsUserUmumCoachingFrameworkLeak(p),
+    );
+  }
+  out = kept.join('\n\n').trim();
+  if (!out || paragraphIsUserUmumCoachingFrameworkLeak(out) || paragraphIsUserUmumPoeticPreambleLeak(out)) {
+    out = userUmumCompanionFallback(userMessage, recentUserMessages);
+  }
+  out = rewriteOrdinalSyllabusToNumberedList(out);
+  out = out
+    .replace(/\*(?:MASA|TENAGA|CAHAYA|RUANG)\*/gi, '')
+    .replace(/\*\*Damai sebagai (?:MASA|TENAGA|CAHAYA)[^*]*\*\*[^\n]*/gi, '')
+    .replace(/^\s*-\s+\*\*Damai sebagai (?:MASA|TENAGA|CAHAYA)[^\n]*/gim, '')
+    .replace(/\b(?:MASA|TENAGA|CAHAYA)\s+yang\s+(?:awak\s+)?(?:sedang\s+)?(?:hidupi|salurkan|nyatakan|telah|sudah)\s+(?:berjalan|terlatih|menyala|hadir)[^.]*\.\s*/gi, '')
+    .replace(/\b(?:liqā['']?|liqa)\b[^.]*\.\s*/gi, '')
+    .replace(/\bsebagai saksi\b[^.]*\.\s*/gi, '');
+  out = stripCompanionPoeticCloses(out);
+  if (isAdamLayer1BookWritingTurn(recentUserMessages, userMessage)) {
+    const polluted =
+      outputHasUserUmumBookFrameworkLeak(out)
+      || outputHasEnglishPoeticBookEssayLeak(out, userMessage, recentUserMessages)
+      || outputIsResidualEnglishBookStub(out, userMessage, recentUserMessages)
+      || /\b(?:Would you like|interwoven threads|hold the space|Let me begin|thank you, your request|Damai sebagai)\b/i.test(out)
+      || (
+        !/^\s*\d+[.)]\s/m.test(out)
+        && (paragraphIsUserUmumPoeticPreambleLeak(out) || paragraphIsUserUmumCoachingFrameworkLeak(out) || out.length < 120)
+      );
+    if (polluted) {
+      out = userUmumCompanionFallback(userMessage, recentUserMessages);
+    }
+  }
+  return out;
+}
+
+export function stripUserUmumCoachingFrameworkLeaks(
+  text: string,
+  userMessage = '',
+  recentUserMessages: string[] = [],
+): string {
+  return repairUserUmumCompanionOutput(text, userMessage, recentUserMessages);
+}
+
+/** Cadangan mode — remove trailing question menus so user gets suggestions, not another quiz. */
+export function stripUserUmumCadanganInterrogativeCloses(text: string): string {
+  const parts = text.trim().split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) return text.trim();
+  while (parts.length > 0) {
+    const last = parts[parts.length - 1]!;
+    const isDoor = paragraphIsUniversalScholarDoorOffer(last);
+    const isGoldFollow = GOLD_STANDARD_FOLLOW_UP_RE.test(last);
+    const isMenuQuestion = last.endsWith('?')
+      && last.length < 300
+      && /\b(?:Adakah anda ingin|Would you like|Mahu saya|Mahukah|Perlu saya|Adakah anda mahu)\b/i.test(last);
+    if (!isDoor && !isGoldFollow && !isMenuQuestion) break;
+    parts.pop();
+  }
+  return parts.join('\n\n').trim();
 }
 
 export function userOptedIntoAlamtologiTier(message: string): boolean {
@@ -370,22 +845,24 @@ export function userOptedIntoQuranTier(message: string): boolean {
   return matchesAny(t, QURAN_TIER_OPT_IN);
 }
 
-export type StudentKnowledgeTier = 1 | 2 | 3;
+export type UsersKnowledgeTier = 1 | 2 | 3;
 
 export type ThreeTierOverlayContext = {
   practicalAdvisoryRoot?: boolean;
   recentAssistantMessages?: string[];
+  cadanganMode?: boolean;
+  perlaksanaanMode?: boolean;
 };
 
-export function resolveStudentKnowledgeTier(
+export function resolveUsersKnowledgeTier(
   userMessage: string,
   recentUserMessages: string[] = [],
   recentAssistantMessages: string[] = [],
-): StudentKnowledgeTier {
+): UsersKnowledgeTier {
   const current = userMessage.trim();
   const practicalRoot = threadRootIsPracticalAdvisory(recentUserMessages, current);
 
-  let tier: StudentKnowledgeTier = 1;
+  let tier: UsersKnowledgeTier = 1;
   if (userOptedIntoQuranTier(current)) tier = 3;
   else if (userOptedIntoAlamtologiTier(current)) tier = 2;
   else if (userAcceptedUniversalScholarDoor(current, recentAssistantMessages)) tier = 2;
@@ -415,11 +892,17 @@ TIER 3 — FAITH / QURAN (only when user explicitly asks in their message):
 `.trim();
 
 export function buildThreeTierTurnOverlay(
-  tier: StudentKnowledgeTier,
+  tier: UsersKnowledgeTier,
   context: ThreeTierOverlayContext = {},
 ): string {
   const practicalRoot = context.practicalAdvisoryRoot === true;
   const depthTurns = countRecentUniversalScholarDoors(context.recentAssistantMessages ?? []);
+  const cadanganClose = context.cadanganMode && !context.perlaksanaanMode
+    ? '\n\nCADANGAN CLOSE: end with **Cadangan:** / **Suggestions:** (2–3 tailored steps) — no interrogative menu.'
+    : '';
+  const perlaksanaanClose = context.perlaksanaanMode
+    ? '\n\nPERLAKSANAAN CLOSE: companion through execution — concrete next step, no **Cadangan:** block, no interrogative menu.'
+    : '';
 
   switch (tier) {
     case 3:
@@ -427,6 +910,8 @@ export function buildThreeTierTurnOverlay(
         'ACTIVE TIER THIS TURN: 3 — FAITH / SPIRITUAL (user requested in their own words).',
         'User opened faith door. Ground in prior facts briefly — then spiritual/Quran angle in plain universal prose.',
         'Acknowledge other paths exist. No preaching or conversion.',
+        cadanganClose,
+        perlaksanaanClose,
       ].join('\n');
     case 2:
       if (practicalRoot) {
@@ -435,7 +920,9 @@ export function buildThreeTierTurnOverlay(
           ADAM_PRACTICAL_ADVISORY_TIER2_HOLD,
           depthTurns >= 2
             ? 'This is a follow-up depth turn — answer directly; do NOT offer another closing question or philosophy door.'
-            : 'End with ONE practical fork (tools, industry example, related role) — never stewardship, spiritual accountability, or values trifold.',
+            : 'End with tailored **Cadangan:** — not stewardship, spiritual accountability, or values trifold.',
+          cadanganClose,
+          perlaksanaanClose,
         ].join('\n');
       }
       return [
@@ -446,13 +933,15 @@ export function buildThreeTierTurnOverlay(
         'FORBIDDEN: clarity/responsibility/service trifold; stewardship; spiritual accountability; unsolicited Quran.',
         depthTurns >= 2
           ? 'Follow-up depth — no further closing question.'
-          : 'Optional: one practical follow-up question — never faith unless user asked faith themes.',
+          : 'Close with tailored **Cadangan:** when useful — not faith unless user asked faith themes.',
+        cadanganClose,
+        perlaksanaanClose,
       ].join('\n');
     default: {
       const lines = [
-        'ACTIVE TIER THIS TURN: 1 — CONVENTIONAL DATA (Universal Scholar default).',
-        'Defer to ANSWER PROFILE below: α inti first (L5 optional) · β Phase 1A gambar hidup → 1B → L5 tamparan wajib.',
-        'Answer with verified facts in warm ADAM voice — not NASA memo or textbook stub.',
+        'ACTIVE TIER THIS TURN: 1 — β EXPLAIN-BACK (user opened Alamtologi / constitutional door).',
+        'Follow ADAM EXPLAIN-BACK LAW below: Phase 1A gambar hidup → Phase 1B konvensional → L3 synthesis → L5 tamparan wajib.',
+        'Warm ADAM voice with verified facts — not NASA memo, textbook stub, or framework billboard.',
       ];
       if (practicalRoot) {
         lines.push(
@@ -463,16 +952,16 @@ export function buildThreeTierTurnOverlay(
         );
       } else {
         lines.push(
-          'β science / nature / concept: Phase 1A lived pictures BEFORE conventional facts.',
-          'Tier 1 science: Phase 1B facts only — NO Arabic script, NO Quranic word gloss, NO Pencipta/hikmah sermon unless user opened faith door.',
-          'β L5: ONE soul-strike question (tamparan jiwa) — FORBIDDEN career menu on non-career threads.',
-          'α simple factual: L5 optional — skip when L1 completes the answer.',
+          'Science / nature / concept β: Phase 1A lived pictures, then Phase 1B conventional facts — NO Arabic gloss or Pencipta sermon unless user opened faith door.',
+          'L5: ONE soul-strike question (tamparan jiwa) — FORBIDDEN career menu on non-career threads.',
         );
       }
       lines.push(
         'FORBIDDEN on tier 1: Bismillah; "Dalam perspektif Alamtologi"; hukum Z; MASA/TENAGA/RUANG billboards; pola/kadar/pasangan/keseimbangan framework jargon.',
         'FORBIDDEN on tier 1: Alamtologi/Quran labels (unless user asked faith), three-layer essays, values trifold, "soalan ini menyentuh…".',
         'Skip closing question on salam, thanks, or light chat only.',
+        cadanganClose,
+        perlaksanaanClose,
       );
       return lines.join('\n');
     }

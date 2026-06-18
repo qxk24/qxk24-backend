@@ -23,8 +23,8 @@ import {
   repairStaleOfficeHolderOutput,
   stripCurrentAffairsCoachingTail,
 } from '../src/adam/adam-current-affairs';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
-import { resolveStudentStreamSurface } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
+import { resolveUsersStreamSurface } from '../src/adam/adam-users-output-guard';
 
 const USER_EXACT_BAD_REPLY_V2 =
   'Bismillahirahmanirrahim. \n\nPresiden Indonesia saat ini ialah **Joko Widodo**, yang memegang jawatan sejak 20 Oktober 2014. Beliau telah menjalani dua penggal — penggal pertama (2014–2019) dan penggal kedua (2019–2024). \n\nNamun, berdasarkan hasil Pemilihan Umum 2024, **Prabowo Subianto** telah dilantik sebagai Presiden Republik Indonesia ke-8, bermula pada **20 Oktober 2024**, setelah mengambil sumpah di hadapan Majlis Permusyawaratan Rakyat (MPR). \n\nBeliau menjalankan tugas bersama Wakil Presiden **Gibran Rakabuming Raka**, anak lelaki Joko Widodo. \n\nJika QA ingin tahu tentang latar belakang, visi kerajaan baharu, atau bagaimana proses pelantikan berlangsung dari sudut undang-undang atau prinsip Alamtologi — saya sedia jelaskan dengan tenang dan jelas.';
@@ -55,7 +55,7 @@ describe('ADAM current affairs', () => {
   });
 
   it('strips coaching tail on simple president ask via student guard', () => {
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       BAD_INDONESIA_PRESIDENT_REPLY,
       'Siapa presiden Indonesia sekarang?',
     );
@@ -76,7 +76,7 @@ describe('ADAM current affairs', () => {
       'Presiden Republik Indonesia saat ini ialah Ir. H. Prabowo Subianto.',
       'Undang Dasar 1945. Jika Guest ingin tahu: bagaimana proses pelantikan presiden berlaku dalam kerangka amānah dan mīzān,. Mengapa sistem presidensi memerlukan keteguhan ruang (RUANG), ketenangan bumi (BUMI), dan kejelasan cahaya (CAHAYA),. Atau bagaimana "siapa" yang memimpin bukan sekadar soalan jawatan, tetapi soalan *kemampuan menahan MASA dengan TENAGA yang beradab*, saya sedia kongsikan, bukan sebagai fakta semata, tetapi sebagai satu ruang untuk memahami kepimpinan sebagai amānah, bukan kuasa.',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(philosophical, 'Siapa presiden Indonesia sekarang?');
+    const out = sanitizeUsersOutputSync(philosophical, 'Siapa presiden Indonesia sekarang?');
     expect(out).toMatch(/Prabowo Subianto/);
     expect(out).not.toMatch(/keteguhan ruang/i);
     expect(out).not.toMatch(/Jika Guest ingin/i);
@@ -84,15 +84,15 @@ describe('ADAM current affairs', () => {
   });
 
   it('stripConsumerMarkdownEmphasis removes bold markers', async () => {
-    const { stripConsumerMarkdownEmphasis } = await import('../src/adam/adam-student-output-law');
+    const { stripConsumerMarkdownEmphasis } = await import('../src/adam/adam-users-output-law');
     expect(stripConsumerMarkdownEmphasis('**Prabowo Subianto** dilantik **20 Oktober 2024**.'))
       .toBe('Prabowo Subianto dilantik 20 Oktober 2024.');
   });
 
   it('repairs user-reported Indonesia president reply end-to-end', () => {
     const question = 'Siapa presiden Indonesia sekarang?';
-    const surface = sanitizeStudentOutputSync(USER_EXACT_BAD_REPLY_V2, question);
-    const resolved = resolveStudentStreamSurface(USER_EXACT_BAD_REPLY_V2, surface, {
+    const surface = sanitizeUsersOutputSync(USER_EXACT_BAD_REPLY_V2, question);
+    const resolved = resolveUsersStreamSurface(USER_EXACT_BAD_REPLY_V2, surface, {
       preferSanitized: true,
     });
 

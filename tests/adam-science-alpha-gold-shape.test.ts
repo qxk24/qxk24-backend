@@ -18,7 +18,7 @@ import {
   resolveAdamAnswerProfile,
 } from '../src/adam/adam-answer-profile';
 import { isAdamScienceNatureSynthesisTurn } from '../src/adam/adam-response-generation';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 
 const ICE_ASK = 'Apakah yang berlaku apabila ais dipanaskan? Kenapa tidak terus menjadi wap?';
 
@@ -50,8 +50,8 @@ describe('science α — konvensional gold shape (ais / fasa)', () => {
   });
 
   it('preserves konvensional gold answer through student guard', () => {
-    const out = sanitizeStudentOutputSync(ICE_GOLD_KONVENSIONAL, ICE_ASK, [], [], 'QA', {
-      enforceStudentGreeting: true,
+    const out = sanitizeUsersOutputSync(ICE_GOLD_KONVENSIONAL, ICE_ASK, [], [], 'QA', {
+      enforceUsersGreeting: true,
     });
     expect(out).toMatch(/mencair|cecair/i);
     expect(out).toMatch(/molekul/i);
@@ -68,8 +68,8 @@ describe('science α — konvensional gold shape (ais / fasa)', () => {
       'Ini bukan sekadar perubahan bentuk, tetapi perubahan fasa yang dikawal oleh prinsip fizik asas: tenaga ditambah → gerakan molekul meningkat → susunan ruang berubah → sifat zat berubah. Tiada zat lenyap atau dicipta; hanya bentuk dan susunan tenaga yang berubah, sesuai dengan hukum keabadian jirim dan tenaga.',
       'Mahu saya jelaskan lebih lanjut?',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(leak, ICE_ASK, [], [], 'QA', {
-      enforceStudentGreeting: true,
+    const out = sanitizeUsersOutputSync(leak, ICE_ASK, [], [], 'QA', {
+      enforceUsersGreeting: true,
     });
     expect(out).toMatch(/peleburan/i);
     expect(out).toMatch(/0°C|0\s*°C/i);

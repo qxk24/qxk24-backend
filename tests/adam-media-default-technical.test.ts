@@ -12,18 +12,36 @@
 
 /// <reference types="jest" />
 
-import { describe, expect, it } from '@jest/globals';
-import type { AdamMediaSearchHit } from '../src/adam/adam-media-search';
+import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import {
   capAdamMediaHits,
   extractMediaFromSearchHits,
   isAdamMediaSearchTurn,
+  runAdamMediaSearch,
   userWantsVideoMedia,
 } from '../src/adam/adam-media-search';
+import { isAdamScienceNatureSynthesisTurn } from '../src/adam/adam-response-generation';
 
 describe('adam-media-search — universal extraction', () => {
-  it('treats acid/base ask as media search turn without explicit gambar/video', () => {
+  it('does not treat light chat as media search', () => {
+    expect(isAdamMediaSearchTurn('salam')).toBe(false);
+    expect(userWantsVideoMedia('salam')).toBe(false);
+  });
+
+  it('treats acid/base science ask as media search turn', () => {
     const ask = 'Apa itu asid dan bes?';
+    expect(isAdamScienceNatureSynthesisTurn(ask)).toBe(true);
+    expect(isAdamMediaSearchTurn(ask)).toBe(true);
+  });
+
+  it('treats science synthesis ask as media search turn', () => {
+    const ask = 'Apa itu fotosintesis?';
+    expect(isAdamScienceNatureSynthesisTurn(ask)).toBe(true);
+    expect(isAdamMediaSearchTurn(ask)).toBe(true);
+  });
+
+  it('treats explicit media ask as media search turn', () => {
+    const ask = 'Tunjuk gambar dan video tentang asid dan bes';
     expect(isAdamMediaSearchTurn(ask)).toBe(true);
     expect(userWantsVideoMedia(ask)).toBe(true);
   });
@@ -103,5 +121,77 @@ describe('adam-media-search — universal extraction', () => {
     ], true);
     const video = capped.find((h) => h.kind === 'video');
     expect(video?.url).toContain('UPBMG5EYydo');
+  });
+
+  it('skips pdf ebook urls when picking chat image', () => {
+    const capped = capAdamMediaHits([
+      {
+        kind:   'image',
+        url:    'https://example.com/ebook-fotosintesis.pdf',
+        title:  'E-book',
+        source: 'web_search',
+      },
+      {
+        kind:   'image',
+        url:    'https://upload.wikimedia.org/wikipedia/commons/5/55/Photosynthesis_en.svg',
+        title:  'Rajah',
+        source: 'wikimedia_commons',
+      },
+    ], false);
+    expect(capped[0]?.url).toContain('Photosynthesis_en.svg');
+  });
+});
+
+describe('adam-media-search — youtube discovery for educational turns', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  it('adds youtube video for technical turn without youtube in web snippets', async () => {
+    global.fetch = jest.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes('/api/v1/search')) {
+        return new Response(JSON.stringify([
+          { type: 'video', title: 'Pengertian Fotosintesis', videoId: 'UPBMG5EYydo' },
+        ]), { status: 200 });
+      }
+      if (url.includes('wikimedia.org/w/api.php')) {
+        return new Response(JSON.stringify({
+          query: {
+            pages: {
+              '1': {
+                title: 'File:Photosynthesis_en.svg',
+                imageinfo: [{
+                  url:  'https://upload.wikimedia.org/wikipedia/commons/5/55/Photosynthesis_en.svg',
+                  mime: 'image/svg+xml',
+                }],
+              },
+            },
+          },
+        }), { status: 200 });
+      }
+      if (url.includes('api.openverse.org')) {
+        return new Response(JSON.stringify({ results: [] }), { status: 200 });
+      }
+      if (url.includes('archive.org/advancedsearch.php')) {
+        return new Response(JSON.stringify({ response: { docs: [] } }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    }) as typeof fetch;
+
+    const hits = await runAdamMediaSearch({
+      userMessage: 'Senarai langkah-langkah proses fotosintesis',
+      searchHits:  [{
+        title:   'Photosynthesis',
+        url:     'https://en.wikipedia.org/wiki/Photosynthesis',
+        snippet: 'Proses biokimia pada tumbuhan hijau.',
+      }],
+    });
+
+    expect(hits.some((h) => h.kind === 'image')).toBe(true);
+    expect(hits.some((h) => h.kind === 'video' && h.url.includes('UPBMG5EYydo'))).toBe(true);
   });
 });

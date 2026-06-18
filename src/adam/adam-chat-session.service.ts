@@ -28,6 +28,7 @@ import {
   ADAMFounderSessionModel,
   ADAMMessageModel,
 } from './adam.schema';
+import { buildAdamEmptySaveFallback } from './adam-response-generation';
 import { assertStudentOwnsSession } from './adam-workspace.service';
 import {
   FOUNDER_USER_ID,
@@ -45,16 +46,13 @@ import type {
 function requirePersistedContent(
   content: string | undefined | null,
   role: 'founder' | 'student' | 'guru' | 'adam',
+  sessionType: SessionType = 'founder',
 ): string {
   const trimmed = (content ?? '').trim();
   if (trimmed.length > 0) return trimmed;
 
   if (role === 'adam') {
-    return [
-      'Bismillahirahmanirrahim.',
-      'P.alt, maaf — pada giliran ini jawapan saya tidak tersimpan.',
-      'Sila hantar semula bab itu.',
-    ].join(' ');
+    return buildAdamEmptySaveFallback(sessionType);
   }
   if (role === 'founder') {
     return 'P.alt shared teaching material.';
@@ -592,7 +590,11 @@ export async function saveMessage(
     isStudentRelay?: boolean;
   },
 ): Promise<string> {
-  const safeContent = requirePersistedContent(content, role);
+  const safeContent = requirePersistedContent(
+    content,
+    role,
+    meta?.sessionType ?? 'founder',
+  );
   if (safeContent !== (content ?? '').trim()) {
     console.warn('[adam:save-message] empty content coerced', {
       sessionId,

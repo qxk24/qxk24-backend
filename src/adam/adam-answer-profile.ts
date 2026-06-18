@@ -24,15 +24,17 @@ import {
   ADAM_DIRECT_TECHNICAL_REPLY_LAW,
   isDirectTechnicalHowToQuestion,
 } from './adam-direct-technical-law';
+import { ADAM_TECHNICAL_ESSENCE_LAW } from './adam-technical-essence-law';
 import {
   isAdamLightChatTurn,
   isAdamPracticalAdvisoryTurn,
-  isAdamScienceNatureSynthesisTurn,
   isAdamHistorySynthesisTurn,
   isAdamTechnicalKonvensionalDisplayTurn,
+  isAdamAlgorithmTeachingTurn,
   isAdamLinearAlgebraTurn,
   isAdamSimpleFactualTurn,
   isAdamSubstantiveTurn,
+  isAdamUserGuidanceCoachingTurn,
   threadRootIsPracticalAdvisory,
 } from './adam-response-generation';
 import {
@@ -41,6 +43,7 @@ import {
   userAskedForConstitutionalStructure,
 } from './adam-universal-voice';
 import { isVerifiedDataStatAsk } from './adam-web-search';
+import { userUmumPerlaksanaanTurnActive, isUserUmumCompanionTurnActive } from './adam-universal-scholar';
 
 export type AdamAnswerProfile = 'light' | 'alpha' | 'beta';
 
@@ -80,6 +83,17 @@ export function resolveAdamAnswerProfile(input: ResolveAdamAnswerProfileInput): 
   if (isAdamSimpleFactualTurn(t)) return 'alpha';
   if (isAdamPracticalAdvisoryTurn(t)) return 'alpha';
   if (threadRootIsPracticalAdvisory(input.recentUserMessages ?? [], t)) return 'alpha';
+  if (isAdamUserGuidanceCoachingTurn(t)) return 'alpha';
+  if (userUmumPerlaksanaanTurnActive(
+    t,
+    input.recentAssistantMessages ?? [],
+    input.recentUserMessages ?? [],
+  )) return 'alpha';
+  if (isUserUmumCompanionTurnActive(
+    t,
+    input.recentAssistantMessages ?? [],
+    input.recentUserMessages ?? [],
+  )) return 'alpha';
 
   if (isAdamSubstantiveTurn(t)) {
     if (input.isFounder) return 'beta';
@@ -123,6 +137,8 @@ export function buildAdamAnswerVoiceOverlay(
   if (isFounder) {
     return [
       ...shared,
+      'FOUNDER: β turns need full depth — empirical blocks per concept with formulas, instruments, institutions from web search.',
+      'FOUNDER: minimum 4–8 sentences per scientific concept; never stub summaries on P.alt substantive asks.',
       'FOUNDER: Pencipta/hikmah weave in L2–L3 when natural.',
       'Quran / constitutional depth in L4 after L1+L2 on β turns.',
     ].join('\n');
@@ -165,22 +181,24 @@ FORBIDDEN:
 - Mandatory closing question on turns that are already complete at L1.
 `.trim();
 
-/** School / nature science α — technical GFM blocks (no framework billboards). */
+/** Algorithm / CS α — lecture depth on universal channel (not technical display pipeline). */
+export const ADAM_ALPHA_ALGORITHM_TEACHING_LAW = `
+ADAM-α ALGORITMA — KEDALAMAN KULIAH (universal channel — mandatory this turn):
+- L1: definisi + contoh angka dalam ayat pembuka atau blok berikutnya.
+- L2–L3: contoh kerja 2 pusingan, pseudokod, jadual kerumitan masa, kerumitan ruang, kelebihan/kekurangan.
+- L5: **Cadangan:** praktikal — bukan menu susulan.
+- Panjang: tutorial penuh — bukan ringkasan 4 perenggan.
+`.trim();
+
+/** School / nature science α — technical essence fusion (Esei + Teknikal = C). */
 export const ADAM_ALPHA_SCIENCE_REPLY_LAW = `
-ADAM-α SAINS / ALAM — PAPARAN TEKNIKAL KONVENSIONAL (mandatory this turn):
-- L1 inti: satu ayat definisi (contoh: fotosintesis = tumbuhan jadikan glukosa dari cahaya).
-- DIAGRAM wajib: selepas definisi, satu <adam-technical-diagram> … Mermaid flowchart … </adam-technical-diagram>.
-- L2 bentuk wajib (GFM, bukan esei):
-  ### Bahan-bahan / Apa yang diperlukan
-  1. **Istilah** – penjelasan ringkas.
-  ### Bagaimana proses berlaku?
-  1. Langkah pertama … 2. Langkah seterusnya …
-  ### Hasil
-  * **Output** – kegunaan.
-- **Ringkasnya:** satu baris rumusan dengan istilah kunci — tanpa meta kerangka.
-- MEDIA wajib: selepas diagram, satu <adam-chat-image> + satu <adam-chat-video> (URL dari konteks media).
-- Jika soalan fasa/haba: urutan pepejal → cecair → gas dalam senarai, bukan esei.
-- DILARANG: Alamtologi, HISAL, MASA/TENAGA/RUANG, esei "bukan sekadar", hukum keabadian sebagai penutup, peringkat 2/3.
+ADAM-α SAINS / ALAM — TEKNIKAL + ESEI = C (mandatory this turn):
+${ADAM_TECHNICAL_ESSENCE_LAW}
+
+Contoh bentuk fotosintesis:
+- ### Apa itu fotosintesis? — prosa 2–3 ayat (kloroplas, klorofil, glukosa, oksigen).
+- ### Bagaimana proses berlaku? — langkah air/CO₂/cahaya dalam prosa atau senarai ringkas.
+- ### Hasil dan kepentingannya — glukosa + oksigen; kemudian perenggan C (asas kehidupan di Bumi).
 `.trim();
 
 /** School linear algebra α — steps + answer, no philosophy essay. */
@@ -189,7 +207,7 @@ ADAM-α ALJABAR LINEAR — KONVENSIONAL SAHAJA (mandatory this turn):
 - L1: nyatakan matlamat (cari x) dan tunjuk langkah isolasi — kurang/bahagi kedua-dua belah.
 - L2: jawapan akhir x = … + semakan gantian ringkas.
 - DILARANG: "bukan sekadar angka", keseimbangan meta alam semesta, hukum kesetiaan, penuh adab, kerangka dalaman.
-- Satu "Hai {name}," sahaja — jangan salam dua kali.
+- "Hai {name}," only when the user called ADAM by name — jangan salam dua kali.
 `.trim();
 
 /** School / world history α — konvensional narrative, no framework weave. */
@@ -204,29 +222,30 @@ ADAM-α SEJARAH — PAPARAN TEKNIKAL KONVENSIONAL (mandatory this turn):
 
 /** Shared technical display — science, history, algebra α turns. */
 export const ADAM_ALPHA_TECHNICAL_KONVENSIONAL_DISPLAY_LAW = `
-ADAM-α PAPARAN TEKNIKAL — BUKAN ESEI (mandatory this turn):
-- BUKAN prosa esei panjang. Guna ### tajuk, senarai bernombor, bullet hasil, **Ringkasnya:**.
-- **Bold** untuk istilah kunci; baris kosong antara bahagian.
-- DILARANG: Pertama/Kedua/Ketiga skeleton, Alamtologi/MASA/TENAGA, philosophy tail selepas fakta.
+ADAM-α PAPARAN TEKNIKAL + ESEI = C (mandatory this turn):
+${ADAM_TECHNICAL_ESSENCE_LAW}
 `.trim();
 
-/** Pick generation law for α turns — procedural subset uses direct technical delta. */
-export function buildAdamAlphaGenerationLaw(message: string): string {
+/** Pick generation law for α turns — one technical channel for substantive explain/teach. */
+export function buildAdamAlphaGenerationLaw(
+  message: string,
+  options?: { isFounder?: boolean },
+): string {
+  const isFounder = options?.isFounder === true;
   if (isDirectTechnicalHowToQuestion(message)) {
     return `${ADAM_ALPHA_REPLY_LAW}\n\n${ADAM_DIRECT_TECHNICAL_REPLY_LAW}`;
   }
-  const technical = isAdamTechnicalKonvensionalDisplayTurn(message);
-  if (isAdamLinearAlgebraTurn(message)) {
-    return `${ADAM_ALPHA_REPLY_LAW}\n\n${ADAM_ALPHA_ALGEBRA_REPLY_LAW}${technical ? `\n\n${ADAM_ALPHA_TECHNICAL_KONVENSIONAL_DISPLAY_LAW}` : ''}`;
+  if (isFounder || !isAdamTechnicalKonvensionalDisplayTurn(message)) {
+    if (isAdamAlgorithmTeachingTurn(message)) {
+      return `${ADAM_ALPHA_REPLY_LAW}\n\n${ADAM_ALPHA_ALGORITHM_TEACHING_LAW}`;
+    }
+    return ADAM_ALPHA_REPLY_LAW;
   }
-  if (isAdamScienceNatureSynthesisTurn(message)) {
-    return `${ADAM_ALPHA_REPLY_LAW}\n\n${ADAM_ALPHA_SCIENCE_REPLY_LAW}`;
-  }
-  if (isAdamHistorySynthesisTurn(message)) {
-    return `${ADAM_ALPHA_REPLY_LAW}\n\n${ADAM_ALPHA_HISTORY_REPLY_LAW}${technical ? `\n\n${ADAM_ALPHA_TECHNICAL_KONVENSIONAL_DISPLAY_LAW}` : ''}`;
-  }
-  if (technical) {
-    return `${ADAM_ALPHA_REPLY_LAW}\n\n${ADAM_ALPHA_TECHNICAL_KONVENSIONAL_DISPLAY_LAW}`;
-  }
-  return ADAM_ALPHA_REPLY_LAW;
+  const historyHint = isAdamHistorySynthesisTurn(message)
+    ? `\n\n${ADAM_ALPHA_HISTORY_REPLY_LAW}`
+    : '';
+  const algebraHint = isAdamLinearAlgebraTurn(message)
+    ? `\n\n${ADAM_ALPHA_ALGEBRA_REPLY_LAW}`
+    : '';
+  return `${ADAM_ALPHA_REPLY_LAW}${historyHint}${algebraHint}\n\n${ADAM_ALPHA_TECHNICAL_KONVENSIONAL_DISPLAY_LAW}`;
 }

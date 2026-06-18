@@ -29,7 +29,7 @@ import {
   runSunomVerification,
   sanitizeSunomVerifiedOutput,
 } from '../src/adam/adam-sunom-verification';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 import type { LlmSearchResult } from '../src/llm/llm-types';
 
 const FALLBACK_RE = /tidak dapat mengesahkan|Taip semula/i;
@@ -127,8 +127,8 @@ async function traceScenario(s: Scenario): Promise<void> {
     return;
   }
 
-  let stage = sanitizeStudentOutputSync(s.rawModelOutput, s.userMessage, recent);
-  console.log('2) after sanitizeStudentOutputSync:', stage.slice(0, 120) + (stage.length > 120 ? '…' : ''));
+  let stage = sanitizeUsersOutputSync(s.rawModelOutput, s.userMessage, recent);
+  console.log('2) after sanitizeUsersOutputSync:', stage.slice(0, 120) + (stage.length > 120 ? '…' : ''));
 
   stage = prependSearchUnavailableNotice(stage, {
     technicalTurn: precision.isActive,

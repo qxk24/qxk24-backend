@@ -21,13 +21,16 @@
 
 import type { LlmSearchResult } from '../llm/llm-types';
 import { fetchLicensedMediaFromApis } from './adam-media-api-search';
-import { wikimediaThumbToDirectUrl } from './adam-chat-image-url';
+import { wikimediaThumbToDirectUrl, isDisplayableChatImageUrl } from './adam-chat-image-url';
 import {
   extractYouTubeVideoId,
   isTrustedDirectVideoUrl,
   normalizeAdamChatVideoUrl,
 } from './adam-chat-video-url';
+import { fetchYouTubeEducationalVideos, extractYouTubeHitsFromSearchCorpus } from './adam-youtube-search';
+import { buildEducationalSearchDisplayQuery } from './adam-educational-grounding';
 import {
+  isAdamScienceNatureSynthesisTurn,
   isAdamTechnicalKonvensionalDisplayTurn,
 } from './adam-response-generation';
 
@@ -43,6 +46,8 @@ export interface AdamMediaSearchHit {
 const MEDIA_FETCH_TIMEOUT_MS = 4_500;
 /** Hard cap — never block prompt/repair longer than this for media discovery. */
 const MEDIA_SEARCH_TOTAL_MS = 6_000;
+/** Universal channel — allow full API round-trip (no hardcoded URL fallback). */
+const EDUCATIONAL_MEDIA_SEARCH_TOTAL_MS = 12_000;
 
 const IMAGE_EXT_RE = /\.(?:jpe?g|png|webp|gif|svg)(?:\?|$)/i;
 const YOUTUBE_ID_CAPTURE_RE =
@@ -80,20 +85,31 @@ const VIDEO_SOURCE_PRIORITY: Record<string, number> = {
   pixabay:           10,
 };
 
-export function isAdamMediaSearchTurn(message: string): boolean {
+export function isAdamMediaSearchTurn(message: string, isFounder = false): boolean {
   const t = message.trim();
   if (!t) return false;
+  if (isFounder) {
+    return /\b(?:gambar|imej|image|video|tonton|illustration|diagram|animasi|youtube)\b/i.test(t);
+  }
   if (isAdamTechnicalKonvensionalDisplayTurn(t)) return true;
+  if (isAdamScienceNatureSynthesisTurn(t)) return true;
   return /\b(?:gambar|imej|image|video|tonton|illustration|diagram|animasi|youtube)\b/i.test(t);
 }
 
-export function userWantsVideoMedia(message: string): boolean {
+export function userWantsVideoMedia(message: string, isFounder = false): boolean {
   const t = message.trim();
+  if (isFounder) {
+    return /\b(?:video|tonton|youtube|animasi)\b/i.test(t);
+  }
   if (isAdamTechnicalKonvensionalDisplayTurn(t)) return true;
+  if (isAdamScienceNatureSynthesisTurn(t)) return true;
   return /\b(?:video|tonton|youtube|animasi)\b/i.test(t);
 }
 
 export function buildAdamMediaSearchQuery(message: string): string {
+  if (isAdamTechnicalKonvensionalDisplayTurn(message)) {
+    return buildEducationalSearchDisplayQuery(message);
+  }
   return message
     .replace(/^\[[^\]]+\]:\s*/, '')
     .replace(/\b(?:apa|itu|adakah|jelaskan|terangkan|huraikan|bagaimana|what|is|explain|show|tunjuk)\b/gi, ' ')
@@ -104,6 +120,7 @@ export function buildAdamMediaSearchQuery(message: string): string {
 }
 
 function isTrustedImageUrl(url: string): boolean {
+  if (!isDisplayableChatImageUrl(url)) return false;
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') return false;
@@ -163,10 +180,13 @@ function isYouTubeVideoHit(hit: AdamMediaSearchHit): boolean {
 }
 
 function pickBestImage(hits: AdamMediaSearchHit[]): AdamMediaSearchHit | undefined {
-  if (hits.length === 0) return undefined;
-  const wiki = hits.find(isWikimediaImageHit);
+  const displayable = hits.filter(
+    (h) => h.kind === 'image' && isDisplayableChatImageUrl(h.url),
+  );
+  if (displayable.length === 0) return undefined;
+  const wiki = displayable.find(isWikimediaImageHit);
   if (wiki) return wiki;
-  const sorted = [...hits].sort(
+  const sorted = [...displayable].sort(
     (a, b) => (IMAGE_SOURCE_PRIORITY[a.source] ?? 99) - (IMAGE_SOURCE_PRIORITY[b.source] ?? 99),
   );
   return sorted[0];
@@ -412,6 +432,9 @@ async function runAdamMediaSearchCore(input: {
   const seen = new Set<string>();
   const push = (hit: AdamMediaSearchHit) => pushUnique(merged, seen, hit);
   for (const hit of fromWeb) push(hit);
+  for (const hit of extractYouTubeHitsFromSearchCorpus(input.searchHits ?? [])) {
+    push(hit);
+  }
 
   let capped = capImageAndVideo(merged, wantVideo);
   const hasImage = capped.some((h) => h.kind === 'image');
@@ -427,6 +450,20 @@ async function runAdamMediaSearchCore(input: {
   const fetches: Promise<AdamMediaSearchHit[]>[] = [];
   if (!hasImage) fetches.push(fetchWikimediaMedia(query, false));
   if (wantVideo && !hasVideo) {
+    // Educational turns skip stock video APIs — YouTube via Invidious is the primary source.
+    if (educational) {
+      fetches.push(fetchYouTubeEducationalVideos(query));
+      fetches.push(fetchYouTubeEducationalVideos(`${query} explained`));
+      const corpusQuery = (input.searchHits ?? [])
+        .slice(0, 4)
+        .map((h) => [h.title, h.snippet].filter(Boolean).join(' '))
+        .join(' ')
+        .trim()
+        .slice(0, 96);
+      if (corpusQuery.length >= 8) {
+        fetches.push(fetchYouTubeEducationalVideos(corpusQuery));
+      }
+    }
     fetches.push(fetchWikimediaMedia(query, true));
     fetches.push(fetchWikimediaMedia(`${query} animation`, true));
   }
@@ -468,6 +505,16 @@ export async function runAdamMediaSearch(input: {
 
   if (input.webHitsOnly) {
     return webHitsOnly(input);
+  }
+
+  const educational = isAdamTechnicalKonvensionalDisplayTurn(input.userMessage);
+
+  if (educational) {
+    const core = runAdamMediaSearchCore({ ...input, wikimedia: true });
+    const timer = new Promise<AdamMediaSearchHit[]>((resolve) => {
+      setTimeout(() => resolve(webHitsOnly(input)), EDUCATIONAL_MEDIA_SEARCH_TOTAL_MS);
+    });
+    return Promise.race([core, timer]);
   }
 
   const core = runAdamMediaSearchCore({ ...input, wikimedia: true });

@@ -24,8 +24,8 @@ import type { BmLexiconCategory } from './bm-lexicon.types';
 
 const CATEGORY_LABEL: Record<BmLexiconCategory, string> = {
   id_drift: 'Indonesian drift — use BM Malaysia',
-  spelling: 'DBP spelling',
-  register: 'BM Malaysia register',
+  spelling: 'BM Malaysia spelling',
+  register: 'BM Malaysia voice',
 };
 
 function formatEntryLine(wrong: string, correct: string, category: BmLexiconCategory): string {
@@ -49,7 +49,7 @@ export function buildBmLexiconPromptBlock(
   if (!matches.length) return null;
 
   const lines: string[] = [
-    '[BM MALAYSIA LEXICON — DBP-ALIGNED — ON-DEMAND]',
+    '[BM MALAYSIA LEXICON — ON-DEMAND]',
     'Matched tokens in this turn. In your reply use CORRECT (BM Malaysia) only — never WRONG (Indonesia / slip).',
   ];
 
@@ -64,8 +64,8 @@ export function buildBmLexiconPromptBlock(
 
   lines.push(
     '',
-    'RULE: Reply in Bahasa Melayu Malaysia (DBP). Do not substitute Indonesian forms or wrong spelling above.',
-    'This block is a lexical guard — not a full dictionary. When unsure, prefer simpler Malaysian school-newspaper wording.',
+    'RULE: Reply in Bahasa Melayu Malaysia — indah, lembut, bijaksana, penuh adab. Do not substitute Indonesian forms or wrong spelling above.',
+    'This block is a lexical guard — not a register cage. Voice flows freely within Malaysian Malay.',
   );
 
   return lines.join('\n');

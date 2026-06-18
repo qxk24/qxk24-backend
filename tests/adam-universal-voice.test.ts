@@ -18,7 +18,7 @@
 /// <reference types="jest" />
 
 import { describe, expect, it } from '@jest/globals';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 import {
   isExplanatoryScienceQuestion,
   isLifeEmotionTurn,
@@ -31,11 +31,11 @@ import {
 import { getWebSearchGateReason } from '../src/adam/adam-web-search';
 
 describe('ADAM universal voice output guard', () => {
-  it('keeps Bismillah opener on substantive questions (unified ADAM)', () => {
+  it('strips Bismillah opener on Users substantive turns', () => {
     const raw =
       'Bismillahirahmanirrahim.\n\nHello. Anxiety often starts when the body stays on alert.';
-    const out = sanitizeStudentOutputSync(raw, 'Why do I feel anxious?');
-    expect(out).toMatch(/Bismillah/i);
+    const out = sanitizeUsersOutputSync(raw, 'Why do I feel anxious?');
+    expect(out).not.toMatch(/Bismillah/i);
     expect(out).toContain('Anxiety often starts');
   });
 
@@ -43,7 +43,7 @@ describe('ADAM universal voice output guard', () => {
     const raw =
       'Stress affects sleep cycles in measurable ways.\n\n'
       + 'Allah berfirman: "Verily, in the remembrance of Allah do hearts find rest." (Surah Ar-Ra\'d 13:28).';
-    const out = sanitizeStudentOutputSync(raw, 'How does stress affect sleep?');
+    const out = sanitizeUsersOutputSync(raw, 'How does stress affect sleep?');
     expect(out).not.toMatch(/Allah berfirman/i);
     expect(out).toContain('Stress affects sleep');
   });
@@ -52,13 +52,13 @@ describe('ADAM universal voice output guard', () => {
     const msg = 'What ayat in Quran speaks about patience?';
     expect(userOpenedFaithDoor(msg)).toBe(true);
     const raw = 'Allah berfirman about patience in Surah Al-Baqarah 2:153.';
-    const out = sanitizeStudentOutputSync(raw, msg);
+    const out = sanitizeUsersOutputSync(raw, msg);
     expect(out).toMatch(/Allah berfirman/i);
   });
 
   it('strips Alamtologi billboard phrases', () => {
     const raw = 'Dalam lensa Alamtologi, rest is a rhythm of trust and release.';
-    const out = sanitizeStudentOutputSync(raw, 'I cannot sleep well.');
+    const out = sanitizeUsersOutputSync(raw, 'I cannot sleep well.');
     expect(out).not.toMatch(/Alamtologi/i);
   });
 });
@@ -77,30 +77,30 @@ describe('Life emotion turns — delivery overlay', () => {
     expect(getWebSearchGateReason('Kenapa saya rasa cemas sebelum tidur?')).toBe('factual_question');
   });
 
-  it('student searches on substantive turns — Phase 1B conventional grounding', () => {
+  it('user umum channel searches on factual teaching — skips life wellbeing coaching', () => {
     expect(
-      getWebSearchGateReason('Kenapa saya rasa cemas sebelum tidur?', { studentFounderParity: true }),
-    ).toBe('substantive_conventional');
+      getWebSearchGateReason('Kenapa saya rasa cemas sebelum tidur?', { userUmumChannelGate: true }),
+    ).toBeNull();
     expect(
-      getWebSearchGateReason('Apa itu komunikasi?', { studentFounderParity: true }),
-    ).toBe('substantive_conventional');
+      getWebSearchGateReason('Apa itu komunikasi?', { userUmumChannelGate: true }),
+    ).toBe('factual_question');
     expect(
-      getWebSearchGateReason('Kenapa langit kelihatan biru pada waktu petang?', { studentFounderParity: true }),
-    ).toBe('substantive_conventional');
+      getWebSearchGateReason('Kenapa langit kelihatan biru pada waktu petang?', { userUmumChannelGate: true }),
+    ).toBe('factual_question');
   });
 
   it('student still searches for specs, corrections, and explicit ask', () => {
     expect(
-      getWebSearchGateReason('Berapa km/l enjin 1.3?', { studentFounderParity: true }),
+      getWebSearchGateReason('Berapa km/l enjin 1.3?', { usersFounderParity: true }),
     ).toBe('technical_precision');
     expect(
-      getWebSearchGateReason('Anda salah sebut — ini Perodua Viva, bukan Proton', { studentFounderParity: true }),
+      getWebSearchGateReason('Anda salah sebut — ini Perodua Viva, bukan Proton', { usersFounderParity: true }),
     ).toBe('entity_correction');
     expect(
-      getWebSearchGateReason('Cuba search tentang Viva Elite', { studentFounderParity: true }),
+      getWebSearchGateReason('Cuba search tentang Viva Elite', { usersFounderParity: true }),
     ).toBe('explicit_search');
     expect(
-      getWebSearchGateReason('850cc?', { studentFounderParity: true, technicalFollowUp: true }),
+      getWebSearchGateReason('850cc?', { usersFounderParity: true, technicalFollowUp: true }),
     ).toBe('technical_follow_up');
   });
 });
@@ -148,7 +148,7 @@ describe('Constitutional structure turns', () => {
       + '### Ringkasan\n\n'
       + 'Hukum Z dan X saling melengkapi.';
     const msg = 'Apa perbezaan Hukum X dan Hukum Z?';
-    const out = sanitizeStudentOutputSync(raw, msg);
+    const out = sanitizeUsersOutputSync(raw, msg);
     expect(out).toMatch(/^1\.\s+\*\*Pola\*\*/m);
     expect(out).toMatch(/^2\.\s+\*\*Kadar\*\*/m);
     expect(out).toContain('### Ringkasan');
@@ -183,7 +183,7 @@ describe('Structured specification turns', () => {
       + '- CPU: 8-core\n'
       + '- Penyimpanan: 4 TB SSD';
     const msg = 'Senarai spesifikasi hardware untuk production cluster ADAM';
-    const out = sanitizeStudentOutputSync(raw, msg);
+    const out = sanitizeUsersOutputSync(raw, msg);
     expect(out).toContain('### 1. Router Agen');
     expect(out).toContain('- CPU: AMD EPYC 16-core');
     expect(out).toMatch(/^---$/m);

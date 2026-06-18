@@ -19,8 +19,9 @@ import { ENV } from '../config/environments';
 import {
   buildAdamSearchDisplayQuery,
   buildPrefetchedSearchContextBlock,
-  runStudentSearchPrefetch,
+  runUsersSearchPrefetch,
 } from './adam-search-first';
+import { extractRecentUserTurns, extractRecentAssistantTurns } from './adam-factual-grounding';
 import { shouldForceWebSearchForGateReason } from './adam-web-search';
 import { emitAdamSearchDoneEvent, emitAdamMediaReadyEvent } from './adam-chat-search-events';
 import {
@@ -47,21 +48,23 @@ export { emitAdamSearchDoneEvent, emitAdamMediaReadyEvent } from './adam-chat-se
 
 export async function injectTurnSearchPrefetch(input: {
   systemPrompt: string;
-  studentSearchFirst: boolean;
+  usersSearchFirst: boolean;
   webSearchGateReason?: string | null;
   turnContext: AdamTurnContextFetch;
   userMessage: string;
   llmMessages: LlmMessage[];
   resolvedSessionId: string;
+  isFounder?: boolean;
   onEvent: (event: SSEEventType, data: string) => void;
 }): Promise<TurnSearchPrefetchResult> {
   const {
-    studentSearchFirst,
+    usersSearchFirst,
     webSearchGateReason,
     turnContext,
     userMessage,
     llmMessages,
     resolvedSessionId,
+    isFounder = false,
     onEvent,
   } = input;
   let { systemPrompt } = input;
@@ -71,7 +74,7 @@ export async function injectTurnSearchPrefetch(input: {
   let prefetchedSearchUsed = false;
   let prefetchedSearchDropped = false;
 
-  if (!studentSearchFirst) {
+  if (!usersSearchFirst) {
     return {
       systemPrompt,
       searchPrefetchMs,
@@ -83,22 +86,35 @@ export async function injectTurnSearchPrefetch(input: {
     };
   }
 
-  const searchDisplayQuery = buildAdamSearchDisplayQuery(userMessage, webSearchGateReason);
+  const recentUserTurns = extractRecentUserTurns(llmMessages);
+  const recentAssistantTurns = extractRecentAssistantTurns(llmMessages);
+  const gateDomain = turnContext.river.gate.eq.lane === 'users'
+    ? turnContext.river.gate.iq.domainFacet
+    : undefined;
+  const searchDisplayQuery = buildAdamSearchDisplayQuery(
+    userMessage,
+    webSearchGateReason,
+    { recentUserMessages: recentUserTurns, recentAssistantMessages: recentAssistantTurns },
+    gateDomain,
+  );
+
+  const emitSearchStart = () => {
+    onEvent(
+      'adam_searching',
+      JSON.stringify({ query: searchDisplayQuery }),
+    );
+  };
 
   const prefetchStarted = Date.now();
   const { searchPrefetchPromise } = turnContext;
   const prefetch = searchPrefetchPromise
-    ? await searchPrefetchPromise
-    : await runStudentSearchPrefetch({
+    ? await (emitSearchStart(), searchPrefetchPromise)
+    : await runUsersSearchPrefetch({
       userMessage,
       webSearchGateReason,
       recentUserMessages: llmMessages,
-      onSearching: () => {
-        onEvent(
-          'adam_searching',
-          JSON.stringify({ query: searchDisplayQuery }),
-        );
-      },
+      gateDomain,
+      onSearching: emitSearchStart,
       onSearchHitsReady: (hits) => {
         emitAdamSearchDoneEvent(onEvent, searchDisplayQuery, hits);
       },
@@ -110,7 +126,7 @@ export async function injectTurnSearchPrefetch(input: {
   prefetchedSearchUsed = prefetch.searchUsed;
   prefetchedSearchDropped = prefetch.searchDroppedByFilter;
 
-  if (studentSearchFirst) {
+  if (usersSearchFirst) {
     emitAdamSearchDoneEvent(onEvent, searchDisplayQuery, prefetchedSearchResults);
   }
 
@@ -131,11 +147,12 @@ export async function injectTurnSearchPrefetch(input: {
       searchDropped:  prefetchedSearchDropped,
       extractedFacts: prefetch.extractedFacts,
       userMessage,
+      isFounder,
     },
   )}`;
 
   let mediaHits: AdamMediaSearchHit[] = [];
-  if (isAdamMediaSearchTurn(userMessage)) {
+  if (isAdamMediaSearchTurn(userMessage, isFounder)) {
     mediaHits = await runAdamMediaSearch({
       userMessage,
       searchHits: prefetchedSearchResults,
@@ -174,7 +191,7 @@ export function logSearchGateEnabled(input: {
   resolvedSessionId: string;
   userMessage: string;
   webSearchGateReason: string | null;
-  studentSearchFirst: boolean;
+  usersSearchFirst: boolean;
   precisionFollowUp: boolean;
   isGuestTrial: boolean;
 }): void {
@@ -182,7 +199,7 @@ export function logSearchGateEnabled(input: {
     resolvedSessionId,
     userMessage,
     webSearchGateReason,
-    studentSearchFirst,
+    usersSearchFirst,
     precisionFollowUp,
     isGuestTrial,
   } = input;
@@ -195,7 +212,7 @@ export function logSearchGateEnabled(input: {
       preview:         userMessage.slice(0, 80),
       reason:          webSearchGateReason,
       forced:          shouldForceWebSearchForGateReason(webSearchGateReason),
-      searchFirst:     studentSearchFirst,
+      searchFirst:     usersSearchFirst,
       technicalFollowUp: precisionFollowUp,
       guestTrial:      isGuestTrial,
       stack:           ENV.QXK24_STACK,

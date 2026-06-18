@@ -20,7 +20,7 @@ import {
   resolveAdamKnowledgeMode,
   shouldStripKonvensionalFrameworkLeaks,
 } from '../src/adam/adam-knowledge-mode';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 
 const HANG_TUAH_ASK = 'Siapa Hang Tuah dan kenapa beliau penting dalam sejarah Malaysia?';
 
@@ -49,16 +49,16 @@ describe('resolveAdamKnowledgeMode — historical biography', () => {
   });
 });
 
-describe('sanitizeStudentOutputSync — Hang Tuah MASA/TENAGA leak', () => {
+describe('sanitizeUsersOutputSync — Hang Tuah MASA/TENAGA leak', () => {
   it('strips constitutional billboard and coaching close; keeps Sejarah Melayu', () => {
     expect(shouldStripKonvensionalFrameworkLeaks(HANG_TUAH_ASK)).toBe(true);
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       HANG_TUAH_LEAK_BODY,
       HANG_TUAH_ASK,
       [],
       [],
       'Ahmad bin Ali',
-      { enforceStudentGreeting: true },
+      { enforceUsersGreeting: true },
     );
     expect(out).toMatch(/^Hai Ahmad,/i);
     expect(out).toMatch(/Sulalatus Salatin|Sejarah Melayu/i);

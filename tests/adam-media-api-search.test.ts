@@ -150,6 +150,13 @@ describe('adam-media-api-search', () => {
           }],
         }), { status: 200 });
       }
+      if (url.includes('archive.org/advancedsearch.php')) {
+        return new Response(JSON.stringify({
+          response: {
+            docs: [{ identifier: 'photosynthesis-film', title: 'Photosynthesis' }],
+          },
+        }), { status: 200 });
+      }
       return new Response(JSON.stringify({ results: [] }), { status: 200 });
     }) as typeof fetch;
 
@@ -162,7 +169,11 @@ describe('adam-media-api-search', () => {
 
     expect(hits.some((h) => h.url.includes('wikimedia.org'))).toBe(true);
     expect(hits.some((h) => h.source === 'unsplash' || h.source === 'pexels')).toBe(false);
-    expect(hits.some((h) => h.kind === 'video')).toBe(false);
+    expect(hits.some((h) =>
+      h.kind === 'video'
+      && h.source === 'internet_archive'
+      && h.url.includes('photosynthesis-film'),
+    )).toBe(true);
   });
 
   it('fetches unsplash via search/photos and triggers download_location', async () => {

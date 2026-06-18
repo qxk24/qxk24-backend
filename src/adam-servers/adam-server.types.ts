@@ -18,7 +18,6 @@
 /** Layer 2 output servers — separate from Layer 1 platform chat. */
 export enum AdamServerId {
   JURNAL = 'JURNAL',
-  BUKU   = 'BUKU',
   KOD    = 'KOD',
   GURU   = 'GURU',
 }

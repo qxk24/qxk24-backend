@@ -53,7 +53,7 @@ export function findBestStudentTrack(
   );
 }
 
-function findBestStudentTrackIndex(tracks: StudentTrack[], studentId: string): number {
+export function findBestStudentTrackIndex(tracks: StudentTrack[], studentId: string): number {
   let bestIdx = -1;
   let bestScore = -1;
 

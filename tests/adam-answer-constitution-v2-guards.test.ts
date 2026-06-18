@@ -18,7 +18,7 @@ import {
   KPTM_FULL_VOICE_REGRESSION_SAMPLE,
   isAlphaStatFullVoiceBody,
 } from '../src/adam/adam-stat-stream-preserve';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 import {
   RN_FULL_VOICE_REGRESSION_SAMPLE,
   RN_PRACTICAL_ADVISORY_ASK,
@@ -83,9 +83,9 @@ describe('repairPracticalAdvisoryGoldShape', () => {
   });
 });
 
-describe('sanitizeStudentOutputSync — profile-aware (P4)', () => {
+describe('sanitizeUsersOutputSync — profile-aware (P4)', () => {
   it('strips β lived pictures on tier-1 α fotosintesis (no door opt-in)', () => {
-    const out = sanitizeStudentOutputSync(BETA_LIVED, 'Apa itu fotosintesis?');
+    const out = sanitizeUsersOutputSync(BETA_LIVED, 'Apa itu fotosintesis?');
     expect(out).not.toMatch(/daun di pokok limau/i);
     expect(out).not.toMatch(/Bayi yang sedang tidur/i);
     expect(out).toMatch(/Secara ilmu konvensional/i);
@@ -97,14 +97,14 @@ describe('sanitizeStudentOutputSync — profile-aware (P4)', () => {
       'Fotosintesis menukar cahaya kepada gula.',
       'Adakah anda ingin lebih lanjut tentang kemahiran dan alat, laluan kerjaya, atau contoh dunia sebenar?',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(BETA_LIVED, 'Ya, terangkan lagi', [], [assistant]);
+    const out = sanitizeUsersOutputSync(BETA_LIVED, 'Ya, terangkan lagi', [], [assistant]);
     expect(out).toMatch(/daun di pokok limau/i);
     expect(out).toMatch(/Secara ilmu konvensional/i);
   });
 
   it('does not append career door on α simple factual', () => {
     const body = 'Presiden Republik Indonesia sekarang ialah Prabowo Subianto, dilantik 20 Oktober 2024.';
-    const out = sanitizeStudentOutputSync(body, 'Siapa presiden Indonesia sekarang?');
+    const out = sanitizeUsersOutputSync(body, 'Siapa presiden Indonesia sekarang?');
     expect(out).not.toMatch(/skills and tools/i);
     expect(out).not.toMatch(/kemahiran dan alat/i);
     expect(out).toContain('Prabowo');
@@ -112,7 +112,7 @@ describe('sanitizeStudentOutputSync — profile-aware (P4)', () => {
 
   it('keeps practical advisory career door on job thread', () => {
     const door = 'Would you like more on skills and tools, a career path, or a real-world example?';
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       `An electrician installs wiring safely.\n\n${door}`,
       'What does an electrician do day to day?',
     );
@@ -127,7 +127,7 @@ describe('sanitizeStudentOutputSync — profile-aware (P4)', () => {
       'These aren\'t just competencies to acquire — they\'re ways of being in relationship with life, suffering, healing, and human dignity.',
       'Would you like me to explain another part in more detail?',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       RN_ESSAY,
       'What does a registered nurse do, and what skills do I need?',
     );
@@ -138,7 +138,7 @@ describe('sanitizeStudentOutputSync — profile-aware (P4)', () => {
   });
 
   it('preserves official RN gold sample — Founder seal v2.1', () => {
-    const out = sanitizeStudentOutputSync(RN_FULL_VOICE_REGRESSION_SAMPLE, RN_PRACTICAL_ADVISORY_ASK);
+    const out = sanitizeUsersOutputSync(RN_FULL_VOICE_REGRESSION_SAMPLE, RN_PRACTICAL_ADVISORY_ASK);
     expect(out).toMatch(/verified via web search, healthcareers\.nhs\.uk/i);
     expect(out).toMatch(/holding space with clarity/i);
     expect(out).toMatch(/Skills you'?ll need \(from official nursing guidance\)/i);
@@ -160,7 +160,7 @@ describe('sanitizeStudentOutputSync — profile-aware (P4)', () => {
   ].join('\n\n');
 
   it('preserves lively α spider gold v2 — guards must not flatten ADAM voice', () => {
-    const out = sanitizeStudentOutputSync(SPIDER_SIMPLE_FACTUAL_GOLD_V2, SPIDER_SIMPLE_FACTUAL_ASK);
+    const out = sanitizeUsersOutputSync(SPIDER_SIMPLE_FACTUAL_GOLD_V2, SPIDER_SIMPLE_FACTUAL_ASK);
     expect(out).toBe(SPIDER_SIMPLE_FACTUAL_GOLD_V2);
     expect(out).toMatch(/tanpa pengecualian/i);
     expect(out).toMatch(/ITIS/i);
@@ -180,7 +180,7 @@ describe('sanitizeStudentOutputSync — profile-aware (P4)', () => {
       leak,
       'Mahu saya jelaskan lebih lanjut?',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(body, SPIDER_SIMPLE_FACTUAL_ASK);
+    const out = sanitizeUsersOutputSync(body, SPIDER_SIMPLE_FACTUAL_ASK);
     expect(out).toMatch(/lapan kaki/i);
     expect(out).toMatch(/Arachnida|zoologi/i);
     expect(out).not.toMatch(/RUANG|MASA|Alamtologi/i);
@@ -196,7 +196,7 @@ describe('sanitizeStudentOutputSync — profile-aware (P4)', () => {
       'Tetapi untuk soalan ini, jawapannya tetap jelas dan praktikal: 7 epal, dan itu boleh dikira dengan jari — selagi akal dan adab berjalan bersama.',
       'Mahu saya jelaskan lebih lanjut?',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(body, APPLE_ASK);
+    const out = sanitizeUsersOutputSync(body, APPLE_ASK);
     expect(out).toMatch(/3 \+ 4 = 7|ialah 7/i);
     expect(out).not.toMatch(/HISAL|permukaan kiub|bukan sekadar angka|adab berjalan bersama|Alamtologi/i);
     expect(out).toMatch(/Mahu saya jelaskan lebih lanjut/i);
@@ -210,7 +210,7 @@ describe('sanitizeStudentOutputSync — profile-aware (P4)', () => {
       'Dalam pengajaran P.alt, angka 7 adalah tahap fungsi lengkap — seperti keenam-enam permukaan kiub yang bergabung menjadi satu bentuk utuh. Maka, 3 + 4 bukan hanya "7", tetapi satu waqf: titik berhenti yang penuh makna, di mana dua arah cahaya bertemu tanpa saling menghapus — malah melahirkan satu nama baru.',
       'Mahu saya jelaskan lebih lanjut?',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(body, APPLE_ASK);
+    const out = sanitizeUsersOutputSync(body, APPLE_ASK);
     expect(out).toMatch(/ialah 7/i);
     expect(out).not.toMatch(/AIDIL|P\.?\s*alt|waqf|permukaan kiub|pasangan yang sempurna|bukan sekadar hasil tambah/i);
     expect(out).toMatch(/Mahu saya jelaskan lebih lanjut/i);
@@ -225,7 +225,7 @@ describe('sanitizeStudentOutputSync — profile-aware (P4)', () => {
       'Angka 7 juga adalah angka terakhir dalam Tujuh Angka Jaringan Utama (TAJU), iaitu angka yang menutup satu kitaran lengkap — bukan sebagai akhir, tetapi sebagai titik kembalinya semua proses kepada SATU, dalam bentuk yang lebih jitu: dari permukaan → laluan → bekas → kiub.',
       'Mahu saya jelaskan lebih lanjut?',
     ].join('\n\n');
-    const out = sanitizeStudentOutputSync(body, APPLE_ASK);
+    const out = sanitizeUsersOutputSync(body, APPLE_ASK);
     expect(out).toMatch(/ialah 7 epal/i);
     expect(out).not.toMatch(/AIDIL|TAJU|tahap fungsi|baris penyelesaian|permukaan|kiub|penambahan angka|1 → 2/i);
     expect(out).toMatch(/Mahu saya jelaskan lebih lanjut/i);

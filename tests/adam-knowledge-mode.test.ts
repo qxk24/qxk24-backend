@@ -61,7 +61,7 @@ describe('resolveAdamKnowledgeMode — dedicated surfaces', () => {
       userMessage:              'Ya, terangkan lagi',
       recentAssistantMessages:  [assistant],
       isFounder:                false,
-      studentKnowledgeTier:     2,
+      usersKnowledgeTier:     2,
     })).toBe('konvensional');
   });
 
@@ -74,12 +74,15 @@ describe('resolveAdamKnowledgeMode — dedicated surfaces', () => {
 });
 
 describe('shouldBufferAdamStreamUntilRepair', () => {
-  it('buffers α arithmetic, konvensional factual, and substantive α science', () => {
-    expect(shouldBufferAdamStreamUntilRepair(APPLE_ASK, 'konvensional')).toBe(true);
-    expect(shouldBufferAdamStreamUntilRepair('Siapa presiden Indonesia sekarang?', 'konvensional')).toBe(true);
-    expect(shouldBufferAdamStreamUntilRepair('Siapa Hang Tuah?', 'konvensional')).toBe(true);
-    expect(shouldBufferAdamStreamUntilRepair('Apa itu fotosintesis?', 'konvensional')).toBe(true);
+  it('buffers only arithmetic and visual-draw turns (stream live otherwise)', () => {
+    expect(shouldBufferAdamStreamUntilRepair('Kalau saya ada 3 epal, berapa jumlahnya?', 'konvensional')).toBe(true);
+    expect(shouldBufferAdamStreamUntilRepair('Lukis segi tiga ABC', 'konvensional')).toBe(true);
+    expect(shouldBufferAdamStreamUntilRepair(APPLE_ASK, 'konvensional')).toBe(false);
+    expect(shouldBufferAdamStreamUntilRepair('Siapa presiden Indonesia sekarang?', 'konvensional')).toBe(false);
+    expect(shouldBufferAdamStreamUntilRepair('Apa itu fotosintesis?', 'konvensional')).toBe(false);
+    expect(shouldBufferAdamStreamUntilRepair('Boleh bantu penulisan buku Mencari Damai?', 'konvensional')).toBe(false);
     expect(shouldBufferAdamStreamUntilRepair('Apa itu fotosintesis?', 'sintesis')).toBe(false);
+    expect(shouldBufferAdamStreamUntilRepair('Apa itu fotosintesis?', 'konvensional', true)).toBe(false);
   });
 });
 
@@ -90,7 +93,7 @@ describe('buildAdamChatSystemPrompt — knowledge mode firewall', () => {
       isFounder,
       participantName:      isFounder ? 'Masa Bayu' : 'Ahmad',
       founderStudentsBlock: '',
-      studentKnowledgeTier: 1,
+      usersKnowledgeTier: 1,
       userMessage,
       knowledgeMode:        mode,
     });

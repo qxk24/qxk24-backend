@@ -24,6 +24,8 @@ import { routeAmaFlow } from './ama-flow.service';
 import { evaluateOassTrigger, resolveOassActivation } from './ama-oass-gate';
 import {
   chapterNeedsFullBrainLoad,
+} from '../../adam/book-aware-recall/brain-load';
+import {
   filterBrainLaneForCurriculumOverview,
   filterBrainLaneForFormulaXyzChapter,
   filterBrainLaneForFounderBiography,

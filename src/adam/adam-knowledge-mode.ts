@@ -26,28 +26,34 @@ import type { AdamAnswerProfile } from './adam-answer-profile';
 import { resolveAdamAnswerProfile } from './adam-answer-profile';
 import { isAdamCurrentAffairsTurn } from './adam-current-affairs';
 import {
+  isAdamAlgorithmTeachingTurn,
+  isAdamCompareTurn,
   isAdamContinuationDepthTurn,
+  isAdamHistorySynthesisTurn,
+  isAdamScienceNatureSynthesisTurn,
   isAdamSimpleArithmeticTurn,
   isAdamSimpleFactualTurn,
   isAdamSubstantiveTurn,
   isAdamHistoricalBiographyTurn,
-  isAdamHistorySynthesisTurn,
-  isAdamScienceNatureSynthesisTurn,
+  isAdamTeachingDepthTurn,
   isAdamTechnicalKonvensionalDisplayTurn,
   threadRootIsPracticalAdvisory,
   isAdamVisualDrawTurn,
 } from './adam-response-generation';
+import { isVerifiedDataStatAsk } from './adam-web-search';
 import {
-  resolveStudentKnowledgeTier,
+  resolveUsersKnowledgeTier,
   userOptedIntoAlamtologiTier,
-  type StudentKnowledgeTier,
+  type UsersKnowledgeTier,
 } from './adam-universal-scholar';
 import {
   userAskedForAlamtologi,
   userAskedForConstitutionalStructure,
   userOpenedFaithDoor,
 } from './adam-universal-voice';
-import { isVerifiedDataStatAsk } from './adam-web-search';
+import type { AdamTurnGateDecision } from './turn-gate/adam-turn-gate.types';
+import { isAdamProseCraftTurn } from './adam-prose-craft';
+import { resolveBookChapter } from './book-aware-recall';
 
 /** General student chat — konvensional only unless this turn opened Alamtologi/faith mode. */
 export function isAdamGeneralKonvensionalTurn(message: string): boolean {
@@ -66,7 +72,7 @@ GENERAL MODE — KONVENSIONAL ONLY (mandatory — separated from Alamtologi mode
 - Jawapan = 100% ilmu konvensional: sains, sejarah, tatabahasa, kerjaya, data disahkan.
 - DILARANG sama sekali pada permukaan: Alamtologi, HISAL, AIDIL, TAJU, MASA, TENAGA, RUANG, waqf, PL/PG, prinsip tujuh, "peringkat 2/3", "sudut Alamtologi", "perspektif Alamtologi".
 - JANGAN tawarkan atau jemput pengguna ke Alamtologi — mod itu berasingan; hanya aktif bila pengguna minta secara eksplisit.
-- Tutup konvensional sahaja: "Mahu saya jelaskan lebih lanjut?" atau jemputan kedalaman pada topik yang sama (tanpa nama kerangka).
+- Tutup konvensional — opsyenal pada α yang sudah lengkap; "Mahu saya jelaskan lebih lanjut?" hanya bila masih ada kedalaman berguna, bukan skrip wajib setiap turn.
 - Pengajaran dalaman / Brain C → terjemah ke bahasa umum tanpa label kerangka.
 `.trim();
 
@@ -126,7 +132,9 @@ export interface ResolveAdamKnowledgeModeInput {
   founderTeachingInquiry?:    boolean;
   founderTeachingSynthesis?:  boolean;
   answerProfile?:             AdamAnswerProfile;
-  studentKnowledgeTier?:      StudentKnowledgeTier;
+  usersKnowledgeTier?:      UsersKnowledgeTier;
+  /** Authoritative fuse output — when set, do not re-open faith/Alamtologi from message alone. */
+  turnGate?:                AdamTurnGateDecision;
 }
 
 /** Route one dedicated knowledge mode per turn — before prompt assembly. */
@@ -142,14 +150,18 @@ export function resolveAdamKnowledgeMode(input: ResolveAdamKnowledgeModeInput): 
     recentAssistantMessages:  recentAssistant,
     isFounder:                input.isFounder,
   });
-  const tier = input.studentKnowledgeTier
-    ?? resolveStudentKnowledgeTier(msg, recentUser, recentAssistant);
+  const tier = input.usersKnowledgeTier
+    ?? resolveUsersKnowledgeTier(msg, recentUser, recentAssistant);
 
   if (input.founderTeachingAbsorption || input.founderTeachingInquiry) {
     return 'alamtologi';
   }
   if (input.founderTeachingSynthesis) {
     return 'sintesis';
+  }
+
+  if (input.turnGate && !input.isFounder) {
+    return input.turnGate.flags.knowledgeMode;
   }
 
   if (userOpenedFaithDoor(msg) || tier === 3) {
@@ -195,6 +207,18 @@ export function resolveAdamKnowledgeMode(input: ResolveAdamKnowledgeModeInput): 
   }
 
   if (input.isFounder) {
+    const chapterMatch = resolveBookChapter(msg)
+      ?? recentUser.slice().reverse().map((m) => resolveBookChapter(m.trim())).find(Boolean)
+      ?? null;
+    const formulaXyzTeaching = Boolean(chapterMatch) || pureAlamtologiAsk;
+
+    if (formulaXyzTeaching) {
+      if (profile === 'alpha' && !pureAlamtologiAsk && !chapterMatch) {
+        return 'konvensional';
+      }
+      return 'alamtologi';
+    }
+
     if (profile === 'alpha' && !pureAlamtologiAsk) return 'konvensional';
     if (pureAlamtologiAsk && !isAdamSubstantiveTurn(msg)) return 'alamtologi';
     if (profile === 'beta' || isAdamSubstantiveTurn(msg)) return 'sintesis';
@@ -232,7 +256,14 @@ export function shouldStripKonvensionalFrameworkLeaks(
 /** General konvensional prose — bukan turn teknikal berstruktur (sains/sejarah/algebra). */
 export function isAdamGeneralProseKonvensionalTurn(message: string): boolean {
   if (!isAdamGeneralKonvensionalTurn(message)) return false;
-  return !isAdamTechnicalKonvensionalDisplayTurn(message);
+  if (isAdamProseCraftTurn(message)) return false;
+  if (isAdamTechnicalKonvensionalDisplayTurn(message)) return false;
+  if (isAdamTeachingDepthTurn(message)) return false;
+  if (isAdamCompareTurn(message)) return false;
+  if (isAdamScienceNatureSynthesisTurn(message)) return false;
+  if (isAdamHistorySynthesisTurn(message)) return false;
+  if (isAdamAlgorithmTeachingTurn(message)) return false;
+  return true;
 }
 
 export function buildAdamKnowledgeModeManifest(mode: AdamKnowledgeMode): string {
@@ -240,27 +271,20 @@ export function buildAdamKnowledgeModeManifest(mode: AdamKnowledgeMode): string 
 }
 
 /**
- * Buffer LLM chunks until post-stream repair — prevents users seeing HISAL sermon
- * that gets replaced by α arithmetic / konvensional factual collapse.
+ * Buffer LLM chunks until post-stream repair — only when the live stream is
+ * almost always fully replaced (arithmetic collapse, visual draw). All other
+ * Users turns stream live; repair may swap the body on adam_stream_done.
  */
 export function shouldBufferAdamStreamUntilRepair(
   userMessage: string,
-  knowledgeMode: AdamKnowledgeMode,
+  _knowledgeMode: AdamKnowledgeMode,
+  isFounder = false,
 ): boolean {
+  if (isFounder) return false;
   const msg = userMessage.trim();
   if (!msg) return false;
   if (isAdamSimpleArithmeticTurn(msg)) return true;
-  if (knowledgeMode !== 'konvensional') return false;
-  if (isAdamSimpleFactualTurn(msg)) return true;
-  if (isAdamHistoricalBiographyTurn(msg)) return true;
-  if (isAdamHistorySynthesisTurn(msg)) return true;
   if (isAdamVisualDrawTurn(msg)) return true;
-  if (isAdamScienceNatureSynthesisTurn(msg)) return true;
-  if (isAdamTechnicalKonvensionalDisplayTurn(msg)) return true;
-  if (resolveAdamAnswerProfile({ message: msg, isFounder: false }) === 'alpha'
-    && isAdamSubstantiveTurn(msg)) {
-    return true;
-  }
   return false;
 }
 

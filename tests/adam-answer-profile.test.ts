@@ -14,10 +14,11 @@
 
 import { describe, expect, it } from '@jest/globals';
 import {
+  buildAdamAlphaGenerationLaw,
   resolveAdamAnswerProfile,
   userOptedIntoStudentExplainBackBeta,
 } from '../src/adam/adam-answer-profile';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { repairFounderKonvensionalSurface, sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 
 describe('resolveAdamAnswerProfile — α first for students', () => {
   it('tier-1 substantive science → α (not β)', () => {
@@ -66,7 +67,25 @@ describe('resolveAdamAnswerProfile — α first for students', () => {
   });
 });
 
-describe('sanitizeStudentOutputSync — konvensional α firewall', () => {
+describe('buildAdamAlphaGenerationLaw — founder firewall', () => {
+  it('never injects student TEKNIKAL + ESEI law on founder turns', () => {
+    const law = buildAdamAlphaGenerationLaw('Terangkan fotosintesis', { isFounder: true });
+    expect(law).not.toMatch(/TEKNIKAL \+ ESEI = C/i);
+    expect(law).not.toMatch(/<adam-technical-diagram>/i);
+  });
+});
+
+describe('repairFounderKonvensionalSurface', () => {
+  it('does not run student technical structure repair', () => {
+    const essay = 'Fotosintesis ialah proses tumbuhan menukar cahaya menjadi tenaga.';
+    const out = repairFounderKonvensionalSurface(essay, 'Apa itu fotosintesis?', []);
+    expect(out).not.toMatch(/### /);
+    expect(out).not.toMatch(/<adam-technical-diagram>/);
+    expect(out).toMatch(/Fotosintesis/i);
+  });
+});
+
+describe('sanitizeUsersOutputSync — konvensional α firewall', () => {
   const GEOMETRY_LEAK = [
     'Hai QA, bulatan dan segiempat adalah dua bentuk asas dalam geometri — tetapi perbezaannya bukan sekadar pada rupa luar.',
     'Bulatan ialah satu set titik yang semua berjarak sama dari satu titik pusat.',
@@ -75,8 +94,8 @@ describe('sanitizeStudentOutputSync — konvensional α firewall', () => {
     'Apakah bentuk yang paling sering awak gunakan dalam cara awak memahami sesuatu — yang bulat, atau yang segiempat?',
   ].join('\n\n');
 
-  it('strips Quran weave and β soul-strike on geometry compare α turn', () => {
-    const out = sanitizeStudentOutputSync(
+  it('strips unsolicited Quran weave but keeps reflective close on geometry compare α turn', () => {
+    const out = sanitizeUsersOutputSync(
       GEOMETRY_LEAK,
       'Apakah perbezaan bulatan dan segiempat?',
       [],
@@ -86,6 +105,6 @@ describe('sanitizeStudentOutputSync — konvensional α firewall', () => {
     expect(out).toMatch(/bulatan/i);
     expect(out).toMatch(/segiempat/i);
     expect(out).not.toMatch(/Al-Baqarah|firman-Nya/i);
-    expect(out).not.toMatch(/bentuk yang paling sering awak gunakan/i);
+    expect(out).toMatch(/bentuk yang paling sering awak gunakan/i);
   });
 });

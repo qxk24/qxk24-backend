@@ -22,15 +22,15 @@ import {
 describe('brain-first search (P2)', () => {
   const earthQ = 'Apa bentuk bumi dan kenapa kelihatan bulat?';
 
-  it('skips search when stable Brain C recall loaded', () => {
+  it('does not skip search on user umum when Brain C recall loaded (live grounding wins)', () => {
     expect(shouldSkipSearchWhenRecallHitStableTopic({
       message:           earthQ,
       brainRecallLoaded: true,
-    })).toBe(true);
+    })).toBe(false);
     expect(getWebSearchGateReason(earthQ, {
-      studentFounderParity: true,
+      userUmumChannelGate: true,
       brainRecallLoaded:    true,
-    })).toBeNull();
+    })).toBe('factual_question');
   });
 
   it('still searches on current affairs despite recall', () => {
@@ -40,7 +40,7 @@ describe('brain-first search (P2)', () => {
       brainRecallLoaded: true,
     })).toBe(false);
     expect(getWebSearchGateReason(msg, {
-      studentFounderParity: true,
+      usersFounderParity: true,
       brainRecallLoaded:    true,
     })).toBe('current_affairs');
   });
@@ -49,16 +49,16 @@ describe('brain-first search (P2)', () => {
     const msg = 'Apa kajian terbaru tentang bentuk bumi?';
     expect(isExplicitFreshnessRequest(msg)).toBe(true);
     expect(getWebSearchGateReason(msg, {
-      studentFounderParity: true,
+      usersFounderParity: true,
       brainRecallLoaded:    true,
     })).not.toBeNull();
   });
 
   it('searches when no recall (first encounter)', () => {
     expect(getWebSearchGateReason(earthQ, {
-      studentFounderParity: true,
+      userUmumChannelGate: true,
       brainRecallLoaded:    false,
-    })).toBe('substantive_conventional');
+    })).toBe('factual_question');
   });
 
   it('still searches institutional stats despite Brain C recall', () => {
@@ -68,7 +68,7 @@ describe('brain-first search (P2)', () => {
       brainRecallLoaded: true,
     })).toBe(false);
     expect(getWebSearchGateReason(kptm, {
-      studentFounderParity: true,
+      usersFounderParity: true,
       brainRecallLoaded:    true,
     })).toBe('verified_data_stat');
   });

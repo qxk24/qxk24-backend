@@ -22,7 +22,7 @@
 import type { ADAMChatMode } from './adam.types';
 import { detectLanguage } from './adam-language-mirror.service';
 import { isAdamLightChatTurn } from './adam-response-generation';
-import { studentDisplayFirstName } from './adam-student-constitution';
+import { usersDisplayFirstName } from './adam-users-constitution';
 import { getFastModel } from '../config/llm-models';
 import { llmCompleteUserPrompt } from '../llm/llm-client';
 
@@ -138,7 +138,7 @@ ADAM TUTOR — TEACHER INTRODUCTION (mandatory):
 /** Tutor lane — no Bismillah; name once on substantive turns. */
 export function buildTutorStudentAddressLaw(participantName: string): string {
   const full = participantName.trim();
-  const first = studentDisplayFirstName(full) || full || 'pelajar';
+  const first = usersDisplayFirstName(full) || full || 'pelajar';
   return `
 STUDENT ADDRESS (ADAM Tutor — universal classroom):
 The person speaking now: ${full || 'pelajar'} · call them: ${first}
@@ -161,7 +161,7 @@ export function buildTutorGreetingFallback(
   const title = tutorTeacherTitle(lang);
   const t = userMessage.trim();
   const name = userName?.trim();
-  const first = name ? studentDisplayFirstName(name) : '';
+  const first = name ? usersDisplayFirstName(name) : '';
 
   if (/assalamu|salam\s*alaikum/i.test(t) && !/waalaikum/i.test(t)) {
     const greet = lang === 'malay' ? 'Waalaikumussalam.' : 'Waalaikumussalam.';
@@ -822,7 +822,7 @@ function fixTutorPelajarOpener(
 ): string {
   const lang = normalizeTutorLanguage(profile?.language);
   const first = participantName?.trim()
-    ? studentDisplayFirstName(participantName.trim())
+    ? usersDisplayFirstName(participantName.trim())
     : '';
   if (!first) return text;
 
@@ -898,7 +898,7 @@ export function buildTutorAmbiguousInputReply(
   const lang = normalizeTutorLanguage(profile?.language);
   const title = tutorTeacherTitle(lang);
   const first = participantName?.trim()
-    ? studentDisplayFirstName(participantName.trim())
+    ? usersDisplayFirstName(participantName.trim())
     : '';
   const trimmed = userMessage.trim();
 
@@ -935,7 +935,7 @@ export function buildTutorMalayFollowUpRecovery(
 ): string {
   const title = tutorTeacherTitle(normalizeTutorLanguage(profile?.language));
   const first = participantName?.trim()
-    ? studentDisplayFirstName(participantName.trim())
+    ? usersDisplayFirstName(participantName.trim())
     : '';
   const open = first ? `Salam, ${first}.` : 'Salam.';
   const trimmed = userMessage.trim();
@@ -953,7 +953,8 @@ Kemudian terangkan dalam **satu ayat** kenapa operasi itu betul. **${title}** tu
 }
 
 const TUTOR_MALAY_REPAIR_SYSTEM = `
-You rewrite ADAM Tutor (Cikgu) classroom replies into Bahasa Melayu Malaysia (DBP) only.
+You rewrite ADAM Tutor (Cikgu) classroom replies into Bahasa Melayu Malaysia —
+indah, lembut, bijaksana, penuh adab; jelas untuk pelajar; bukan drift Indonesia.
 Preserve markdown tables, monospace blocks, bold, and structure exactly.
 Keep one micro-step teaching — never reveal final answers the student must find.
 Malaysian vocabulary only — not Indonesian.

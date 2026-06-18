@@ -20,6 +20,7 @@
  */
 
 import type { AdamMediaSearchHit } from './adam-media-search';
+import { isDisplayableChatImageUrl } from './adam-chat-image-url';
 
 const API_FETCH_TIMEOUT_MS = 3_500;
 
@@ -48,11 +49,15 @@ function pickOpenverseImageUrl(item: {
 }): string | null {
   const url = item.url?.trim();
   const thumb = item.thumbnail?.trim();
-  if (url && url.includes('wikimedia.org') && isEmbeddableOpenverseImageUrl(url)) {
+  if (url && url.includes('wikimedia.org') && isDisplayableChatImageUrl(url)) {
     return url;
   }
-  if (thumb && isEmbeddableOpenverseImageUrl(thumb)) return thumb;
-  if (url && isEmbeddableOpenverseImageUrl(url)) return url;
+  if (thumb && isEmbeddableOpenverseImageUrl(thumb) && isDisplayableChatImageUrl(thumb)) {
+    return thumb;
+  }
+  if (url && isEmbeddableOpenverseImageUrl(url) && isDisplayableChatImageUrl(url)) {
+    return url;
+  }
   return null;
 }
 
@@ -352,9 +357,12 @@ export async function fetchLicensedMediaFromApis(input: {
     tasks.push(fetchOpenverseImages(query));
   }
 
-  if (input.wantVideo && !educational) {
-    if (keys.pexels) tasks.push(fetchPexelsVideos(query, keys.pexels));
-    if (keys.pixabay) tasks.push(fetchPixabayVideos(query, keys.pixabay));
+  if (input.wantVideo) {
+    if (!educational) {
+      if (keys.pexels) tasks.push(fetchPexelsVideos(query, keys.pexels));
+      if (keys.pixabay) tasks.push(fetchPixabayVideos(query, keys.pixabay));
+    }
+    // Internet Archive is educational — allowed on konvensional technical turns.
     tasks.push(fetchInternetArchiveVideos(query));
   }
 

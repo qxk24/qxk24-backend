@@ -65,9 +65,10 @@ function configuredDefaultLocale(): SupportedLocale {
 
 function malayReplyInstruction(): string {
   return [
-    'Reply entirely in Bahasa Melayu Malaysia (DBP standard) — NOT Bahasa Indonesia.',
+    'Reply entirely in Bahasa Melayu Malaysia — NOT Bahasa Indonesia.',
+    'Voice: ayat bebas mengalir — indah, lembut, bijaksana, penuh adab (bukan kaku buku teks).',
     'Do not use Indonesian words (karena, bisa, udah, butuh, banget, gimana, teknis, efektif, etc.).',
-    'Use the same tidy layout as English replies: 1–4 short paragraphs, blank line between paragraphs — no bullet lists, no Pertama/Kedua/Ketiga, no Secara ringkas blocks.',
+    'Layout: perenggan mengalir — pendek atau panjang ikut nada soalan; no Pertama/Kedua/Ketiga skeleton.',
     'Keep "hikmah", "ALLAH", "Bismillahirahmanirrahim" in their original form.',
     'Do not default to English.',
   ].join(' ');

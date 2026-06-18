@@ -107,11 +107,14 @@ Never invent parallel product histories (rebadging, factory, "original design") 
 
 const FOUNDER_RESULTS_BASE = `
 HOW TO USE SEARCH RESULTS (founder turn):
-- Cite your sources clearly: title, domain, and year only if search provided them
-- Present the data first, then offer the Quranic or Alamtologi perspective if relevant
+- Ground every empirical claim in search hits — numbers, study names, institutions, journal + year when hits provide them
+- Present measured facts first (instrument, variable, result), then Quranic or Alamtologi synthesis if relevant
+- Include formulas ($...$ or $$...$$) when equations clarify the mechanism — from hits or established theory
+- Multi-concept answers: one dense empirical paragraph per concept P.alt asked — not one-line summaries
 - If search results contradict each other, note it honestly
 - If search results align with Quran, say so with confidence
 - If search results conflict with Quran, explain the difference with adab — the Quran holds
+- FORBIDDEN openers: "Soalan anda berkaitan…", "Saya telah menjalankan carian…", "Berdasarkan carian web…" before the answer — open in ADAM voice (Bismillah or Hai Masa, P.alt then substance).
 `.trim();
 
 export type StudentWebSearchVariant =
@@ -136,7 +139,7 @@ export function buildStudentWebSearchPrompt(
   switch (variant) {
     case 'prefetched':
       return joinWebSearchSections(
-        'YOUR WEB SEARCH (student turn — ALREADY COMPLETED BEFORE THIS REPLY):',
+        'YOUR WEB SEARCH (Users turn — ALREADY COMPLETED BEFORE THIS REPLY):',
         STUDENT_PREFETCHED_DELTA,
         ADAM_CITATION_HONESTY,
       );
@@ -152,7 +155,7 @@ export function buildStudentWebSearchPrompt(
       return joinWebSearchSections(
         inline
           ? 'YOUR WEB SEARCH (student — EXPLANATORY SCIENCE — search then warm tutor prose):'
-          : 'YOUR WEB SEARCH (student turn — EXPLANATORY SCIENCE — SEARCH DONE, NOW ANALISA + JAWAB):',
+          : 'YOUR WEB SEARCH (Users turn — EXPLANATORY SCIENCE — SEARCH DONE, NOW ANALISA + JAWAB):',
         ...(inline
           ? [ADAM_SEARCH_WHEN_TO, STUDENT_EXPLANATORY_SCIENCE_DELTA, STUDENT_SEARCH_NATURAL_BASE]
           : [STUDENT_PREFETCHED_DELTA, STUDENT_EXPLANATORY_SCIENCE_DELTA]),
@@ -162,7 +165,7 @@ export function buildStudentWebSearchPrompt(
       return joinWebSearchSections(
         inline
           ? 'YOUR WEB SEARCH (student — LIFE/EMOTION — search then warm flowing prose):'
-          : 'YOUR WEB SEARCH (student turn — LIFE/EMOTION — SEARCH DONE, NOW ANALISA + JAWAB):',
+          : 'YOUR WEB SEARCH (Users turn — LIFE/EMOTION — SEARCH DONE, NOW ANALISA + JAWAB):',
         ...(inline
           ? [ADAM_SEARCH_WHEN_TO, STUDENT_LIFE_SUBSTANTIVE_DELTA, STUDENT_SEARCH_NATURAL_BASE]
           : [STUDENT_PREFETCHED_DELTA, STUDENT_LIFE_SUBSTANTIVE_DELTA]),
@@ -170,7 +173,7 @@ export function buildStudentWebSearchPrompt(
       );
     case 'technical_precision':
       return joinWebSearchSections(
-        'YOUR WEB SEARCH (student turn — TECHNICAL PRECISION — search is MANDATORY this turn):',
+        'YOUR WEB SEARCH (Users turn — TECHNICAL PRECISION — search is MANDATORY this turn):',
         'You MUST run web search before stating any precise technical figure, formula, dosage, spec, rate, or comparison.',
         'Do NOT answer technical questions from memory alone — search first, numbers second, insight last.',
         STUDENT_TECHNICAL_PRECISION_DELTA,
@@ -181,14 +184,14 @@ export function buildStudentWebSearchPrompt(
       );
     case 'entity_correction':
       return joinWebSearchSections(
-        'YOUR WEB SEARCH (student turn — ENTITY CORRECTION — search is MANDATORY this turn):',
+        'YOUR WEB SEARCH (Users turn — ENTITY CORRECTION — search is MANDATORY this turn):',
         STUDENT_ENTITY_CORRECTION_DELTA,
         ADAM_CITATION_HONESTY,
       );
     case 'agent_default':
     default:
       return joinWebSearchSections(
-        'YOUR WEB SEARCH (student turn — DashScope agent mode — you decide when to search):',
+        'YOUR WEB SEARCH (Users turn — DashScope agent mode — you decide when to search):',
         ADAM_SEARCH_WHEN_TO,
         STUDENT_SEARCH_NATURAL_BASE,
         ADAM_CHAT_MATH_NOTATION,

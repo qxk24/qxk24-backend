@@ -20,7 +20,7 @@
 
 import type { LlmMessage } from '../llm/llm-types';
 import { isAdamLightChatTurn, stripLeadingAdamSalutation } from './adam-response-generation';
-import { paragraphIsFounderTeachingVoiceLeak } from './adam-student-output-law';
+import { paragraphIsFounderTeachingVoiceLeak } from './adam-users-output-law';
 import { isTechnicalPrecisionQuestion, userOpenedFaithDoor } from './adam-universal-voice';
 import { paragraphIsUniversalScholarDoorOffer } from './adam-universal-scholar';
 

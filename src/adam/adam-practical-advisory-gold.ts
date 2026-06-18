@@ -41,7 +41,7 @@ export const RN_FULL_VOICE_REGRESSION_SAMPLE = [
   'This isn\'t about delivering information alone; it\'s about holding space with clarity and compassion, even when the news is hard.',
   'You\'ll also work closely within multidisciplinary teams — doctors, physiotherapists, social workers, occupational therapists — coordinating care, sharing accurate observations, and contributing your nursing perspective grounded in holistic understanding of the person, not just the diagnosis.',
   RN_OFFICIAL_SKILLS_LABEL_LINE,
-  GOLD_STANDARD_FOLLOW_UP_EN,
+  'Would you like me to explain further?',
 ].join('\n\n');
 
 /** Mandatory weave rules when search ran but full page fetch is partial — injected into prefetch block. */

@@ -19,7 +19,7 @@
 
 import { describe, expect, it } from '@jest/globals';
 import { detectLanguage } from '../src/adam/adam-language-mirror.service';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 
 describe('ADAM language mirror', () => {
   it('detects Hello as English', () => {
@@ -34,7 +34,7 @@ describe('ADAM language mirror', () => {
   });
 
   it('strips Bismillah opener from student output', () => {
-    const out = sanitizeStudentOutputSync(
+    const out = sanitizeUsersOutputSync(
       'Bismillahirahmanirrahim.\n\nHello. What would you like to explore today?',
       'Hello',
     );
@@ -55,7 +55,7 @@ describe('Simple factual turns', () => {
     const { getWebSearchGateReason, shouldForceWebSearchForGateReason } = await import('../src/adam/adam-web-search');
     expect(
       getWebSearchGateReason('Who is the current President of Indonesia?', {
-        studentFounderParity: true,
+        usersFounderParity: true,
       }),
     ).toBe('current_affairs');
     expect(shouldForceWebSearchForGateReason('current_affairs')).toBe(true);

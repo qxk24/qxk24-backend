@@ -26,6 +26,7 @@ import {
   founderRequestsConstitutionalMirror,
   founderRequestsTeachingSynthesis,
 } from './adam-founder-teaching-prompts';
+import { isFounderReplyRevisionDirective } from './adam-response-generation';
 
 export type TeachingPhase = 'absorption' | 'inquiry' | 'synthesis';
 
@@ -109,6 +110,9 @@ export function resolveTeachingPhase(input: ResolveTeachingStateInput): Teaching
 
   if (!isFounder || mode !== 'TEACHING') return null;
   if (founderRequestsConstitutionalMirror(normalizedMessage)) return null;
+
+  /** P.alt revising ADAM's answer — command channel, not teaching learner cycle. */
+  if (isFounderReplyRevisionDirective(normalizedMessage)) return null;
 
   if (founderRequestsTeachingSynthesis(normalizedMessage)) {
     return 'synthesis';

@@ -24,6 +24,7 @@ import {
   recordLooksLikeFounderCanonicalBiography,
   recordLooksLikeThirdPartyBiography,
 } from '../adam/adam-knowledge-prompts';
+import { filterTeachingRecordsForChapter } from '../adam/book-aware-recall/record-chapter-filter';
 import {
   buildBab1AsasConstitutionalRecallBlock,
   buildBab2FaktorXyzConstitutionalRecallBlock,
@@ -33,8 +34,7 @@ import {
   buildBab6TenagaConstitutionalRecallBlock,
   buildChapterConstitutionalRecallBlock,
   chapterHasConstitutionalBackbone,
-  filterTeachingRecordsForChapter,
-} from '../adam/adam-book-aware-recall';
+} from '../adam/book-aware-recall/constitutional-backbone';
 import {
   AdamTeachingRecordModel,
   type AdamTeachingRecordDocument,
@@ -48,6 +48,8 @@ import {
   buildMongoRegexFromLiteral,
   clipMongoTextSearchQuery,
 } from './mongo-regex-safe';
+
+export { founderAsksTeachingRecall } from '../adam/book-aware-recall/teaching-recall-probes';
 
 export interface TeachingRecordRow {
   recordId:           string;
@@ -289,11 +291,16 @@ export interface RecordTransformEpisodeInput {
 export async function recordTransformEpisode(
   input: RecordTransformEpisodeInput,
 ): Promise<AdamTeachingRecordDocument> {
-  const prior = await AdamTeachingRecordModel.findOne({
+  const priorQuery: Record<string, unknown> = {
     founderId: input.founderId,
     family:    'Inquiry Synthesis',
     status:    'active',
-  })
+    teacherRole: 'inquiry',
+  };
+  if (input.studentId?.trim()) {
+    priorQuery['transformMeta.studentId'] = input.studentId.trim();
+  }
+  const prior = await AdamTeachingRecordModel.findOne(priorQuery)
     .sort({ masa_recorded: -1 })
     .lean();
 
@@ -381,15 +388,13 @@ export async function findRecentTransformByQuestionHash(
   return row ? (row as TeachingRecordRow) : null;
 }
 
-export function founderAsksTeachingRecall(message: string): boolean {
-  return /\b(remember|recall|ingat|ingatkan|do you remember|what did we discuss|what did i teach|when you first|when i first|bila kita|sesi itu|teaching record|rekod pembelajaran|rekod\s+pengajaran)\b/i.test(
-    message,
-  );
-}
-
 export interface TeachingRecordSearchOptions {
   /** When true — never return unrelated recent episodes (chapter-scoped recall). */
   skipRecentFallback?: boolean;
+  /** Scope inquiry recall to one user (transformMeta.studentId). */
+  studentId?:          string;
+  /** Filter teacherRole — e.g. inquiry-only for student relational recall. */
+  teacherRoles?:       string[];
 }
 
 export async function searchTeachingRecords(
@@ -400,15 +405,25 @@ export async function searchTeachingRecords(
 ): Promise<TeachingRecordRow[]> {
   const cap = Math.min(Math.max(limit, 1), 20);
   const q = query.trim();
-  const { skipRecentFallback = false } = options;
+  const { skipRecentFallback = false, studentId, teacherRoles } = options;
+
+  const scopeFilter: Record<string, unknown> = {
+    founderId,
+    status: 'active',
+  };
+  if (studentId?.trim()) {
+    scopeFilter['transformMeta.studentId'] = studentId.trim();
+  }
+  if (teacherRoles?.length) {
+    scopeFilter.teacherRole = { $in: teacherRoles };
+  }
 
   if (q.length >= 2) {
     const textQ = clipMongoTextSearchQuery(q);
 
     try {
       const textHits = await AdamTeachingRecordModel.find({
-        founderId,
-        status: 'active',
+        ...scopeFilter,
         $text: { $search: textQ },
       })
         .sort({ score: { $meta: 'textScore' }, masa_recorded: -1 })
@@ -425,7 +440,7 @@ export async function searchTeachingRecords(
     const regex = buildMongoRegexFromLiteral(q);
     if (!regex) {
       if (skipRecentFallback) return [];
-      const recent = await AdamTeachingRecordModel.find({ founderId, status: 'active' })
+      const recent = await AdamTeachingRecordModel.find(scopeFilter)
         .sort({ masa_recorded: -1 })
         .limit(cap)
         .lean();
@@ -433,8 +448,7 @@ export async function searchTeachingRecords(
     }
 
     const regexHits = await AdamTeachingRecordModel.find({
-      founderId,
-      status: 'active',
+      ...scopeFilter,
       $or: [
         { episodeSummary: regex },
         { teachingIntent: regex },
@@ -456,7 +470,7 @@ export async function searchTeachingRecords(
 
   if (skipRecentFallback) return [];
 
-  const recent = await AdamTeachingRecordModel.find({ founderId, status: 'active' })
+  const recent = await AdamTeachingRecordModel.find(scopeFilter)
     .sort({ masa_recorded: -1 })
     .limit(cap)
     .lean();

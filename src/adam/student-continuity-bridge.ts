@@ -34,6 +34,10 @@ import {
 import { lazySyncPriorSessionDigest } from '../qxk24brain/student-digest-bridge';
 import { lazySyncPriorSessionArc } from '../qxk24brain/student-arc-bridge';
 import { consumePendingZpdSignalsForBridge } from '../plas/plas-growth-processor.mongo';
+import { studentContinuityNeedsFullBridge } from './student-continuity-bridge.gate';
+import { getStudentContinuityBridgeBlock } from './adam-student-continuity-l7.service';
+
+export { studentContinuityNeedsFullBridge } from './student-continuity-bridge.gate';
 
 const CURRENT_SESSION_TURNS = 20;
 const TURN_CHAR_CAP = 6_000;
@@ -56,15 +60,6 @@ function messageSnippet(content: string, max = 320): string {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, max);
-}
-
-/** Full bridge when student references books, prior sessions, or continuation. */
-export function studentContinuityNeedsFullBridge(triggerMessage: string): boolean {
-  const t = triggerMessage.trim();
-  if (!t) return false;
-  return /\b(buku|book|workspace|aidil|sesi\s+lepas|semalam|tadi|ingat\s+tak|chapter|bab|teruskan|sambung|earlier|before|last\s+time|continue|continued)\b/i.test(
-    t,
-  );
 }
 
 function minimalBridge(studentName: string): string {
@@ -257,7 +252,7 @@ export async function buildStudentContinuityBridgeLite(
   try {
     void lazySyncPriorSessionDigest(studentId, sessionId).catch(() => {});
 
-    const [sessions, workspaces, constitutionalState] = await Promise.all([
+    const [sessions, workspaces, constitutionalState, l7Block] = await Promise.all([
       ADAMFounderSessionModel.find({
         founderId:   studentId,
         sessionType: 'student',
@@ -265,6 +260,7 @@ export async function buildStudentContinuityBridgeLite(
       }).lean(),
       getUserWorkspaces(studentId),
       getStudentConstitutionalState(studentId),
+      getStudentContinuityBridgeBlock(studentId, studentName),
     ]);
 
     const currentSess = sessions.find((s) => s.sessionId === sessionId);
@@ -274,6 +270,10 @@ export async function buildStudentContinuityBridgeLite(
       '',
       ...formatConstitutionalStateBlock(studentName, constitutionalState, undefined),
     ];
+
+    if (l7Block.trim()) {
+      lines.push(l7Block, '');
+    }
 
     if (workspaces.length > 0) {
       lines.push('Buku / Book workspaces:');
@@ -305,7 +305,7 @@ export async function buildStudentContinuityBridgeLite(
 }
 
 /**
- * Build [STUDENT CONTINUITY BRIDGE] for system prompt (student turns only).
+ * Build [STUDENT CONTINUITY BRIDGE] for system prompt (Users turns only).
  * Fail-open: returns minimal bridge on error — never breaks chat.
  */
 export async function buildStudentContinuityBridge(
@@ -318,7 +318,7 @@ export async function buildStudentContinuityBridge(
     void lazySyncPriorSessionDigest(studentId, sessionId).catch(() => {});
     void lazySyncPriorSessionArc(studentId, sessionId).catch(() => {});
 
-    const [master, sessions, workspaces, constitutionalState, zpdAdvancementLines] =
+    const [master, sessions, workspaces, constitutionalState, zpdAdvancementLines, l7Block] =
       await Promise.all([
       getOrCreateMaster(FOUNDER_USER_ID),
       ADAMFounderSessionModel.find({
@@ -329,6 +329,7 @@ export async function buildStudentContinuityBridge(
       getUserWorkspaces(studentId),
       getStudentConstitutionalState(studentId),
       consumePendingZpdSignalsForBridge(studentId),
+      getStudentContinuityBridgeBlock(studentId, studentName),
     ]);
 
     const track = master.studentTracks?.find((t) => t.studentId === studentId);
@@ -347,6 +348,10 @@ export async function buildStudentContinuityBridge(
       '',
       ...formatConstitutionalStateBlock(studentName, constitutionalState, track),
     ];
+
+    if (l7Block.trim()) {
+      lines.push(l7Block, '');
+    }
 
     if (zpdAdvancementLines.length > 0) {
       lines.push(...zpdAdvancementLines, '');
@@ -448,4 +453,19 @@ export async function buildStudentContinuityBridge(
     console.warn('[StudentContinuityBridge] build failed:', err);
     return minimalBridge(studentName);
   }
+}
+
+/**
+ * Every-turn continuity — lite by default; full cross-session on keyword escalation.
+ */
+export async function buildStudentContinuityForTurn(
+  studentId: string,
+  sessionId: string,
+  studentName: string,
+  triggerMessage = '',
+): Promise<string> {
+  if (studentContinuityNeedsFullBridge(triggerMessage)) {
+    return buildStudentContinuityBridge(studentId, sessionId, studentName, triggerMessage);
+  }
+  return buildStudentContinuityBridgeLite(studentId, sessionId, studentName);
 }

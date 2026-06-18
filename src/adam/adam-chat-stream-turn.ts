@@ -27,6 +27,7 @@ import {
   resolveFounderTeachingFlags,
   loadRecentTeachingTurnTexts,
 } from './adam-chat-stream-turn-context';
+import { beginAdamBrainRiver } from './adam-brain-river';
 import { isGuestUserId } from '../freemium/adam-freemium-guest.service';
 import type { AdamChatTurnShell } from './adam-chat-stream.types';
 import type { WorkspaceRecord } from './adam-workspace.service';
@@ -91,12 +92,24 @@ export async function runAdamChatTurn(input: {
       recentUserMessages: recentTeachingTurns.recentUserMessages,
     });
 
+    const river = beginAdamBrainRiver({
+      isFounder,
+      mode: shell.mode,
+      userMessage: shell.userMessage,
+      teachingFlags,
+      sessionMeta: {
+        isGuestTrial,
+        participantName: shell.participant.userName,
+      },
+    });
+
     const turnContext = await fetchAdamTurnContext({
       shell,
       workspace,
       isGuestTrial,
       isTesterGreetingTurn,
       teachingFlags,
+      river,
       plasPrescanPromise,
       onEvent,
     });

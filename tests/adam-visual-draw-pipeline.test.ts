@@ -13,14 +13,14 @@
 /// <reference types="jest" />
 
 import { describe, expect, it } from '@jest/globals';
-import { ensureStudentHaiGreeting } from '../src/adam/adam-student-constitution';
+import { ensureUsersHaiGreeting } from '../src/adam/adam-users-constitution';
 import { buildFinalResponseForSave } from '../src/adam/adam-chat-stream-post-finalize';
 import {
   ADAM_VISUAL_DRAW_TAG_OPEN,
   buildVisualDrawCanonicalAnswer,
   repairVisualDrawOutput,
 } from '../src/adam/adam-visual-draw-guard';
-import { sanitizeStudentOutputSync } from '../src/adam/adam-student-output-guard';
+import { sanitizeUsersOutputSync } from '../src/adam/adam-users-output-guard';
 
 const DRAW_ASK =
   'Lukiskan bulatan dan segiempat. Apakah perbezaan antara keduanya?';
@@ -29,9 +29,9 @@ const MASHED_ESSAY =
   'Hai QA, ```text\nBulatan:.................... Segiempat: +----------+ | | | | +----------+\n```\nBulatan: semua titik...';
 
 describe('visual draw pipeline — audited data path', () => {
-  it('sanitizeStudentOutputSync early-returns canonical tagged draw', () => {
-    const out = sanitizeStudentOutputSync(MASHED_ESSAY, DRAW_ASK, [], [], 'QA');
-    expect(out).toMatch(/^Hai QA,\n\n/);
+  it('sanitizeUsersOutputSync early-returns canonical tagged draw', () => {
+    const out = sanitizeUsersOutputSync(MASHED_ESSAY, DRAW_ASK, [], [], 'QA');
+    expect(out).toMatch(new RegExp(`^${ADAM_VISUAL_DRAW_TAG_OPEN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
     expect(out).toContain(ADAM_VISUAL_DRAW_TAG_OPEN);
     expect(out).toContain('  ..    ..');
     expect(out).not.toContain('```');
@@ -40,7 +40,7 @@ describe('visual draw pipeline — audited data path', () => {
 
   it('buildFinalResponseForSave does not inline-greet over draw tags', () => {
     const canonical = buildVisualDrawCanonicalAnswer(DRAW_ASK, 'QA');
-    expect(canonical).toMatch(/^Hai QA,\n\n<adam-visual-draw>/);
+    expect(canonical).toMatch(new RegExp(`^${ADAM_VISUAL_DRAW_TAG_OPEN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
     expect(canonical).toContain('  ..    ..');
     const saved = buildFinalResponseForSave({
       shell: {
@@ -57,10 +57,10 @@ describe('visual draw pipeline — audited data path', () => {
     expect(saved).toContain('  ..    ..');
   });
 
-  it('ensureStudentHaiGreeting must not mash tagged draw (regression)', () => {
+  it('ensureUsersHaiGreeting must not mash tagged draw (regression)', () => {
     const canonical = repairVisualDrawOutput(MASHED_ESSAY, DRAW_ASK, 'QA');
-    const broken = ensureStudentHaiGreeting(canonical, 'QA');
+    const broken = ensureUsersHaiGreeting(canonical, 'QA', DRAW_ASK);
     expect(broken).not.toMatch(/Hai QA, <adam-visual-draw>/i);
-    expect(broken.split('\n')[0]).toBe('Hai QA,');
+    expect(broken.split('\n')[0]).toBe(ADAM_VISUAL_DRAW_TAG_OPEN);
   });
 });

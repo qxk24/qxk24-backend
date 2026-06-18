@@ -28,11 +28,11 @@ export {
   paragraphIsThreeTierDoorOffer,
   paragraphIsUniversalScholarDoorOffer,
   recentAssistantOfferedUniversalDoor,
-  resolveStudentKnowledgeTier,
+  resolveUsersKnowledgeTier,
   userAcceptedUniversalScholarDoor,
   userOptedIntoAlamtologiTier,
   userOptedIntoQuranTier,
-  type StudentKnowledgeTier,
+  type UsersKnowledgeTier,
 } from './adam-universal-scholar';
 
 export {
