@@ -123,6 +123,9 @@ export function stripBmPracticalEssayInline(text: string): string {
 /** Strip faith/Quran sentences from one science paragraph — preserve line/paragraph breaks. */
 function stripScienceFaithParagraph(paragraph: string): string {
   let out = paragraph
+    .replace(/^>\s*.+$/gm, '')
+    .replace(/[^.!?]*\bSebagaimana\s+firman\s+Allah\b[^.!?]*[.!?]+/gi, ' ')
+    .replace(/[^.!?]*\bSurah\s+Ar-Ra['']?d\b[^.!?]*[.!?]+/gi, ' ')
     .replace(/[^.!?]*[\u0600-\u06FF][^.!?]*[.!?]+/gu, ' ')
     .replace(/[^.!?]*\bKata\s+["'«][^"'»]+["'»]\s*\([^)]*[\u0600-\u06FF][^)]*\)[^.!?]*[.!?]+/gi, ' ')
     .replace(/[^.!?]*\bkebijaksanaan\s+Pencipta\b[^.!?]*[.!?]+/gi, ' ')
@@ -251,10 +254,28 @@ export function paragraphIsSciencePhilosophyEssayLeak(paragraph: string): boolea
     return true;
   }
   if (/\bbukan\s+sekadar\b/i.test(t) && /\b(?:MASA|TENAGA|RUANG)\b/i.test(t)) return true;
+  if (/\bbukan\s+kejadian\s+acak\b/i.test(t)) return true;
+  if (/\banugerah\s+yang\s+turun\s+tanpa\s+syarat\b/i.test(t)) return true;
+  if (/\bsetiap\s+titisan\s+hujan\b/i.test(t) && /\bMASA\b/i.test(t)) return true;
+  if (/\b(?:bukan\s+sekadar\s+fenomena\s+fizikal|kerangka\s+yang\s+lebih\s+mendalam)\b/i.test(t)) return true;
   if (/\bmenyelaraskan\s+MASA\b/i.test(t)) return true;
   if (/\b(?:bukan\s+mekanisme\s+pasif|sistem\s+hidup\s+yang\s+aktif)\b/i.test(t) && /\b(?:MASA|TENAGA|RUANG)\b/i.test(t)) {
     return true;
   }
+  if (/\bMari kita renungkan\b/i.test(t)) return true;
+  if (/\bbatas keabadian fizikal\b/i.test(t)) return true;
+  if (/\bdua wajah daripada satu realiti\b/i.test(t)) return true;
+  if (/\btenaga yang sedang beristirahat\b/i.test(t)) return true;
+  if (/\bbukan sekadar persamaan matematik\b/i.test(t) && /\bpengakuan\b/i.test(t)) return true;
+  if (/\bdi luar sains\b/i.test(t) && /\b(?:halus|keabadian|mati|hilang)\b/i.test(t)) return true;
+  if (/\bjisim yang bangun dan berjalan\b/i.test(t)) return true;
+  if (/\bTiada teori yang benar-benar ["']?salah["']?\b/i.test(t)) return true;
+  if (/\btahap kebenaran yang berbeza\b/i.test(t)) return true;
+  if (/\bbukan soal ["']?mana yang betul["']?\b/i.test(t)) return true;
+  if (/\bperjalanan sebenar ilmu\b/i.test(t)) return true;
+  if (/\bApakah model ini membantu saya memahami alam\b/i.test(t)) return true;
+  if (/\bAdakah ada aspek tertentu\b/i.test(t)) return true;
+  if (/\bIIRS\b/i.test(t)) return true;
   return false;
 }
 
@@ -391,7 +412,28 @@ export function stripWebSearchAttributionInline(text: string): string {
     .replace(/ {2,}/g, ' ')
     .trim();
   out = stripWebSearchOpenerParagraphs(out);
+  out = stripForeignSearchBoilerplateInline(out);
   return out;
+}
+
+/** NHS / Norway law / cookie-policy dumps from misrouted single-token search (Fasa 1). */
+function paragraphIsForeignSearchBoilerplateLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/\b(?:NHS|nhs\.uk|healthcareers\.nhs|GP records|IT Skills Pathway)\b/i.test(t)) return true;
+  if (/\b(?:lovdata|Norwegian Act|cookie policy|GDPR consent|statutory instrument)\b/i.test(t)) return true;
+  if (/\b(?:Kingdom of Norway|lov\s+om|forskrift)\b/i.test(t) && /\b(?:law|act|regulation|undang)\b/i.test(t)) {
+    return true;
+  }
+  if (/^SUBJECT:\s*(?:NHS|GP|IT Skills)/i.test(t)) return true;
+  return false;
+}
+
+export function stripForeignSearchBoilerplateInline(text: string): string {
+  const parts = text.split(/\n{2,}/);
+  const kept = parts.filter((para) => !paragraphIsForeignSearchBoilerplateLeak(para.trim()));
+  if (kept.length === 0) return '';
+  return kept.join('\n\n').trim();
 }
 
 /** Strip media-refusal paragraphs on turns that requested gambar/video. */

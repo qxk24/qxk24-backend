@@ -196,6 +196,7 @@ export function isUserUmumCompanionTurnActive(
 ): boolean {
   const t = userMessage.trim();
   if (userAskedForAlamtologi(t) || userAskedForConstitutionalStructure(t)) return false;
+  if (isAdamScienceNatureSynthesisTurn(t)) return false;
   if (userUmumPerlaksanaanTurnActive(userMessage, recentAssistantMessages, recentUserMessages)) {
     return true;
   }

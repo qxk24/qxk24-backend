@@ -108,6 +108,17 @@ describe('getWebSearchGateReason — User umum channel', () => {
     expect(getWebSearchGateReason('Apa itu fotosintesis?')).toBeNull();
     expect(getWebSearchGateReason('Terangkan kenapa manusia perlu tidur setiap malam')).toBeNull();
   });
+
+  it('Fasa 1: skips search on single-token curriculum topics (V-M02a, V-GEO02a, V-X01)', () => {
+    for (const msg of ['Algebra', 'Laut Mati', 'straight', 'Fibonacci', 'AI']) {
+      expect(getWebSearchGateReason(msg, USER_UMUM)).toBeNull();
+      expect(shouldUsersUseSearchFirstFlow(false, getWebSearchGateReason(msg, USER_UMUM))).toBe(false);
+    }
+  });
+
+  it('Fasa 1: still searches on explicit freshness override', () => {
+    expect(getWebSearchGateReason('Algebra latest study 2025', USER_UMUM)).toBe('explicit_search');
+  });
 });
 
 describe('prompt builder — book writing discussion overlay', () => {

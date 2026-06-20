@@ -32,6 +32,7 @@ import {
   isAdamTechnicalKonvensionalDisplayTurn,
   isAdamAlgorithmTeachingTurn,
   isAdamLinearAlgebraTurn,
+  isAdamScienceNatureSynthesisTurn,
   isAdamSimpleFactualTurn,
   isAdamSubstantiveTurn,
   isAdamUserGuidanceCoachingTurn,
@@ -238,6 +239,9 @@ export function buildAdamAlphaGenerationLaw(
   if (isFounder || !isAdamTechnicalKonvensionalDisplayTurn(message)) {
     if (isAdamAlgorithmTeachingTurn(message)) {
       return `${ADAM_ALPHA_REPLY_LAW}\n\n${ADAM_ALPHA_ALGORITHM_TEACHING_LAW}`;
+    }
+    if (isAdamScienceNatureSynthesisTurn(message)) {
+      return `${ADAM_ALPHA_REPLY_LAW}\n\n${ADAM_ALPHA_SCIENCE_REPLY_LAW}`;
     }
     return ADAM_ALPHA_REPLY_LAW;
   }

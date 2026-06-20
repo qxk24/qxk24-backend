@@ -42,7 +42,7 @@ export async function creditTutorAgentCommission(input: {
   const agent = await TutorAgentModel.findOne({ agentId: input.agentId });
   if (!agent || agent.status !== 'active') return null;
 
-  const pricing = await getTutorBandPricing(input.band);
+  const pricing = await getTutorBandPricing(input.band, 'agent');
   const pct = Math.min(Math.max(agent.commissionPercent, 0), 50);
   const commissionMyr = Math.round(pricing.monthlyMyr * (pct / 100) * 100) / 100;
   if (commissionMyr <= 0) return null;

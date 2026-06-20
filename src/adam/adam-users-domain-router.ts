@@ -80,7 +80,7 @@ const ECONOMICS_POLICY_DOMAIN =
   /\b(?:campur\s+tangan\s+kerajaan|kawalan\s+harga|harga\s+(?:maksimum|awam|barangan\s+keperluan)|subsidi\s+(?:harga|barangan|minyak|beras)?|keberkesanan\s+(?:dasar|subsidi|campur\s+tangan|kawalan)|dasar\s+(?:fiskal|monetari|harga)|KPDNHEP|SMH|indeks\s+harga\s+pengguna|IHP|price\s+ceiling|subsidy\s+policy|fiscal\s+policy)\b/i;
 
 const TECHNOLOGY_DOMAIN =
-  /\b(?:teknologi|technology|artificial\s+intelligence|machine\s+learning|pemrograman|programming|perisian|software|perkakasan|hardware|rangkaian|network(?:ing)?|cyber(?:security)?|blockchain|cloud\s+computing|pangkalan\s+data|database|API\b|IoT|robotik|robotics|semiconductor|semikonduktor|GPU|CPU|algoritma\s+data|big\s+data|data\s+science|komputer|computer\s+science)\b/i;
+  /\b(?:teknologi|technology|\bAI\b|artificial\s+intelligence|machine\s+learning|pemrograman|programming|perisian|software|perkakasan|hardware|rangkaian|network(?:ing)?|cyber(?:security)?|blockchain|cloud\s+computing|pangkalan\s+data|database|API\b|IoT|robotik|robotics|semiconductor|semikonduktor|GPU|CPU|algoritma\s+data|big\s+data|data\s+science|komputer|computer\s+science)\b/i;
 
 const BIOETHICS_DOMAIN =
   /\b(?:CRISPR|crispr-cas9|penyuntingan\s+gen|genome\s+edit|gene\s+edit|germline|sel\s+somatik|somatic\s+(?:cell\s+)?edit|bioetika|bioethics|embrio\s+manusia|human\s+embryo|designer\s+baby|bayi\s+rekaan)\b/i;

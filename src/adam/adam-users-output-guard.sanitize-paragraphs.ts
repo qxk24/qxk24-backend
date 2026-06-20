@@ -31,6 +31,7 @@ import {
   paragraphShouldStripForUniversalVoice,
   paragraphIsCareerSkillsBlockLeak,
   paragraphIsSciencePhilosophyEssayLeak,
+  paragraphIsScienceBookPivotLeak,
   paragraphIsTier1EssayLeak,
   paragraphIsMediaRefusalLeak,
   paragraphIsMediaKeywordRedirectLeak,
@@ -58,6 +59,8 @@ import {
   isAdamVisualDrawTurn,
   isAdamAlgorithmTeachingTurn,
   isAdamCompareTurn,
+  isAdamLifeWellbeingTurn,
+  salvageLifeWellbeingParagraph,
   threadRootIsPracticalAdvisory,
 } from './adam-response-generation';
 import { isAdamMediaSearchTurn } from './adam-media-search';
@@ -123,6 +126,13 @@ export function filterUsersSanitizeParagraphs(
       umumVoiceHoldTurn
       && (paragraphIsUserUmumPoeticPreambleLeak(trimmed) || paragraphIsUserUmumCoachingFrameworkLeak(trimmed))
     ) {
+      if (isAdamLifeWellbeingTurn(userMessage)) {
+        const salvaged = salvageLifeWellbeingParagraph(trimmed);
+        if (salvaged) {
+          kept.push(salvaged);
+          continue;
+        }
+      }
       continue;
     }
     if (tier1BriefEssayStrip && paragraphIsExplainBackPhase1ALeak(trimmed)) {
@@ -132,6 +142,12 @@ export function filterUsersSanitizeParagraphs(
       continue;
     }
     if (stripScienceAlphaExplainBack && paragraphIsExplainBackSoulStrikeLeak(trimmed)) {
+      continue;
+    }
+    if (stripScienceAlphaExplainBack && paragraphIsScienceBookPivotLeak(trimmed)) {
+      continue;
+    }
+    if (stripScienceAlphaExplainBack && paragraphIsSciencePhilosophyEssayLeak(trimmed)) {
       continue;
     }
     if (paragraphIsTier1EssayLeak(trimmed) && !userRequestedPracticalDepth(userMessage)) {
@@ -170,12 +186,26 @@ export function filterUsersSanitizeParagraphs(
       && !userAskedForConstitutionalStructure(userMessage)
       && /\bAlamtologi\b/i.test(trimmed)
     ) {
+      if (isAdamLifeWellbeingTurn(userMessage)) {
+        const salvaged = salvageLifeWellbeingParagraph(trimmed);
+        if (salvaged) {
+          kept.push(salvaged);
+          continue;
+        }
+      }
       continue;
     }
     if (
       (tier1BriefEssayStrip || shouldStripKonvensionalFrameworkLeaks(userMessage, recentUserMessages))
       && paragraphIsConstitutionalFrameworkLeak(trimmed)
     ) {
+      if (isAdamLifeWellbeingTurn(userMessage)) {
+        const salvaged = salvageLifeWellbeingParagraph(trimmed);
+        if (salvaged) {
+          kept.push(salvaged);
+          continue;
+        }
+      }
       continue;
     }
     if (

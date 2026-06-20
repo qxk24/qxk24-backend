@@ -152,7 +152,7 @@ export async function getTutorEnrollmentCheckoutQuote(
 ): Promise<TutorCheckoutQuote> {
   const enrollment = await TutorEnrollmentModel.findOne({ userId });
   if (!enrollment) {
-    throw new Error('Sila masukkan kod daftar terlebih dahulu.');
+    throw new Error('Sila masukkan PIN terlebih dahulu.');
   }
 
   if (enrollment.status === TutorEnrollmentStatus.PAID
@@ -161,7 +161,7 @@ export async function getTutorEnrollmentCheckoutQuote(
   }
 
   if (enrollment.status !== TutorEnrollmentStatus.CODE_LOCKED) {
-    throw new Error('Kod daftar tidak sah atau belum dikunci.');
+    throw new Error('PIN tidak sah atau belum dikunci.');
   }
 
   return {
@@ -229,7 +229,7 @@ export async function completeTutorEnrollmentProfile(
 ): Promise<TutorEnrollmentPublic> {
   const enrollment = await TutorEnrollmentModel.findOne({ userId });
   if (!enrollment) {
-    throw new Error('Tiada pendaftaran kod daftar. Sila masukkan kod anda.');
+    throw new Error('Tiada pendaftaran PIN. Sila masukkan PIN anda.');
   }
 
   if (enrollment.status !== TutorEnrollmentStatus.PAID

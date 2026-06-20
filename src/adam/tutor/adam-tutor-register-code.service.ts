@@ -27,6 +27,10 @@ import {
   type ITutorRegisterCode,
 } from './adam-tutor-register-code.schema';
 import { getTutorAgentById } from './adam-tutor-agent.service';
+import {
+  agentPackageEnforced,
+  consumeTutorAgentPins,
+} from './adam-tutor-agent-package.service';
 
 export function newTutorRegisterCodeId(): string {
   return `TUTOR-CODE-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
@@ -47,7 +51,7 @@ export async function allocateTutorRegisterCode(
   const trimmed = preferred ? normalizeRegisterCode(preferred) : '';
   if (trimmed) {
     const taken = await TutorRegisterCodeModel.exists({ registerCode: trimmed });
-    if (taken) throw new Error(`Kod daftar ${trimmed} sudah digunakan.`);
+    if (taken) throw new Error(`PIN ${trimmed} sudah digunakan.`);
     return trimmed;
   }
 
@@ -58,7 +62,7 @@ export async function allocateTutorRegisterCode(
     if (!taken) return code;
   }
 
-  throw new Error('Tidak dapat menjana kod daftar unik.');
+  throw new Error('Tidak dapat menjana PIN unik.');
 }
 
 export interface TutorCodeValidation {
@@ -72,20 +76,20 @@ export interface TutorCodeValidation {
 export async function validateTutorRegisterCode(raw: string): Promise<TutorCodeValidation> {
   const registerCode = normalizeRegisterCode(raw);
   if (registerCode.length < 8) {
-    return { valid: false, error: 'Kod daftar tidak sah.' };
+    return { valid: false, error: 'PIN tidak sah.' };
   }
 
   const doc = await TutorRegisterCodeModel.findOne({ registerCode }).lean();
   if (!doc) {
-    return { valid: false, error: 'Kod daftar tidak dijumpai.' };
+    return { valid: false, error: 'PIN tidak dijumpai.' };
   }
 
   if (doc.status === TutorRegisterCodeStatus.REVOKED) {
-    return { valid: false, error: 'Kod daftar ini telah dibatalkan.' };
+    return { valid: false, error: 'PIN ini telah dibatalkan.' };
   }
 
   if (doc.status === TutorRegisterCodeStatus.REDEEMED) {
-    return { valid: false, error: 'Kod daftar ini sudah digunakan.' };
+    return { valid: false, error: 'PIN ini sudah digunakan. 1 PIN = 1 akaun · tidak boleh dikongsi.' };
   }
 
   return {
@@ -113,7 +117,7 @@ export async function generateTutorRegisterCodes(input: {
   createdBy:   string;
   preferred?:  string;
 }): Promise<ITutorRegisterCode[]> {
-  const count = Math.min(Math.max(input.count, 1), 50);
+  const count = Math.min(Math.max(input.count, 1), 30_000);
   const created: ITutorRegisterCode[] = [];
 
   let agentId: string | null = input.agentId?.trim() || null;
@@ -121,8 +125,20 @@ export async function generateTutorRegisterCodes(input: {
 
   if (agentId) {
     const agent = await getTutorAgentById(agentId);
-    if (!agent) throw new Error('Ejen tidak dijumpai.');
+    if (!agent) throw new Error('Agen not found.');
     agentLabel = agent.orgName;
+
+    if (agentPackageEnforced(agent)) {
+      if (!agent.band) {
+        throw new Error('Agen has not selected a school band (primary/secondary/university).');
+      }
+      if (agent.band !== input.band) {
+        throw new Error(
+          `Band ${TUTOR_REGISTER_BAND_LABELS_BM[input.band]} does not match agen package (${TUTOR_REGISTER_BAND_LABELS_BM[agent.band]}).`,
+        );
+      }
+      await consumeTutorAgentPins(agentId, count);
+    }
   }
 
   for (let i = 0; i < count; i += 1) {
@@ -187,19 +203,19 @@ export async function lockTutorRegisterCode(
   const code = normalizeRegisterCode(registerCode);
   const validation = await validateTutorRegisterCode(code);
   if (!validation.valid || !validation.band) {
-    throw new Error(validation.error ?? 'Kod daftar tidak sah.');
+    throw new Error(validation.error ?? 'PIN tidak sah.');
   }
 
   const doc = await TutorRegisterCodeModel.findOne({ registerCode: code });
-  if (!doc) throw new Error('Kod daftar tidak dijumpai.');
+  if (!doc) throw new Error('PIN tidak dijumpai.');
 
   if (doc.status === TutorRegisterCodeStatus.LOCKED) {
     if (doc.lockedBy === userId) return doc;
-    throw new Error('Kod daftar ini sedang dikunci oleh pelajar lain.');
+    throw new Error('PIN ini sedang digunakan oleh pelajar lain.');
   }
 
   if (doc.status !== TutorRegisterCodeStatus.AVAILABLE) {
-    throw new Error('Kod daftar tidak tersedia.');
+    throw new Error('PIN tidak tersedia.');
   }
 
   doc.status = TutorRegisterCodeStatus.LOCKED;

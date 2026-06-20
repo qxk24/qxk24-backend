@@ -41,7 +41,7 @@ export function isAdamIslamicStudiesTurn(message: string): boolean {
 
 /** Human / physical geography — all regions; Universal Scholar prose channel. */
 const GEOGRAPHY_SUBJECT =
-  /\b(?:geography|geografi|geographic|continent|benua|archipelago|kepulauan|country|countries|negara|nation|capital|ibu\s+kota|river|sungai|fluvial|mountain|gunung|peak|puncak|ocean|laut|sea|tasik|lake|desert|gurun|plateau|tanah\s+tinggi|delta|estuary|kuala|population|penduduk|demographics|border|sempadan|latitude|longitud|hemisphere|hemisfera|time\s+zone|zon\s+waktu|atlas|cartography|topography|climate\s+zone|rainforest|hutan\s+hujan|tundra|savanna|sabana|megacity|bandar\s+raya|urbanization|urbanisasi|migration|migrasi|UNESCO|USGS|longitude|equator|khatulistiwa|meridian)\b/i;
+  /\b(?:geography|geografi|geographic|continent|benua|archipelago|kepulauan|country|countries|negara|nation|capital|ibu\s+kota|ibu\s+negara|river|sungai|fluvial|mountain|gunung|peak|puncak|ocean|laut|laut\s+mati|dead\s+sea|sea|tasik|lake|desert|gurun|plateau|tanah\s+tinggi|delta|estuary|kuala|population|penduduk|demographics|border|sempadan|latitude|longitud|hemisphere|hemisfera|time\s+zone|zon\s+waktu|atlas|cartography|topography|climate\s+zone|rainforest|hutan\s+hujan|tundra|savanna|sabana|megacity|bandar\s+raya|urbanization|urbanisasi|migration|migrasi|UNESCO|USGS|longitude|equator|khatulistiwa|meridian|antartika|antarctica|canberra|australia)\b/i;
 
 const GEOGRAPHY_SUPERLATIVE =
   /\b(?:terpanjang|terpendek|terbesar|tertinggi|terdalam|terluas|paling\s+panjang|paling\s+tinggi|paling\s+besar|longest|shortest|largest|highest|deepest|biggest|tallest|widest|most\s+populous)\b/i;

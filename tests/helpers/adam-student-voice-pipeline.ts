@@ -26,7 +26,9 @@ import { sanitizeSunomVerifiedOutput } from '../../src/adam/adam-sunom-verificat
 import {
   buildStudentGreetingFallback,
   buildStudentGuidedPerspectiveFallback,
+  buildLifeWellbeingVoiceFallback,
   isAdamLightChatTurn,
+  isAdamLifeWellbeingTurn,
   isAdamSubstantiveTurn,
   STUDENT_ENTITY_CORRECTION_FALLBACK,
 } from '../../src/adam/adam-response-generation';
@@ -121,7 +123,11 @@ export async function runStudentVoicePipeline(
     } else if (entityCorrection.isActive) {
       out = STUDENT_ENTITY_CORRECTION_FALLBACK;
     } else if (isAdamSubstantiveTurn(input.userMessage)) {
-      out = buildStudentGuidedPerspectiveFallback(input.userMessage);
+      if (isAdamLifeWellbeingTurn(input.userMessage)) {
+        out = buildLifeWellbeingVoiceFallback(input.userMessage);
+      } else {
+        out = buildStudentGuidedPerspectiveFallback(input.userMessage);
+      }
     }
   }
 

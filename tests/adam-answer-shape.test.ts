@@ -100,6 +100,17 @@ describe('extractComparePair', () => {
       right: 'hukum sivil',
     });
   });
+
+  it('parses terangkan X vs Y without verb in labels', () => {
+    expect(
+      extractComparePair(
+        'Terangkan Teori Bumi Mengelilingi Matahari vs Matahari Mengelilingi Bumi?',
+      ),
+    ).toEqual({
+      left:  'Teori Bumi Mengelilingi Matahari',
+      right: 'Matahari Mengelilingi Bumi',
+    });
+  });
 });
 
 describe('intent detectors', () => {

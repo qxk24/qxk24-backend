@@ -115,7 +115,7 @@ export async function resolveTutorSubscriptionAccess(
       tier:        'NONE',
       tutorLevel:  checkoutLevel,
       code:        'TUTOR_SUBSCRIPTION_REQUIRED',
-      message:     `Langgan ADAM Tutor (${levelLabel}) melalui kod daftar — /adam/tutor/daftar`,
+      message:     `Langgan ADAM Tutor (${levelLabel}) melalui PIN — /adam/tutor/daftar`,
       upgradeUrl:  tutorUpgradeUrl(checkoutLevel),
       monthlyAmount: checkoutPricing.monthly,
       currency:      checkoutPricing.currency,

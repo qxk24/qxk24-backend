@@ -173,6 +173,115 @@ describe('Voice regression — warm tutor passes through', () => {
     expect(out).toMatch(/Allah berfirman/i);
     expectStudentVoiceInvariants(out, { allowFaith: true });
   });
+
+  it('V-S01: Einstein poetic essay → structured physics, not sermon', async () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/einstein-poetic-leak.txt'),
+      'utf8',
+    );
+    const out = await runStudentVoicePipeline({
+      userMessage:    'Berikan penjelasan mengenai formula Albert Einstain?',
+      rawModelOutput: raw,
+    });
+    expectStudentVoiceInvariants(out);
+    expect(out).toMatch(/E\s*=\s*mc/i);
+    expect(out).toMatch(/tenaga|jisim|kelajuan cahaya/i);
+    expect(out).not.toMatch(/renungkan|perjalanan pemikiran|Allah berfirman|Alamtologi|TENAGA dalam/i);
+    expect(out).not.toMatch(/duduk bersama/i);
+    expect(out.length).toBeLessThan(2000);
+  });
+
+  it('V-S02: geocentric vs heliocentric compare → factual structure, not Quran sermon', async () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/heliocentric-poetic-leak.txt'),
+      'utf8',
+    );
+    const out = await runStudentVoicePipeline({
+      userMessage:    'Terangkan Teori Bumi Mengelilingi Matahari vs Matahari Mengelilingi Bumi?',
+      rawModelOutput: raw,
+    });
+    expectStudentVoiceInvariants(out);
+    expect(out).toMatch(/geosentrik|Geosentrik/i);
+    expect(out).toMatch(/heliosentrik|Heliosentrik/i);
+    expect(out).toMatch(/Copernicus|Galileo|Ptolemy/i);
+    expect(out).not.toMatch(/Allah berfirman|Alamtologi|duduk bersama|IIRS|renungkan/i);
+    expect(out).not.toMatch(/bukan soal.*mana yang betul|tahap kebenaran yang berbeza/i);
+    expect(out).toMatch(/###/);
+  });
+
+  it('V-C01: Parlimen komponen — Perkara 44, not cabang kuasa', async () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/parliament-wrong-frame.txt'),
+      'utf8',
+    );
+    const out = await runStudentVoicePipeline({
+      userMessage:    'Nyatakan tiga komponen utama di dalam Sistem Parlimen Malaysia',
+      rawModelOutput: raw,
+    });
+    expectStudentVoiceInvariants(out);
+    expect(out).toMatch(/Yang di-Pertuan Agong|YDPA/i);
+    expect(out).toMatch(/Dewan Rakyat/i);
+    expect(out).toMatch(/Dewan Negara/i);
+    expect(out).not.toMatch(/Tiga cabang kuasa utama|Badan Perundangan.*Eksekutif.*Kehakiman/i);
+    expect(out).toMatch(/Perkara\s+44|Parlimen Malaysia/i);
+  });
+
+  it('V-A01: KBAT acronym — Kemahiran, not Kepimpinan', async () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/kbat-wrong-acronym-leak.txt'),
+      'utf8',
+    );
+    const out = await runStudentVoicePipeline({
+      userMessage:    'Tolong berikan info tentang KBAT?',
+      rawModelOutput: raw,
+    });
+    expectStudentVoiceInvariants(out);
+    expect(out).toMatch(/Kemahiran\s+Berfikir\s+Aras\s+Tinggi/i);
+    expect(out).not.toMatch(/Kepimpinan\s+Berfikir/i);
+  });
+
+  it('V-M02a: Algebra NHS leak stripped — algebra facts kept', async () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/algebra-nhs-leak.txt'),
+      'utf8',
+    );
+    const out = await runStudentVoicePipeline({
+      userMessage:    'Algebra',
+      rawModelOutput: raw,
+      searchUsed:     true,
+    });
+    expectStudentVoiceInvariants(out);
+    expect(out).not.toMatch(/NHS|GP records|IT Skills Pathway|verified via web search/i);
+    expect(out).toMatch(/algebra|matematik|simbol|pembolehubah/i);
+  });
+
+  it('V-GEO02a: Laut Mati Norway leak stripped — geography facts kept', async () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/laut-mati-norway-leak.txt'),
+      'utf8',
+    );
+    const out = await runStudentVoicePipeline({
+      userMessage:    'Laut Mati',
+      rawModelOutput: raw,
+      searchUsed:     true,
+    });
+    expectStudentVoiceInvariants(out);
+    expect(out).not.toMatch(/Norway|lovdata|cookie policy|GDPR consent|verified via web search/i);
+    expect(out).toMatch(/Laut Mati|Jordan|Israel|masin|hipersalin/i);
+  });
+
+  it('V-X01: straight — echo opener stripped, translation kept', async () => {
+    const raw =
+      'Apa itu nama perkataan straight dalam Bahasa Melayu?\n\n'
+      + 'Straight dalam Bahasa Melayu boleh diterjemah sebagai "lurus" — contoh: go straight = terus lurus.';
+    const out = await runStudentVoicePipeline({
+      userMessage:    'straight',
+      rawModelOutput: raw,
+    });
+    expectStudentVoiceInvariants(out);
+    expect(out).not.toMatch(/Apa itu nama/i);
+    expect(out).toMatch(/lurus|terus/i);
+  });
 });
 
 describe('Voice regression — bad voice stripped or repaired', () => {

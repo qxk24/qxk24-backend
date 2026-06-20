@@ -19,6 +19,7 @@ import crypto from 'crypto';
 import { ENV } from '../../config/environments';
 import {
   assertStripeReady,
+  tutorStripePriceId,
   type StripeCheckoutResult,
 } from '../../subscriptions/stripe-gateway.service';
 import { stripeResourceId } from '../../subscriptions/stripe-currency';
@@ -62,14 +63,8 @@ async function stripePost<T>(path: string, params: Record<string, string>): Prom
   return data;
 }
 
-function tutorStripePriceId(level: string): string {
-  const band = normalizeTutorSubscriptionLevel(level);
-  const byLevel = {
-    primary:    ENV.STRIPE_PRICE_ID_TUTOR_PRIMARY_MONTHLY,
-    secondary:  ENV.STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY || ENV.STRIPE_PRICE_ID_TUTOR_MONTHLY,
-    university: ENV.STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY,
-  };
-  return byLevel[band] ?? '';
+function tutorAgentStripePriceId(level: string): string {
+  return tutorStripePriceId(normalizeTutorSubscriptionLevel(level), 'agent');
 }
 
 function newMongoSubscriptionId(): string {
@@ -84,14 +79,14 @@ export async function createTutorRegisterCheckoutSession(input: {
 
   const enrollment = await TutorEnrollmentModel.findOne({ userId: input.userId });
   if (!enrollment) {
-    throw new Error('Sila masukkan kod daftar terlebih dahulu.');
+    throw new Error('Sila masukkan PIN terlebih dahulu.');
   }
   if (enrollment.status !== TutorEnrollmentStatus.CODE_LOCKED) {
-    throw new Error('Kod daftar tidak sedia untuk bayaran.');
+    throw new Error('PIN tidak sedia untuk bayaran.');
   }
 
   const band = normalizeTutorSubscriptionLevel(enrollment.band);
-  const priceId = tutorStripePriceId(band);
+  const priceId = tutorAgentStripePriceId(band);
   if (!priceId) {
     throw new Error(
       'Stripe harga Tutor belum dikonfigurasi. Hubungi pentadbir.',
@@ -206,7 +201,7 @@ export async function activateTutorRegisterFromStripeCheckout(
 export async function simulateTutorRegisterPayment(userId: string): Promise<void> {
   const enrollment = await TutorEnrollmentModel.findOne({ userId });
   if (!enrollment || enrollment.status !== TutorEnrollmentStatus.CODE_LOCKED) {
-    throw new Error('Tiada kod daftar untuk disimulasikan.');
+    throw new Error('Tiada PIN untuk disimulasikan.');
   }
 
   const band = normalizeTutorSubscriptionLevel(enrollment.band);

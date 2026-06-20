@@ -34,6 +34,7 @@ import { isTechnicalPrecisionQuestion } from './adam-universal-voice';
 import { extractDomainsFromMessageUrls, messageAsksRoleAndSkills } from './adam-official-source-enrich';
 import { buildFounderWebSearchPrompt, buildStudentWebSearchPrompt } from './adam-web-search-prompts';
 import { extractDashScopeApiHost, isDashScopeIntlHost } from '../llm/dashscope-search';
+import { isAdamStableCurriculumSearchSkipTurn } from './adam-stable-curriculum-search-gate';
 
 export { ADAM_STUDENT_REPLY_PIPELINE } from './adam-search-first';
 
@@ -292,6 +293,9 @@ export function getWebSearchGateReason(
 
   /** α word-problem arithmetic — no web search (3 epal + 4, jika ada 3 epal, …). */
   if (isAdamSimpleArithmeticTurn(text)) return null;
+
+  /** Stable syllabus + bare topic tokens — no NHS/Norway misroute (Fasa 1). */
+  if (isAdamStableCurriculumSearchSkipTurn(text)) return null;
 
   const brainFirstSkip = !options?.userUmumChannelGate
     && !options?.usersFounderParity

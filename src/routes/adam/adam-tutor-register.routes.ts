@@ -16,13 +16,30 @@
  */
 
 import { Hono } from 'hono';
+import { stream } from 'hono/streaming';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
+import { withSseKeepalive } from '../../adam/adam-sse-keepalive';
+import {
+  runLayerGatePreCheck,
+  streamLayerGateBlockedTurn,
+} from '../../adam-servers/adam-layer-gate.service';
+import { streamADAMChat } from '../../adam/adam-chat.service';
+import { agentMarketingTutorProfile } from '../../adam/tutor/adam-tutor-agent-marketing.constants';
+import {
+  agentDemoDisplayName,
+  assertAgentDemoOwnsSession,
+  createAgentDemoChatSession,
+  listAgentDemoChatSessions,
+  loadAgentDemoChatHistory,
+  resolveAgentDemoChatSession,
+} from '../../adam/tutor/adam-tutor-agent-demo-chat.service';
 import {
   getTokenUser,
   requireAdamUser,
   requireFounderOrPlatformAdmin,
 } from '../../middleware/auth.middleware';
+import { buildTutorAdminDashboardOverview } from '../../adam/tutor/adam-tutor-admin-dashboard.service';
 import { validateTutorRegisterCode } from '../../adam/tutor/adam-tutor-register-code.service';
 import {
   generateTutorRegisterCodes,
@@ -45,26 +62,46 @@ import {
 } from '../../adam/tutor/adam-tutor-register-stripe.service';
 import { getStripeGatewayStatus } from '../../subscriptions/stripe-gateway.service';
 import { ENV } from '../../config/environments';
-import { listTutorRegisterPricing } from '../../adam/tutor/adam-tutor-pricing.service';
-import { getUsdMyrRate } from '../../adam/tutor/adam-usd-myr-rate.service';
-import { TutorRegisterCodeModel } from '../../adam/tutor/adam-tutor-register-code.schema';
+import { TutorAgentModel } from '../../adam/tutor/adam-tutor-agent.schema';
+import { TutorAgentPackageStatus } from '../../adam/tutor/adam-tutor-agent-package.config';
 import {
-  TutorAgentModel,
-  TutorAgentStatus,
-} from '../../adam/tutor/adam-tutor-agent.schema';
+  sendTutorAgentPortalCredentialsEmail,
+  rotateAndEmailTutorAgentPortalCredentials,
+} from '../../adam/tutor/adam-tutor-agent-credentials-email.service';
 import {
-  TutorEnrollmentModel,
-  TutorEnrollmentStatus,
-} from '../../adam/tutor/adam-tutor-enrollment.schema';
+  ensureQaTestAgentPinsMinted,
+  provisionTutorTestAgent,
+} from '../../adam/tutor/adam-tutor-test-agent.service';
 import {
   createTutorAgent,
+  getTutorAgentById,
   getTutorAgentPortalOverview,
   getTutorAgentWallet,
   listTutorAgentStudents,
-  listTutorAgents,
+  listTutorAgentsForAdmin,
   resolveTutorAgent,
 } from '../../adam/tutor/adam-tutor-agent.service';
 import { getTutorAgent, requireTutorAgent } from '../../adam/tutor/adam-tutor-agent-auth.middleware';
+import { MALAYSIA_STATES } from '../../adam/tutor/adam-tutor-agent-identity';
+import {
+  TUTOR_AGENT_PACKAGE_TIERS,
+  listTutorAgentPackageCatalog,
+  type TutorAgentPackageTier,
+} from '../../adam/tutor/adam-tutor-agent-package.config';
+import {
+  activateTutorAgentPackage,
+  requestTutorAgentPackage,
+  serializeAgentPackage,
+} from '../../adam/tutor/adam-tutor-agent-package.service';
+import {
+  createTutorAgentPackageCheckoutSession,
+  simulateTutorAgentPackagePayment,
+  syncTutorAgentPackageFromSession,
+} from '../../adam/tutor/adam-tutor-agent-package-stripe.service';
+import {
+  listAgentAvailableRegisterCodes,
+  sendTutorAgentPinInvite,
+} from '../../adam/tutor/adam-tutor-agent-pin-invite.service';
 
 const router = new Hono();
 
@@ -92,27 +129,80 @@ const ProfileCompleteSchema = z.object({
 
 const AdminGenerateSchema = z.object({
   band:       z.enum(['primary', 'secondary', 'university']),
-  count:      z.number().int().min(1).max(50).optional(),
+  count:      z.number().int().min(1).max(30_000).optional(),
   agentId:    z.string().min(8).max(64).optional(),
   agentLabel: z.string().min(2).max(120).optional(),
   notes:      z.string().max(500).optional(),
   preferred:  z.string().min(8).max(40).optional(),
 });
 
+const MALAYSIA_STATE_ENUM = MALAYSIA_STATES as unknown as [string, ...string[]];
+
 const AdminCreateAgentSchema = z.object({
-  orgName:           z.string().min(2).max(200),
-  contactName:       z.string().min(2).max(120),
-  email:             z.string().email().max(160),
-  phone:             z.string().min(6).max(40).optional(),
-  state:             z.string().min(2).max(80),
-  commissionPercent: z.number().min(0).max(50).optional(),
-  notes:             z.string().max(500).optional(),
+  orgName:             z.string().min(2).max(200),
+  contactName:         z.string().min(2).max(120),
+  email:               z.string().email().max(160),
+  phone:               z.string().min(9).max(40),
+  icNumber:            z.string().min(11).max(20),
+  taxId:               z.string().min(10).max(20),
+  bankName:            z.string().min(2).max(80),
+  bankAccountNumber:   z.string().min(8).max(20),
+  bankAccountHolder:   z.string().min(3).max(120),
+  addressLine1:        z.string().min(5).max(160),
+  addressLine2:        z.string().max(160).optional(),
+  postcode:            z.string().regex(/^\d{5}$/),
+  city:                z.string().min(2).max(80),
+  state:               z.enum(MALAYSIA_STATE_ENUM),
+  band:                z.enum(['primary', 'secondary', 'university']),
+  packageTier:         z.enum(TUTOR_AGENT_PACKAGE_TIERS),
+  commissionPercent:   z.number().min(0).max(50).optional(),
+  notes:               z.string().max(500).optional(),
+});
+
+const AdminTestAgentSchema = z.object({
+  email:       z.string().email().max(200),
+  orgName:     z.string().min(2).max(120).optional(),
+  contactName: z.string().min(2).max(80).optional(),
+  sendEmail:   z.boolean().optional(),
+});
+
+const AgentSelfRegisterSchema = AdminCreateAgentSchema.omit({
+  commissionPercent: true,
+  notes:             true,
+});
+
+const AgentPackageRequestSchema = z.object({
+  band: z.enum(['primary', 'secondary', 'university']),
+  tier: z.enum(TUTOR_AGENT_PACKAGE_TIERS),
+});
+
+const AdminActivatePackageSchema = z.object({
+  band: z.enum(['primary', 'secondary', 'university']),
+  tier: z.enum(TUTOR_AGENT_PACKAGE_TIERS),
 });
 
 const AgentLoginSchema = z.object({
   agentCode:   z.string().min(8).max(40),
   portalToken: z.string().min(16).max(128),
 });
+
+const AgentPinEmailSchema = z.object({
+  registerCode: z.string().min(6).max(40),
+  studentEmail: z.string().email().max(200),
+  studentName:  z.string().max(80).optional(),
+});
+
+const AgentRegisterCompleteSchema = z.object({
+  sessionId: z.string().min(8).max(200),
+});
+
+const AgentDemoChatSchema = z.object({
+  sessionId: z.string().optional(),
+  message:   z.string().max(100_000).optional(),
+}).refine(
+  (d) => (d.message?.trim()?.length ?? 0) > 0,
+  { message: 'Provide a message.' },
+);
 
 const AdminListSchema = z.object({
   band:   z.enum(['primary', 'secondary', 'university']).optional(),
@@ -125,6 +215,131 @@ function userId(c: { get: (key: string) => unknown }): string {
   if (!user?.userId) throw new Error('User ID missing from token.');
   return user.userId;
 }
+
+// POST /api/adam/tutor/agent/register — public self-registration → Stripe checkout
+router.post('/agent/register', zValidator('json', AgentSelfRegisterSchema), async (c) => {
+  try {
+    const body = c.req.valid('json');
+    const existing = await TutorAgentModel.findOne({ email: body.email.trim().toLowerCase() });
+    if (existing) {
+      return c.json({
+        success: false,
+        error:   'Email already registered. Sign in at the agen portal if you already have credentials.',
+        kernel:  'ALAMTOLOGI',
+      }, 409);
+    }
+
+    const agent = await createTutorAgent({
+      ...body,
+      createdBy: 'agent-self-register',
+    });
+
+    const stripe = getStripeGatewayStatus();
+    const registerCheckoutPaths = {
+      successPath: '/adam/tutor/agen/daftar/complete?session_id={CHECKOUT_SESSION_ID}',
+      cancelPath:  '/adam/tutor/agen/daftar?cancelled=1',
+    };
+
+    if (!stripe.configured && ENV.NODE_ENV !== 'production') {
+      const updated = await simulateTutorAgentPackagePayment(agent, {
+        band: body.band,
+        tier: body.packageTier,
+      });
+      const mail = await sendTutorAgentPortalCredentialsEmail(updated);
+      return c.json({
+        success: true,
+        kernel:  'ALAMTOLOGI',
+        data:    {
+          simulated:   true,
+          orgName:       updated.orgName,
+          agentCode:     updated.agentCode,
+          portalToken:   updated.portalToken,
+          pinBalance:    updated.pinBalance,
+          packageStatus: updated.packageStatus,
+          credentialsEmailSent: mail.sent,
+          message:       mail.sent
+            ? 'Package activated (dev simulation). Credentials emailed and shown below.'
+            : 'Package activated (dev simulation). Save your agen code and portal token below.',
+        },
+        timestamp: new Date().toISOString(),
+      }, 201);
+    }
+
+    const checkout = await createTutorAgentPackageCheckoutSession(agent, registerCheckoutPaths);
+
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    {
+        orgName:     agent.orgName,
+        checkoutUrl: checkout.checkoutUrl,
+        totalMyr:    checkout.totalMyr,
+        pinCount:    checkout.pinCount,
+        message:     'Continue to payment. Your agen code and portal token are issued after successful payment.',
+      },
+      timestamp: new Date().toISOString(),
+    }, 201);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Agen registration failed.';
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+  }
+});
+
+// POST /api/adam/tutor/agent/register/complete — public; reveal credentials after Stripe payment
+router.post('/agent/register/complete', zValidator('json', AgentRegisterCompleteSchema), async (c) => {
+  try {
+    const { sessionId } = c.req.valid('json');
+    if (!ENV.STRIPE_SECRET_KEY) {
+      return c.json({
+        success: false,
+        error:   'Payment verification is not configured.',
+        kernel:  'ALAMTOLOGI',
+      }, 503);
+    }
+
+    const session = await fetch(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`, {
+      headers: { Authorization: `Bearer ${ENV.STRIPE_SECRET_KEY}` },
+    }).then((r) => r.json() as Promise<Record<string, unknown>>);
+
+    const meta = session.metadata as Record<string, string> | undefined;
+    if (meta?.checkoutType !== 'tutor_agent_package' || !meta.agentId) {
+      return c.json({ success: false, error: 'Invalid checkout session.', kernel: 'ALAMTOLOGI' }, 400);
+    }
+
+    if (session.payment_status !== 'paid') {
+      return c.json({ success: false, error: 'Payment not completed yet.', kernel: 'ALAMTOLOGI' }, 402);
+    }
+
+    await syncTutorAgentPackageFromSession(meta.agentId, sessionId);
+
+    const agent = await TutorAgentModel.findOne({ agentId: meta.agentId });
+    if (!agent || agent.packageStatus !== TutorAgentPackageStatus.ACTIVE) {
+      return c.json({ success: false, error: 'Package activation failed.', kernel: 'ALAMTOLOGI' }, 400);
+    }
+
+    const mail = await sendTutorAgentPortalCredentialsEmail(agent);
+
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    {
+        orgName:       agent.orgName,
+        agentCode:     agent.agentCode,
+        portalToken:   agent.portalToken,
+        pinBalance:    agent.pinBalance,
+        packageStatus: agent.packageStatus,
+        credentialsEmailSent: mail.sent,
+        message:       mail.sent
+          ? `Payment successful. Credentials emailed to ${mail.email}. Copy them below as backup.`
+          : 'Payment successful. Save your agen code and portal token — they are shown once.',
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Failed to complete registration.';
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+  }
+});
 
 // POST /api/adam/tutor/register/code/validate — public; no fee disclosed
 router.post('/register/code/validate', zValidator('json', CodeValidateSchema), async (c) => {
@@ -171,11 +386,11 @@ router.post('/register/code/lock', requireAdamUser, zValidator('json', CodeLockS
       success: true,
       kernel:  'ALAMTOLOGI',
       data:    { enrollment },
-      message: 'Kod daftar disahkan. Teruskan ke bayaran.',
+      message: 'PIN disahkan. Teruskan ke bayaran.',
       timestamp: new Date().toISOString(),
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Kod daftar gagal.';
+    const msg = err instanceof Error ? err.message : 'PIN gagal.';
     return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
   }
 });
@@ -270,76 +485,15 @@ router.post('/register/complete', requireAdamUser, zValidator('json', ProfileCom
 
 // GET /api/adam/tutor/admin/overview — founder dashboard stats + pricing
 router.get('/admin/overview', requireFounderOrPlatformAdmin, async (c) => {
-  const [
-    available,
-    locked,
-    redeemed,
-    revoked,
-    pricing,
-    fx,
-    agentsActive,
-    enrollCodeLocked,
-    enrollPaid,
-    enrollComplete,
-    recentEnrollments,
-  ] = await Promise.all([
-    TutorRegisterCodeModel.countDocuments({ status: TutorRegisterCodeStatus.AVAILABLE }),
-    TutorRegisterCodeModel.countDocuments({ status: TutorRegisterCodeStatus.LOCKED }),
-    TutorRegisterCodeModel.countDocuments({ status: TutorRegisterCodeStatus.REDEEMED }),
-    TutorRegisterCodeModel.countDocuments({ status: TutorRegisterCodeStatus.REVOKED }),
-    listTutorRegisterPricing(),
-    getUsdMyrRate(),
-    TutorAgentModel.countDocuments({ status: TutorAgentStatus.ACTIVE }),
-    TutorEnrollmentModel.countDocuments({ status: TutorEnrollmentStatus.CODE_LOCKED }),
-    TutorEnrollmentModel.countDocuments({ status: TutorEnrollmentStatus.PAID }),
-    TutorEnrollmentModel.countDocuments({ status: TutorEnrollmentStatus.COMPLETE }),
-    TutorEnrollmentModel.find()
-      .sort({ updatedAt: -1 })
-      .limit(10)
-      .lean(),
-  ]);
-
+  const data = await buildTutorAdminDashboardOverview();
   return c.json({
     success: true,
     kernel:  'ALAMTOLOGI',
     data:    {
-      pricing,
-      fx: {
-        usdMyrRate: fx.rate,
-        source:     fx.source,
-        fetchedAt:  fx.fetchedAt,
-        provider:   fx.provider,
-      },
-      stats: {
-        available,
-        locked,
-        redeemed,
-        revoked,
-        total: available + locked + redeemed + revoked,
-      },
-      enrollments: {
-        code_locked: enrollCodeLocked,
-        paid:        enrollPaid,
-        complete:    enrollComplete,
-        total:       enrollCodeLocked + enrollPaid + enrollComplete,
-      },
-      agentsActive,
-      recentEnrollments: recentEnrollments.map((row) => ({
-        enrollmentId: row.enrollmentId,
-        studentName:    row.studentName,
-        schoolName:     row.schoolName,
-        state:          row.state,
-        band:           row.band,
-        status:         row.status,
-        agentLabel:     row.agentLabel,
-        registerCode:   row.registerCode,
-        updatedAt:      row.updatedAt instanceof Date
-          ? row.updatedAt.toISOString()
-          : String(row.updatedAt ?? ''),
-      })),
-      phase: 'MY',
+      ...data,
+      agentsActive: data.agents.active,
     },
-    timestamp: new Date().toISOString(),
+    timestamp: data.generatedAt,
   });
 });
 
@@ -393,7 +547,7 @@ router.post('/admin/codes/generate', requireFounderOrPlatformAdmin, zValidator('
           createdAt:    doc.createdAt,
         })),
       },
-      message: `${codes.length} kod daftar dijana.`,
+      message: `${codes.length} PIN dijana.`,
       timestamp: new Date().toISOString(),
     }, 201);
   } catch (err: unknown) {
@@ -416,60 +570,156 @@ router.post('/admin/codes/revoke', requireFounderOrPlatformAdmin, zValidator('js
 
 // GET /api/adam/tutor/admin/agents — founder
 router.get('/admin/agents', requireFounderOrPlatformAdmin, async (c) => {
-  const agents = await listTutorAgents();
+  const agents = await listTutorAgentsForAdmin();
   return c.json({
     success: true,
     kernel:  'ALAMTOLOGI',
-    data:    {
-      agents: agents.map((a) => ({
-        agentId:           a.agentId,
-        agentCode:         a.agentCode,
-        orgName:           a.orgName,
-        contactName:       a.contactName,
-        email:             a.email,
-        state:             a.state,
-        commissionPercent: a.commissionPercent,
-        walletBalanceMyr:  a.walletBalanceMyr,
-        status:            a.status,
-        createdAt:         a.createdAt,
-      })),
-    },
+    data:    { agents },
     timestamp: new Date().toISOString(),
   });
 });
 
-// POST /api/adam/tutor/admin/agents — founder create agent
-router.post('/admin/agents', requireFounderOrPlatformAdmin, zValidator('json', AdminCreateAgentSchema), async (c) => {
-  try {
-    const body = c.req.valid('json');
-    const founder = getTokenUser(c)!;
-    const agent = await createTutorAgent({
-      ...body,
-      createdBy: founder.userId,
-    });
-    return c.json({
-      success: true,
-      kernel:  'ALAMTOLOGI',
-      data:    {
-        agent: {
-          agentId:           agent.agentId,
-          agentCode:         agent.agentCode,
-          portalToken:       agent.portalToken,
-          orgName:           agent.orgName,
-          contactName:       agent.contactName,
-          email:             agent.email,
-          state:             agent.state,
-          commissionPercent: agent.commissionPercent,
-          walletBalanceMyr:  agent.walletBalanceMyr,
+// POST /api/adam/tutor/admin/agents — disabled; agen self-register at /adam/tutor/agen/daftar
+router.post('/admin/agents', requireFounderOrPlatformAdmin, async (c) => {
+  return c.json({
+    success: false,
+    error:   'Admin cannot create agen accounts. Agen register and pay at /adam/tutor/agen/daftar.',
+    kernel:  'ALAMTOLOGI',
+  }, 403);
+});
+
+// POST /api/adam/tutor/admin/agents/:agentId/activate-package — founder marks package paid
+router.post(
+  '/admin/agents/:agentId/activate-package',
+  requireFounderOrPlatformAdmin,
+  zValidator('json', AdminActivatePackageSchema),
+  async (c) => {
+    try {
+      const founder = getTokenUser(c)!;
+      const agentId = c.req.param('agentId');
+      const body = c.req.valid('json');
+      const agent = await activateTutorAgentPackage(agentId, {
+        band:        body.band,
+        tier:        body.tier,
+        activatedBy: founder.userId,
+      });
+      return c.json({
+        success: true,
+        kernel:  'ALAMTOLOGI',
+        data:    { agent: { agentId: agent.agentId, ...serializeAgentPackage(agent) } },
+        message: `Pakej ${body.tier} diaktifkan — ${agent.pinBalance} PIN tersedia.`,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal mengaktifkan pakej.';
+      return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+    }
+  },
+);
+
+// POST /api/adam/tutor/admin/agents/test-account — create or refresh QA test agen
+router.post(
+  '/admin/agents/test-account',
+  requireFounderOrPlatformAdmin,
+  zValidator('json', AdminTestAgentSchema),
+  async (c) => {
+    try {
+      const founder = getTokenUser(c)!;
+      const body = c.req.valid('json');
+      const result = await provisionTutorTestAgent({
+        email:       body.email,
+        orgName:     body.orgName,
+        contactName: body.contactName,
+        activatedBy: founder.userId,
+        sendEmail:   body.sendEmail,
+      });
+      const action = result.created ? 'created' : 'refreshed';
+      return c.json({
+        success: true,
+        kernel:  'ALAMTOLOGI',
+        data:    result,
+        message: result.credentialsEmailSent
+          ? `QA test agen ${action}. Credentials emailed to ${result.email}.`
+          : `QA test agen ${action}. Copy credentials below — email was not sent.`,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to provision QA test agen.';
+      return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+    }
+  },
+);
+
+// POST /api/adam/tutor/admin/agents/:agentId/send-credentials — email portal token (resets token)
+router.post(
+  '/admin/agents/:agentId/send-credentials',
+  requireFounderOrPlatformAdmin,
+  async (c) => {
+    try {
+      const agentId = c.req.param('agentId');
+      if (!agentId) {
+        return c.json({ success: false, error: 'Agent ID diperlukan.', kernel: 'ALAMTOLOGI' }, 400);
+      }
+      const agent = await getTutorAgentById(agentId);
+      if (!agent) {
+        return c.json({ success: false, error: 'Agen not found.', kernel: 'ALAMTOLOGI' }, 404);
+      }
+
+      const result = await rotateAndEmailTutorAgentPortalCredentials(agent);
+
+      return c.json({
+        success: true,
+        kernel:  'ALAMTOLOGI',
+        data:    {
+          agentId:   result.agent.agentId,
+          agentCode: result.agent.agentCode,
+          email:     result.email,
         },
-      },
-      message: 'Ejen dicipta. Kongsi kod ejen + token portal untuk log masuk dashboard.',
-      timestamp: new Date().toISOString(),
-    }, 201);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Gagal mencipta ejen.';
-    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+        message: `Portal credentials emailed to ${result.email}. Previous portal token no longer works.`,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to email portal credentials.';
+      return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+    }
+  },
+);
+
+// GET /api/adam/tutor/admin/agents/:agentId/students — founder
+router.get('/admin/agents/:agentId/students', requireFounderOrPlatformAdmin, async (c) => {
+  const agentId = c.req.param('agentId');
+  if (!agentId) {
+    return c.json({ success: false, error: 'Agent ID diperlukan.', kernel: 'ALAMTOLOGI' }, 400);
   }
+  const agent = await getTutorAgentById(agentId);
+  if (!agent) {
+    return c.json({ success: false, error: 'Agen not found.', kernel: 'ALAMTOLOGI' }, 404);
+  }
+  const students = await listTutorAgentStudents(agentId);
+  return c.json({
+    success: true,
+    kernel:  'ALAMTOLOGI',
+    data:    { students, total: students.length },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /api/adam/tutor/admin/agents/:agentId/wallet — founder
+router.get('/admin/agents/:agentId/wallet', requireFounderOrPlatformAdmin, async (c) => {
+  const agentId = c.req.param('agentId');
+  if (!agentId) {
+    return c.json({ success: false, error: 'Agent ID diperlukan.', kernel: 'ALAMTOLOGI' }, 400);
+  }
+  const wallet = await getTutorAgentWallet(agentId);
+  if (!wallet) {
+    return c.json({ success: false, error: 'Agen not found.', kernel: 'ALAMTOLOGI' }, 404);
+  }
+  return c.json({
+    success: true,
+    kernel:  'ALAMTOLOGI',
+    data:    { wallet },
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // POST /api/adam/tutor/agent/portal/login
@@ -477,9 +727,10 @@ router.post('/agent/portal/login', zValidator('json', AgentLoginSchema), async (
   const { agentCode, portalToken } = c.req.valid('json');
   const agent = await resolveTutorAgent(agentCode, portalToken);
   if (!agent || agent.status !== 'active') {
-    return c.json({ success: false, error: 'Kelayakan ejen tidak sah.', kernel: 'ALAMTOLOGI' }, 403);
+    return c.json({ success: false, error: 'Invalid agen credentials.', kernel: 'ALAMTOLOGI' }, 403);
   }
-  const overview = await getTutorAgentPortalOverview(agent);
+  const ready = await ensureQaTestAgentPinsMinted(agent, 'portal:auto-mint');
+  const overview = await getTutorAgentPortalOverview(ready);
   return c.json({
     success: true,
     kernel:  'ALAMTOLOGI',
@@ -491,11 +742,117 @@ router.post('/agent/portal/login', zValidator('json', AgentLoginSchema), async (
 // GET /api/adam/tutor/agent/portal/overview
 router.get('/agent/portal/overview', requireTutorAgent, async (c) => {
   const agent = getTutorAgent(c)!;
-  const overview = await getTutorAgentPortalOverview(agent);
+  const ready = await ensureQaTestAgentPinsMinted(agent, 'portal:auto-mint');
+  const overview = await getTutorAgentPortalOverview(ready);
   return c.json({
     success: true,
     kernel:  'ALAMTOLOGI',
     data:    { overview },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /api/adam/tutor/agent/portal/packages — full catalog (all bands)
+router.get('/agent/portal/packages', requireTutorAgent, async (c) => {
+  const agent = getTutorAgent(c)!;
+  return c.json({
+    success: true,
+    kernel:  'ALAMTOLOGI',
+    data:    {
+      catalog: listTutorAgentPackageCatalog(),
+      agent:   serializeAgentPackage(agent),
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// POST /api/adam/tutor/agent/portal/package/request — agent selects band + tier (pending payment)
+router.post(
+  '/agent/portal/package/request',
+  requireTutorAgent,
+  zValidator('json', AgentPackageRequestSchema),
+  async (c) => {
+    try {
+      const agent = getTutorAgent(c)!;
+      const body = c.req.valid('json');
+      const updated = await requestTutorAgentPackage(agent, {
+        band: body.band,
+        tier: body.tier,
+      });
+      const quote = serializeAgentPackage(updated).packageQuote;
+      return c.json({
+        success: true,
+        kernel:  'ALAMTOLOGI',
+        data:    { agent: serializeAgentPackage(updated), quote },
+        message: `Pakej ${quote?.tierLabel ?? body.tier} dipilih — RM${quote?.totalMyr.toFixed(2) ?? '?'}. Teruskan bayaran Stripe.`,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal memilih pakej.';
+      return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+    }
+  },
+);
+
+// POST /api/adam/tutor/agent/portal/package/checkout — Stripe MYR one-time
+router.post('/agent/portal/package/checkout', requireTutorAgent, async (c) => {
+  try {
+    const agent = getTutorAgent(c)!;
+    const stripe = getStripeGatewayStatus();
+
+    if (!agent.band || !agent.packageTier) {
+      return c.json({
+        success: false,
+        error:   'Pilih pakej (kategori + tier) dahulu.',
+        kernel:  'ALAMTOLOGI',
+      }, 400);
+    }
+
+    if (!stripe.configured && ENV.NODE_ENV !== 'production') {
+      const updated = await simulateTutorAgentPackagePayment(agent, {
+        band: agent.band,
+        tier: agent.packageTier as TutorAgentPackageTier,
+      });
+      const overview = await getTutorAgentPortalOverview(updated);
+      return c.json({
+        success: true,
+        kernel:  'ALAMTOLOGI',
+        data:    { simulated: true, overview, agent: serializeAgentPackage(updated) },
+        message: 'Bayaran pakej simulasi (dev). PIN telah dikredit.',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    const result = await createTutorAgentPackageCheckoutSession(agent);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    result,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Checkout gagal.';
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+  }
+});
+
+// POST /api/adam/tutor/agent/portal/package/sync-payment — after Stripe return
+router.post('/agent/portal/package/sync-payment', requireTutorAgent, async (c) => {
+  const agent = getTutorAgent(c)!;
+  const body = await c.req.json().catch(() => ({})) as { sessionId?: string };
+  const sessionId = body.sessionId?.trim();
+  if (!sessionId) {
+    return c.json({ success: false, error: 'sessionId required.', kernel: 'ALAMTOLOGI' }, 400);
+  }
+
+  const ok = await syncTutorAgentPackageFromSession(agent.agentId, sessionId);
+  const refreshed = await getTutorAgentById(agent.agentId);
+  const overview = await getTutorAgentPortalOverview(refreshed ?? agent);
+
+  return c.json({
+    success: ok,
+    kernel:  'ALAMTOLOGI',
+    data:    { paid: ok, overview },
     timestamp: new Date().toISOString(),
   });
 });
@@ -521,6 +878,135 @@ router.get('/agent/portal/wallet', requireTutorAgent, async (c) => {
     kernel:  'ALAMTOLOGI',
     data:    { wallet },
     timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /api/adam/tutor/agent/portal/codes — available PINs for email invite
+router.get('/agent/portal/codes', requireTutorAgent, async (c) => {
+  const agent = getTutorAgent(c)!;
+  const ready = await ensureQaTestAgentPinsMinted(agent, 'portal:auto-mint');
+  const codes = await listAgentAvailableRegisterCodes(ready.agentId);
+  return c.json({
+    success: true,
+    kernel:  'ALAMTOLOGI',
+    data:    { codes, total: codes.length },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// POST /api/adam/tutor/agent/portal/codes/send-email — email PIN to student
+router.post(
+  '/agent/portal/codes/send-email',
+  requireTutorAgent,
+  zValidator('json', AgentPinEmailSchema),
+  async (c) => {
+    try {
+      const agent = getTutorAgent(c)!;
+      const body = c.req.valid('json');
+      const result = await sendTutorAgentPinInvite(agent, body);
+      return c.json({
+        success: true,
+        kernel:  'ALAMTOLOGI',
+        data:    result,
+        message: `PIN emailed to ${result.studentEmail}.`,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to send PIN email.';
+      return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+    }
+  },
+);
+
+// POST /api/adam/tutor/agent/portal/demo/chat/sessions — new demo thread
+router.post('/agent/portal/demo/chat/sessions', requireTutorAgent, async (c) => {
+  const agent = getTutorAgent(c)!;
+  const sessionId = await createAgentDemoChatSession(agent);
+  return c.json({
+    success: true,
+    kernel:  'ALAMTOLOGI',
+    data:    { sessionId },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /api/adam/tutor/agent/portal/demo/chat/sessions
+router.get('/agent/portal/demo/chat/sessions', requireTutorAgent, async (c) => {
+  const agent = getTutorAgent(c)!;
+  const sessions = await listAgentDemoChatSessions(agent);
+  return c.json({
+    success: true,
+    kernel:  'ALAMTOLOGI',
+    data:    { sessions },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /api/adam/tutor/agent/portal/demo/chat/history/:sessionId
+router.get('/agent/portal/demo/chat/history/:sessionId', requireTutorAgent, async (c) => {
+  const agent = getTutorAgent(c)!;
+  const sessionId = c.req.param('sessionId') ?? '';
+  try {
+    const messages = await loadAgentDemoChatHistory(agent, sessionId);
+    return c.json({ success: true, kernel: 'ALAMTOLOGI', data: { messages, sessionId } });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'History unavailable.';
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 403);
+  }
+});
+
+// POST /api/adam/tutor/agent/portal/demo/chat — SSE; unlimited all-band tutor demo
+router.post('/agent/portal/demo/chat', requireTutorAgent, zValidator('json', AgentDemoChatSchema), async (c) => {
+  const agent = getTutorAgent(c)!;
+  const body = c.req.valid('json');
+  let sessionId = body.sessionId;
+  if (!sessionId) sessionId = await resolveAgentDemoChatSession(agent);
+
+  const message = body.message?.trim() ?? '';
+  const displayName = agentDemoDisplayName(agent);
+  const tutorProfile = agentMarketingTutorProfile();
+
+  c.header('Content-Type', 'text/event-stream');
+  c.header('Cache-Control', 'no-cache');
+  c.header('Connection', 'keep-alive');
+
+  return stream(c, async (s) => {
+    try {
+      if (message) {
+        const layerGate = await runLayerGatePreCheck({
+          userId:    agent.agentId,
+          message,
+          mode:      'TUTOR',
+          isFounder: false,
+          userName:  displayName,
+        });
+        if (!layerGate.allowed) {
+          await streamLayerGateBlockedTurn(s, sessionId!, layerGate);
+          return;
+        }
+      }
+
+      await withSseKeepalive(s, () =>
+        streamADAMChat(
+          sessionId!,
+          message,
+          'TUTOR',
+          async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
+          [],
+          {
+            userId:      agent.agentId,
+            userName:    displayName,
+            role:        'student',
+            sessionType: 'tutor',
+          },
+          { tutorProfile },
+        ),
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'ADAM stream failed';
+      await s.write(`event: adam_error\ndata: ${JSON.stringify({ error: msg })}\n\n`);
+    }
+    await s.write('event: adam_done\ndata: {}\n\n');
   });
 });
 

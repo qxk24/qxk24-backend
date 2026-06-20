@@ -10,6 +10,10 @@ import {
   buildTutorMalayFollowUpRecovery,
   enforceTutorReplyGuards,
   enforceTutorSessionLanguage,
+  shouldIncludeTutorTeacherIntro,
+  stripRepeatedTutorTeacherIntro,
+  studentDemandsTutorDirectAnswer,
+  tutorReplyHasTeacherIntro,
   tutorReplyIsPredominantlyEnglish,
 } from '../src/adam/adam-tutor-law';
 import type { AdamTutorProfile } from '../src/adam/adam-tutor-law';
@@ -29,6 +33,62 @@ Would you like to:
 * Or relate it to Alamtologi concepts you're studying, like AMA 124(1), TAJU, or the cube (6 faces)?
 
 Let me know, and I'll guide you step by step. You do the thinking; I hold the light.`;
+
+const malayIntroReply =
+  `Salam, Ali. Saya Cikgu ADAM. Saya akan bimbing anda sampai faham — saya tidak akan beri jawapan siap; anda perlu buat latihan sendiri.
+
+Berapa **5 + 7** di tempat Sa?
+→ ______`;
+
+const malayTeachingOnly =
+  `Bagus, Ali. Mari kita semak tempat **Sa** sahaja.
+Berapa **5 + 7**? Tulis digit di baris:
+→ ______`;
+
+describe('tutor teacher intro repetition', () => {
+  it('detects student demanding a finished answer', () => {
+    expect(studentDemandsTutorDirectAnswer('Beri jawapan siap terus')).toBe(true);
+    expect(studentDemandsTutorDirectAnswer('just give me the answer')).toBe(true);
+    expect(studentDemandsTutorDirectAnswer('5 + 7 = ?')).toBe(false);
+  });
+
+  it('allows intro on first assistant turn only', () => {
+    expect(shouldIncludeTutorTeacherIntro('5 + 7 = ?', [], malayProfile)).toBe(true);
+    expect(
+      shouldIncludeTutorTeacherIntro(
+        '5 + 7 = ?',
+        [malayIntroReply],
+        malayProfile,
+      ),
+    ).toBe(false);
+    expect(
+      shouldIncludeTutorTeacherIntro(
+        'Beri jawapan siap',
+        [malayTeachingOnly],
+        malayProfile,
+      ),
+    ).toBe(true);
+  });
+
+  it('strips repeated full intro from later teaching turns', () => {
+    const stripped = stripRepeatedTutorTeacherIntro(malayIntroReply, malayProfile);
+    expect(stripped).not.toMatch(/Saya Cikgu ADAM/i);
+    expect(stripped).toMatch(/5 \+ 7/);
+    expect(tutorReplyHasTeacherIntro(malayIntroReply, malayProfile)).toBe(true);
+  });
+
+  it('enforceTutorReplyGuards removes intro when session already started', () => {
+    const out = enforceTutorReplyGuards(
+      malayIntroReply,
+      malayProfile,
+      '12',
+      'Ali Ahmad',
+      [malayIntroReply],
+    );
+    expect(out).not.toMatch(/Saya Cikgu ADAM/i);
+    expect(out).toMatch(/5 \+ 7/);
+  });
+});
 
 describe('enforceTutorSessionLanguage', () => {
   it('replaces English + Alamtologi menu with Malay recovery for numeric input', () => {

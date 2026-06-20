@@ -77,6 +77,8 @@ export function isAdamSimpleFactualTurn(message: string): boolean {
   if (t.length > 160) return false;
   if (/\bcampur\s+tangan\b/i.test(t)) return false;
   if (/\bapakah\s+kesan\b/i.test(t)) return false;
+  if (/\b(?:penjelasan|jelaskan|terangkan|huraikan|explain)\b/i.test(t)) return false;
+  if (isAdamPhysicsConceptTeachingTurn(t)) return false;
   if (isAdamTeachingDepthTurn(t) || isAdamContinuationDepthTurn(t)) return false;
   return SIMPLE_FACTUAL_ASK.test(t) || isAdamSimpleArithmeticTurn(t);
 }
@@ -247,7 +249,7 @@ export function isAdamUserGuidanceCoachingTurn(message: string): boolean {
 
 /** Student asked to understand something — any subject; no topic catalog. */
 const TEACHING_DEPTH_ASK =
-  /\b(?:terangkan|jelaskan|huraikan|explain|describe|what\s+is|apa\s+itu|apa\s+ialah|kenapa|mengapa|why|how\s+does|bagaimana|bezakan|banding|compare|ceritakan|tell\s+me\s+about|apa[kk]?\s+punca|apakah\s+punca|apakah\s+peranan|what\s+is\s+the\s+role|why\s+(?:do|does)|what\s+(?:causes|cause)|bagaimana\s+(?:berlaku|terjadi|proses|sistem|badan|tubuh)|how\s+does\s+.+\s+(?:happen|occur|work)|berapa\s+lama|berapa\s+masa|berapa\s+hari|berapa\s+minggu|berapa\s+tahun)\b/i;
+  /\b(?:terangkan|jelaskan|huraikan|penjelasan|berikan\s+penjelasan|explain|describe|what\s+is|apa\s+itu|apa\s+ialah|kenapa|mengapa|why|how\s+does|bagaimana|bezakan|banding|compare|ceritakan|tell\s+me\s+about|apa[kk]?\s+punca|apakah\s+punca|apakah\s+peranan|what\s+is\s+the\s+role|why\s+(?:do|does)|what\s+(?:causes|cause)|bagaimana\s+(?:berlaku|terjadi|proses|sistem|badan|tubuh)|how\s+does\s+.+\s+(?:happen|occur|work)|berapa\s+lama|berapa\s+masa|berapa\s+hari|berapa\s+minggu|berapa\s+tahun|mengenai\s+formula|tentang\s+formula|about\s+the\s+formula)\b/i;
 
 /** Konvensional concept depth — economics, markets (no "apa itu" prefix required). */
 const KONVENSIONAL_CONCEPT_DEPTH_SUBJECT =
@@ -503,9 +505,19 @@ export function isAdamAlgorithmTeachingTurn(message: string): boolean {
   return ALGORITHM_TEACHING_ASK.test(t);
 }
 
+/** Physics / formula concept teaching — structured lecture, not simple factual. */
+const PHYSICS_CONCEPT_SUBJECT =
+  /\b(?:einstein|einstain|e\s*=\s*mc|mc²|mc2|formula\s+(?:einstein|relativiti)|persamaan\s+(?:einstein|relativiti)|relativiti\s+(?:khas|umum|einstein)|dilatasi\s+masa|pengecutan\s+panjang|persamaan\s+medan)\b/i;
+
+export function isAdamPhysicsConceptTeachingTurn(message: string): boolean {
+  const t = message.trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  return PHYSICS_CONCEPT_SUBJECT.test(t);
+}
+
 /** Science / nature / school physics-chemistry — tier-1 konvensional strip (no Alamtologi billboards). */
 const SCIENCE_NATURE_SYNTHESIS_ASK =
-  /\b(?:bumi|earth|bulat|flat|rata|geoid|graviti|gravity|orbit|bentuk|planet|gerhana|eclipse|magellan|NASA|ESA|JAXA|angkasa|cuaca|iklim|fotosintesis|photosynthesis|evolusi|evolution|diabetes|insulin|remission|saintifik|science|universe|alam\s+semesta|kosmos|relativiti|kuantum|black\s+hole|lubang\s+hitam|teori\s+(?:bumi|earth|rata|flat)|ais|ice|peleburan|mencair|melting|membeku|freeze|wap|steam|sublim|fasa|phase\s+change|titik\s+lebur|titik\s+didih|boiling|molekul|atom|tenaga\s+haba|heat\s+energy|pepejal|cecair|sains\s+fizikal|physics|kimia|chemistry|asid|bes|alkali|acid|base|peneutralan|neutralis|neutralization|larutan|ion\s+hidrogen|hidroksida|ph\b|skala\s+ph|newton|inersia|inertia|hukum\s+(?:newton|gerak)|momentum|daya|kelajuan|halaju|gerakan|motion|kelajuan\s+seragam|imun|immune|immunity|patogen|pathogen|antibod|antigen|vaksin|vaccin|virus|bakteria|bacteria|biologi|biology|sel\s+t|sel\s+b|limfa|lymph|tindak\s+balas|antibiotik|sistem\s+imun|immune\s+system|adaptif|adaptive|innate|bawaan|makrofag|dendritik|sitokin|antibodi)\b/i;
+  /\b(?:bumi|earth|bulat|flat|rata|geoid|graviti|gravity|orbit|bentuk|planet|gerhana|eclipse|magellan|NASA|ESA|JAXA|angkasa|cuaca|iklim|hujan|rain|presipitasi|precipitation|kondensasi|condensation|penguapan|evaporation|awan|cloud|kitaran\s+air|water\s+cycle|siklus\s+air|hydrolog|nukleus\s+kondensasi|fotosintesis|photosynthesis|evolusi|evolution|diabetes|insulin|remission|saintifik|science|universe|alam\s+semesta|kosmos|relativiti|kuantum|black\s+hole|lubang\s+hitam|teori\s+(?:bumi|earth|rata|flat)|ais|ice|peleburan|mencair|melting|membeku|freeze|wap|steam|sublim|fasa|phase\s+change|titik\s+lebur|titik\s+didih|boiling|molekul|atom|tenaga\s+haba|heat\s+energy|pepejal|cecair|sains\s+fizikal|physics|kimia|chemistry|asid|bes|alkali|acid|base|peneutralan|neutralis|neutralization|larutan|ion\s+hidrogen|hidroksida|ph\b|skala\s+ph|newton|inersia|inertia|hukum\s+(?:newton|gerak)|momentum|daya|kelajuan|halaju|gerakan|motion|kelajuan\s+seragam|imun|immune|immunity|patogen|pathogen|antibod|antigen|vaksin|vaccin|virus|bakteria|bacteria|biologi|biology|sel\s+t|sel\s+b|limfa|lymph|tindak\s+balas|antibiotik|sistem\s+imun|immune\s+system|adaptif|adaptive|innate|bawaan|makrofag|dendritik|sitokin|antibodi|einstein|einstain|e\s*=\s*mc|mc²|mc2|formula\s+(?:einstein|relativiti)|persamaan\s+(?:einstein|relativiti))\b/i;
 
 export function isAdamScienceNatureSynthesisTurn(message: string): boolean {
   const t = message.trim();
@@ -646,6 +658,104 @@ export function buildStudentGuidedPerspectiveFallback(_userMessage: string): str
     'Pada giliran ini jawapan penuh belum dapat disusun dengan cukup bukti yang boleh saya sandarkan.',
     'Saya masih di sini — nyatakan satu aspek yang paling penting bagi anda, supaya saya boleh fokus dengan tepat pada langkah seterusnya.',
   ].join('\n\n');
+}
+
+const LIFE_WELLBEING_SUBSTANCE_RE =
+  /\b(?:cemas|tidur|saraf|nafas|kebimbangan|berjaga|stres|kortisol|parasimpatis|sistem saraf)\b/i;
+
+/** Strip framework/poetic openers but keep physiological wellbeing facts. */
+export function salvageLifeWellbeingParagraph(paragraph: string): string | null {
+  let t = paragraph.trim();
+  if (!t) return null;
+  t = t
+    .replace(/^Dalam\s+(?:lensa|perspektif|konteks|pandangan)\s+Alamtologi[,:]?\s*/i, '')
+    .replace(/^Dari\s+sudut\s+Alamtologi[,:]?\s*/i, '')
+    .replace(/^From\s+an\s+Alamtologi\s+perspective[,:]?\s*/i, '')
+    .replace(/^Terima kasih kerana[^.!?]*[.!?]\s*/i, '')
+    .replace(/^Mari kita mulakan dengan kebenaran yang lembut:\s*/i, '')
+    .replace(/^Mari kita masuk lebih dalam[^.!?]*[.!?]\s*/i, '')
+    .replace(/^🌙\s*/, '')
+    .replace(/^💫\s*/, '')
+    .replace(/\b(?:MASA|TENAGA|IZWA|RUANG|AIR|API|BUMI|CAHAYA)\b/gi, '')
+    .replace(/\bpeka terhadap\s*,?\s*(?:dan\s+)?/i, 'peka — ')
+    .replace(/\s*,\s*,/g, ',')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  if (t.length < 20) return null;
+  if (!LIFE_WELLBEING_SUBSTANCE_RE.test(t)) return null;
+  return t;
+}
+
+export function lifeWellbeingOutputHasSubstance(text: string): boolean {
+  return LIFE_WELLBEING_SUBSTANCE_RE.test(text);
+}
+
+/** Warm tutor fallback when anxiety/stress sermon leaks are fully stripped. */
+export function buildLifeWellbeingVoiceFallback(userMessage: string): string {
+  const t = userMessage.trim();
+  if (/\b(?:tidur|sleep|before bed|sebelum tidur|malam)\b/i.test(t)) {
+    return [
+      'Rasa cemas sebelum tidur bukan tanda kelemahan — badan kadang masih dalam mod berjaga-jaga walaupun hari sudah tamat.',
+      'Nafas yang lebih perlahan (tarik empat, hembus enam) dan satu rutin penutup yang ringkas boleh membantu sistem saraf beralih semula.',
+      'Apa satu perkara yang paling mengganggu anda sebelum tidur?',
+    ].join('\n\n');
+  }
+  if (/\b(?:exam|peperiksaan|stres|stress|kebimbangan|cemas|anxious|anxiety)\b/i.test(t)) {
+    return [
+      'Stres dan kebimbangan kerap membuat minda kekal aktif walaupun badan sudah letih.',
+      'Satu langkah praktikal: tarik nafas perlahan, lepaskan bahu, dan fokus pada satu perkara kecil yang boleh dikawal sekarang.',
+      'Apa satu aspek yang paling penting bagi anda dalam situasi ini?',
+    ].join('\n\n');
+  }
+  return [
+    'Badan dan minda berinteraksi rapat — apabila tekanan meningkat, nafas dan sistem saraf biasanya memberi isyarat dahulu.',
+    'Rehat pendek, nafas perlahan, atau satu langkah kecil yang konkrit boleh membantu menstabilkan ritma anda.',
+    'Apa satu perkara yang paling penting bagi anda sekarang?',
+  ].join('\n\n');
+}
+
+function extractLifeWellbeingMaieuticClose(text: string): string | null {
+  const t = text.trim();
+  if (!t) return null;
+  return t.match(/Apa (?:satu )?perkara[^.?]*\?/i)?.[0]
+    ?? t.match(/Apa satu perubahan kecil[^.?]*\?/i)?.[0]
+    ?? null;
+}
+
+/** Repair gutted anxiety/stress replies — salvage facts from raw model text when guards over-strip. */
+export function repairLifeWellbeingGuttedOutput(
+  userMessage: string,
+  polished: string,
+  rawBeforeStrip = '',
+): string {
+  if (!isAdamLifeWellbeingTurn(userMessage)) return polished;
+  const t = polished.trim();
+  if (t && lifeWellbeingOutputHasSubstance(t)) return polished;
+
+  const salvagedParas = rawBeforeStrip
+    .split(/\n{2,}/)
+    .map((p) => salvageLifeWellbeingParagraph(p))
+    .filter((p): p is string => Boolean(p));
+  if (salvagedParas.length > 0) {
+    const body = [...new Set(salvagedParas)].join('\n\n');
+    if (lifeWellbeingOutputHasSubstance(body)) {
+      const close = extractLifeWellbeingMaieuticClose(t);
+      return close ? `${body}\n\n${close}` : body;
+    }
+  }
+
+  return buildLifeWellbeingVoiceFallback(userMessage);
+}
+
+export function isAdamScienceConceptTeachingTurn(message: string): boolean {
+  return isAdamScienceNatureSynthesisTurn(message) || isAdamPhysicsConceptTeachingTurn(message);
+}
+
+/** Science vs compare — geocentric/heliocentric, earth shape, etc. */
+export function isAdamScienceCompareTurn(message: string): boolean {
+  const t = message.trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  return isAdamCompareTurn(t) && isAdamScienceNatureSynthesisTurn(t);
 }
 
 /** Founder Teaching — empty adam row must never reach Chat DB blank. */

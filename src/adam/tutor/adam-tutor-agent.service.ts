@@ -23,6 +23,24 @@ import {
 } from './adam-tutor-enrollment.schema';
 import { TUTOR_REGISTER_BAND_LABELS_BM } from './adam-tutor-register.constants';
 import { listAgentWalletLedger, sumAgentCommission } from './adam-tutor-agent-wallet.service';
+import {
+  TutorAgentPackageStatus,
+  type TutorAgentPackageTier,
+} from './adam-tutor-agent-package.config';
+import { serializeAgentPackage } from './adam-tutor-agent-package.service';
+import {
+  ensureAgentMarketingStudent,
+  marketingEnrollmentFilter,
+  serializeAgentMarketingStudent,
+  type TutorAgentMarketingStudentPublic,
+} from './adam-tutor-agent-marketing.service';
+import type { TutorSubscriptionLevel } from '../../subscriptions/subscription.schema';
+import {
+  normalizeAgentMalaysiaAddress,
+  normalizeAgentPayoutIdentity,
+  normalizeMalaysiaPhone,
+  validateAgentRegistrationInput,
+} from './adam-tutor-agent-identity';
 
 export function newTutorAgentId(): string {
   return `TUTOR-AGT-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
@@ -41,45 +59,85 @@ function slugOrgForAgentCode(orgName: string): string {
     .replace(/[^A-Z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 12);
-  return slug || 'EJEN';
+  return slug || 'AGEN';
 }
 
 export async function allocateTutorAgentCode(orgName: string): Promise<string> {
   const slug = slugOrgForAgentCode(orgName);
   for (let seq = 1; seq <= 999; seq += 1) {
-    const code = `TUTOR-EJEN-${slug}-${String(seq).padStart(3, '0')}`;
+    const code = `TUTOR-AGEN-${slug}-${String(seq).padStart(3, '0')}`;
     const taken = await TutorAgentModel.exists({ agentCode: code });
     if (!taken) return code;
   }
-  throw new Error('Tidak dapat menjana kod ejen unik.');
+  throw new Error('Unable to generate a unique agen code.');
 }
 
 export async function createTutorAgent(input: {
-  orgName:           string;
-  contactName:       string;
-  email:             string;
-  phone?:            string;
-  state:             string;
-  commissionPercent?: number;
-  notes?:            string;
-  createdBy:         string;
+  orgName:             string;
+  contactName:         string;
+  email:               string;
+  phone:               string;
+  icNumber:            string;
+  taxId:               string;
+  bankName:            string;
+  bankAccountNumber:   string;
+  bankAccountHolder:   string;
+  addressLine1:        string;
+  addressLine2?:       string | null;
+  postcode:            string;
+  city:                string;
+  state:               string;
+  band?:               TutorSubscriptionLevel;
+  packageTier?:        TutorAgentPackageTier;
+  commissionPercent?:  number;
+  notes?:              string;
+  createdBy:           string;
 }): Promise<ITutorAgent> {
+  const regErr = validateAgentRegistrationInput(input);
+  if (regErr) throw new Error(regErr);
+  const payout = normalizeAgentPayoutIdentity(input);
+  const address = normalizeAgentMalaysiaAddress(input);
+  const phone = normalizeMalaysiaPhone(input.phone);
+
   const agentCode = await allocateTutorAgentCode(input.orgName);
-  return TutorAgentModel.create({
-    agentId:           newTutorAgentId(),
+  const hasPackage = Boolean(input.band && input.packageTier);
+  const agentId = newTutorAgentId();
+
+  const agent = await TutorAgentModel.create({
+    agentId,
     agentCode,
     portalToken:       newTutorAgentPortalToken(),
     orgName:           input.orgName.trim(),
     contactName:       input.contactName.trim(),
     email:             input.email.trim().toLowerCase(),
-    phone:             input.phone?.trim() || null,
-    state:             input.state.trim(),
+    phone,
+    icNumber:          payout.icNumber,
+    taxId:             payout.taxId,
+    bankName:          payout.bankName,
+    bankAccountNumber: payout.bankAccountNumber,
+    bankAccountHolder: payout.bankAccountHolder,
+    addressLine1:      address.addressLine1,
+    addressLine2:      address.addressLine2,
+    postcode:          address.postcode,
+    city:              address.city,
+    state:             address.state,
+    band:              input.band ?? null,
+    packageTier:       input.packageTier ?? null,
+    packageStatus:     hasPackage
+      ? TutorAgentPackageStatus.PENDING
+      : TutorAgentPackageStatus.LEGACY,
+    pinBalance:        0,
+    pinPurchasedTotal: 0,
+    packagePaidAt:     null,
     commissionPercent: input.commissionPercent ?? 20,
     walletBalanceMyr:  0,
     status:            TutorAgentStatus.ACTIVE,
     createdBy:         input.createdBy,
     notes:             input.notes?.trim() || null,
   });
+
+  await ensureAgentMarketingStudent(agent);
+  return agent;
 }
 
 export async function listTutorAgents(limit = 100) {
@@ -87,6 +145,60 @@ export async function listTutorAgents(limit = 100) {
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();
+}
+
+export interface TutorAgentAdminRow extends TutorAgentPortalOverview {
+  email:                  string;
+  phone:                  string | null;
+  icNumber:               string | null;
+  taxId:                  string | null;
+  bankName:               string | null;
+  bankAccountNumber:      string | null;
+  bankAccountHolder:      string | null;
+  addressLine1:           string | null;
+  addressLine2:           string | null;
+  postcode:               string | null;
+  city:                   string | null;
+  status:                 TutorAgentStatus;
+  bandLabel:              string | null;
+  notes:                  string | null;
+  createdBy:              string;
+  createdAt:              string;
+  packageStripeSessionId: string | null;
+}
+
+export async function listTutorAgentsForAdmin(limit = 100): Promise<TutorAgentAdminRow[]> {
+  const agents = await TutorAgentModel.find()
+    .sort({ createdAt: -1 })
+    .limit(limit);
+
+  return Promise.all(
+    agents.map(async (agent) => {
+      const overview = await getTutorAgentPortalOverview(agent);
+      return {
+        ...overview,
+        email:                  agent.email,
+        phone:                  agent.phone,
+        icNumber:               agent.icNumber,
+        taxId:                  agent.taxId,
+        bankName:               agent.bankName,
+        bankAccountNumber:      agent.bankAccountNumber,
+        bankAccountHolder:      agent.bankAccountHolder,
+        addressLine1:           agent.addressLine1,
+        addressLine2:           agent.addressLine2,
+        postcode:               agent.postcode,
+        city:                   agent.city,
+        status:                 agent.status,
+        bandLabel:              agent.band
+          ? TUTOR_REGISTER_BAND_LABELS_BM[agent.band]
+          : null,
+        notes:                  agent.notes,
+        createdBy:              agent.createdBy,
+        createdAt:              agent.createdAt.toISOString(),
+        packageStripeSessionId: agent.packageStripeSessionId,
+      };
+    }),
+  );
 }
 
 export async function getTutorAgentById(agentId: string): Promise<ITutorAgent | null> {
@@ -119,12 +231,26 @@ export interface TutorAgentPortalOverview {
   studentsPaid:       number;
   studentsComplete:   number;
   studentsPending:    number;
+  marketingStudent:   TutorAgentMarketingStudentPublic;
+  band:               TutorSubscriptionLevel | null;
+  packageTier:        TutorAgentPackageTier | null;
+  packageTierLabel:   string | null;
+  packageStatus:      TutorAgentPackageStatus;
+  pinBalance:         number;
+  pinPurchasedTotal:  number;
+  packagePaidAt:      string | null;
+  packageQuote:       ReturnType<typeof serializeAgentPackage>['packageQuote'];
 }
 
 export async function getTutorAgentPortalOverview(
   agent: ITutorAgent,
 ): Promise<TutorAgentPortalOverview> {
+  if (!agent.marketingStudentUserId) {
+    await ensureAgentMarketingStudent(agent);
+  }
+
   const agentId = agent.agentId;
+  const realStudents = marketingEnrollmentFilter();
 
   const [
     codesTotal,
@@ -139,10 +265,10 @@ export async function getTutorAgentPortalOverview(
     TutorRegisterCodeModel.countDocuments({ agentId }),
     TutorRegisterCodeModel.countDocuments({ agentId, status: 'available' }),
     TutorRegisterCodeModel.countDocuments({ agentId, status: 'redeemed' }),
-    TutorEnrollmentModel.countDocuments({ agentId }),
-    TutorEnrollmentModel.countDocuments({ agentId, status: TutorEnrollmentStatus.PAID }),
-    TutorEnrollmentModel.countDocuments({ agentId, status: TutorEnrollmentStatus.COMPLETE }),
-    TutorEnrollmentModel.countDocuments({ agentId, status: TutorEnrollmentStatus.CODE_LOCKED }),
+    TutorEnrollmentModel.countDocuments({ agentId, ...realStudents }),
+    TutorEnrollmentModel.countDocuments({ agentId, status: TutorEnrollmentStatus.PAID, ...realStudents }),
+    TutorEnrollmentModel.countDocuments({ agentId, status: TutorEnrollmentStatus.COMPLETE, ...realStudents }),
+    TutorEnrollmentModel.countDocuments({ agentId, status: TutorEnrollmentStatus.CODE_LOCKED, ...realStudents }),
     sumAgentCommission(agentId),
   ]);
 
@@ -162,6 +288,15 @@ export async function getTutorAgentPortalOverview(
     studentsPaid:       studentsPaid + studentsComplete,
     studentsComplete,
     studentsPending,
+    marketingStudent:   serializeAgentMarketingStudent(agent),
+    band:               agent.band,
+    packageTier:        agent.packageTier,
+    packageTierLabel:   serializeAgentPackage(agent).packageTierLabel,
+    packageStatus:      agent.packageStatus,
+    pinBalance:         agent.pinBalance,
+    pinPurchasedTotal:  agent.pinPurchasedTotal,
+    packagePaidAt:      agent.packagePaidAt?.toISOString() ?? null,
+    packageQuote:       serializeAgentPackage(agent).packageQuote,
   };
 }
 
@@ -184,7 +319,7 @@ export async function listTutorAgentStudents(
   agentId: string,
   limit = 100,
 ): Promise<TutorAgentStudentRow[]> {
-  const rows = await TutorEnrollmentModel.find({ agentId })
+  const rows = await TutorEnrollmentModel.find({ agentId, ...marketingEnrollmentFilter() })
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();

@@ -81,6 +81,9 @@ import {
   isAdamVisualDrawTurn,
   isAdamCompareTurn,
   isAdamLifeWellbeingTurn,
+  repairLifeWellbeingGuttedOutput,
+  isAdamScienceConceptTeachingTurn,
+  isAdamScienceCompareTurn,
   isAdamTeachingDepthTurn,
   isAdamAlgorithmTeachingTurn,
   isAdamAccessibleHybridFormatTurn,
@@ -107,6 +110,12 @@ import { applyUsersHaiGreetingPolicy } from './adam-users-constitution';
 import { detectLanguage } from './adam-language-mirror.service';
 import { sanitizeMalaysiaBmDrift } from './adam-malaysia-bm-guard';
 import { isAdamGeneralKonvensionalTurn, shouldStripKonvensionalFrameworkLeaks } from './adam-knowledge-mode';
+import { repairDomainTeachingGuttedOutput,
+  shouldApplyDomainTeachingVoiceRepair,
+} from './adam-domain-voice-repair';
+import { repairParliamentComponentsOutput } from './adam-civics-parliament-intent';
+import { repairKbatAcronymExpansion } from './adam-pedagogy-voice-guard';
+import { stripSimpleFactualEchoOpener } from './adam-simple-factual-voice-guard';
 import {
   inlineQuranAyat,
   stashStudentMathBlocks,
@@ -183,6 +192,7 @@ export function sanitizeUsersOutputSync(
     || technicalKonvensionalDisplay
     || isAdamCompareTurn(userMessage);
   const bookWritingTurn = isAdamLayer1BookWritingTurn(recentUserMessages, userMessage);
+  const scienceNatureTurn = isAdamScienceNatureSynthesisTurn(userMessage);
   const tier1BriefEssayStrip = profile === 'alpha'
     && !betaOptedIn
     && !proseCraftTurn
@@ -227,10 +237,12 @@ export function sanitizeUsersOutputSync(
     recentAssistantMessages,
     recentUserMessages,
   );
-  const umumVoiceHoldTurn = companionTurn || bookWritingTurn;
+  const umumVoiceHoldTurn = !scienceNatureTurn && (companionTurn || bookWritingTurn);
 
+  const scienceConceptTurn = isAdamScienceConceptTeachingTurn(userMessage);
+  const scienceCompareTurn = isAdamScienceCompareTurn(userMessage);
   const preserveAccessibleListStructure = isAdamAccessibleHybridFormatTurn(userMessage)
-    || cadanganTurn
+    || (cadanganTurn && !scienceConceptTurn && !scienceCompareTurn)
     || perlaksanaanTurn
     || companionTurn
     || bookWritingTurn
@@ -336,8 +348,7 @@ export function sanitizeUsersOutputSync(
     && !isAdamCompareTurn(userMessage);
   const stripScienceAlphaExplainBack = profile === 'alpha'
     && !betaOptedIn
-    && !bookWritingTurn
-    && isAdamScienceNatureSynthesisTurn(userMessage);
+    && shouldApplyDomainTeachingVoiceRepair(userMessage, recentUserMessages);
 
   const kept = proseCraftTurn
     ? paragraphs.map((p) => p.trim()).filter(Boolean)
@@ -496,5 +507,10 @@ export function sanitizeUsersOutputSync(
   }
   const speakerLocale = detectLanguage(userMessage).detectedLocale;
   polished = sanitizeMalaysiaBmDrift(polished, speakerLocale);
+  polished = repairKbatAcronymExpansion(polished, userMessage);
+  polished = stripSimpleFactualEchoOpener(polished, userMessage);
+  polished = repairParliamentComponentsOutput(userMessage, polished, stashed);
+  polished = repairLifeWellbeingGuttedOutput(userMessage, polished, stashed);
+  polished = repairDomainTeachingGuttedOutput(userMessage, polished, stashed, recentUserMessages);
   return polished;
 }

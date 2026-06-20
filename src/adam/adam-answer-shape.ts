@@ -102,6 +102,7 @@ function normalizeCompareLabel(raw: string): string {
     t = t.slice(0, periodIdx).trim();
   }
   t = t
+    .replace(/^(?:terangkan|jelaskan|huraikan|explain|describe|berikan\s+penjelasan\s+(?:mengenai|tentang)|penjelasan\s+(?:mengenai|tentang))\s+/i, '')
     .replace(/\s+dalam\s+(?:sistem|konteks)\b[\s\S]*$/i, '')
     .replace(/\s+pada\s+malaysia\b[\s\S]*$/i, '')
     .replace(/\s+lebih\s+perinci\b[\s\S]*$/i, '')
@@ -123,6 +124,7 @@ export function extractComparePair(message: string): AdamComparePair | null {
     /\bbanding(?:kan)?\s+(.+?)\s+(?:dengan|dan|vs\.?|versus)\s+(.+?)(?=\s+dalam\s+|\s+pada\s+|\s+lebih\s+|[.,?]|$)/i,
     /\bcompare\s+(.+?)\s+(?:with|and|vs\.?|versus)\s+(.+?)(?=\s+dalam\s+|\s+pada\s+|\s+lebih\s+|[.,?]|$)/i,
     /\bdifference\s+between\s+(.+?)\s+and\s+(.+?)(?=\s+dalam\s+|\s+pada\s+|\s+lebih\s+|[.,?]|$)/i,
+    /\b(?:terangkan|jelaskan|huraikan|explain|describe)\s+(.+?)\s+vs\.?\s+(.+?)(?=[.,?]|$)/i,
     /^(.+?)\s+vs\.?\s+(.+?)(?=[.,?]|$)/i,
   ];
   for (const re of patterns) {

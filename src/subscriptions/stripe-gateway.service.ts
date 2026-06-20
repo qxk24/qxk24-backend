@@ -107,14 +107,35 @@ async function stripeGet<T>(path: string): Promise<T> {
   return data;
 }
 
-function tutorStripePriceId(level: TutorSubscriptionLevel): string {
+export function tutorStripePriceId(level: TutorSubscriptionLevel, channel: 'public' | 'agent'): string {
   const band = normalizeTutorSubscriptionLevel(level);
+  if (channel === 'public') {
+    const byLevel: Record<TutorSubscriptionLevel, string> = {
+      primary:    ENV.STRIPE_PRICE_ID_TUTOR_PRIMARY_PUBLIC_MONTHLY
+        || ENV.STRIPE_PRICE_ID_TUTOR_PRIMARY_MONTHLY,
+      secondary:  ENV.STRIPE_PRICE_ID_TUTOR_SECONDARY_PUBLIC_MONTHLY
+        || ENV.STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY
+        || ENV.STRIPE_PRICE_ID_TUTOR_MONTHLY,
+      university: ENV.STRIPE_PRICE_ID_TUTOR_UNIVERSITY_PUBLIC_MONTHLY
+        || ENV.STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY,
+    };
+    return byLevel[band] ?? '';
+  }
+
   const byLevel: Record<TutorSubscriptionLevel, string> = {
-    primary:    ENV.STRIPE_PRICE_ID_TUTOR_PRIMARY_MONTHLY,
-    secondary:  ENV.STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY || ENV.STRIPE_PRICE_ID_TUTOR_MONTHLY,
-    university: ENV.STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY,
+    primary:    ENV.STRIPE_PRICE_ID_TUTOR_PRIMARY_AGENT_MONTHLY
+      || ENV.STRIPE_PRICE_ID_TUTOR_PRIMARY_MONTHLY,
+    secondary:  ENV.STRIPE_PRICE_ID_TUTOR_SECONDARY_AGENT_MONTHLY
+      || ENV.STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY
+      || ENV.STRIPE_PRICE_ID_TUTOR_MONTHLY,
+    university: ENV.STRIPE_PRICE_ID_TUTOR_UNIVERSITY_AGENT_MONTHLY
+      || ENV.STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY,
   };
   return byLevel[band] ?? '';
+}
+
+function tutorPublicStripePriceId(level: TutorSubscriptionLevel): string {
+  return tutorStripePriceId(level, 'public');
 }
 
 export function getStripePriceId(
@@ -123,7 +144,7 @@ export function getStripePriceId(
   tutorLevel?: TutorSubscriptionLevel | string | null,
 ): string {
   if (tier === SubscriptionTier.TUTOR && cycle === BillingCycle.MONTHLY) {
-    return tutorStripePriceId(normalizeTutorSubscriptionLevel(tutorLevel));
+    return tutorPublicStripePriceId(normalizeTutorSubscriptionLevel(tutorLevel));
   }
 
   const map: Partial<Record<string, string>> = {
@@ -363,6 +384,11 @@ async function handleCheckoutCompleted(session: Record<string, unknown>): Promis
   if (meta?.checkoutType === 'tutor_register') {
     const { activateTutorRegisterFromStripeCheckout } = await import('../adam/tutor/adam-tutor-register-stripe.service');
     await activateTutorRegisterFromStripeCheckout(session);
+    return;
+  }
+  if (meta?.checkoutType === 'tutor_agent_package') {
+    const { activateTutorAgentPackageFromStripeCheckout } = await import('../adam/tutor/adam-tutor-agent-package-stripe.service');
+    await activateTutorAgentPackageFromStripeCheckout(session);
     return;
   }
   if (meta?.checkoutType === 'adam_credits') {

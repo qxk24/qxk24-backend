@@ -339,7 +339,11 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
       recentAssistantMessages:  params.recentAssistantMessages ?? [],
       isFounder:                params.isFounder,
     })
-    : 'light' as AdamAnswerProfile;
+    : (params.isFounder
+      ? 'light'
+      : (params.usersKnowledgeTier != null && params.usersKnowledgeTier >= 2)
+        ? 'beta'
+        : 'alpha') as AdamAnswerProfile;
 
   const knowledgeMode = params.knowledgeMode
     ?? params.turnGate?.flags.knowledgeMode
@@ -356,7 +360,11 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
         usersKnowledgeTier:     params.usersKnowledgeTier,
         turnGate:                 params.turnGate,
       })
-      : 'konvensional');
+      : params.isFounder
+        ? 'konstitusi'
+        : (params.usersKnowledgeTier != null && params.usersKnowledgeTier >= 2)
+          ? 'alamtologi'
+          : 'konvensional');
 
   const characterBlock = params.isFounder && teachingLearnerTurn
     ? ADAM_CHARACTER_TEACHING_LEARNER
@@ -519,7 +527,9 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
       ? params.turnGate.flags.domainTeachingPack
       : usersDomainUsesTeachingPack(domainFacet);
     const bookWritingTurn = isAdamLayer1BookWritingTurn(recentUser, params.userMessage);
+    const scienceNatureTurn = isAdamScienceNatureSynthesisTurn(params.userMessage ?? '');
     const bookPhilosophyOptIn = bookWritingTurn
+      && !scienceNatureTurn
       && userRequestedPhilosophicalBookVoice(params.userMessage, recentUser);
 
     const pushUsersShapeBlocks = () => {
@@ -551,7 +561,10 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
 
     if (isAdamProseCraftTurn(params.userMessage)) {
       parts.push(ADAM_PROSE_CRAFT_TURN);
-    } else if (bookWritingTurn || isAdamLayer1ManuscriptExportTurn(params.userMessage)) {
+    } else if (
+      !scienceNatureTurn
+      && (bookWritingTurn || isAdamLayer1ManuscriptExportTurn(params.userMessage))
+    ) {
       parts.push(ADAM_LAYER1_BOOK_WRITING_DISCUSSION_TURN);
       if (bookPhilosophyOptIn) {
         parts.push(ADAM_LAYER1_BOOK_WRITING_PHILOSOPHY_TURN);
@@ -563,7 +576,7 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
     if (perlaksanaanTurn) {
       parts.push(ADAM_USER_UMUM_PERLAKSANAAN_TURN);
     } else if (cadanganTurn) {
-      if (bookWritingTurn) {
+      if (bookWritingTurn && !scienceNatureTurn) {
         parts.push(ADAM_LAYER1_BOOK_WRITING_CADANGAN_TURN);
       } else {
         parts.push(ADAM_USER_UMUM_CADANGAN_TURN);
@@ -617,10 +630,10 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
       } else if (isAdamContinuationDepthTurn(params.userMessage)) {
         parts.push(ADAM_USERS_CONTINUATION_DEPTH_TURN);
       } else if (
-        !bookWritingTurn
-        && (
-          isAdamTeachingDepthTurn(params.userMessage)
-          || isAdamScienceNatureSynthesisTurn(params.userMessage)
+        isAdamScienceNatureSynthesisTurn(params.userMessage)
+        || (
+          !bookWritingTurn
+          && isAdamTeachingDepthTurn(params.userMessage)
         )
       ) {
         parts.push(ADAM_USERS_TEACHING_DEPTH_TURN);
@@ -925,7 +938,9 @@ ADAM GOLD STANDARD — ALGORITHM TEACHING (mandatory):
       params.recentUserMessages ?? [],
     );
     parts.push(USERS_MODE_PROMPT);
-    const bookWritingTail = isAdamLayer1BookWritingTurn(params.recentUserMessages ?? [], userMessage);
+    const scienceNatureTurn = isAdamScienceNatureSynthesisTurn(userMessage);
+    const bookWritingTail = !scienceNatureTurn
+      && isAdamLayer1BookWritingTurn(params.recentUserMessages ?? [], userMessage);
     const bookPhilosophyTail = bookWritingTail
       && userRequestedPhilosophicalBookVoice(userMessage, params.recentUserMessages ?? []);
     if (bookWritingTail || isAdamLayer1ManuscriptExportTurn(userMessage)) {
@@ -937,8 +952,10 @@ ADAM GOLD STANDARD — ALGORITHM TEACHING (mandatory):
       }
       parts.push(ADAM_USER_UMUM_COMPANION_VOICE_HOLD);
     }
-    if (profile === 'beta') {
-      parts.push(ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE);
+    if (profile === 'beta' || !userMessage.trim()) {
+      if (profile === 'beta') {
+        parts.push(ADAM_THREE_TIER_KNOWLEDGE_ARCHITECTURE);
+      }
       parts.push(buildThreeTierTurnOverlay(usersTier, {
         practicalAdvisoryRoot: practicalRoot,
         recentAssistantMessages: params.recentAssistantMessages ?? [],
@@ -962,7 +979,12 @@ ADAM GOLD STANDARD — ALGORITHM TEACHING (mandatory):
     if (params.usersRelationalVoice && (params.turnGate?.flags.relationalVoice ?? true)) parts.push(ADAM_RELATIONAL_VOICE_OVERLAY);
     if (params.workspacePrompt) parts.push(params.workspacePrompt);
     if (params.webSearchPrompt) parts.push(params.webSearchPrompt);
-    if (knowledgeModeAllowsAlamtologiStack(knowledgeMode) && usersTier >= 2 && !practicalRoot && profile === 'beta') {
+    if (
+      usersTier >= 2
+      && !practicalRoot
+      && (profile === 'beta' || !userMessage.trim())
+      && knowledgeModeAllowsAlamtologiStack(knowledgeMode)
+    ) {
       appendConstitutionalKnowledgeStack(parts);
     } else {
       parts.push(ADAM_UNIVERSAL_SCHOLAR_TIER1_HOLD);

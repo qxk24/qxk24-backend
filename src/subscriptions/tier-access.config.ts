@@ -342,16 +342,39 @@ export const ENTERPRISE_PRICING: IEnterpriseTier[] = [
 
 // ─── ADAM Tutor — USD by school level (monthly only, all subjects per band) ─
 
-export function tutorMonthlyUsdByLevel(
-  level?: TutorSubscriptionLevel | string | null,
-): number {
-  const band = normalizeTutorSubscriptionLevel(level);
-  const byLevel: Record<TutorSubscriptionLevel, number> = {
+/** Public self-serve vs agent/kod-daftar channel — same package, different fee. */
+export type TutorPriceChannel = 'public' | 'agent';
+
+function tutorLegacyPublicUsd(level: TutorSubscriptionLevel): number | null {
+  const legacy: Record<TutorSubscriptionLevel, number> = {
     primary:    ENV.ADAM_TUTOR_PRIMARY_MONTHLY_USD,
     secondary:  ENV.ADAM_TUTOR_SECONDARY_MONTHLY_USD,
     university: ENV.ADAM_TUTOR_UNIVERSITY_MONTHLY_USD,
   };
-  return byLevel[band];
+  const value = legacy[level];
+  return value > 0 ? value : null;
+}
+
+export function tutorMonthlyUsdByLevel(
+  level?: TutorSubscriptionLevel | string | null,
+  channel: TutorPriceChannel = 'public',
+): number {
+  const band = normalizeTutorSubscriptionLevel(level);
+  if (channel === 'agent') {
+    const byLevel: Record<TutorSubscriptionLevel, number> = {
+      primary:    ENV.ADAM_TUTOR_PRIMARY_AGENT_MONTHLY_USD,
+      secondary:  ENV.ADAM_TUTOR_SECONDARY_AGENT_MONTHLY_USD,
+      university: ENV.ADAM_TUTOR_UNIVERSITY_AGENT_MONTHLY_USD,
+    };
+    return byLevel[band];
+  }
+
+  const byLevel: Record<TutorSubscriptionLevel, number> = {
+    primary:    ENV.ADAM_TUTOR_PRIMARY_PUBLIC_MONTHLY_USD,
+    secondary:  ENV.ADAM_TUTOR_SECONDARY_PUBLIC_MONTHLY_USD,
+    university: ENV.ADAM_TUTOR_UNIVERSITY_PUBLIC_MONTHLY_USD,
+  };
+  return tutorLegacyPublicUsd(band) ?? byLevel[band];
 }
 
 /** @deprecated Use tutorMonthlyUsdByLevel('secondary') */
@@ -372,8 +395,9 @@ export function normalizeTutorSubscriptionLevel(
 
 export function getTutorPricing(
   level?: TutorSubscriptionLevel | string | null,
+  channel: TutorPriceChannel = 'public',
 ): IRegionalPrice {
-  const monthly = tutorMonthlyUsdByLevel(level);
+  const monthly = tutorMonthlyUsdByLevel(level, channel);
   return {
     region:       SupportedRegion.US,
     currency:     'USD',
@@ -384,7 +408,9 @@ export function getTutorPricing(
   };
 }
 
-export function listTutorLevelPricing(): Array<{
+export function listTutorLevelPricing(
+  channel: TutorPriceChannel = 'public',
+): Array<{
   level:          TutorSubscriptionLevel;
   label:          string;
   monthlyAmount:  number;
@@ -392,7 +418,7 @@ export function listTutorLevelPricing(): Array<{
   currency:       string;
 }> {
   return (['primary', 'secondary', 'university'] as TutorSubscriptionLevel[]).map((level) => {
-    const p = getTutorPricing(level);
+    const p = getTutorPricing(level, channel);
     return {
       level,
       label:         TUTOR_LEVEL_LABELS[level],

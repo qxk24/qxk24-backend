@@ -94,6 +94,7 @@ import {
   threadContextFromRecentMessages,
 } from './adam-search-first.queries';
 import type { StudentSearchPrefetchResult } from './adam-search-first.context';
+import { isAdamStableCurriculumSearchSkipTurn } from './adam-stable-curriculum-search-gate';
 
 export async function runUsersSearchPrefetch(input: {
   userMessage:          string;
@@ -109,6 +110,18 @@ export async function runUsersSearchPrefetch(input: {
   onSearchHitsReady?:   (hits: LlmSearchResult[]) => void;
 }): Promise<StudentSearchPrefetchResult> {
   const started = Date.now();
+
+  if (isAdamStableCurriculumSearchSkipTurn(input.userMessage)) {
+    input.onSearchDone?.();
+    return {
+      searchResults:         [],
+      searchUsed:            false,
+      searchDroppedByFilter: false,
+      prefetchMs:            Date.now() - started,
+      extractedFacts:        '',
+    };
+  }
+
   const recentUsers = recentUserStringsFromLlmMessages(input.recentUserMessages ?? []);
   const recentAssistants = recentAssistantStringsFromLlmMessages(input.recentUserMessages ?? []);
   const threadContext = threadContextFromRecentMessages(recentUsers, recentAssistants);

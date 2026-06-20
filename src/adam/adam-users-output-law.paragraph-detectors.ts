@@ -54,6 +54,10 @@ export function paragraphIsConstitutionalFrameworkLeak(paragraph: string): boole
   }
   if (/\bpeka\s+terhadap\s+MASA\b/i.test(t)) return true;
   if (/\b(?:keteguhan\s+ruang|ketenangan\s+bumi|kejelasan\s+cahaya)\b/i.test(t)) return true;
+  if (/\b(?:dikenali\s+sebagai|bentuk)\s+IZWA\b/i.test(t)) return true;
+  if (/\bIZWA\b/i.test(t) && /\b(?:anugerah|izin|rahmat|turun\s+tanpa)\b/i.test(t)) return true;
+  if (/\b(?:dikenali\s+sebagai|yang\s+dikenali\s+sebagai)\s+TENAGA\b/i.test(t)) return true;
+  if (/\b(?:dari\s+permukaan|ke\s+dalam)\s+RUANG\b/i.test(t) && /\bBUMI\b/i.test(t)) return true;
   if (/\bam[āa]n?ah\b/i.test(t) && /\b(?:kepimpinan|presiden|presidency|office)\b/i.test(t)) return true;
   if (/\bm[īi]z[āa]n\b/i.test(t)) return true;
   if (/\bbukan\s+sekadar\s+soalan\s+jawatan\b/i.test(t)) return true;
@@ -147,6 +151,8 @@ export function paragraphIsUnsolicitedTier1FaithWeave(paragraph: string): boolea
   }
   if (/\bilmu\s+ini\s+tidak\s+bertentangan\s+dengan\s+hikmah\b/i.test(t)) return true;
   if (/\bfirman\s+Allah\b/i.test(t)) return true;
+  if (/\bSebagaimana\s+firman\s+Allah\b/i.test(t)) return true;
+  if (/\bAr-Ra['']?d\b/i.test(t)) return true;
   if (/\bAn-Naziat\b/i.test(t)) return true;
   if (/\bdihamparkanNya\b/i.test(t)) return true;
   if (/\bdihamparkan\s+dengan\s+kebijaksanaan\b/i.test(t)) return true;
@@ -267,7 +273,10 @@ export function paragraphIsTutorPerformanceLeak(paragraph: string): boolean {
   if (/menyentuh harapan/i.test(t) && /\b(?:kepercayaan|harapan|jiwa|hati)\b/i.test(t)) return true;
   if (/batas ilmu perubatan/i.test(t) && /terima kasih|sangat penting/i.test(t)) return true;
   if (/^Mari kita mulakan dengan kebenaran yang lembut/i.test(t)) return true;
+  if (/^Mari kita mulakan dengan jujur/i.test(t)) return true;
   if (/^Mari kita masuk lebih dalam/i.test(t)) return true;
+  if (/^Soalan ini kelihatan ringkas/i.test(t)) return true;
+  if (/\bperjalanan pemikiran yang sangat dalam\b/i.test(t)) return true;
   if (/^Ini bukan soalan biasa/i.test(t)) return true;
   if (/tubuh dan jiwa yang sedang berbicara/i.test(t)) return true;
   if (/kebenaran yang menyentuh akar/i.test(t)) return true;
@@ -398,6 +407,28 @@ export function paragraphIsExplainBackPhase1ALeak(paragraph: string): boolean {
   if (/^Bayi yang sedang tidur/i.test(t)) return true;
   if (/^Roti di meja sarapan/i.test(t)) return true;
   if (/^Imagine (?:you|a morning)/i.test(t)) return true;
+  if (/^Soalan ini kelihatan ringkas/i.test(t)) return true;
+  if (/^Mari kita renungkan/i.test(t)) return true;
+  if (/^Mari kita mulakan dengan jujur/i.test(t)) return true;
+  if (/\bperjalanan pemikiran yang sangat dalam\b/i.test(t)) return true;
+  return false;
+}
+
+/** Science α — book-thread pivot off a factual mechanism answer. */
+export function paragraphIsScienceBookPivotLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/\bbuku\s+kemiskinan\b/i.test(t)) return true;
+  if (/\bilustrasi\s+sederhana\s+untuk\s+buku\b/i.test(t)) return true;
+  if (/\bmetafora\s+naratif\b/i.test(t)) return true;
+  if (/^-\s+Menjelaskan\s+proses\s+ini\s+dalam\s+bentuk\s+ilustrasi/i.test(t)) return true;
+  if (/^-\s+Atau\s+menyusunnya\s+sebagai\s+satu\s+metafora\s+naratif/i.test(t)) return true;
+  if (/^-\s+/m.test(t) && /\bbuku\s+kemiskinan\b/i.test(t)) return true;
+  if (/^Jika\s+anda\s+ingin,\s+saya\s+boleh\s+bantu/i.test(t)) return true;
+  if (/^Adakah\s+anda\s+mahu\s+kita\s+kaitkan\s+proses\s+ini\s+dengan\s+tema\s+buku/i.test(t)) {
+    return true;
+  }
+  if (/^Saya\s+di\s+sini,\s+bukan\s+untuk\s+menjelaskan\s+sains\s+semata/i.test(t)) return true;
   return false;
 }
 
@@ -406,6 +437,8 @@ export function paragraphIsExplainBackSoulStrikeLeak(paragraph: string): boolean
   const t = paragraph.trim();
   if (!t) return false;
   if (/^Pernahkah anda/i.test(t)) return true;
+  if (/^Adakah\s+anda\s+mahu\s+kita\s+kaitkan/i.test(t)) return true;
+  if (/^Saya\s+di\s+sini,\s+bukan\s+untuk\s+menjelaskan\s+sains\s+semata/i.test(t)) return true;
   if (/^Apakah bentuk yang paling sering/i.test(t)) return true;
   if (/bukan untuk memilih, tetapi untuk merasa/i.test(t)) return true;
   if (/bagaimana bentuk itu membantu awak berdiri teguh/i.test(t)) return true;

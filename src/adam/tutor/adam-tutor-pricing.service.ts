@@ -18,7 +18,7 @@
  * RM display uses live USD/MYR from adam-usd-myr-rate.service.
  */
 
-import { tutorMonthlyUsdByLevel } from '../../subscriptions/tier-access.config';
+import { tutorMonthlyUsdByLevel, type TutorPriceChannel } from '../../subscriptions/tier-access.config';
 import type { TutorSubscriptionLevel } from '../../subscriptions/subscription.schema';
 import { TUTOR_REGISTER_BAND_LABELS_BM } from './adam-tutor-register.constants';
 import {
@@ -31,7 +31,11 @@ export function convertUsdToMyr(usd: number, rate: number): number {
 }
 
 export function tutorRegisterMonthlyUsd(level: TutorSubscriptionLevel): number {
-  return tutorMonthlyUsdByLevel(level);
+  return tutorMonthlyUsdByLevel(level, 'agent');
+}
+
+export function tutorPublicMonthlyUsd(level: TutorSubscriptionLevel): number {
+  return tutorMonthlyUsdByLevel(level, 'public');
 }
 
 export interface TutorBandPricing {
@@ -49,8 +53,9 @@ export interface TutorBandPricing {
 export function buildTutorBandPricing(
   level: TutorSubscriptionLevel,
   fx: UsdMyrRateSnapshot,
+  channel: TutorPriceChannel = 'agent',
 ): TutorBandPricing {
-  const monthlyUsd = tutorRegisterMonthlyUsd(level);
+  const monthlyUsd = tutorMonthlyUsdByLevel(level, channel);
   return {
     level,
     bandLabel:     TUTOR_REGISTER_BAND_LABELS_BM[level],
@@ -66,15 +71,23 @@ export function buildTutorBandPricing(
 
 export async function getTutorBandPricing(
   level: TutorSubscriptionLevel,
+  channel: TutorPriceChannel = 'agent',
 ): Promise<TutorBandPricing> {
   const fx = await getUsdMyrRate();
-  return buildTutorBandPricing(level, fx);
+  return buildTutorBandPricing(level, fx, channel);
 }
 
 export async function listTutorRegisterPricing(): Promise<TutorBandPricing[]> {
   const fx = await getUsdMyrRate();
   return (['primary', 'secondary', 'university'] as TutorSubscriptionLevel[]).map(
-    (level) => buildTutorBandPricing(level, fx),
+    (level) => buildTutorBandPricing(level, fx, 'agent'),
+  );
+}
+
+export async function listTutorPublicPricing(): Promise<TutorBandPricing[]> {
+  const fx = await getUsdMyrRate();
+  return (['primary', 'secondary', 'university'] as TutorSubscriptionLevel[]).map(
+    (level) => buildTutorBandPricing(level, fx, 'public'),
   );
 }
 

@@ -25,23 +25,34 @@ import {
 } from '../src/subscriptions/tier-access.config';
 
 describe('ADAM Tutor pricing (USD)', () => {
-  it('returns USD amounts by school level', () => {
-    expect(tutorMonthlyUsdByLevel('primary')).toBe(13);
-    expect(tutorMonthlyUsdByLevel('secondary')).toBe(15);
-    expect(tutorMonthlyUsdByLevel('university')).toBe(17);
+  it('returns public USD amounts by school level', () => {
+    expect(tutorMonthlyUsdByLevel('primary', 'public')).toBe(25);
+    expect(tutorMonthlyUsdByLevel('secondary', 'public')).toBe(33);
+    expect(tutorMonthlyUsdByLevel('university', 'public')).toBe(45);
   });
 
-  it('getTutorPricing uses USD and monthly-only annual', () => {
+  it('returns agent USD amounts by school level', () => {
+    expect(tutorMonthlyUsdByLevel('primary', 'agent')).toBe(19);
+    expect(tutorMonthlyUsdByLevel('secondary', 'agent')).toBe(23);
+    expect(tutorMonthlyUsdByLevel('university', 'agent')).toBe(29);
+  });
+
+  it('defaults getTutorPricing to public channel', () => {
     const p = getTutorPricing('secondary');
     expect(p.currency).toBe('USD');
-    expect(p.monthly).toBe(15);
+    expect(p.monthly).toBe(33);
     expect(p.annual).toBe(0);
   });
 
-  it('lists all tutor bands for Stripe checkout', () => {
-    const levels = listTutorLevelPricing();
+  it('lists public tutor bands for Stripe checkout', () => {
+    const levels = listTutorLevelPricing('public');
     expect(levels).toHaveLength(3);
-    expect(levels.map((l) => l.monthlyAmount)).toEqual([13, 15, 17]);
+    expect(levels.map((l) => l.monthlyAmount)).toEqual([25, 33, 45]);
     expect(levels.every((l) => l.currency === 'USD')).toBe(true);
+  });
+
+  it('lists agent tutor bands for kod-daftar quotes', () => {
+    const levels = listTutorLevelPricing('agent');
+    expect(levels.map((l) => l.monthlyAmount)).toEqual([19, 23, 29]);
   });
 });

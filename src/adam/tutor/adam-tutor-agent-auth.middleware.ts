@@ -29,7 +29,7 @@ export async function requireTutorAgent(
   if (!agentCode || !portalToken) {
     return c.json({
       success: false,
-      error:   'Kod ejen dan token portal diperlukan.',
+      error:   'Agen code and portal token are required.',
       kernel:  'ALAMTOLOGI',
     }, 401);
   }
@@ -38,7 +38,7 @@ export async function requireTutorAgent(
   if (!agent) {
     return c.json({
       success: false,
-      error:   'Kelayakan ejen tidak sah.',
+      error:   'Invalid agen credentials.',
       kernel:  'ALAMTOLOGI',
     }, 403);
   }
@@ -46,7 +46,7 @@ export async function requireTutorAgent(
   if (agent.status !== TutorAgentStatus.ACTIVE) {
     return c.json({
       success: false,
-      error:   'Akaun ejen digantung.',
+      error:   'Agen account suspended.',
       kernel:  'ALAMTOLOGI',
     }, 403);
   }

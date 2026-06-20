@@ -36,6 +36,9 @@ export interface ITutorRegisterCode extends Document {
   lockedAt:     Date | null;
   redeemedBy:   string | null;
   redeemedAt:   Date | null;
+  invitedEmail:       string | null;
+  invitedAt:          Date | null;
+  invitedStudentName: string | null;
   createdBy:    string;
   notes:        string | null;
   createdAt:    Date;
@@ -59,6 +62,9 @@ const TutorRegisterCodeSchema = new Schema<ITutorRegisterCode>(
     lockedAt:   { type: Date, default: null },
     redeemedBy: { type: String, default: null, index: true },
     redeemedAt: { type: Date, default: null },
+    invitedEmail:       { type: String, default: null },
+    invitedAt:          { type: Date, default: null },
+    invitedStudentName: { type: String, default: null },
     createdBy:  { type: String, required: true },
     notes:      { type: String, default: null },
   },
