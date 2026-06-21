@@ -72,6 +72,7 @@ import {
   ensureQaTestAgentPinsMinted,
   provisionTutorTestAgent,
 } from '../../adam/tutor/adam-tutor-test-agent.service';
+import { ensureAgentPackagePinsMinted } from '../../adam/tutor/adam-tutor-agent-pin-mint.service';
 import {
   createTutorAgent,
   deleteTutorAgentByAdmin,
@@ -104,6 +105,13 @@ import {
   listAgentAvailableRegisterCodes,
   sendTutorAgentPinInvite,
 } from '../../adam/tutor/adam-tutor-agent-pin-invite.service';
+import type { ITutorAgent } from '../../adam/tutor/adam-tutor-agent.schema';
+
+async function prepareAgentPortalSession(agent: ITutorAgent): Promise<ITutorAgent> {
+  let ready = await ensureQaTestAgentPinsMinted(agent, 'portal:auto-mint');
+  ready = await ensureAgentPackagePinsMinted(ready, 'portal:auto-mint');
+  return ready;
+}
 
 const router = new Hono();
 
@@ -757,7 +765,7 @@ router.post('/agent/portal/login', zValidator('json', AgentLoginSchema), async (
   if (!agent || agent.status !== 'active') {
     return c.json({ success: false, error: 'Invalid agen credentials.', kernel: 'ALAMTOLOGI' }, 403);
   }
-  const ready = await ensureQaTestAgentPinsMinted(agent, 'portal:auto-mint');
+  const ready = await prepareAgentPortalSession(agent);
   const overview = await getTutorAgentPortalOverview(ready);
   return c.json({
     success: true,
@@ -770,7 +778,7 @@ router.post('/agent/portal/login', zValidator('json', AgentLoginSchema), async (
 // GET /api/adam/tutor/agent/portal/overview
 router.get('/agent/portal/overview', requireTutorAgent, async (c) => {
   const agent = getTutorAgent(c)!;
-  const ready = await ensureQaTestAgentPinsMinted(agent, 'portal:auto-mint');
+  const ready = await prepareAgentPortalSession(agent);
   const overview = await getTutorAgentPortalOverview(ready);
   return c.json({
     success: true,
@@ -912,7 +920,7 @@ router.get('/agent/portal/wallet', requireTutorAgent, async (c) => {
 // GET /api/adam/tutor/agent/portal/codes — available PINs for email invite
 router.get('/agent/portal/codes', requireTutorAgent, async (c) => {
   const agent = getTutorAgent(c)!;
-  const ready = await ensureQaTestAgentPinsMinted(agent, 'portal:auto-mint');
+  const ready = await prepareAgentPortalSession(agent);
   const codes = await listAgentAvailableRegisterCodes(ready.agentId);
   return c.json({
     success: true,

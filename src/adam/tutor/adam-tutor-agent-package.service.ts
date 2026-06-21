@@ -87,7 +87,12 @@ export async function activateTutorAgentPackage(
   const note = `Pakej ${quote.tierLabel} ${TUTOR_REGISTER_BAND_LABELS_BM[quote.band] ?? quote.band} — RM${quote.totalMyr.toFixed(2)} (${quote.pinCount} PIN) · ${input.activatedBy}`;
   agent.notes = agent.notes ? `${agent.notes}\n${note}` : note;
   await agent.save();
-  return agent;
+
+  const { mintTutorAgentRegisterPinsForPackage } = await import('./adam-tutor-agent-pin-mint.service');
+  await mintTutorAgentRegisterPinsForPackage(agent.agentId, input.activatedBy);
+
+  const refreshed = await TutorAgentModel.findOne({ agentId });
+  return refreshed ?? agent;
 }
 
 export async function consumeTutorAgentPins(
