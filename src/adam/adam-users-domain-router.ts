@@ -114,6 +114,7 @@ const TEACHING_PACK_FACETS: ReadonlySet<AdamUsersDomainFacet> = new Set([
   'accounting',
   'health',
   'environment',
+  'geography',
   'entrepreneurship',
   'home-vocational',
 ]);
@@ -130,8 +131,7 @@ export function usersDomainUsesTeachingPack(facet: AdamUsersDomainFacet): boolea
 
 /** Universal Scholar prose — full soul, konvensional; no teaching-pack depth. */
 export function usersDomainUsesUniversalScholarProse(facet: AdamUsersDomainFacet): boolean {
-  return facet === 'geography'
-    || facet === 'arts-music'
+  return facet === 'arts-music'
     || facet === 'moral-ethics'
     || facet === 'islamic-studies'
     || facet === 'general';

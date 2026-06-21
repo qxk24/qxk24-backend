@@ -26,6 +26,7 @@ import {
   usersDomainUsesTeachingPack,
   type AdamUsersDomainFacet,
 } from './adam-users-domain-router';
+import { isAdamGeographyTurn } from './adam-domain-detectors';
 import {
   paragraphIsExplainBackPhase1ALeak,
   paragraphIsSciencePhilosophyEssayLeak,
@@ -54,6 +55,7 @@ export function shouldApplyDomainTeachingVoiceRepair(
   const facet = resolveAdamUsersDomainFacet(userMessage, { recentUserMessages });
   if (!usersDomainUsesTeachingPack(facet)) return false;
   if (isAdamLifeWellbeingTurn(userMessage)) return false;
+  if (facet === 'geography' && isAdamGeographyTurn(userMessage)) return true;
   return isAdamTeachingDepthTurn(userMessage)
     || isAdamCompareTurn(userMessage)
     || isAdamScienceNatureSynthesisTurn(userMessage);
@@ -179,6 +181,22 @@ function applyDomainTeachingStructure(
       trimmed,
       '### Kesimpulan',
       'Ringkasan prinsip konvensional dari kandungan di atas.',
+    ].join('\n\n');
+  }
+
+  if (facet === 'geography') {
+    if (!trimmed) return trimmed;
+    if (/^#{1,6}\s/m.test(trimmed)) return trimmed;
+    const blocks = trimmed.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+    if (blocks.length <= 1) {
+      return `### Geografi\n\n${trimmed}`;
+    }
+    const mid = Math.ceil(blocks.length / 2);
+    return [
+      '### Geografi fizikal',
+      blocks.slice(0, mid).join('\n\n'),
+      '### Iklim, hidupan, dan perlindungan',
+      blocks.slice(mid).join('\n\n'),
     ].join('\n\n');
   }
 

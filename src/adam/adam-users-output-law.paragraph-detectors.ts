@@ -487,6 +487,8 @@ export function paragraphIsCoachingScriptClosing(paragraph: string): boolean {
   if (/paling\s+ingin\s+(?:anda\s+)?dikongsikan/i.test(t)) return true;
   if (/paling\s+ingin\s+kamu\s+kembangkan/i.test(t)) return true;
   if (/Saya di sini untuk membantu anda faham/i.test(t)) return true;
+  if (/^Saya\s+di\s+sini,?\s*bersama\s+/i.test(t)) return true;
+  if (/^Jika\s+.+\s+ingin,?\s*saya\s+boleh\s+bantu\s+jelaskan\s+aspek/i.test(t)) return true;
   if (/bukan untuk memutuskan bagi anda/i.test(t)) return true;
   if (/berdiri teguh dengan ilmu/i.test(t)) return true;
   if (/agar anda berdiri teguh/i.test(t)) return true;

@@ -282,6 +282,45 @@ describe('Voice regression — warm tutor passes through', () => {
     expect(out).not.toMatch(/Apa itu nama/i);
     expect(out).toMatch(/lurus|terus/i);
   });
+
+  it('V-GEO03: Antartika essay → structured facts, no orphans or companion close', async () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/antarctica-essay-leak.txt'),
+      'utf8',
+    );
+    const out = await runStudentVoicePipeline({
+      userMessage:    'Jelaskan tentang Antartika',
+      rawModelOutput: raw,
+    });
+    expectStudentVoiceInvariants(out);
+    expect(out).not.toMatch(/bukan sekadar benua|makna manusiawi|mengingatkan kita/i);
+    expect(out).not.toMatch(/^9 kilometer\.?$|^8 kilometer\.?$/m);
+    expect(out).not.toMatch(/\b9 kilometer\b|\b8 kilometer\b/i);
+    expect(out).not.toMatch(/QA Unlimited|perjalanan ini|Jika QA Unlimited ingin/i);
+    expect(out).toMatch(/−89\.2|89\.2/i);
+    expect(out).toMatch(/Antartika|ais|gurun|Antarctic Treaty|krill|Vostok/i);
+    expect(out).toMatch(/###/);
+  });
+
+  it('V-GEO03b: Antartika markdown orphans (8 km**, 2°C**) → clean facts', async () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/antarctica-essay-leak-v2.txt'),
+      'utf8',
+    );
+    const out = await runStudentVoicePipeline({
+      userMessage:    'Apa itu Benua Antartika?',
+      rawModelOutput: raw,
+    });
+    expectStudentVoiceInvariants(out);
+    expect(out).not.toMatch(/bukan sekadar benua|berbicara tanpa suara|mengingatkan kita|komitmen unik/i);
+    expect(out).not.toMatch(/\b8 kilometer\b|\b9 kilometer\b|\b2°C\b/i);
+    expect(out).not.toMatch(/QA Unlimited|Allah letakkan|ayat\)/i);
+    expect(out).not.toMatch(/^-\s+bagaimana\s+ais/m);
+    expect(out).toMatch(/−89\.2|89\.2/i);
+    expect(out).toMatch(/2,1 km|2\.1 km/i);
+    expect(out).toMatch(/Antartika|Antarctic Treaty|krill|Vostok|60 meter/i);
+    expect(out).toMatch(/### Apa itu Benua Antartika/i);
+  });
 });
 
 describe('Voice regression — bad voice stripped or repaired', () => {
