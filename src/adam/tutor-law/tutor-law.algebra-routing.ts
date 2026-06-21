@@ -15,23 +15,19 @@
  * ============================================================
  */
 
+import { tutorStudentGaveFactorPairAttempt } from './tutor-law.algebra-micro';
 import {
-  tutorStudentGaveFactorPairAttempt,
-} from './tutor-law.algebra-micro';
-export function tutorQuestionIsQuadraticEquation(message: string): boolean {
-  const t = message.trim();
-  if (!t || t.length < 8) return false;
-
-  return (
-    /\bpersamaan\s+kuadratik\b/i.test(t)
-    || /\bfungsi\s+kuadratik\b/i.test(t)
-    || /x\s*[²2^]\s*[\+\−-]/i.test(t)
-    || /\bf\s*\(\s*x\s*\)\s*=\s*0\b/i.test(t)
-    || /\bmemfaktorkan\b|\bfaktorkan\b|\bfactor(?:ise|ize)\b/i.test(t)
-    || /x\s*[²2]\s*[−-]\s*5\s*x/i.test(t)
-    || /Cari\s+nilai\s+.*\bx\b/i.test(t) && /f\s*\(\s*x\s*\)/i.test(t)
-  );
-}
+  buildTutorMathTurnContext,
+  classifyTutorMathIntent,
+} from './tutor-law.math-intent-classifier';
+import {
+  tutorQuestionIsQuadraticEquation,
+  tutorThreadIsQuadraticContext,
+} from './tutor-law.word-problem-routing';
+export {
+  tutorQuestionIsQuadraticEquation,
+  tutorThreadIsQuadraticContext,
+} from './tutor-law.word-problem-routing';
 
 export function tutorStudentExpressesConfusion(message: string): boolean {
   const t = message.trim();
@@ -56,15 +52,6 @@ export function tutorStudentNeedsConceptBasics(message: string): boolean {
     || /\btak\s+faham.*persamaan\s+kuadratik\b/i.test(t)
     || /\btak\s+faham\s+cara\s+penyelesaian\b/i.test(t)
   );
-}
-
-export function tutorThreadIsQuadraticContext(
-  userMessage: string,
-  recentUserMessages: string[] = [],
-  recentAssistantMessages: string[] = [],
-): boolean {
-  const blob = [userMessage, ...recentUserMessages, ...recentAssistantMessages].join('\n');
-  return tutorQuestionIsQuadraticEquation(blob);
 }
 
 /**
@@ -117,7 +104,12 @@ export function tutorTurnNeedsAlgebraWorkedExampleLaw(
   recentUserMessages: string[] = [],
   recentAssistantMessages: string[] = [],
 ): boolean {
-  return tutorAlgebraFullExampleWarranted(userMessage, recentUserMessages, recentAssistantMessages);
+  const intent = classifyTutorMathIntent(buildTutorMathTurnContext({
+    userMessage,
+    recentUserMessages,
+    recentAssistantMessages,
+  }));
+  return intent.allowsStuckEscalation;
 }
 
 /** Factor-pair micro-teach — student tried numbers, not stuck escalation. */

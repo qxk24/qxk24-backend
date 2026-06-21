@@ -77,6 +77,41 @@ export {
 } from './tutor-law/tutor-law.algebra-laws';
 
 export { tutorQuestionIsScienceFactual } from './tutor-law/tutor-law.science-routing';
+export { hasNumericalComputation } from './tutor-law/tutor-law.math-intent-detectors';
+
+export {
+  ADAM_TUTOR_MAIN_SYSTEM_LAW_V1,
+  ADAM_TUTOR_FIVE_RESPONSE_MODES_LAW,
+} from './tutor-law/tutor-law.main-prompt-laws';
+
+export {
+  ADAM_TUTOR_MATH_MODULE_LAW,
+  ADAM_TUTOR_MOD_A_CONCEPT_LAW,
+  ADAM_TUTOR_MOD_B_PROCEDURAL_LAW,
+  ADAM_TUTOR_MOD_C_VERIFICATION_LAW,
+  ADAM_TUTOR_MOD_EXAM_BLOCK_LAW,
+  ADAM_TUTOR_MOD_TEACH_ME_LAW,
+  ADAM_TUTOR_DIAGNOSIS_SCRIPT_LAW,
+  ADAM_TUTOR_SESSION_CLOSURE_WITH_CHECK_LAW,
+  buildMathIntentTurnLaw,
+  buildTutorMathClosureCheckQuestion,
+} from './tutor-law/tutor-law.math-prompt-laws';
+
+export {
+  classifyTutorMathIntent,
+  buildTutorMathTurnContext,
+  tutorQuestionIsScienceFactualIntent,
+  tutorTurnAllowsStuckEscalation,
+} from './tutor-law/tutor-law.math-intent-classifier';
+
+export { tutorTurnWarrantsAutoClosure } from './tutor-law/tutor-law.math-closure-gate';
+
+export type {
+  TutorMathIntentResult,
+  TutorMathIntentMode,
+  TutorMathSessionState,
+  TutorMathTurnContext,
+} from './tutor-law/tutor-law.math-intent.types';
 
 export {
   shouldSkipTutorZeroAnswerGuard,
@@ -157,6 +192,8 @@ export {
   fixTutorMalayPlaceValueTerms,
   paragraphIsTutorMathReflectionLeak,
   tutorReplyLeakedFinalAnswer,
+  enforceTutorVerificationWorkingFirstGuard,
+  appendTutorClosureCheckQuestion,
 } from './tutor-law/tutor-law.guards';
 
 export {

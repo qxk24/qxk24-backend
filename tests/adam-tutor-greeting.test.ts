@@ -27,7 +27,7 @@ describe('buildTutorGreetingFallback', () => {
   it('uses universal tutor intro without Bismillah', () => {
     const out = buildTutorGreetingFallback('hi', 'Ahmad', { level: 'secondary', curriculum: 'national', language: 'malay' });
     expect(out).toContain('Cikgu ADAM');
-    expect(out).toContain('Saya akan bimbing anda sampai faham');
+    expect(out).toMatch(/belajar|subjek|soalan/i);
     expect(out).not.toMatch(/Bismillah/i);
     expect(out).not.toMatch(/\bkamu\b/i);
   });

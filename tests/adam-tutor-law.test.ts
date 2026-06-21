@@ -103,7 +103,7 @@ describe('ADAM Tutor Law', () => {
   it('buildAdamTutorTeacherIntroLaw uses Cikgu for Malay', () => {
     const block = buildAdamTutorTeacherIntroLaw({ level: 'secondary', curriculum: 'national', language: 'malay' });
     expect(block).toContain('Cikgu ADAM');
-    expect(block).toContain('Assalamualaikum');
+    expect(block).toContain('no Bismillah');
   });
 
   it('buildAdamTutorTeacherIntroLaw uses Teacher for English', () => {

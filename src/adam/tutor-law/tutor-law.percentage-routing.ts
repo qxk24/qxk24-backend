@@ -19,75 +19,28 @@ import {
   tutorAlgebraFullExampleWarranted,
   tutorReplyHasAlgebraFactoringExample,
 } from './tutor-law.algebra-routing';
-import { tutorThreadIsMultiStepArithmetic } from './tutor-law.arithmetic-proficiency';
-import { studentStatesFinalArithmeticAnswer } from './tutor-law.arithmetic-closure';
+import {
+  buildTutorMathTurnContext,
+  classifyTutorMathIntent,
+} from './tutor-law.math-intent-classifier';
+import type { TutorMathIntentResult } from './tutor-law.math-intent.types';
 
-/** Percentage-of-total word problem — domain routing, not per-question hardcode. */
-export function tutorQuestionIsPercentageWordProblem(message: string): boolean {
-  const t = message.trim();
-  if (!t || t.length < 10) return false;
-
-  const hasPercent = /\d+\s*(?:%|per\s*atus\b)/i.test(t)
-    || /\b(?:percent|percentage)\b/i.test(t);
-  if (!hasPercent) return false;
-
-  const hasQuantity = /\b(?:murid|pelajar|orang|guru|buku|gaji|wang|harga|bilangan|jumlah|total|students?|people|kotak|lori)\b/i.test(t)
-    || /\b(?:daripada|from|of)\s+\d+/i.test(t)
-    || /\b(?:berapa|how many|find)\b/i.test(t);
-
-  return hasQuantity;
-}
-
-/** Multi-step fraction + remainder (baki) word problem — e.g. 3/8 then 1/4 of baki. */
-export function tutorQuestionIsMultiStepFractionWordProblem(message: string): boolean {
-  const t = message.trim();
-  if (!t || t.length < 15) return false;
-
-  const hasFraction = /\d+\s*\/\s*\d+/.test(t);
-  if (!hasFraction) return false;
-
-  const hasRemainderCue = /\b(?:baki|remainder|masih\s+(?:tinggal|berada|ada|dalam)|daripada\s+baki|of\s+the\s+remainder)\b/i.test(t);
-  const hasQuantity = /\b(?:kotak|lori|minuman|buah|kg|gaji|wang|jumlah|bilangan|bawa|membawa)\b/i.test(t)
-    || /\b\d{2,}\b/.test(t);
-  const hasMultiStep = /\b(?:hari\s+(?:pertama|kedua|ketiga)|pada\s+hari)\b/i.test(t)
-    || (t.match(/\d+\s*\/\s*\d+/g)?.length ?? 0) >= 2;
-
-  return hasRemainderCue && hasQuantity && hasMultiStep;
-}
-
-export function tutorQuestionIsQuantityWordProblem(message: string): boolean {
-  return tutorQuestionIsPercentageWordProblem(message)
-    || tutorQuestionIsMultiStepFractionWordProblem(message);
-}
-
-export function tutorThreadIsPercentageWordProblem(
-  userMessage: string,
-  recentUserMessages: string[] = [],
-  recentAssistantMessages: string[] = [],
-): boolean {
-  if (tutorQuestionIsPercentageWordProblem(userMessage)) return true;
-  const blob = [...recentUserMessages, userMessage, ...recentAssistantMessages].join('\n');
-  return tutorQuestionIsPercentageWordProblem(blob);
-}
-
-export function tutorThreadIsMultiStepFractionWordProblem(
-  userMessage: string,
-  recentUserMessages: string[] = [],
-  recentAssistantMessages: string[] = [],
-): boolean {
-  if (tutorQuestionIsMultiStepFractionWordProblem(userMessage)) return true;
-  const blob = [...recentUserMessages, userMessage, ...recentAssistantMessages].join('\n');
-  return tutorQuestionIsMultiStepFractionWordProblem(blob);
-}
-
-export function tutorThreadIsQuantityWordProblem(
-  userMessage: string,
-  recentUserMessages: string[] = [],
-  recentAssistantMessages: string[] = [],
-): boolean {
-  return tutorThreadIsPercentageWordProblem(userMessage, recentUserMessages, recentAssistantMessages)
-    || tutorThreadIsMultiStepFractionWordProblem(userMessage, recentUserMessages, recentAssistantMessages);
-}
+import {
+  tutorQuestionIsPercentageWordProblem,
+  tutorQuestionIsMultiStepFractionWordProblem,
+  tutorThreadIsQuantityWordProblem,
+  tutorThreadIsPercentageWordProblem,
+  tutorThreadIsMultiStepFractionWordProblem,
+  tutorQuestionIsQuantityWordProblem,
+} from './tutor-law.word-problem-routing';
+export {
+  tutorQuestionIsPercentageWordProblem,
+  tutorQuestionIsMultiStepFractionWordProblem,
+  tutorQuestionIsQuantityWordProblem,
+  tutorThreadIsPercentageWordProblem,
+  tutorThreadIsMultiStepFractionWordProblem,
+  tutorThreadIsQuantityWordProblem,
+} from './tutor-law.word-problem-routing';
 
 export function studentAsksTutorFullWorkingLayout(message: string): boolean {
   const t = message.trim();
@@ -157,34 +110,17 @@ export function studentMessageLooksLikeFinalAnswer(message: string): boolean {
   return false;
 }
 
-function tutorThreadInMicroTeachingPhase(recentAssistantMessages: string[]): boolean {
-  if (recentAssistantMessages.length === 0) return false;
-  const blob = recentAssistantMessages.slice(-4).join('\n');
-  return (
-    /→\s*_{3,}/.test(blob)
-    || /\btempat\s+\*?\*?Sa\b/i.test(blob)
-    || /\bSaya tunggu\b/i.test(blob)
-    || /35\s*\/\s*100/i.test(blob)
-    || /3\s*\/\s*8\s*[×x*]/i.test(blob)
-  );
-}
-
-/** Student likely finished the problem — inject auto full-summary closure this turn. */
+/** Student likely finished — intent-first (S1 narrow auto-close). */
 export function tutorTurnWarrantsAutoClosingSummary(
   userMessage: string,
   recentUserMessages: string[] = [],
   recentAssistantMessages: string[] = [],
 ): boolean {
-  if (studentStatesFinalArithmeticAnswer(userMessage)) {
-    return tutorThreadIsMultiStepArithmetic(userMessage, recentUserMessages, recentAssistantMessages)
-      || tutorThreadInMicroTeachingPhase(recentAssistantMessages);
-  }
-  if (!studentMessageLooksLikeFinalAnswer(userMessage)) return false;
-  return (
-    tutorThreadIsQuantityWordProblem(userMessage, recentUserMessages, recentAssistantMessages)
-    || tutorThreadIsMultiStepArithmetic(userMessage, recentUserMessages, recentAssistantMessages)
-    || tutorThreadInMicroTeachingPhase(recentAssistantMessages)
-  );
+  return classifyTutorMathIntent(buildTutorMathTurnContext({
+    userMessage,
+    recentUserMessages,
+    recentAssistantMessages,
+  })).warrantsAutoClosure;
 }
 
 export function shouldSkipTutorZeroAnswerGuard(
@@ -192,13 +128,20 @@ export function shouldSkipTutorZeroAnswerGuard(
   userMessage: string,
   recentAssistantMessages: string[] = [],
   recentUserMessages: string[] = [],
+  intent?: TutorMathIntentResult,
 ): boolean {
+  if (intent?.allowsScienceFactual) return true;
+  if (intent?.warrantsAutoClosure) return true;
+  if (intent?.allowsStuckEscalation) return true;
   if (studentAsksTutorFullWorkingLayout(userMessage)) return true;
   if (tutorReplyHasCompleteWorkingSummary(text)) return true;
   if (tutorTurnWarrantsAutoClosingSummary(userMessage, recentUserMessages, recentAssistantMessages)) {
     return true;
   }
-  if (tutorAlgebraFullExampleWarranted(userMessage, recentUserMessages, recentAssistantMessages)) {
+  if (
+    tutorAlgebraFullExampleWarranted(userMessage, recentUserMessages, recentAssistantMessages)
+    && (intent?.allowsStuckEscalation ?? false)
+  ) {
     return true;
   }
   if (tutorReplyHasAlgebraFactoringExample(text)) return true;
@@ -210,9 +153,14 @@ export function tutorTurnNeedsFullWorkingLaw(
   recentUserMessages: string[] = [],
   recentAssistantMessages: string[] = [],
 ): boolean {
+  const intent = classifyTutorMathIntent(buildTutorMathTurnContext({
+    userMessage,
+    recentUserMessages,
+    recentAssistantMessages,
+  }));
   return (
     studentAsksTutorFullWorkingLayout(userMessage)
-    || tutorTurnWarrantsAutoClosingSummary(userMessage, recentUserMessages, recentAssistantMessages)
-    || tutorAlgebraFullExampleWarranted(userMessage, recentUserMessages, recentAssistantMessages)
+    || intent.warrantsAutoClosure
+    || intent.allowsStuckEscalation
   );
 }

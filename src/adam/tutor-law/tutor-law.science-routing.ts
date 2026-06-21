@@ -15,6 +15,10 @@
  * ============================================================
  */
 
+import { hasNumericalComputation } from './tutor-law.math-intent-detectors';
+
+export { hasNumericalComputation } from './tutor-law.math-intent-detectors';
+
 /** Math exercise / equation-solving — not factual science Q&A. */
 const TUTOR_MATH_EXERCISE_MARKERS = [
   /\d[\d,]*\s*[+\-×÷*/]\s*\d[\d,]*(?:\s*=\s*[\d,]+)?/,
@@ -33,11 +37,14 @@ const TUTOR_SCIENCE_FACTUAL_MARKERS = [
   /\b(?:berapa\s+(?:lama|jauh|cepat|besar|tinggi|berat|suhu|jarak|kelajuan))\b/i,
   /\b(?:mengapa|kenapa|why|what\s+is|what\s+are|apakah\s+(?:fungsi|maksud|proses|sebab))\b/i,
   /\b(?:photosynthesis|mitosis|gravity|velocity|acceleration|wavelength|frequency)\b/i,
+  /\bE\s*=\s*mc²?\b/i,
+  /\b(?:formula|persamaan)\s+(?:fizik|tenaga|physics)\b/i,
 ];
 
 export function tutorQuestionIsScienceFactual(message: string): boolean {
   const t = message.trim();
   if (!t || t.length < 12) return false;
+  if (hasNumericalComputation(t)) return false;
   if (TUTOR_MATH_EXERCISE_MARKERS.some((re) => {
     re.lastIndex = 0;
     return re.test(t);
@@ -45,7 +52,8 @@ export function tutorQuestionIsScienceFactual(message: string): boolean {
     return false;
   }
   const hasQuestionCue = /[?？]/.test(t)
-    || /\b(?:berapa|mengapa|kenapa|apakah|what|why|how|bila|adakah)\b/i.test(t);
+    || /\b(?:berapa|mengapa|kenapa|apakah|what|why|how|bila|adakah)\b/i.test(t)
+    || /\bapa\s+(?:itu|maksud|beza)\b/i.test(t);
   if (!hasQuestionCue) return false;
   return TUTOR_SCIENCE_FACTUAL_MARKERS.some((re) => {
     re.lastIndex = 0;

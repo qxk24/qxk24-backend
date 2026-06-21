@@ -246,7 +246,7 @@ export function enforceTutorMathPedagogyGuard(
   out = dedupeTutorBoilerplateClosings(out);
   out = stripTrailingArithmeticBoilerplate(out);
 
-  out = out.replace(/\n→\s*_{5,}\s*(?=\n|$)/g, '\n');
+  out = out.replace(/\n→\s*_{10,}\s*(?=\n|$)/g, '\n');
   out = out.replace(/\nSaya tunggu,?\s+dan kita teruskan bersama,?\s+dengan tenang\.?\s*(?=\n|$)/gi, '\n');
 
   const waitLines = out.split('\n').filter((line) => /\bSaya tunggu\b/i.test(line));
@@ -684,4 +684,40 @@ export function tutorReplyLeakedFinalAnswer(text: string): boolean {
   }
   TUTOR_VERIFY_LEAK_BLOCK.lastIndex = 0;
   return TUTOR_VERIFY_LEAK_BLOCK.test(text);
+}
+
+const PREMATURE_VERIFY = [
+  /^(?:Betul|Salah|Ya,? betul|Tepat sekali|Correct)[!.]?\s*$/im,
+  /\b(?:jadi|so)\s+x\s*=\s*[\d.]+\b/i,
+  /\b(?:jawapan(?:nya)?\s+(?:ialah|adalah|betul))\s*[\d,x]/i,
+];
+
+/** Mod C — strip confirm/deny before student shows working. */
+export function enforceTutorVerificationWorkingFirstGuard(
+  text: string,
+  userMessage: string,
+): string {
+  if (!text?.trim()) return text;
+  let out = text;
+  for (const re of PREMATURE_VERIFY) {
+    out = out.replace(re, '');
+  }
+  out = out.replace(/\n{3,}/g, '\n\n').trim();
+  if (out.length >= 40) return out;
+
+  const prompt = userMessage.trim().match(/[a-zA-Z]/)
+    ? 'Boleh tunjukkan cara kerja kamu langkah demi langkah? Saya semak selepas itu.'
+    : 'Show your working step by step — I will check after that.';
+  return prompt;
+}
+
+/** S4 — append single method check question if closure lacks one. */
+export function appendTutorClosureCheckQuestion(
+  text: string,
+  checkQuestion: string,
+): string {
+  if (!text?.trim()) return checkQuestion;
+  if (/Soalan semak:/i.test(text)) return text;
+  if (/\b(?:kenapa kaedah|why (?:this|the) method|explain why)\b/i.test(text)) return text;
+  return `${text.trim()}\n\n${checkQuestion}`;
 }

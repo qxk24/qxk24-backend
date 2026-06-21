@@ -17,7 +17,6 @@
 
 
 import type { AdamTutorProfile } from './tutor-law.types';
-import { tutorQuestionIsScienceFactual } from './tutor-law.science-routing';
 import {
   enforceTutorMathPedagogyGuard,
   enforceTutorQuantityReplyGuard,
@@ -30,6 +29,8 @@ import {
   enforceTutorCarryPlacementGuard,
   enforceTutorStudentCorrectionGuard,
   fixTutorMalayPlaceValueTerms,
+  enforceTutorVerificationWorkingFirstGuard,
+  appendTutorClosureCheckQuestion,
 } from './tutor-law.guards';
 import {
   enforceTutorArithmeticClosureGuard,
@@ -45,17 +46,21 @@ import {
 } from './tutor-law.intro';
 import {
   tutorThreadIsQuantityWordProblem,
-  tutorTurnWarrantsAutoClosingSummary,
   tutorReplyHasCompleteWorkingSummary,
+  shouldSkipTutorZeroAnswerGuard,
 } from './tutor-law.percentage-routing';
 import {
-  tutorAlgebraFullExampleWarranted,
   tutorReplyHasAlgebraFactoringExample,
   tutorThreadIsQuadraticContext,
 } from './tutor-law.algebra-routing';
 import { enforceTutorSessionLanguage } from './tutor-law.session-language';
+import {
+  buildTutorMathTurnContext,
+  classifyTutorMathIntent,
+} from './tutor-law.math-intent-classifier';
+import { buildTutorMathClosureCheckQuestion } from './tutor-law.math-prompt-laws';
 
-/** Full tutor post-stream pipeline — plain language first, then zero-answer. */
+/** Full tutor post-stream pipeline — intent-first, then topic guards. */
 export function enforceTutorReplyGuards(
   text: string,
   profile?: AdamTutorProfile,
@@ -64,109 +69,120 @@ export function enforceTutorReplyGuards(
   recentAssistantMessages: string[] = [],
   recentUserMessages: string[] = [],
 ): string {
+  const msg = userMessage ?? '';
+  const ctx = buildTutorMathTurnContext({
+    userMessage:             msg,
+    recentUserMessages,
+    recentAssistantMessages,
+    profile,
+  });
+  const intent = classifyTutorMathIntent(ctx);
+
   const openers = stripTutorUniversalOpeners(text);
   const introFixed = fixTutorBrokenMalayIntro(openers);
-  const intro = shouldIncludeTutorTeacherIntro(userMessage, recentAssistantMessages, profile)
+  const intro = shouldIncludeTutorTeacherIntro(msg, recentAssistantMessages, profile)
     ? introFixed
     : stripRepeatedTutorTeacherIntro(introFixed, profile);
   const terms = fixTutorMalayPlaceValueTerms(intro, profile);
   const plain = enforceTutorPlainLanguageGuard(terms, profile);
-  const scienceFactual = tutorQuestionIsScienceFactual(userMessage ?? '');
-  const pedagogy = scienceFactual
-    ? enforceTutorScienceFactualGuard(plain, userMessage ?? '')
-    : enforceTutorMathPedagogyGuard(plain, profile, userMessage ?? '');
-  const placeValue = enforceTutorPlaceValueColumnGuard(
-    pedagogy,
-    userMessage ?? '',
-    recentUserMessages,
-    recentAssistantMessages,
-  );
-  const phase = enforceTutorPlaceValuePhaseGuard(
-    placeValue,
-    userMessage ?? '',
-    recentUserMessages,
-    recentAssistantMessages,
-  );
-  const carry = enforceTutorCarryPlacementGuard(
-    phase,
-    userMessage ?? '',
-    recentUserMessages,
-  );
-  const correction = enforceTutorStudentCorrectionGuard(
-    carry,
-    userMessage ?? '',
-    recentUserMessages,
-  );
-  const quantity = tutorThreadIsQuantityWordProblem(
-    userMessage ?? '',
-    recentUserMessages,
-    recentAssistantMessages,
-  )
-    ? enforceTutorQuantityReplyGuard(correction, userMessage ?? '', recentAssistantMessages)
-    : correction;
 
-  const algebra = tutorThreadIsQuadraticContext(
-    userMessage ?? '',
-    recentUserMessages,
-    recentAssistantMessages,
-  )
-    ? enforceTutorAlgebraStuckGuard(
-      quantity,
-      userMessage ?? '',
-      recentAssistantMessages,
-      recentUserMessages,
-    )
-    : quantity;
+  const scienceFactual = intent.allowsScienceFactual;
 
-  const algebraMicro = tutorThreadIsQuadraticContext(
-    userMessage ?? '',
-    recentUserMessages,
-    recentAssistantMessages,
-  )
-    ? enforceTutorAlgebraMicroCorrectionGuard(
-      algebra,
-      userMessage ?? '',
-      recentUserMessages,
-      recentAssistantMessages,
-    )
-    : algebra;
+  let body = scienceFactual
+    ? enforceTutorScienceFactualGuard(plain, msg)
+    : enforceTutorMathPedagogyGuard(plain, profile, msg);
 
-  const arithmeticClosure = enforceTutorArithmeticClosureGuard(
-    algebraMicro,
-    userMessage ?? '',
-    recentUserMessages,
-    recentAssistantMessages,
-  );
+  if (intent.requiresWorkingFirst) {
+    body = enforceTutorVerificationWorkingFirstGuard(body, msg);
+  }
 
-  const closureTurn = tutorTurnWarrantsAutoClosingSummary(
-    userMessage ?? '',
-    recentUserMessages,
-    recentAssistantMessages,
-  );
-  const algebraEscalation = tutorAlgebraFullExampleWarranted(
-    userMessage ?? '',
-    recentUserMessages,
-    recentAssistantMessages,
-  );
+  const tags = new Set(intent.topicGuardTags);
 
-  let finalized = arithmeticClosure;
-  if (
-    closureTurn
-    && !tutorReplyHasCompleteWorkingSummary(arithmeticClosure)
-  ) {
-    const forcedClosure = enforceTutorArithmeticClosureGuard(
-      '',
-      userMessage ?? '',
+  if (tags.has('place_value')) {
+    body = enforceTutorPlaceValueColumnGuard(
+      body,
+      msg,
       recentUserMessages,
       recentAssistantMessages,
     );
-    if (forcedClosure.trim()) finalized = forcedClosure;
+    body = enforceTutorPlaceValuePhaseGuard(
+      body,
+      msg,
+      recentUserMessages,
+      recentAssistantMessages,
+    );
   }
 
+  if (tags.has('carry')) {
+    body = enforceTutorCarryPlacementGuard(body, msg, recentUserMessages);
+  }
+
+  body = enforceTutorStudentCorrectionGuard(body, msg, recentUserMessages);
+
+  if (tags.has('percentage') || tutorThreadIsQuantityWordProblem(msg, recentUserMessages, recentAssistantMessages)) {
+    body = enforceTutorQuantityReplyGuard(body, msg, recentAssistantMessages);
+  }
+
+  if (tags.has('algebra_stuck') || tags.has('algebra_micro')) {
+    if (tutorThreadIsQuadraticContext(msg, recentUserMessages, recentAssistantMessages)) {
+      body = enforceTutorAlgebraStuckGuard(
+        body,
+        msg,
+        recentAssistantMessages,
+        recentUserMessages,
+      );
+      body = enforceTutorAlgebraMicroCorrectionGuard(
+        body,
+        msg,
+        recentUserMessages,
+        recentAssistantMessages,
+      );
+    }
+  }
+
+  let finalized = body;
+
+  finalized = enforceTutorArithmeticClosureGuard(
+    finalized,
+    msg,
+    recentUserMessages,
+    recentAssistantMessages,
+  );
+
+  if (intent.warrantsAutoClosure) {
+    if (
+      !tutorReplyHasCompleteWorkingSummary(finalized)
+      && !/\bKaedah\s+penyelesaian\b/i.test(finalized)
+    ) {
+      const forced = enforceTutorArithmeticClosureGuard(
+        '',
+        msg,
+        recentUserMessages,
+        recentAssistantMessages,
+      );
+      if (forced.trim()) finalized = forced;
+    }
+  }
+
+  if (intent.warrantsAutoClosure && intent.closureIncludesCheckQ) {
+    finalized = appendTutorClosureCheckQuestion(
+      finalized,
+      buildTutorMathClosureCheckQuestion(intent.topic),
+    );
+  }
+
+  const skipZeroAnswer = shouldSkipTutorZeroAnswerGuard(
+    finalized,
+    msg,
+    recentAssistantMessages,
+    recentUserMessages,
+    intent,
+  );
+
   if (
-    closureTurn
+    skipZeroAnswer
     || tutorReplyHasCompleteWorkingSummary(finalized)
-    || algebraEscalation
+    || tutorReplyHasAlgebraFactoringExample(finalized)
   ) {
     return finalized.replace(/\n{3,}/g, '\n\n').trim();
   }
@@ -178,11 +194,12 @@ export function enforceTutorReplyGuards(
     participantName,
   );
   if (scienceFactual) return language;
+
   return enforceTutorZeroAnswerGuard(
     language,
     profile,
     text,
-    userMessage ?? '',
+    msg,
     recentAssistantMessages,
     recentUserMessages,
   );
