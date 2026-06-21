@@ -335,6 +335,8 @@ export function sanitizeUsersOutputSync(
     out = repairTeachingStructuredOutput(out);
   }
 
+  out = repairGeographyVoiceOutput(userMessage, out, stashed);
+
   const paragraphs = out.split(/\n{2,}/);
 
   const faithOk = options?.gateFaithPermitted !== undefined

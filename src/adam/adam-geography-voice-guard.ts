@@ -34,6 +34,7 @@ function body(message: string): string {
 export function isAdamGeographyVoiceRepairTurn(message: string, output = ''): boolean {
   const t = body(message);
   const o = output.trim();
+  if (o && outputHasGeographyTeachingSubstance(o) && outputHasGeographyEssayVoiceLeaks(o)) return true;
   if (o && outputHasGeographyStreamCutOrphans(o) && outputHasGeographyTeachingSubstance(o)) return true;
   if (!t || isAdamLightChatTurn(t)) return false;
   if (isAdamGeographyTurn(t)) return true;
@@ -53,19 +54,55 @@ function outputHasGeographyTeachingSubstance(text: string): boolean {
   return /\b(?:antartika|antarctica|ais|es\b|paras\s+laut|gurun|benua|kilometer\s+persegi|Antarctic\s+Treaty)\b/i.test(text);
 }
 
+export function outputHasGeographyEssayVoiceLeaks(text: string): boolean {
+  return text.split(/\n{2,}/).some((p) => {
+    const t = p.trim();
+    if (!t || /^#{1,6}\s/.test(t)) return false;
+    return paragraphIsGeographyEssayOpenerLeak(t)
+      || paragraphIsGeographyEssayBodyLeak(t)
+      || paragraphIsGeographyEssayCloseLeak(t)
+      || paragraphIsGeographyPassiveMenuLeak(t);
+  });
+}
+
 /** Poetic geography opener — "bukan sekadar benua… makna manusiawi". */
 export function paragraphIsGeographyEssayOpenerLeak(paragraph: string): boolean {
   const t = paragraph.trim();
   if (!t) return false;
   if (/^#{1,6}\s/.test(t)) return false;
   if (/^Antartika\s+bukan\s+sekadar/i.test(t)) return true;
-  if (/\bbukan\s+sekadar\s+benua\b/i.test(t) && /\b(?:manusiawi|jiwa|lapisan|berbicara\s+tanpa\s+suara|menyentuh\s+hati)\b/i.test(t)) {
+  if (/\bbukan\s+sekadar\s+benua\b/i.test(t) && /\b(?:manusiawi|jiwa|lapisan|berbicara\s+tanpa\s+suara|menyentuh\s+(?:hati|akal)|menggetarkan\s+hati)\b/i.test(t)) {
     return true;
   }
-  if (/\bsatu\s+(?:dunia|ruang)\s+yang\s+ber(?:beza|bicara)\b/i.test(t) && /\b(?:makna|jiwa|suara|hati)\b/i.test(t)) {
+  if (/\b(?:ruang|dunia)\s+yang\s+ber(?:beza|bicara)\b/i.test(t) && /\b(?:makna|jiwa|suara|hati|akal)\b/i.test(t)) {
     return true;
   }
   return false;
+}
+
+/** Mid-body Universal Scholar geography essay — not syllabus facts. */
+export function paragraphIsGeographyEssayBodyLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/^#{1,6}\s/.test(t)) return false;
+  if (/\blaboratorium\s+alamiah\b/i.test(t)) return true;
+  if (/\bbukan\s+hanya\s+tentang\s+ais\s+dan\s+kesepian\b/i.test(t)) return true;
+  if (/\bketepatan\s+seperti\s+irama\b/i.test(t)) return true;
+  if (/\bawal\s+penciptaan\b/i.test(t)) return true;
+  if (/\bkeseimbangan\s+alamiah\b/i.test(t) && /\b(?:irama|penciptaan|gagal)\b/i.test(t)) return true;
+  if (/\bberbicara\s+tanpa\s+suara\b/i.test(t)) return true;
+  if (/\bmenggetarkan\s+hati\b/i.test(t)) return true;
+  if (/\bmenyentuh\s+akal\b/i.test(t) && /\b(?:hati|kehadiran)\b/i.test(t)) return true;
+  return false;
+}
+
+/** Keep factual tail when essay opener shares a paragraph with syllabus content. */
+export function repairGeographyEssayOpenerParagraph(paragraph: string): string {
+  const t = paragraph.trim();
+  if (!t || !paragraphIsGeographyEssayOpenerLeak(t)) return t;
+  const factual = t.match(/\b(Secara\s+fizikal[\s\S]*)$/i)
+    ?? t.match(/\b(Ia\s+(?:adalah|diliputi|meliputi)[\s\S]*)$/i);
+  return factual?.[1]?.trim() ?? '';
 }
 
 /** Reflective geography close — not syllabus facts. */
@@ -83,6 +120,10 @@ export function paragraphIsGeographyEssayCloseLeak(paragraph: string): boolean {
   if (/\bsebuah\s+komitmen\s+unik\s+dalam\s+sejarah\s+manusia\b/i.test(t)) return true;
   if (/\bbukan\s+sekadar\s+memberi\s+fakta\b/i.test(t)) return true;
   if (/\b(?:tanda-tanda|ayat)\b/i.test(t) && /\bAllah\b/i.test(t)) return true;
+  if (/\bayat\s+yang\s+diturunkan\b/i.test(t)) return true;
+  if (/\btidak\s+meminta\s+pengakuan\b/i.test(t)) return true;
+  if (/\bDan\s+dalam\s+semua\s+ini,\s*ada\s+satu\s+kebenaran\s+yang\s+tenang\b/i.test(t)) return true;
+  if (/\bdihayati\b/i.test(t) && /\b(?:sunyi|setia|kukuh)\b/i.test(t)) return true;
   return false;
 }
 
@@ -105,6 +146,9 @@ export function paragraphIsGeographyPassiveMenuLeak(paragraph: string): boolean 
   if (/^Jika\s+.+\s+ingin,?\s*saya\s+boleh\s+bantu\s+jelaskan/i.test(t)) return true;
   if (/^Saya\s+di\s+sini,?\s*bersama\s+/i.test(t)) return true;
   if (/^Jika\s+.+\s+ingin,?\s*saya\s+boleh\s+bantu\s+jelaskan\s+aspek/i.test(t)) return true;
+  if (/^Jika\s+(?:\w+\s+){0,3}ingin,?\s*saya\s+boleh\s+terangkan/i.test(t)) return true;
+  if (/\bhanya\s+beritahu\s+arah\s+mana\b/i.test(t)) return true;
+  if (/\bmakna\s+Antartika\s+dalam\s+konteks\s+kemanusiaan\b/i.test(t)) return true;
   if (/^-\s+(?:bagaimana|mengapa|kenapa|atau\s+bagaimana)\b/i.test(t)) return true;
   if (/^-\s+.+\s+stesen\s+penyelidikan\b/i.test(t)) return true;
   return false;
@@ -143,19 +187,26 @@ function stripInlineOrphanMeasures(text: string): string {
   return stripStreamCutOrphanMeasures(normalizeGeographyMarkdownOrphans(text));
 }
 
+function repairGeographyParagraph(paragraph: string): string {
+  return stripInlineOrphanMeasures(stripOrphanTemperatureReading(
+    repairGeographyEssayOpenerParagraph(paragraph.trim()),
+  ));
+}
+
 function salvageGeographyParagraphs(raw: string): string {
   return raw
     .split(/\n{2,}/)
     .map((p) => p.trim())
+    .map((p) => repairGeographyParagraph(p))
     .filter((p) => {
       if (!p) return false;
       if (paragraphIsGeographyEssayOpenerLeak(p)) return false;
+      if (paragraphIsGeographyEssayBodyLeak(p)) return false;
       if (paragraphIsGeographyEssayCloseLeak(p)) return false;
       if (paragraphIsGeographyOrphanMeasureLeak(p)) return false;
       if (paragraphIsGeographyPassiveMenuLeak(p)) return false;
       return true;
     })
-    .map((p) => stripInlineOrphanMeasures(stripOrphanTemperatureReading(p)))
     .join('\n\n')
     .trim();
 }
@@ -204,9 +255,10 @@ export function repairGeographyVoiceOutput(
 
   out = out
     .split(/\n{2,}/)
-    .map((p) => stripInlineOrphanMeasures(stripOrphanTemperatureReading(p.trim())))
+    .map((p) => repairGeographyParagraph(p))
     .filter((p) => p
       && !paragraphIsGeographyEssayOpenerLeak(p)
+      && !paragraphIsGeographyEssayBodyLeak(p)
       && !paragraphIsGeographyEssayCloseLeak(p)
       && !paragraphIsGeographyOrphanMeasureLeak(p)
       && !paragraphIsGeographyPassiveMenuLeak(p))

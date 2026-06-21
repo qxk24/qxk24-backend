@@ -28,6 +28,12 @@ import {
 } from './adam-users-domain-router';
 import { isAdamGeographyTurn } from './adam-domain-detectors';
 import {
+  paragraphIsGeographyEssayBodyLeak,
+  paragraphIsGeographyEssayCloseLeak,
+  paragraphIsGeographyEssayOpenerLeak,
+  paragraphIsGeographyPassiveMenuLeak,
+} from './adam-geography-voice-guard';
+import {
   paragraphIsExplainBackPhase1ALeak,
   paragraphIsSciencePhilosophyEssayLeak,
   outputHasScannableListStructure,
@@ -70,6 +76,10 @@ function paragraphIsDomainTeachingLeak(paragraph: string): boolean {
   if (paragraphIsSciencePhilosophyEssayLeak(t)) return true;
   if (/^Seperti firman Allah\b/i.test(t)) return true;
   if (/^Saya sedia duduk bersama\b/i.test(t)) return true;
+  if (paragraphIsGeographyEssayOpenerLeak(t)) return true;
+  if (paragraphIsGeographyEssayBodyLeak(t)) return true;
+  if (paragraphIsGeographyEssayCloseLeak(t)) return true;
+  if (paragraphIsGeographyPassiveMenuLeak(t)) return true;
   return false;
 }
 

@@ -65,6 +65,13 @@ import {
 } from './adam-response-generation';
 import { isAdamMediaSearchTurn } from './adam-media-search';
 import { paragraphIsGeometryPoeticLeak } from './adam-visual-draw-guard';
+import {
+  paragraphIsGeographyEssayBodyLeak,
+  paragraphIsGeographyEssayCloseLeak,
+  paragraphIsGeographyEssayOpenerLeak,
+  paragraphIsGeographyPassiveMenuLeak,
+  repairGeographyEssayOpenerParagraph,
+} from './adam-geography-voice-guard';
 import { isAdamGeneralKonvensionalTurn, shouldStripKonvensionalFrameworkLeaks } from './adam-knowledge-mode';
 import { GOLD_STANDARD_FOLLOW_UP_RE } from './adam-gold-standard';
 import { SCRIPTED_CLOSINGS } from './adam-users-output-guard.framework';
@@ -148,8 +155,18 @@ export function filterUsersSanitizeParagraphs(
       continue;
     }
     if (stripScienceAlphaExplainBack && paragraphIsSciencePhilosophyEssayLeak(trimmed)) {
+      if (paragraphIsGeographyEssayOpenerLeak(trimmed)) {
+        const salvaged = repairGeographyEssayOpenerParagraph(trimmed);
+        if (salvaged) {
+          kept.push(salvaged);
+          continue;
+        }
+      }
       continue;
     }
+    if (paragraphIsGeographyEssayBodyLeak(trimmed)) continue;
+    if (paragraphIsGeographyEssayCloseLeak(trimmed)) continue;
+    if (paragraphIsGeographyPassiveMenuLeak(trimmed)) continue;
     if (paragraphIsTier1EssayLeak(trimmed) && !userRequestedPracticalDepth(userMessage)) {
       continue;
     }

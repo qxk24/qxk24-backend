@@ -332,6 +332,22 @@ describe('Voice regression — warm tutor passes through', () => {
     expect(out).not.toMatch(/\b8 kilometer\b|\b9 kilometer\b/i);
     expect(out).toMatch(/14 juta|60 meter|Jika semua ais/i);
   });
+
+  it('V-GEO04: Antartika full essay voice → factual paragraphs only', async () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/antarctica-essay-leak-v3.txt'),
+      'utf8',
+    );
+    const out = await runStudentVoicePipeline({
+      userMessage:    'Apa itu Benua Antartika?',
+      rawModelOutput: `### Apa itu Benua Antartika?\n\n${raw}`,
+    });
+    expectStudentVoiceInvariants(out);
+    expect(out).not.toMatch(/berbicara tanpa suara|menggetarkan hati|laboratorium alamiah|awal penciptaan|dihayati|ayat yang diturunkan/i);
+    expect(out).not.toMatch(/QA Unlimited|beritahu arah mana|konteks kemanusiaan/i);
+    expect(out).toMatch(/Secara fizikal|dua kilometer|70%|Antarctic Treaty/i);
+    expect(out).toMatch(/### Apa itu Benua Antartika/i);
+  });
 });
 
 describe('Voice regression — bad voice stripped or repaired', () => {
