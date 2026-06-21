@@ -74,6 +74,7 @@ import {
 } from '../../adam/tutor/adam-tutor-test-agent.service';
 import {
   createTutorAgent,
+  deleteTutorAgentByAdmin,
   getTutorAgentById,
   getTutorAgentPortalOverview,
   getTutorAgentWallet,
@@ -720,6 +721,29 @@ router.get('/admin/agents/:agentId/wallet', requireFounderOrPlatformAdmin, async
     data:    { wallet },
     timestamp: new Date().toISOString(),
   });
+});
+
+// DELETE /api/adam/tutor/admin/agents/:agentId — founder removes agen (no students / redeemed PINs)
+router.delete('/admin/agents/:agentId', requireFounderOrPlatformAdmin, async (c) => {
+  const agentId = c.req.param('agentId');
+  if (!agentId) {
+    return c.json({ success: false, error: 'Agent ID diperlukan.', kernel: 'ALAMTOLOGI' }, 400);
+  }
+
+  try {
+    const result = await deleteTutorAgentByAdmin(agentId);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    result,
+      message: `Agen ${result.orgName} (${result.agentCode}) telah dipadam.`,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Gagal memadam agen.';
+    const status = msg.includes('tidak dijumpai') ? 404 : 400;
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, status);
+  }
 });
 
 // POST /api/adam/tutor/agent/portal/login

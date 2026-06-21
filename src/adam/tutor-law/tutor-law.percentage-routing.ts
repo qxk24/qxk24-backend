@@ -20,6 +20,7 @@ import {
   tutorReplyHasAlgebraFactoringExample,
 } from './tutor-law.algebra-routing';
 import { tutorThreadIsMultiStepArithmetic } from './tutor-law.arithmetic-proficiency';
+import { studentStatesFinalArithmeticAnswer } from './tutor-law.arithmetic-closure';
 
 /** Percentage-of-total word problem — domain routing, not per-question hardcode. */
 export function tutorQuestionIsPercentageWordProblem(message: string): boolean {
@@ -97,6 +98,9 @@ export function studentAsksTutorFullWorkingLayout(message: string): boolean {
     || /\bcara\s+kira\s+keseluruhan\b/i.test(t)
     || /\bberikan\s+susunan\b/i.test(t)
     || /\brumus(?:kan)?\s+(?:langkah|kerja)\b/i.test(t)
+    || /\brumus(?:kan)?\s+keseluruhan\b/i.test(t)
+    || /\bkaedah\s+penyelesaian\b/i.test(t)
+    || /\bmohon\s+buatkan\s+rumus\b/i.test(t)
     || /\bshow\s+(?:me\s+)?(?:the\s+)?(?:full\s+)?(?:working|steps)\b/i.test(t)
   );
 }
@@ -171,6 +175,10 @@ export function tutorTurnWarrantsAutoClosingSummary(
   recentUserMessages: string[] = [],
   recentAssistantMessages: string[] = [],
 ): boolean {
+  if (studentStatesFinalArithmeticAnswer(userMessage)) {
+    return tutorThreadIsMultiStepArithmetic(userMessage, recentUserMessages, recentAssistantMessages)
+      || tutorThreadInMicroTeachingPhase(recentAssistantMessages);
+  }
   if (!studentMessageLooksLikeFinalAnswer(userMessage)) return false;
   return (
     tutorThreadIsQuantityWordProblem(userMessage, recentUserMessages, recentAssistantMessages)

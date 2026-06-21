@@ -32,6 +32,9 @@ import {
   getStudioPricing,
   getTutorPricing,
   listTutorLevelPricing,
+  getConsumerProPricing,
+  getConsumerPremiumPricing,
+  consumerTierSavingsNote,
   ENTERPRISE_PRICING,
   TIER_ACCESS,
 } from './tier-access.config';
@@ -76,7 +79,8 @@ import {
 } from '../freemium/adam-freemium-rolling.service';
 import { RollingQuotaBucket } from '../freemium/adam-freemium.schema';
 import { pelajarDailySoftLimit } from '../freemium/adam-freemium-premium.service';
-import { getPremiumCreditPacks, extraMessageCostCents } from '../freemium/adam-freemium-credit.service';
+import { getPremiumCreditPacks, getPremiumCreditPacksForRegion, extraMessageCostCents } from '../freemium/adam-freemium-credit.service';
+import { convertTutorUsdToRegionalFee } from '../adam/tutor/adam-tutor-fee-currency.service';
 import { guestLifetimeLimit } from '../freemium/adam-freemium-guest.service';
 import {
   consumerFreeDailyLimit,
@@ -108,6 +112,17 @@ router.get('/pricing', async (c) => {
 
   const tutorTier = buildTutorPricingTier(paymentWired, region, myrRate);
 
+  const consumerPro = consumerPlan ? getConsumerProPricing(region, myrRate) : null;
+  const consumerPremium = consumerPlan ? getConsumerPremiumPricing(region, myrRate) : null;
+  const consumerCreditPacks = consumerPlan
+    ? getPremiumCreditPacksForRegion(region, myrRate)
+    : [];
+  const extraMsgRegional = convertTutorUsdToRegionalFee(
+    extraMessageCostCents() / 100,
+    region,
+    myrRate,
+  );
+
   return c.json({
     region,
     payment: {
@@ -119,12 +134,13 @@ router.get('/pricing', async (c) => {
     consumerPlan: consumerPlan ? {
       freeDailyLimit:      consumerFreeDailyLimit(),
       proDailyLimit:       consumerProDailyLimit(),
-      proMonthlyUsd:       ENV.ADAM_PRO_MONTHLY_USD,
-      proAnnualUsd:        ENV.ADAM_PRO_ANNUAL_USD,
-      premiumMonthlyUsd:   ENV.ADAM_PREMIUM_MONTHLY_USD,
-      premiumAnnualUsd:    ENV.ADAM_PREMIUM_ANNUAL_USD,
-      extraMessageCost:    extraMessageCostCents() / 100,
-      creditBundles:       getPremiumCreditPacks(),
+      proMonthlyUsd:       consumerPro!.monthlyUsd,
+      proAnnualUsd:        consumerPro!.annualUsd,
+      premiumMonthlyUsd:   consumerPremium!.monthlyUsd,
+      premiumAnnualUsd:    consumerPremium!.annualUsd,
+      extraMessageCost:    extraMsgRegional.monthlyLocal,
+      extraMessageCurrency: extraMsgRegional.currency,
+      creditBundles:       consumerCreditPacks,
       timezone:            ENV.ADAM_FREEMIUM_TIMEZONE,
     } : null,
     freemium: ENV.ADAM_FREEMIUM_ENABLED ? {
@@ -151,23 +167,23 @@ router.get('/pricing', async (c) => {
       },
       pro: {
         label:            'Pro',
-        monthlyAmount:      ENV.ADAM_PRO_MONTHLY_USD,
-        annualAmount:     ENV.ADAM_PRO_ANNUAL_USD,
-        currency:         'USD',
+        monthlyAmount:      consumerPro!.monthly,
+        annualAmount:     consumerPro!.annual,
+        currency:         consumerPro!.currency,
         description:      '100 messages per day included. Add usage credits when you need more.',
-        savingsNote:      `Save ${ENV.ADAM_PRO_MONTHLY_USD * 12 - ENV.ADAM_PRO_ANNUAL_USD} USD vs 12 monthly payments.`,
+        savingsNote:      consumerTierSavingsNote(consumerPro!),
         comingSoon:       !paymentWired,
         dailyLimit:       consumerProDailyLimit(),
-        topUpPacks:       getPremiumCreditPacks(),
-        extraMessageCost: extraMessageCostCents() / 100,
+        topUpPacks:       consumerCreditPacks,
+        extraMessageCost: extraMsgRegional.monthlyLocal,
       },
       premium: {
         label:         'Premium',
-        monthlyAmount: ENV.ADAM_PREMIUM_MONTHLY_USD,
-        annualAmount:  ENV.ADAM_PREMIUM_ANNUAL_USD,
-        currency:      'USD',
+        monthlyAmount: consumerPremium!.monthly,
+        annualAmount:  consumerPremium!.annual,
+        currency:      consumerPremium!.currency,
         description:   'Full relational memory, API access, publishing, and Builder mode.',
-        savingsNote:   `Save ${ENV.ADAM_PREMIUM_MONTHLY_USD * 12 - ENV.ADAM_PREMIUM_ANNUAL_USD} USD vs 12 monthly payments.`,
+        savingsNote:   consumerTierSavingsNote(consumerPremium!),
         comingSoon:    !paymentWired,
         rollingLimit:  profesionalRollingLimit(),
         rollingWindowHours: rollingWindowHours(),

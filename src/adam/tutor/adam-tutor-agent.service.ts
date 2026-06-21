@@ -16,7 +16,10 @@ import {
   TutorAgentStatus,
   type ITutorAgent,
 } from './adam-tutor-agent.schema';
-import { TutorRegisterCodeModel } from './adam-tutor-register-code.schema';
+import {
+  TutorRegisterCodeModel,
+  TutorRegisterCodeStatus,
+} from './adam-tutor-register-code.schema';
 import {
   TutorEnrollmentModel,
   TutorEnrollmentStatus,
@@ -34,6 +37,9 @@ import {
   serializeAgentMarketingStudent,
   type TutorAgentMarketingStudentPublic,
 } from './adam-tutor-agent-marketing.service';
+import { agentDemoChatUserId } from './adam-tutor-agent-demo-chat.service';
+import { TutorAgentWalletLedgerModel } from './adam-tutor-agent-wallet.schema';
+import { ADAMFounderSessionModel } from '../adam.schema';
 import type { TutorSubscriptionLevel } from '../../subscriptions/subscription.schema';
 import {
   normalizeAgentMalaysiaAddress,
@@ -41,6 +47,7 @@ import {
   normalizeMalaysiaPhone,
   validateAgentRegistrationInput,
 } from './adam-tutor-agent-identity';
+import { allocateTutorAgentCode } from './adam-tutor-agent-code';
 
 export function newTutorAgentId(): string {
   return `TUTOR-AGT-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
@@ -48,28 +55,6 @@ export function newTutorAgentId(): string {
 
 export function newTutorAgentPortalToken(): string {
   return crypto.randomBytes(24).toString('base64url');
-}
-
-function slugOrgForAgentCode(orgName: string): string {
-  const slug = orgName
-    .trim()
-    .toUpperCase()
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .replace(/[^A-Z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 12);
-  return slug || 'AGEN';
-}
-
-export async function allocateTutorAgentCode(orgName: string): Promise<string> {
-  const slug = slugOrgForAgentCode(orgName);
-  for (let seq = 1; seq <= 999; seq += 1) {
-    const code = `TUTOR-AGEN-${slug}-${String(seq).padStart(3, '0')}`;
-    const taken = await TutorAgentModel.exists({ agentCode: code });
-    if (!taken) return code;
-  }
-  throw new Error('Unable to generate a unique agen code.');
 }
 
 export async function createTutorAgent(input: {
@@ -99,7 +84,7 @@ export async function createTutorAgent(input: {
   const address = normalizeAgentMalaysiaAddress(input);
   const phone = normalizeMalaysiaPhone(input.phone);
 
-  const agentCode = await allocateTutorAgentCode(input.orgName);
+  const agentCode = await allocateTutorAgentCode();
   const hasPackage = Boolean(input.band && input.packageTier);
   const agentId = newTutorAgentId();
 
@@ -359,4 +344,43 @@ export async function getTutorAgentWallet(agentId: string) {
       recordedAt:   row.recordedAt.toISOString(),
     })),
   };
+}
+
+/** Founder-only — remove agen with no redeemed PINs or linked students. */
+export async function deleteTutorAgentByAdmin(agentId: string): Promise<{
+  agentCode: string;
+  orgName:   string;
+}> {
+  const agent = await TutorAgentModel.findOne({ agentId });
+  if (!agent) throw new Error('Agen tidak dijumpai.');
+
+  const realStudents = marketingEnrollmentFilter();
+  const [studentCount, redeemedPins] = await Promise.all([
+    TutorEnrollmentModel.countDocuments({ agentId, ...realStudents }),
+    TutorRegisterCodeModel.countDocuments({
+      agentId,
+      status: TutorRegisterCodeStatus.REDEEMED,
+    }),
+  ]);
+
+  if (studentCount > 0 || redeemedPins > 0) {
+    throw new Error(
+      `Tidak boleh padam agen — ${studentCount} pelajar dan ${redeemedPins} PIN ditebus masih terikat.`,
+    );
+  }
+
+  const demoUserId = agentDemoChatUserId(agentId);
+
+  await Promise.all([
+    TutorAgentWalletLedgerModel.deleteMany({ agentId }),
+    TutorRegisterCodeModel.deleteMany({ agentId }),
+    TutorEnrollmentModel.deleteMany({
+      agentId,
+      registerCode: { $regex: /^MARKETING-/ },
+    }),
+    ADAMFounderSessionModel.deleteMany({ founderId: demoUserId, sessionType: 'tutor' }),
+    TutorAgentModel.deleteOne({ agentId }),
+  ]);
+
+  return { agentCode: agent.agentCode, orgName: agent.orgName };
 }

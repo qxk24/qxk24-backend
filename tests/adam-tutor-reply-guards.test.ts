@@ -731,3 +731,88 @@ describe('tutor algebra micro correction — factor pair attempt', () => {
     expect(out).not.toMatch(/\(x\s*[−-]\s*2\)\s*\(x\s*[−-]\s*3\)/);
   });
 });
+
+describe('tutor guli sequential — spurious 0+0 recovery + concise closure', () => {
+  const guliQ =
+    'Aiman mempunyai 1934 biji guli. Dia memberikan 366 biji guli kepada Kasim. '
+    + 'Keesokan harinya Pak Abu memberikan 455 biji guli yang baru dibeli kepada Aiman. '
+    + 'Berapakah bilangan guli yang dimiliki Aiman?';
+
+  const studentFinal =
+    'di rumah ribu sepatutnya 1+1=2, maka jawapan akhir adalah 2023 biji guli';
+
+  const studentRumus = 'Tidak perlu, mohon buatkan rumus keseluruhan kaedah penyelesaian.';
+
+  const brokenAckReply =
+    'Terima kasih — anda betul.\n\n'
+    + 'Digit Puluh: **6 + 5 + 1 = 12** → tulis **2** di Puluh.\n\n'
+    + 'Mari betulkan langkah **Puluh** (digit lajur Puluh — bukan lajur lain):\n\n'
+    + 'Digit **Puluh**: **0** + **0**\n\n'
+    + 'Berapa **0 + 0** di tempat **Puluh**?\n'
+    + '→ ______\n\n'
+    + 'Cikgu tidak siapkan kiraan penuh. Lihat kotak nombor, satu langkah Sa sahaja.';
+
+  const verboseRumusReply =
+    'Terima kasih, Pelajar, permintaan anda jelas.\n\n'
+    + 'Langkah 1: Tulis operasi penuh...\n'
+    + '1,934 − 366 + 455\n\n'
+    + 'Mari betulkan langkah **Sa** (digit lajur Sa — bukan lajur lain):\n'
+    + 'Digit **Sa**: **8** + **5**\n'
+    + '→ ______';
+
+  it('V-T-GULI01: strips spurious 0+0 Mari betulkan after teacher ack', () => {
+    const out = enforceTutorReplyGuards(
+      brokenAckReply,
+      malayProfile,
+      '6 + 5 + 1 = 12. Nilai 2 ditulis pada rumah puluh',
+      'Pelajar',
+      ['Berapa 8 + 5?', '1 568\n+ 455'],
+      [guliQ],
+    );
+    expect(out).not.toMatch(/0\s*\+\s*0/);
+    expect(out).not.toMatch(/Mari betulkan langkah/);
+    expect(out).not.toMatch(/tidak siapkan kiraan penuh/);
+    expect(out).not.toMatch(/→ ______/);
+  });
+
+  it('V-T-GULI02: auto concise closure when student states final answer', () => {
+    const out = enforceTutorReplyGuards(
+      'Betul!\n\nAdakah pelajar mahu saya terangkan makna setiap langkah?',
+      malayProfile,
+      studentFinal,
+      'Pelajar',
+      ['1 568\n+ 455', 'Berapa 8 + 5?'],
+      [guliQ],
+    );
+    expect(out).toMatch(/Jawapan akhir.*2\s*023|2\s*023.*biji/i);
+    expect(out).toMatch(/1\s*934[\s\S]*366|1934[\s\S]*366/);
+    expect(out).toMatch(/1\s*568[\s\S]*455|1568[\s\S]*455/);
+    expect(out).not.toMatch(/→ ______/);
+    expect(out).not.toMatch(/Mari betulkan langkah/);
+  });
+
+  it('V-T-GULI03: replaces verbose rumus with compact working when student asks', () => {
+    const out = enforceTutorReplyGuards(
+      verboseRumusReply,
+      malayProfile,
+      studentRumus,
+      'Pelajar',
+      ['jawapan akhir 2023'],
+      [guliQ, studentFinal],
+    );
+    expect(out).toMatch(/Kaedah penyelesaian/);
+    expect(out).toMatch(/Jawapan akhir/);
+    expect(out.length).toBeLessThan(900);
+    expect(out).not.toMatch(/Mari betulkan langkah.*0\s*\+\s*0/);
+  });
+
+  it('V-T-GULI04: detects final answer phrase for auto-closure turn', () => {
+    expect(
+      tutorTurnWarrantsAutoClosingSummary(
+        studentFinal,
+        [guliQ],
+        ['1 568 + 455'],
+      ),
+    ).toBe(true);
+  });
+});

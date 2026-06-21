@@ -23,6 +23,8 @@ import {
   getTutorPricing,
   listTutorLevelPricing,
   tutorMonthlyUsdByLevel,
+  getConsumerProPricing,
+  getConsumerPremiumPricing,
 } from '../src/subscriptions/tier-access.config';
 
 describe('ADAM Tutor fee currency — regional display', () => {
@@ -63,5 +65,23 @@ describe('ADAM Tutor fee currency — regional display', () => {
     expect(levels).toHaveLength(3);
     expect(levels.every((l) => l.currency === 'MYR')).toBe(true);
     expect(levels.map((l) => l.monthlyUsd)).toEqual([25, 33, 45]);
+  });
+});
+
+describe('Consumer daily plan — regional pricing', () => {
+  it('returns MYR for Malaysia Pro and Premium', () => {
+    const pro = getConsumerProPricing(SupportedRegion.MY, 4.5);
+    const premium = getConsumerPremiumPricing(SupportedRegion.MY, 4.5);
+
+    expect(pro.currency).toBe('MYR');
+    expect(pro.monthly).toBe(85.5);
+    expect(premium.currency).toBe('MYR');
+    expect(premium.monthly).toBe(337.5);
+  });
+
+  it('keeps USD for US visitors', () => {
+    const pro = getConsumerProPricing(SupportedRegion.US);
+    expect(pro.currency).toBe('USD');
+    expect(pro.monthly).toBe(19);
   });
 });

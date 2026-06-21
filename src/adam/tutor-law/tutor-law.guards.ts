@@ -39,11 +39,18 @@ import {
 } from './tutor-law.algebra-micro';
 import {
   buildTutorPlaceValueColumnRecovery,
+  extractActiveStackOperands,
   extractAdditionOperands,
+  tutorColumnDigit,
   tutorParagraphActiveColumn,
+  tutorReplyClaimsColumnSum,
   tutorReplyMisalignsPlaceValueColumn,
   tutorReplyMentionsPlaceColumn,
 } from './tutor-law.place-value-routing';
+import {
+  stripTrailingArithmeticBoilerplate,
+  tutorReplyAcknowledgesOwnError,
+} from './tutor-law.arithmetic-closure';
 import {
   buildTutorCarryStepRecovery,
   buildTutorCorrectionAckRecovery,
@@ -237,6 +244,7 @@ export function enforceTutorMathPedagogyGuard(
     .trim();
 
   out = dedupeTutorBoilerplateClosings(out);
+  out = stripTrailingArithmeticBoilerplate(out);
 
   out = out.replace(/\n→\s*_{5,}\s*(?=\n|$)/g, '\n');
   out = out.replace(/\nSaya tunggu,?\s+dan kita teruskan bersama,?\s+dengan tenang\.?\s*(?=\n|$)/gi, '\n');
@@ -391,16 +399,37 @@ export function enforceTutorPlaceValueColumnGuard(
   text: string,
   userMessage = '',
   recentUserMessages: string[] = [],
+  recentAssistantMessages: string[] = [],
 ): string {
   if (!text?.trim()) return text;
 
-  const operands = extractAdditionOperands(userMessage, ...recentUserMessages, text);
-  if (operands.length < 2) return text;
+  let out = stripTrailingArithmeticBoilerplate(text);
 
-  const column = tutorReplyMentionsPlaceColumn(text) ?? 'sa';
-  if (!tutorReplyMisalignsPlaceValueColumn(text, operands, column)) return text;
+  if (tutorReplyAcknowledgesOwnError(out) && !tutorStudentFlagsTeacherMathError(userMessage)) {
+    return out;
+  }
 
-  let out = text
+  const operands = extractActiveStackOperands(
+    userMessage,
+    recentUserMessages,
+    recentAssistantMessages,
+    out,
+  );
+  if (operands.length < 2) return out;
+
+  const column = tutorReplyMentionsPlaceColumn(out) ?? 'sa';
+  if (!tutorReplyMisalignsPlaceValueColumn(out, operands, column)) return out;
+
+  const claim = tutorReplyClaimsColumnSum(out);
+  if (claim && claim.a === 0 && claim.b === 0) return out;
+
+  const d1 = tutorColumnDigit(operands[0]!, column);
+  const d2 = tutorColumnDigit(operands[1]!, column);
+  if (d1 === 0 && d2 === 0 && (operands[0]! >= 10 || operands[1]! >= 10)) {
+    return out;
+  }
+
+  out = out
     .split(/\n{2,}/)
     .map((p) => p.trim())
     .filter((p) => {
@@ -485,10 +514,12 @@ export function enforceTutorStudentCorrectionGuard(
     return buildTutorCorrectionAckRecovery(operands);
   }
 
-  return text
-    .replace(/\n(?:Adakah anda mahu|Mahukah anda|Mahu kita sambung)[\s\S]*$/i, '')
-    .replace(/\nSaya di sini[^\n]*memastikan[^\n]*/gi, '')
-    .trim();
+  return stripTrailingArithmeticBoilerplate(
+    text
+      .replace(/\n(?:Adakah anda mahu|Mahukah anda|Mahu kita sambung)[\s\S]*$/i, '')
+      .replace(/\nSaya di sini[^\n]*memastikan[^\n]*/gi, '')
+      .trim(),
+  );
 }
 
 const TUTOR_ALGEBRA_STUCK_LINE = [

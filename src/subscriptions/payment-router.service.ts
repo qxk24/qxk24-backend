@@ -30,6 +30,8 @@ import {
   getPelajarPricing,
   getProfesionalPricing,
   getTutorPricing,
+  getConsumerProPricing,
+  getConsumerPremiumPricing,
   normalizeTutorSubscriptionLevel,
 } from './tier-access.config';
 import type { TutorSubscriptionLevel } from './subscription.schema';
@@ -61,11 +63,26 @@ function appUrl(): string {
   return ENV.APP_URL || ENV.ADAM_WEB_BASE_URL;
 }
 
+async function resolveMyrRate(region: SupportedRegion): Promise<number | null> {
+  let myrRate: number | null = ENV.ADAM_USD_MYR_RATE > 0 ? ENV.ADAM_USD_MYR_RATE : null;
+  if (region === SupportedRegion.MY) {
+    try {
+      const { getUsdMyrRate } = await import('../adam/tutor/adam-usd-myr-rate.service');
+      const fx = await getUsdMyrRate();
+      myrRate = fx.rate;
+    } catch {
+      /* PPP/env fallback inside getConsumer*Pricing */
+    }
+  }
+  return myrRate;
+}
+
 export async function routeSubscriptionCreation(
   input: CreateSubscriptionInput,
 ): Promise<SubscriptionCreationResult> {
   const region   = detectRegionFromHeaders(input.headers);
   const provider = PaymentProvider.STRIPE;
+  const myrRate  = await resolveMyrRate(region);
 
   if (input.tier === SubscriptionTier.PRO) {
     if (!isConsumerDailyPlan()) {
@@ -73,12 +90,12 @@ export async function routeSubscriptionCreation(
         'Pro is not open for new subscriptions on this deployment.',
       );
     }
-    return createConsumerProSubscription(input, provider);
+    return createConsumerProSubscription(input, region, provider, myrRate);
   }
 
   switch (input.tier) {
     case SubscriptionTier.PROFESIONAL:
-      return createProfesionalSubscription(input, region, provider);
+      return createProfesionalSubscription(input, region, provider, myrRate);
     case SubscriptionTier.TUTOR:
       return createTutorSubscription(input, region, provider);
     case SubscriptionTier.ENTERPRISE:
@@ -90,12 +107,14 @@ export async function routeSubscriptionCreation(
 
 async function createConsumerProSubscription(
   input:    CreateSubscriptionInput,
+  region:   SupportedRegion,
   provider: PaymentProvider,
+  myrRate?: number | null,
 ): Promise<SubscriptionCreationResult> {
-  const monthly = ENV.ADAM_PRO_MONTHLY_USD;
+  const pricing = getConsumerProPricing(region, myrRate);
   const amount  = input.billingCycle === BillingCycle.ANNUAL
-    ? ENV.ADAM_PRO_ANNUAL_USD
-    : monthly;
+    ? pricing.annual
+    : pricing.monthly;
 
   const sub = await saveSubscription({
     userId:          input.userId,
@@ -103,21 +122,21 @@ async function createConsumerProSubscription(
     tier:            SubscriptionTier.PRO,
     status:          SubscriptionStatus.PENDING,
     billingCycle:    input.billingCycle,
-    region:          SupportedRegion.US,
-    currency:        'USD',
+    region,
+    currency:        pricing.currency,
     amountPerCycle:  amount,
     provider,
     access:          TIER_ACCESS[SubscriptionTier.PRO],
     isFounderFunded: false,
   });
 
-  const checkoutUrl = await createProviderCheckout(sub, amount, 'USD', provider);
+  const checkoutUrl = await createProviderCheckout(sub, amount, pricing.currency, provider);
 
   return {
     subscriptionId: sub._id.toString(),
     checkoutUrl,
     provider,
-    currency: 'USD',
+    currency: pricing.currency,
     amount,
   };
 }
@@ -201,14 +220,11 @@ async function createProfesionalSubscription(
   input:    CreateSubscriptionInput,
   region:   SupportedRegion,
   provider: PaymentProvider,
+  myrRate?: number | null,
 ): Promise<SubscriptionCreationResult> {
   const consumer = isConsumerDailyPlan();
   const pricing = consumer
-    ? {
-        currency: 'USD',
-        monthly:  ENV.ADAM_PREMIUM_MONTHLY_USD,
-        annual:   ENV.ADAM_PREMIUM_ANNUAL_USD,
-      }
+    ? getConsumerPremiumPricing(region, myrRate)
     : getProfesionalPricing(region);
   const amount  = input.billingCycle === BillingCycle.ANNUAL
     ? pricing.annual
@@ -220,7 +236,7 @@ async function createProfesionalSubscription(
     tier:            SubscriptionTier.PROFESIONAL,
     status:          SubscriptionStatus.PENDING,
     billingCycle:    input.billingCycle,
-    region:          consumer ? SupportedRegion.US : region,
+    region,
     currency:        pricing.currency,
     amountPerCycle:  amount,
     provider,

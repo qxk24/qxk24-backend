@@ -26,6 +26,7 @@ import {
 import {
   convertTutorUsdToRegionalFee,
   DEFAULT_TUTOR_FEE_CURRENCY,
+  roundTutorLocalAmount,
 } from '../adam/tutor/adam-tutor-fee-currency.service';
 
 // ─── Tier Access Definitions ─────────────────────────────────────────────────
@@ -457,6 +458,66 @@ export function listTutorLevelPricing(
       currency:      p.currency,
     };
   });
+}
+
+// ─── Consumer daily plan (Basic / Pro / Premium) ─────────────────────────────
+
+export interface IConsumerTierPricing {
+  region:     SupportedRegion;
+  currency:   string;
+  monthly:    number;
+  annual:     number;
+  monthlyUsd: number;
+  annualUsd:  number;
+}
+
+export function getConsumerProPricing(
+  region: SupportedRegion,
+  myrRate?: number | null,
+): IConsumerTierPricing {
+  const monthlyUsd = ENV.ADAM_PRO_MONTHLY_USD;
+  const annualUsd  = ENV.ADAM_PRO_ANNUAL_USD;
+  const monthly    = convertTutorUsdToRegionalFee(monthlyUsd, region, myrRate);
+  const annual     = convertTutorUsdToRegionalFee(annualUsd, region, myrRate);
+
+  return {
+    region,
+    currency:   monthly.currency,
+    monthly:    monthly.monthlyLocal,
+    annual:     annual.monthlyLocal,
+    monthlyUsd,
+    annualUsd,
+  };
+}
+
+export function getConsumerPremiumPricing(
+  region: SupportedRegion,
+  myrRate?: number | null,
+): IConsumerTierPricing {
+  const monthlyUsd = ENV.ADAM_PREMIUM_MONTHLY_USD;
+  const annualUsd  = ENV.ADAM_PREMIUM_ANNUAL_USD;
+  const monthly    = convertTutorUsdToRegionalFee(monthlyUsd, region, myrRate);
+  const annual     = convertTutorUsdToRegionalFee(annualUsd, region, myrRate);
+
+  return {
+    region,
+    currency:   monthly.currency,
+    monthly:    monthly.monthlyLocal,
+    annual:     annual.monthlyLocal,
+    monthlyUsd,
+    annualUsd,
+  };
+}
+
+export function consumerTierSavingsNote(pricing: IConsumerTierPricing): string {
+  if (pricing.currency === DEFAULT_TUTOR_FEE_CURRENCY) {
+    return `Save ${pricing.monthlyUsd * 12 - pricing.annualUsd} USD vs 12 monthly payments.`;
+  }
+  const saved = roundTutorLocalAmount(
+    pricing.monthly * 12 - pricing.annual,
+    pricing.currency,
+  );
+  return `Save ${saved} ${pricing.currency} vs 12 monthly payments.`;
 }
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────

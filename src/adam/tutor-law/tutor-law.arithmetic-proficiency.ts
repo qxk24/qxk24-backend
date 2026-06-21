@@ -74,7 +74,7 @@ export function tutorThreadIsMultiStepArithmetic(
   const blob = [userMessage, ...recentUserMessages, ...recentAssistantMessages].join('\n');
   return (
     /\b\d[\d,]*\s*[+\+\−-]\s*\d[\d,]*\s*[+\+\−-]\s*\d/.test(blob)
-    || (/\btambah\b|\bmembeli\b|\bdilupuskan\b|\bdikurangkan\b/i.test(blob)
+    || (/\b(?:tambah|memberikan|berikan|membeli|dilupuskan|dikurangkan)\b/i.test(blob)
       && (blob.match(/\d[\d,]*/g)?.length ?? 0) >= 3)
   );
 }

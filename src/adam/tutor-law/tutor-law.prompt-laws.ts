@@ -292,6 +292,7 @@ WAJIB:
 DILARANG turn ini:
 - Tulis **1,625**, **1625**, atau jumlah akhir soalan.
 - Selesaikan semua lajur + tolak 128 dalam satu balasan selepas pelajar betulkan.
+- Tambah blok "Mari betulkan langkah … **0 + 0**" — itu tidak relevan selepas anda sudah akui kesilapan.
 `.trim();
 
 export const ADAM_TUTOR_ARITHMETIC_COMPACT_LAW = `

@@ -49,6 +49,46 @@ export function extractAdditionOperands(...messages: string[]): number[] {
   return [];
 }
 
+/** Operands for the active vertical-form addition step (not the original story pair). */
+export function extractActiveStackOperands(
+  userMessage = '',
+  recentUserMessages: string[] = [],
+  recentAssistantMessages: string[] = [],
+  replyText = '',
+): number[] {
+  const recent = [...recentAssistantMessages.slice(-6), replyText, userMessage, ...recentUserMessages.slice(-2)].join('\n');
+
+  const vertical = recent.match(/(\d[\d\s,]*)\s*\n\s*\+\s*(\d[\d\s,]*)\s*\n\s*-+/);
+  if (vertical) {
+    const a = parseInt(vertical[1]!.replace(/[\s,]/g, ''), 10);
+    const b = parseInt(vertical[2]!.replace(/[\s,]/g, ''), 10);
+    if (Number.isFinite(a) && Number.isFinite(b)) return [a, b];
+  }
+
+  const addMatches = [...recent.matchAll(/(\d[\d,]*)\s*\+\s*(\d[\d,]*)/g)];
+  const substantial = addMatches.filter((m) => {
+    const a = parseInt(m[1]!.replace(/,/g, ''), 10);
+    const b = parseInt(m[2]!.replace(/,/g, ''), 10);
+    return a >= 100 || b >= 100;
+  });
+  if (substantial.length > 0) {
+    const last = substantial[substantial.length - 1]!;
+    return [
+      parseInt(last[1]!.replace(/,/g, ''), 10),
+      parseInt(last[2]!.replace(/,/g, ''), 10),
+    ];
+  }
+  if (addMatches.length > 0) {
+    const last = addMatches[addMatches.length - 1]!;
+    return [
+      parseInt(last[1]!.replace(/,/g, ''), 10),
+      parseInt(last[2]!.replace(/,/g, ''), 10),
+    ];
+  }
+
+  return extractAdditionOperands(userMessage, ...recentUserMessages, replyText);
+}
+
 export function tutorColumnDigit(n: number, column: TutorPlaceColumn): number {
   switch (column) {
     case 'sa':

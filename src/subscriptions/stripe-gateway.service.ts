@@ -256,7 +256,9 @@ export async function createStripeCheckoutSession(
 
   const mongoId = sub._id?.toString() ?? '';
   const stripePriceId = resolveStripePriceId(sub);
-  const lineItem = stripePriceId
+  const currency = (sub.currency || 'USD').toUpperCase();
+  const useFixedPriceId = Boolean(stripePriceId) && currency === 'USD';
+  const lineItem = useFixedPriceId
     ? {
       'line_items[0][price]':    stripePriceId,
       'line_items[0][quantity]': '1',

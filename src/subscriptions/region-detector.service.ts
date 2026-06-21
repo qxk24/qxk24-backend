@@ -72,20 +72,22 @@ export function detectRegionFromHeaders(headers: Headers, userRegion?: string | 
   const mappedCf = mapCountry(cfCountry ?? undefined);
   if (mappedCf) return mappedCf;
 
-  const xCountry = headers.get('x-country');
+  const xCountry = headers.get('x-country') ?? headers.get('x-pricing-country');
   const mappedX = mapCountry(xCountry ?? undefined);
   if (mappedX) return mappedX;
 
   const lang = headers.get('accept-language') ?? '';
   if (lang.includes('ms') || lang.includes('en-MY')) return SupportedRegion.MY;
-  if (lang.includes('id'))    return SupportedRegion.ID;
-  if (lang.includes('ar'))    return SupportedRegion.AE;
+  if (lang.includes('id')) return SupportedRegion.ID;
+  if (lang.includes('ar')) return SupportedRegion.AE;
   if (lang.includes('en-GB')) return SupportedRegion.GB;
-  if (lang.includes('en-US')) return SupportedRegion.US;
 
+  /** Site default before weak locale heuristics — iPhone Safari often sends en-US for MY users. */
   const fallback = (ENV.ADAM_DEFAULT_PRICING_REGION ?? 'MY').toUpperCase();
   const mappedFallback = mapCountry(fallback);
   if (mappedFallback) return mappedFallback;
+
+  if (lang.includes('en-US')) return SupportedRegion.US;
 
   return SupportedRegion.OTHER;
 }

@@ -16,7 +16,9 @@
  */
 
 import { ENV } from '../config/environments';
+import { convertTutorUsdToRegionalFee } from '../adam/tutor/adam-tutor-fee-currency.service';
 import { getStripeGatewayStatus } from '../subscriptions/stripe-gateway.service';
+import { SupportedRegion } from '../subscriptions/subscription.schema';
 import { AdamCreditWalletModel } from './adam-freemium.schema';
 
 export const CREDIT_PACK_ID = 'standard';
@@ -107,6 +109,32 @@ export function getPremiumCreditPacks(): CreditPackOffer[] {
     extraMessages: packExtraMessages(p.creditValue),
     credits:       packExtraMessages(p.creditValue),
   }));
+}
+
+/** Regional display/checkout amounts for Pro usage-credit bundles. */
+export function getPremiumCreditPacksForRegion(
+  region: SupportedRegion = SupportedRegion.OTHER,
+  myrRate?: number | null,
+): CreditPackOffer[] {
+  return getPremiumCreditPacks().map((pack) => {
+    const amountConv  = convertTutorUsdToRegionalFee(pack.amount, region, myrRate);
+    const creditConv  = convertTutorUsdToRegionalFee(pack.creditValue, region, myrRate);
+    const currency    = amountConv.currency;
+    const label       = currency === 'USD'
+      ? pack.label
+      : `${currency} ${creditConv.monthlyLocal} usage credits`;
+
+    return {
+      ...pack,
+      label,
+      amount:        amountConv.monthlyLocal,
+      creditValue:   creditConv.monthlyLocal,
+      currency,
+      creditCents:   Math.round(creditConv.monthlyLocal * 100),
+      extraMessages: packExtraMessages(pack.creditValue),
+      credits:       packExtraMessages(pack.creditValue),
+    };
+  });
 }
 
 /** @deprecated Free tier cannot buy credits in consumer plan */

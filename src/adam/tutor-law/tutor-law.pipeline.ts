@@ -32,6 +32,9 @@ import {
   fixTutorMalayPlaceValueTerms,
 } from './tutor-law.guards';
 import {
+  enforceTutorArithmeticClosureGuard,
+} from './tutor-law.arithmetic-closure';
+import {
   fixTutorBrokenMalayIntro,
   shouldIncludeTutorTeacherIntro,
   stripRepeatedTutorTeacherIntro,
@@ -73,6 +76,7 @@ export function enforceTutorReplyGuards(
     pedagogy,
     userMessage ?? '',
     recentUserMessages,
+    recentAssistantMessages,
   );
   const carry = enforceTutorCarryPlacementGuard(
     placeValue,
@@ -118,6 +122,13 @@ export function enforceTutorReplyGuards(
     )
     : algebra;
 
+  const arithmeticClosure = enforceTutorArithmeticClosureGuard(
+    algebraMicro,
+    userMessage ?? '',
+    recentUserMessages,
+    recentAssistantMessages,
+  );
+
   const closureTurn = tutorTurnWarrantsAutoClosingSummary(
     userMessage ?? '',
     recentUserMessages,
@@ -128,16 +139,31 @@ export function enforceTutorReplyGuards(
     recentUserMessages,
     recentAssistantMessages,
   );
+
+  let finalized = arithmeticClosure;
   if (
     closureTurn
-    || tutorReplyHasCompleteWorkingSummary(algebraMicro)
+    && !tutorReplyHasCompleteWorkingSummary(arithmeticClosure)
+  ) {
+    const forcedClosure = enforceTutorArithmeticClosureGuard(
+      '',
+      userMessage ?? '',
+      recentUserMessages,
+      recentAssistantMessages,
+    );
+    if (forcedClosure.trim()) finalized = forcedClosure;
+  }
+
+  if (
+    closureTurn
+    || tutorReplyHasCompleteWorkingSummary(finalized)
     || algebraEscalation
   ) {
-    return algebraMicro.replace(/\n{3,}/g, '\n\n').trim();
+    return finalized.replace(/\n{3,}/g, '\n\n').trim();
   }
 
   const language = enforceTutorSessionLanguage(
-    algebraMicro,
+    finalized,
     profile,
     userMessage,
     participantName,
