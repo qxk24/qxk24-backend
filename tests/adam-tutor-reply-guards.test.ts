@@ -8,6 +8,7 @@ import { describe, expect, it } from '@jest/globals';
 import {
   buildTutorAmbiguousInputReply,
   buildTutorMalayFollowUpRecovery,
+  enforceTutorMathPedagogyGuard,
   enforceTutorReplyGuards,
   enforceTutorSessionLanguage,
   shouldIncludeTutorTeacherIntro,
@@ -16,6 +17,8 @@ import {
   tutorReplyHasTeacherIntro,
   tutorReplyIsPredominantlyEnglish,
 } from '../src/adam/adam-tutor-law';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import type { AdamTutorProfile } from '../src/adam/adam-tutor-law';
 
 const malayProfile: AdamTutorProfile = {
@@ -186,5 +189,54 @@ describe('enforceTutorSessionLanguage — English re-explain', () => {
     );
     expect(out).not.toMatch(/Let me explain|Good try/i);
     expect(out).toMatch(/Salam, Ali|jawapan \*\*12\*\*|Cikgu/i);
+  });
+});
+
+describe('enforceTutorMathPedagogyGuard — tester library regression', () => {
+  it('V-T-M01: strips off-topic "tambah nombor 4" reflection during arithmetic', () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/tutor-math-reflection-leak.txt'),
+      'utf8',
+    );
+    const out = enforceTutorReplyGuards(
+      `Betul, Pelajar.\n\n${raw}\n\nBerapa **1 − 2** di tempat **Puluh**?\n→ ______\n\nSaya tunggu.`,
+      malayProfile,
+      '1+2+3 = 6',
+      'Pelajar',
+      [malayTeachingOnly],
+    );
+    expect(out).not.toMatch(/tambah nombor 4|empat arah|AMA\b/i);
+    expect(out).toMatch(/Betul|Puluh|→ ______/i);
+    expect((out.match(/Saya tunggu/gi) ?? []).length).toBeLessThanOrEqual(1);
+  });
+
+  it('V-T-M02: strips MASA/TENAGA reflection when student rejects philosophical framing', () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/tutor-masa-tenaga-leak.txt'),
+      'utf8',
+    );
+    const out = enforceTutorMathPedagogyGuard(
+      raw,
+      malayProfile,
+      'tidak faham soalan cikgu adam . apa kaitan masa dengan tenaga dalam soalan matematik yang saya tanya',
+    );
+    expect(out).not.toMatch(/MASA\s*→\s*TENAGA|perkara kecil yang anda lakukan|→ _{5,}/i);
+    expect(out).toMatch(/tiada kaitan langsung/i);
+  });
+
+  it('V-T-M03: strips AMA / four-directions digression on "dari mana datang no. 4"', () => {
+    const digression =
+      'Nombor 4 bukan muncul secara tiba-tiba. Ia lahir dari proses tambah.\n\n'
+      + 'Utara, Selatan, Timur, Barat → Atas, Bawah, Depan, Belakang\n\n'
+      + 'Apakah contoh harian yang menunjukkan empat arah dalam kehidupan anda?';
+    const out = enforceTutorReplyGuards(
+      digression,
+      malayProfile,
+      'Dari mana datang no. 4',
+      'Pelajar',
+      [malayTeachingOnly],
+    );
+    expect(out).not.toMatch(/Utara|empat arah|contoh harian/i);
+    expect(out).toMatch(/langkah matematik|satu langkah/i);
   });
 });

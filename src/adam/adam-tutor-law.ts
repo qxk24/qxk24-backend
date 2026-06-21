@@ -417,29 +417,32 @@ Bismillah dibenarkan pada permulaan — teruskan dengan bahasa kelas yang mudah,
 `.trim();
 
 export const ADAM_TUTOR_CONVENTIONAL_LAYOUT_LAW = `
-ADAM TUTOR — BENTUK LAZIM (wajib — paparan seperti buku teks / ChatGPT kelas):
+ADAM TUTOR — BENTUK LAZIM (wajib — paparan seperti buku teks / latihan sekolah):
 
-Setiap jawapan substantif mesti **tersusun rapi** — bukan satu perenggan panjang. Guna markdown yang skrin boleh paparkan:
-- **Jadual markdown (GFM)** untuk kotak nilai tempat / data nombor
-- **Blok \`\`\` monospace** untuk rajah ASCII ringkas (bar guli, paksi graf, susunan lajur)
-- **Baris kosong** antara bahagian supaya mudah dibaca di telefon
+Setiap jawapan substantif mesti **tersusun rapi** — bukan satu perenggan panjang.
 
-STRUKTUR WAJIB (matematik / aritmetik — ikut urutan ini):
-1. **Cerita** — 1–2 ayat; nombor dalam soalan **tebal** (contoh: **2,385**).
-2. **Matlamat** — satu ayat: apa dicari (jumlah, beza, dll.) dan operasi dalam *italik* jika BM.
-3. **Persamaan** — satu baris sendiri, tebal: **2,385 + 1,427**
-4. **Kotak nombor** (jika tambah/tolak bertingkat) — jadual nilai tempat ATAU blok monospace:
+**ARITMETIK TAMBAH/TOLAK BERTINGKAT — utamakan susunan menegak (bukan jadual nilai tempat):**
+Guna blok monospace \`\`\` supaya pelajar nampak operasi seperti buku latihan:
 
-| Ribu | Ratus | Puluh | Sa |
-|:---:|:---:|:---:|:---:|
-| 2 | 3 | 8 | 5 |
-| 1 | 4 | 2 | 7 |
-| + | | | |
+\`\`\`
+  1 625
+-   128
+-------
+\`\`\`
 
-5. **Satu langkah sahaja** — mulakan kanan: tempat **Sa** (satuan); soalan mikro **tebal**: Berapa **5 + 7**?
-6. **Baris jawapan pelajar** — pada baris sendiri:
-→ ______
-7. **Tunggu** — satu ayat penutup: "Saya tunggu, kemudian kita terus ke tempat **Puluh**."
+- Tulis nombor sejajar kanan; tanda operasi di kiri baris bawah.
+- Satu langkah mikro sahaja setiap turn (contoh: **Sa** / satuan dulu).
+- Jangan isi digit hasil penuh dalam kotak — biarkan pelajar tulis.
+
+**Jadual markdown** — hanya untuk data graf / statistik / perbandingan banyak lajur, BUKAN untuk kiraan tambah/tolak harian Tingkatan 1.
+
+STRUKTUR WAJIB (soalan aritmetik / word problem — ikut urutan ini):
+1. **Apa soalan minta** — satu ayat: jumlah akhir / beza / dll.
+2. **Operasi** — *tambah*, *tolak*, *darab*, *bahagi* yang diperlukan.
+3. **Aturan operasi** — tulis persamaan satu baris: **1,250 + 375 − 128** (atau langkah seterusnya sahaja bila multi-turn).
+4. **Satu langkah mikro** — soalan tebal: Berapa **5 − 8** di tempat **Sa**?
+5. **Baris pelajar** — → ______
+6. **Tunggu** — satu ayat: "Saya tunggu, kemudian kita terus ke tempat **Puluh**."
 
 PERSAMAAN LINEAR / ALGEBRA (bila berkaitan):
 - Tulis setiap langkah algebra pada **baris sendiri** (contoh: \`2x + 3 = 7\` kemudian baris seterusnya \`2x = 4\`) — skrin akan susun sejajar.
@@ -451,19 +454,18 @@ CONTOH BETUL PENUH (tambah guli — salin struktur, jangan kira lajur lain dalam
 Ali ada **2,385** biji guli.
 Dia beli lagi **1,427** biji guli.
 
-Kita nak cari **jumlah keseluruhan**, jadi kita *tambah*:
-**2,385 + 1,427**
+**Apa soalan minta:** jumlah keseluruhan guli.
+**Operasi:** *tambah* → **2,385 + 1,427**
 
-| Ribu | Ratus | Puluh | Sa |
-|:---:|:---:|:---:|:---:|
-| 2 | 3 | 8 | 5 |
-| 1 | 4 | 2 | 7 |
-| + | | | |
+\`\`\`
+  2 385
++ 1 427
+-------
+\`\`\`
 
-Mulakan dari kanan, di tempat **Sa** (satuan):
+Mulakan dari kanan, tempat **Sa** (satuan):
 Berapa **5 + 7**?
 
-Tulis jawapan di sini:
 → ______
 
 Saya tunggu, kemudian kita terus ke tempat **Puluh**.
@@ -476,8 +478,10 @@ GRAF & RAJAH (bila soalan perlukan visual):
 
 DILARANG dalam layout:
 - Satu blok teks panjang tanpa pecahan.
-- Kira semua lajur dalam jadual sekaligus atau isi digit hasil dalam kotak.
+- Jadual nilai tempat untuk tambah/tolak harian (guna susunan menegak).
+- Kira semua lajur sekaligus atau isi digit hasil penuh.
 - Langkau baris \`→ ______\` bila minta pelajar jawab.
+- Soalan refleksi filosofi (masa/tenaga, empat arah, AMA) semasa kiraan aritmetik sedang berjalan.
 `.trim();
 
 export const ADAM_TUTOR_MALAY_MATH_TERMS = `
@@ -499,20 +503,31 @@ CONTOH SALAH: "Mulakan **Saat**: berapa 5 + 7?" (salah — Saat bukan satuan)
 export const ADAM_TUTOR_PEDAGOGY_LAW = `
 ADAM TUTOR PEDAGOGY (sekular — BUKAN Explain-Back Law / BUKAN Alamtologi):
 
+SOALAN MATEMATIK / ARITMETIK — empat langkah sahaja (henti bila pelajar nyatakan jawapan akhir):
+1. **Apa soalan minta** — satu ayat ringkas.
+2. **Operasi apa** — tambah/tolak/darab/bahagi; tulis persamaan.
+3. **Aturan operasi** — satu langkah mikro setiap turn (Sa → Puluh → Ratus); pinjam jika perlu.
+4. **Jawapan akhir** — bila pelajar tulis jawapan betul (contoh "1,497 buah"), sahkan ringkas dan **tamat** — jangan tanya soalan refleksi baru.
+
 URUTAN RINGKAS (henti sebelum nilai akhir):
 - Akui soalan / kebimbangan pelajar.
-- Analogi harian jika perlu (duit saku, tiket bas) — BUKAN analogi rohani atau falsafah.
+- Analogi harian jika perlu (duit saku, buku perpustakaan) — BUKAN analogi rohani atau falsafah.
 - Satu soalan panduan — pelajar jawab sendiri.
-- Minta pelajar terangkan langkah dalam ayat sendiri sebelum kamu sahkan.
-- Latihan serupa tanpa kunci jawapan.
+- Sahkan jawapan pelajar; teruskan langkah seterusnya — bukan esei.
 
 DILARANG:
 - Nyatakan jawapan akhir, "jawapan akhirnya", "hasilnya ialah", atau semak kerja dengan jawapan tersembunyi.
 - Tunjuk SEMUA langkah kira (tempat satu, puluh, ratus, ribu) dalam satu balasan.
 - Selesaikan soalan untuk pelajar, kemudian suruh mereka "isi ayat" — itu masih beri jawapan.
-- Label Alamtologi, ayat Quran panjang, Teori Masa Bayu, naratif pengasas.
+- Soalan refleksi off-topic semasa kiraan: "tambah nombor 4", "masa dan tenaga", "empat arah", "maksud angka dari sudut kemanusiaan".
+- Ulang berkali-kali "tulis satu ayat ringkas" / "Saya tunggu" tanpa maju langkah matematik.
+- Label Alamtologi, ayat Quran panjang, Teori Masa Bayu, MASA/TENAGA/AMA, naratif pengasas.
 - Senarai bernombor panjang (1. 2. 3. 4.) yang mendedahkan semua langkah sekaligus.
 - Nama fasa ("Phase 1A", "niche", "nafas masuk") dalam balasan.
+
+BILA PELAJAR BINGUNG ("dari mana datang nombor ini?", "apa kaitan masa tenaga?"):
+- Jawab jujur dalam **satu perenggan BM mudah**: tiada kaitan fizik/sains dalam soalan Tingkatan 1; kembali ke operasi semasa.
+- Jangan jawab dengan khutbah AMA, empat arah, atau soalan refleksi baru.
 
 SUARA:
 - Cikgu/Teacher yang sabar — bahasa mudah ikut tahap pelajar.
@@ -604,6 +619,16 @@ const TUTOR_PLAIN_LANGUAGE_BLEED = [
   /\bnafas\s+(?:keluar|diam)\b/i,
   /\bseven\s+principle\b/i,
   /\btujuh\s+prinsip\b/i,
+  /\bMASA\s*(?:→|->|—)\s*TENAGA\b/i,
+  /\b(?:sudut|konteks)\s+masa\s+dan\s+tenaga\b/i,
+  /\btenaga\s+akal\b/i,
+  /\b(?:Utara|Timur|Barat|Selatan)(?:,\s*(?:Utara|Timur|Barat|Selatan)){2,}/i,
+  /\bempat\s+arah\b/i,
+  /\bNombor\s+4\s+bukan\s+muncul\b/i,
+  /\b(?:dalam\s+)?AMA\b/i,
+  /\bcerita\s+yang\s+hidup\b/i,
+  /\bawal\s+penciptaan\b/i,
+  /\blaboratorium\s+alamiah\b/i,
 ];
 
 /** English menu bleed when session profile is Malay. */
@@ -776,10 +801,102 @@ export function enforceTutorPlainLanguageGuard(
   const lang = inferTutorLanguageFromText(out, profile);
   const title = tutorTeacherTitle(lang);
   const nudge = lang === 'malay'
-    ? `\n\n${title} guna bahasa mudah: fokus pada langkah seterusnya. Cuba jawab soalan di atas — tulis persamaan baharu selepas −4 dipindahkan.`
-    : `\n\n${title} uses plain language: focus on the next step. Try the question above — write the new equation after moving −4 across.`;
+    ? `\n\n${title} guna bahasa mudah: fokus pada langkah matematik seterusnya. Jawab soalan di atas — satu langkah sahaja.`
+    : `\n\n${title} uses plain language: focus on the next maths step. Answer the question above — one step only.`;
 
   return `${out}${nudge}`.trim();
+}
+
+/** Off-topic reflection / philosophy during arithmetic tutoring — strip by pattern. */
+export function paragraphIsTutorMathReflectionLeak(paragraph: string): boolean {
+  const t = paragraph.trim();
+  if (!t) return false;
+  if (/^#{1,6}\s/.test(t)) return false;
+  if (/\bApakah\s+yang\s+berlaku\s+jika\s+kita\s+tambah\s+nombor\b/i.test(t)) return true;
+  if (/\bApakah\s+maksud\s+angka\b/i.test(t) && /\b(?:masa|tenaga|kemanusiaan)\b/i.test(t)) return true;
+  if (/\bApakah\s+contoh\s+harian\b/i.test(t) && /\b(?:empat\s+arah|masa|tenaga)\b/i.test(t)) return true;
+  if (/\bsatu\s+perkara\s+kecil\s+yang\s+anda\s+lakukan\b/i.test(t) && /\b(?:masa|tenaga)\b/i.test(t)) {
+    return true;
+  }
+  if (/\b(?:mahu\s+faham\s+asal-usul|bukan\s+sekadar\s+kira)\b/i.test(t) && /\b(?:AMA|empat\s+arah|Utara)\b/i.test(t)) {
+    return true;
+  }
+  if (/\bDalam\s+matematik\s+sekolah\b/i.test(t) && /\bTetapi\b/i.test(t) && /\bMASA\b/i.test(t)) return true;
+  if (/\bApabila\s+kita\s+berbicara\s+tentang\b/i.test(t) && /\bMASA\b/i.test(t)) return true;
+  if (/\bcerita\s+yang\s+hidup\b/i.test(t)) return true;
+  if (/\btanda\s+pertumbuhan,\s*harapan\s+baru\b/i.test(t)) return true;
+  return false;
+}
+
+function dedupeTutorBoilerplateClosings(text: string): string {
+  let out = text;
+  const workedClose =
+    /(?:Cikgu|Teacher)\s+tidak\s+siapkan\s+kiraan\s+penuh[\s\S]{0,140}?teruskan\./gi;
+  const matches = [...out.matchAll(workedClose)];
+  if (matches.length > 1) {
+    for (let i = 0; i < matches.length - 1; i += 1) {
+      out = out.replace(matches[i]![0], '');
+    }
+  }
+  return out.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/** Strip reflection prompts; keep one wait-line; prefer single student answer slot. */
+export function enforceTutorMathPedagogyGuard(
+  text: string,
+  profile?: AdamTutorProfile,
+  userMessage = '',
+): string {
+  if (!text?.trim()) return text;
+
+  let out = text
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter((p) => {
+      if (!p) return false;
+      if (paragraphIsTutorMathReflectionLeak(p)) return false;
+      if (p.split('\n').some((line) => lineHasPlainLanguageBleed(line.trim()))) return false;
+      if (/^Tetapi[…\.]{0,3}$/i.test(p)) return false;
+      if (/^Sekarang,\s*cuba\s+anda\s+tulis\s+satu\s+ayat\s+ringkas:?\s*$/i.test(p)) return false;
+      if (/^Tulis\s+di\s+sini:?\s*$/i.test(p)) return false;
+      return true;
+    })
+    .join('\n\n')
+    .trim();
+
+  out = dedupeTutorBoilerplateClosings(out);
+
+  out = out.replace(/\n→\s*_{5,}\s*(?=\n|$)/g, '\n');
+  out = out.replace(/\nSaya tunggu,?\s+dan kita teruskan bersama,?\s+dengan tenang\.?\s*(?=\n|$)/gi, '\n');
+
+  const waitLines = out.split('\n').filter((line) => /\bSaya tunggu\b/i.test(line));
+  if (waitLines.length > 1) {
+    let seen = 0;
+    out = out.split('\n').filter((line) => {
+      if (!/\bSaya tunggu\b/i.test(line)) return true;
+      seen += 1;
+      return seen === waitLines.length;
+    }).join('\n');
+  }
+
+  const answerSlots = (out.match(/→\s*_{3,}/g) ?? []).length;
+  if (answerSlots > 1) {
+    let kept = 0;
+    out = out.replace(/→\s*_{3,}/g, (m) => {
+      kept += 1;
+      return kept === answerSlots ? m : '';
+    });
+  }
+
+  if (/\btidak\s+faham\s+soalan\b/i.test(userMessage) && /\b(?:masa|tenaga)\b/i.test(userMessage)) {
+    const lang = inferTutorLanguageFromText(out, profile);
+    const title = tutorTeacherTitle(lang);
+    if (lang === 'malay' && !/\btiada\s+kaitan\s+langsung\b/i.test(out)) {
+      out = `${out}\n\n${title} faham kekeliruan anda. Dalam soalan matematik Tingkatan 1 ini, tiada kaitan langsung antara masa fizik dan tenaga fizik — kita hanya *tambah* dan *tolak* buku. Mari sambung langkah nombor seterusnya.`.trim();
+    }
+  }
+
+  return out.replace(/\n{3,}/g, '\n\n').trim();
 }
 
 /** Post-stream safety net — strip obvious final-answer leaks. */
@@ -1147,7 +1264,8 @@ export function enforceTutorReplyGuards(
     : stripRepeatedTutorTeacherIntro(introFixed, profile);
   const terms = fixTutorMalayPlaceValueTerms(intro, profile);
   const plain = enforceTutorPlainLanguageGuard(terms, profile);
-  const language = enforceTutorSessionLanguage(plain, profile, userMessage, participantName);
+  const math = enforceTutorMathPedagogyGuard(plain, profile, userMessage ?? '');
+  const language = enforceTutorSessionLanguage(math, profile, userMessage, participantName);
   return enforceTutorZeroAnswerGuard(language, profile, text);
 }
 
