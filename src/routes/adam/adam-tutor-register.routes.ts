@@ -83,6 +83,7 @@ import {
   resolveTutorAgent,
 } from '../../adam/tutor/adam-tutor-agent.service';
 import { getTutorAgent, requireTutorAgent } from '../../adam/tutor/adam-tutor-agent-auth.middleware';
+import { isValidTutorAgentLoginCode } from '../../adam/tutor/adam-tutor-agent-code';
 import { MALAYSIA_STATES } from '../../adam/tutor/adam-tutor-agent-identity';
 import {
   TUTOR_AGENT_PACKAGE_TIERS,
@@ -183,7 +184,10 @@ const AdminActivatePackageSchema = z.object({
 });
 
 const AgentLoginSchema = z.object({
-  agentCode:   z.string().min(8).max(40),
+  agentCode: z.string().trim().min(7).max(41).refine(
+    isValidTutorAgentLoginCode,
+    { message: 'Invalid agen code format.' },
+  ),
   portalToken: z.string().min(16).max(128),
 });
 

@@ -53,6 +53,7 @@ export {
   ADAM_TUTOR_MALAY_MATH_TERMS,
   ADAM_TUTOR_PLACE_VALUE_COLUMN_LAW,
   ADAM_TUTOR_CARRY_PLACEMENT_LAW,
+  ADAM_TUTOR_ARITHMETIC_MULTI_OP_LAW,
   ADAM_TUTOR_ARITHMETIC_ADAPTIVE_LAW,
   ADAM_TUTOR_ARITHMETIC_COMPACT_LAW,
   ADAM_TUTOR_ARITHMETIC_FLUENT_LAW,
@@ -130,6 +131,16 @@ export {
   tutorThreadWarrantsCompactArithmetic,
   tutorThreadIsMultiStepArithmetic,
 } from './tutor-law/tutor-law.arithmetic-proficiency';
+
+export {
+  enforceTutorPlaceValuePhaseGuard,
+  parseAddThenSubtractProblem,
+  resolveActiveAddThenSubtractProblem,
+  tutorAdditionPhaseComplete,
+  tutorInferFurthestColumnInThread,
+  tutorReplyRegressesColumnPhase,
+  tutorStudentFlagsTeachingLoopError,
+} from './tutor-law/tutor-law.arithmetic-phase';
 
 export {
   enforceTutorMathPedagogyGuard,

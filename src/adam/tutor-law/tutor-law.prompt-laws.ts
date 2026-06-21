@@ -279,6 +279,21 @@ Nilai pelajar dari jawapan terkini — sesuaikan kedalaman, **bukan** langkau ko
 Semua tier: **zero-answer** kekal — jangan beri jawapan akhir sebelum pelajar selesaikan.
 `.trim();
 
+export const ADAM_TUTOR_ARITHMETIC_MULTI_OP_LAW = `
+ADAM TUTOR — TAMBAH KEMUDIAN TOLAK (turn ini — cerita harian):
+
+Bila soalan ada **dua fasa** (contoh: Penny 560 + 1001 − 478):
+1. **Fasa 1 — tambah** sahaja sehingga jumlah penuh (contoh 560 + 1001 = 1 561).
+2. **Jangan ulang** lajur Sa/Puluh/Ratus/Ribu yang pelajar sudah jawab betul.
+3. Selepas tambah lengkap → **Fasa 2 — tolak** (1 561 − 478), mulakan lajur Sa tolak.
+4. **Jangan campur** soalan lain (Aiman/guli/kotak) — kekal pada nama & nombor turn ini.
+
+DILARANG:
+- Kembali tanya **0 + 1** di Sa selepas pelajar sudah selesai Ribu dan dapat 1 561.
+- Mula semula tambah dari awal bila pelajar betulkan loop — terus ke tolak.
+- Auto-ringkasan soalan lain (934 − 366 + 455) bila thread semasa Penny/bola pingpong.
+`.trim();
+
 export const ADAM_TUTOR_STUDENT_CORRECTION_LAW = `
 ADAM TUTOR — PELAJAR BETULKAN CIKGU (turn ini):
 

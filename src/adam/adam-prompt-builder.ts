@@ -197,6 +197,7 @@ import {
   ADAM_TUTOR_FRACTION_REMAINDER_LAW,
   ADAM_TUTOR_PLACE_VALUE_COLUMN_LAW,
   ADAM_TUTOR_CARRY_PLACEMENT_LAW,
+  ADAM_TUTOR_ARITHMETIC_MULTI_OP_LAW,
   ADAM_TUTOR_ARITHMETIC_ADAPTIVE_LAW,
   ADAM_TUTOR_ARITHMETIC_COMPACT_LAW,
   ADAM_TUTOR_ARITHMETIC_FLUENT_LAW,
@@ -214,8 +215,10 @@ import {
   tutorTurnWarrantsAutoClosingSummary,
   tutorThreadIsPlaceValueAddition,
   tutorStudentFlagsTeacherMathError,
+  tutorStudentFlagsTeachingLoopError,
   tutorInferArithmeticProficiency,
   tutorThreadIsMultiStepArithmetic,
+  resolveActiveAddThenSubtractProblem,
   buildAdamTutorTeacherIntroLaw,
   buildAdamTutorProfileBlock,
   buildTutorStudentAddressLaw,
@@ -1097,9 +1100,22 @@ function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): string 
       parts.push(ADAM_TUTOR_PLACE_VALUE_COLUMN_LAW);
       parts.push(ADAM_TUTOR_CARRY_PLACEMENT_LAW);
     }
+
+    if (
+      resolveActiveAddThenSubtractProblem(
+        params.userMessage ?? '',
+        params.recentUserMessages ?? [],
+        params.recentAssistantMessages ?? [],
+      )
+    ) {
+      parts.push(ADAM_TUTOR_ARITHMETIC_MULTI_OP_LAW);
+    }
   }
 
-  if (tutorStudentFlagsTeacherMathError(params.userMessage ?? '')) {
+  if (
+    tutorStudentFlagsTeacherMathError(params.userMessage ?? '')
+    || tutorStudentFlagsTeachingLoopError(params.userMessage ?? '')
+  ) {
     parts.push(ADAM_TUTOR_STUDENT_CORRECTION_LAW);
   }
 

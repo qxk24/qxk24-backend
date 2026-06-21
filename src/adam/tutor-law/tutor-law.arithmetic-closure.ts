@@ -18,6 +18,10 @@
 import { parseTutorIntegers } from './tutor-law.place-value-routing';
 import { studentAsksTutorFullWorkingLayout } from './tutor-law.percentage-routing';
 import { tutorThreadIsMultiStepArithmetic } from './tutor-law.arithmetic-proficiency';
+import {
+  resolveActiveAddThenSubtractProblem,
+  tutorStudentFlagsTeachingLoopError,
+} from './tutor-law.arithmetic-phase';
 
 export interface SubtractThenAddProblem {
   start:    number;
@@ -35,16 +39,29 @@ function fmtStack(n: number): string {
 export function studentStatesFinalArithmeticAnswer(message: string): boolean {
   const t = message.trim();
   if (!t) return false;
-  if (/\?/.test(t) && !/jawapan\s+akhir/i.test(t)) return false;
-
   if (/jawapan\s+akhir|maka\s+jawapan|hasil(?:nya)?\s+(?:ialah|adalah)/i.test(t) && /\d[\d,]{2,}/.test(t)) {
     return true;
+  }
+  if (tutorStudentFlagsTeachingLoopError(t)) return false;
+  if (/\?/.test(t) && !/jawapan\s+akhir/i.test(t)) return false;
+  if (
+    /\b(?:kesilapan|mengulang|ulang\s+semula|keliru|bukan\s+(?:soalan|proses))\b/i.test(t)
+    && t.length > 50
+    && !/jawapan\s+akhir/i.test(t)
+  ) {
+    return false;
   }
   if (/^[\d,]+(?:\.\d+)?\s*(?:biji|buah|guli|kotak|buku|orang|kg)?\.?$/i.test(t)) return true;
   if (/^=\s*[\d,]+/i.test(t)) return true;
   if (/^(?:betul|ya|yes|ok)\b/i.test(t) && t.length <= 24) return true;
   if (/\b\d[\d,]{3,}\s*(?:biji|buah|guli)\b/i.test(t) && t.length <= 140) return true;
-  if (/rumah\s+ribu.*\d[\d,]{3,}/i.test(t) && /\d\s*\+\s*\d/.test(t)) return true;
+  if (
+    /rumah\s+ribu.*\d[\d,]{3,}/i.test(t)
+    && /\d\s*\+\s*\d/.test(t)
+    && !/\b(?:kesilapan|mengulang|sepatutnya)\b/i.test(t)
+  ) {
+    return true;
+  }
 
   return false;
 }
@@ -55,6 +72,13 @@ export function studentRequestsArithmeticSummary(message: string): boolean {
     || /\bkaedah\s+penyelesaian\b/i.test(message)
     || /\bmohon\s+buatkan\s+rumus\b/i.test(message)
     || /\bsusunan\s+cara\s+kira\b/i.test(message);
+}
+
+function extractProblemAnchor(blob: string): string | null {
+  if (/Penny|bola\s+ping\s*pong/i.test(blob)) return 'penny';
+  if (/Aiman|guli/i.test(blob)) return 'aiman';
+  if (/Perpustakaan|buku/i.test(blob)) return 'library';
+  return null;
 }
 
 /** Parse tolak-then-tambah word problems (e.g. guli Aiman). */
@@ -208,6 +232,32 @@ export function tutorReplyAcknowledgesOwnError(text: string): boolean {
   return /\b(?:kesilapan\s+saya|saya\s+tersilap|saya\s+akui|tidak\s+tepat|salah\s+menyebut|itu\s+kesilapan\s+saya)\b/i.test(text);
 }
 
+function resolveActiveSubtractThenAddProblem(
+  userMessage = '',
+  recentUserMessages: string[] = [],
+  recentAssistantMessages: string[] = [],
+): SubtractThenAddProblem | null {
+  const anchor = extractProblemAnchor(
+    [userMessage, ...recentUserMessages.slice(-4)].join('\n'),
+  ) ?? extractProblemAnchor(recentAssistantMessages.slice(-3).join('\n'));
+
+  const sources = [
+    userMessage,
+    ...recentUserMessages.slice().reverse(),
+    ...recentAssistantMessages.slice().reverse(),
+  ].filter(Boolean);
+
+  for (const blob of sources) {
+    const problem = parseSubtractThenAddProblem(blob);
+    if (!problem) continue;
+    if (!anchor) return problem;
+    const blobAnchor = extractProblemAnchor(blob);
+    if (!blobAnchor || blobAnchor === anchor) return problem;
+  }
+
+  return null;
+}
+
 /** Replace verbose / broken replies with concise closure when problem is done. */
 export function enforceTutorArithmeticClosureGuard(
   text: string,
@@ -215,14 +265,12 @@ export function enforceTutorArithmeticClosureGuard(
   recentUserMessages: string[] = [],
   recentAssistantMessages: string[] = [],
 ): string {
-  const threadBlob = [
-    ...recentUserMessages,
-    userMessage,
-    ...recentAssistantMessages,
-    text,
-  ].join('\n');
-
   const cleaned = stripTrailingArithmeticBoilerplate(text);
+
+  if (tutorStudentFlagsTeachingLoopError(userMessage)) {
+    return cleaned;
+  }
+
   const multiStep = tutorThreadIsMultiStepArithmetic(
     userMessage,
     recentUserMessages,
@@ -236,7 +284,15 @@ export function enforceTutorArithmeticClosureGuard(
     return cleaned;
   }
 
-  const problem = parseSubtractThenAddProblem(threadBlob);
+  if (resolveActiveAddThenSubtractProblem(userMessage, recentUserMessages, recentAssistantMessages)) {
+    return cleaned;
+  }
+
+  const problem = resolveActiveSubtractThenAddProblem(
+    userMessage,
+    recentUserMessages,
+    recentAssistantMessages,
+  );
   if (!problem) return cleaned;
 
   if (

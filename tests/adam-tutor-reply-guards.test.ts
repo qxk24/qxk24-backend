@@ -49,7 +49,14 @@ import {
   tutorStudentFlagsTeacherMathError,
   tutorInferArithmeticProficiency,
   tutorThreadWarrantsCompactArithmetic,
+  tutorInferFurthestColumnInThread,
+  tutorReplyRegressesColumnPhase,
+  tutorAdditionPhaseComplete,
+  tutorStudentFlagsTeachingLoopError,
+  parseAddThenSubtractProblem,
+  enforceTutorPlaceValuePhaseGuard,
 } from '../src/adam/adam-tutor-law';
+import { studentStatesFinalArithmeticAnswer } from '../src/adam/tutor-law/tutor-law.arithmetic-closure';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { AdamTutorProfile } from '../src/adam/adam-tutor-law';
@@ -813,6 +820,92 @@ describe('tutor guli sequential — spurious 0+0 recovery + concise closure', ()
         [guliQ],
         ['1 568 + 455'],
       ),
+    ).toBe(true);
+  });
+});
+
+describe('tutor Penny ping pong — column phase + no cross-problem bleed', () => {
+  const pennyQ =
+    'Penny mempunyai 560 biji bola pingpong. Ibunya membeli 1001 biji bola pingpong '
+    + 'dan diserahkan kepada Penny. Keesokannya Penny memberi Ah Moi 478 biji bola pingpong. '
+    + 'Berapakah biji bola pingpong yang ada pada Penny sekarang?';
+
+  const guliQ =
+    'Aiman mempunyai 1934 biji guli. Dia memberikan 366 biji guli kepada Kasim. '
+    + 'Keesokan harinya Pak Abu memberikan 455 biji guli yang baru dibeli kepada Aiman.';
+
+  const assistantSteps = [
+    'Digit **Sa**: **0 + 1**\nBerapa **0 + 1** di tempat **Sa**?\n→ ______',
+    'Digit **Puluh**: **6 + 0 = ?**\n→ ______',
+    'Digit **Ratus**: **5 + 0 = ?**\n→ ______',
+    'Langkah seterusnya: tempat **Ribu**: **0 + 1 = ?**\n→ ______',
+  ];
+
+  const studentSteps = ['0+1 = 1', '6 + 0 = 6', '5 + 0 = 5', '0 + 1 = 1'];
+
+  const loopCorrection =
+    'Cikgu Adam, saya rasa ada kesilapan dalam penerangan. Saya lihat cikgu Adam '
+    + 'kembali mengulang semula proses 560 + 1001. Seharusnya selepas 0 + 1 (rumah ribu) '
+    + 'jawapan tambah 560 + 1001 = 1561. Langkah seterusnya 1561 - 478.';
+
+  const regressionReply =
+    'Terima kasih, Pelajar, jawapan anda betul.\n\n'
+    + '```\n   0 560\n+ 1 001\n-------\n         1\n```\n\n'
+    + '→ 1 ditulis di bawah lajur Sa\n\n'
+    + 'Langkah seterusnya:\n→ Digit **Puluh**: **6 + 0 = ?**\n\n'
+    + '→ ______\n\n'
+    + 'Cikgu tidak siapkan kiraan penuh. Lihat kotak nombor, satu langkah Sa sahaja.';
+
+  it('V-T-PENNY01: parses add-then-subtract word problem', () => {
+    const p = parseAddThenSubtractProblem(pennyQ);
+    expect(p).not.toBeNull();
+    expect(p!.start).toBe(560);
+    expect(p!.add).toBe(1001);
+    expect(p!.subtract).toBe(478);
+  });
+
+  it('V-T-PENNY02: infers furthest column from paired micro-teaching turns', () => {
+    expect(tutorInferFurthestColumnInThread(studentSteps, assistantSteps)).toBe('ribu');
+    expect(tutorReplyRegressesColumnPhase(regressionReply, 'ribu')).toBe(true);
+  });
+
+  it('V-T-PENNY03: phase guard advances to subtraction after addition complete', () => {
+    const out = enforceTutorPlaceValuePhaseGuard(
+      regressionReply,
+      studentSteps[3]!,
+      [pennyQ, ...studentSteps.slice(0, 3)],
+      assistantSteps,
+    );
+    expect(out).toMatch(/1\s*561|1561/);
+    expect(out).toMatch(/478/);
+    expect(out).toMatch(/1\s*−\s*8|1 - 8|pinjam/i);
+    expect(out).not.toMatch(/Digit\s+\*\*Sa\*\*:\s*\*\*0\s*\+\s*1\*\*/i);
+    expect(out).not.toMatch(/tidak siapkan kiraan penuh/i);
+  });
+
+  it('V-T-PENNY04: loop correction does not trigger guli auto-closure', () => {
+    expect(tutorStudentFlagsTeachingLoopError(loopCorrection)).toBe(true);
+    expect(studentStatesFinalArithmeticAnswer(loopCorrection)).toBe(false);
+    expect(tutorTurnWarrantsAutoClosingSummary(loopCorrection, [pennyQ, guliQ], assistantSteps)).toBe(false);
+
+    const wrongAimanClosure =
+      'Terima kasih, ringkasan padat:\n**Operasi:** 934 − 366 + 455\n**Jawapan akhir:** 1 023 kotak.';
+    const out = enforceTutorReplyGuards(
+      wrongAimanClosure,
+      malayProfile,
+      loopCorrection,
+      'Pelajar',
+      assistantSteps,
+      [pennyQ, guliQ],
+    );
+    expect(out).not.toMatch(/934[\s\S]*366|1\s*023\s+kotak/i);
+    expect(out).toMatch(/1561|1\s*561/);
+    expect(out).toMatch(/478/);
+  });
+
+  it('V-T-PENNY05: addition phase complete after ribu answered', () => {
+    expect(
+      tutorAdditionPhaseComplete([560, 1001], studentSteps, assistantSteps, studentSteps[3]!),
     ).toBe(true);
   });
 });

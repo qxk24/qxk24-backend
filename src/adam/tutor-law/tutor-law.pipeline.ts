@@ -35,6 +35,9 @@ import {
   enforceTutorArithmeticClosureGuard,
 } from './tutor-law.arithmetic-closure';
 import {
+  enforceTutorPlaceValuePhaseGuard,
+} from './tutor-law.arithmetic-phase';
+import {
   fixTutorBrokenMalayIntro,
   shouldIncludeTutorTeacherIntro,
   stripRepeatedTutorTeacherIntro,
@@ -78,8 +81,14 @@ export function enforceTutorReplyGuards(
     recentUserMessages,
     recentAssistantMessages,
   );
-  const carry = enforceTutorCarryPlacementGuard(
+  const phase = enforceTutorPlaceValuePhaseGuard(
     placeValue,
+    userMessage ?? '',
+    recentUserMessages,
+    recentAssistantMessages,
+  );
+  const carry = enforceTutorCarryPlacementGuard(
+    phase,
     userMessage ?? '',
     recentUserMessages,
   );
