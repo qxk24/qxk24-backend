@@ -195,6 +195,7 @@ import {
   tutorQuestionIsScienceFactual,
   ADAM_TUTOR_PERCENTAGE_WORD_PROBLEM_LAW,
   ADAM_TUTOR_FRACTION_REMAINDER_LAW,
+  ADAM_TUTOR_PLACE_VALUE_COLUMN_LAW,
   ADAM_TUTOR_FULL_WORKING_LAW,
   ADAM_TUTOR_SESSION_CLOSURE_LAW,
   ADAM_TUTOR_STUCK_ESCALATION_LAW,
@@ -204,6 +205,7 @@ import {
   tutorTurnNeedsFullWorkingLaw,
   tutorTurnNeedsAlgebraWorkedExampleLaw,
   tutorTurnWarrantsAutoClosingSummary,
+  tutorThreadIsPlaceValueAddition,
   buildAdamTutorTeacherIntroLaw,
   buildAdamTutorProfileBlock,
   buildTutorStudentAddressLaw,
@@ -1055,6 +1057,16 @@ function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): string 
 
   if (params.userMessage?.trim() && tutorQuestionIsScienceFactual(params.userMessage)) {
     parts.push(ADAM_TUTOR_SCIENCE_FACTUAL_LAW);
+  }
+
+  if (
+    tutorThreadIsPlaceValueAddition(
+      params.userMessage ?? '',
+      params.recentUserMessages ?? [],
+      params.recentAssistantMessages ?? [],
+    )
+  ) {
+    parts.push(ADAM_TUTOR_PLACE_VALUE_COLUMN_LAW);
   }
 
   if (

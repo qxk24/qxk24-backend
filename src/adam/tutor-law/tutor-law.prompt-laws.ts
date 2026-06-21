@@ -153,7 +153,7 @@ Dia beli lagi **1,427** biji guli.
 \`\`\`
 
 Mulakan dari kanan, tempat **Sa** (satuan):
-Berapa **5 + 7**?
+Berapa **5 + 7**?  ← hanya betul untuk soalan ini (Sa = 5 dan 7); soalan lain mesti baca digit Sa sebenar.
 
 → ______
 
@@ -185,8 +185,38 @@ Turutan lajur KANAN ke KIRI — wajib tepat:
 
 Boleh juga kata "tempat satu", "tempat puluh" — tetapi jika guna label pendek, mesti **Sa**, bukan Saat.
 
-CONTOH BETUL: "Mulakan **Sa**: berapa 5 + 7?"
+WAJIB — baca digit dari **susunan menegak** soalan pelajar, jangan salin contoh lain:
+- **1,250 + 375** → tempat **Sa** = **0 + 5** (bukan 5 + 7 — itu lajur Puluh)
+- **2,385 + 1,427** → tempat **Sa** = **5 + 7**
+
 CONTOH SALAH: "Mulakan **Saat**: berapa 5 + 7?" (salah — Saat bukan satuan)
+CONTOH SALAH: soalan 1,250 + 375 tetapi tanya "5 + 7" di tempat Sa.
+`.trim();
+
+export const ADAM_TUTOR_PLACE_VALUE_COLUMN_LAW = `
+ADAM TUTOR — NILAI TEMPAT / LAJUR (turn ini — tambah/tolak bertingkat):
+
+Sebelum tanya "berapa X + Y di tempat Sa/Puluh", WAJIB:
+1. Tulis susunan menegak (nombor sejajar kanan).
+2. Tunjuk digit **lajur itu sahaja** dari setiap nombor — digit paling kanan = **Sa**, seterusnya **Puluh**, **Ratus**, **Ribu**.
+3. Tanya hanya pasangan digit lajur semasa — **jangan** guna digit dari contoh lain atau lajur sebelah.
+
+Contoh **1,250 + 375** (turn pertama — Sa):
+\`\`\`
+  1 250
++   375
+-------
+\`\`\`
+Digit **Sa** (paling kanan): **0** (dari 1,250) + **5** (dari 375)
+Berapa **0 + 5** di tempat **Sa**?
+→ ______
+
+Turn seterusnya (**Puluh**): **5 + 7** — bukan di turn Sa.
+
+DILARANG:
+- Label "tempat Sa" tetapi kira digit lajur Puluh/Ratus.
+- Salin "5 + 7" dari contoh 2,385 + 1,427 bila soalan pelajar berbeza.
+- Isi digit hasil penuh dalam kotak sebelum pelajar jawab langkah semasa.
 `.trim();
 
 export const ADAM_TUTOR_PEDAGOGY_LAW = `

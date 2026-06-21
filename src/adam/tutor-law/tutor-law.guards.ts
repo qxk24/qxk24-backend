@@ -32,6 +32,13 @@ import {
   tutorThreadIsQuadraticContext,
 } from './tutor-law.algebra-routing';
 import {
+  buildTutorPlaceValueColumnRecovery,
+  extractAdditionOperands,
+  tutorParagraphActiveColumn,
+  tutorReplyMisalignsPlaceValueColumn,
+  tutorReplyMentionsPlaceColumn,
+} from './tutor-law.place-value-routing';
+import {
   TUTOR_ANSWER_LEAK_LINE,
   TUTOR_ENGLISH_CLOSING_LEAK,
   TUTOR_VERIFY_LEAK_BLOCK,
@@ -365,6 +372,46 @@ export function enforceTutorQuantityReplyGuard(
 
 /** @deprecated Use enforceTutorQuantityReplyGuard */
 export const enforceTutorPercentageReplyGuard = enforceTutorQuantityReplyGuard;
+
+/** Fix Sa/Puluh column digit mismatch (e.g. 1,250+375 taught as 5+7 at Sa). */
+export function enforceTutorPlaceValueColumnGuard(
+  text: string,
+  userMessage = '',
+  recentUserMessages: string[] = [],
+): string {
+  if (!text?.trim()) return text;
+
+  const operands = extractAdditionOperands(userMessage, ...recentUserMessages, text);
+  if (operands.length < 2) return text;
+
+  const column = tutorReplyMentionsPlaceColumn(text) ?? 'sa';
+  if (!tutorReplyMisalignsPlaceValueColumn(text, operands, column)) return text;
+
+  let out = text
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter((p) => {
+      if (!p) return false;
+      const pCol = tutorParagraphActiveColumn(p) ?? column;
+      if (tutorReplyMisalignsPlaceValueColumn(p, operands, pCol)) return false;
+      if (
+        pCol === 'sa'
+        && /\b5\s*\+\s*7\b/.test(p)
+        && tutorParagraphActiveColumn(p) === 'sa'
+      ) {
+        return false;
+      }
+      return true;
+    })
+    .join('\n\n')
+    .trim();
+
+  out = out.replace(/\n→\s*_{3,}.*$/gm, '').trim();
+  out = out.replace(/\nSaya tunggu[^\n]*tempat\s+\*?\*?Puluh\*?\*?[^\n]*/gi, '').trim();
+
+  const recovery = buildTutorPlaceValueColumnRecovery(operands, column);
+  return `${out}\n\n${recovery}`.replace(/\n{3,}/g, '\n\n').trim();
+}
 
 const TUTOR_ALGEBRA_STUCK_LINE = [
   /\bambang\s+pemahaman\b/i,

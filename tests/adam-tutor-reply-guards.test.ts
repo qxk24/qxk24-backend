@@ -12,6 +12,7 @@ import {
   enforceTutorMathPedagogyGuard,
   enforceTutorQuantityReplyGuard,
   enforceTutorAlgebraStuckGuard,
+  enforceTutorPlaceValueColumnGuard,
   enforceTutorReplyGuards,
   enforceTutorScienceFactualGuard,
   enforceTutorSessionLanguage,
@@ -37,6 +38,9 @@ import {
   tutorAlgebraFullExampleWarranted,
   tutorReplyHasAlgebraFactoringExample,
   tutorTurnNeedsAlgebraWorkedExampleLaw,
+  tutorThreadIsPlaceValueAddition,
+  tutorReplyMisalignsPlaceValueColumn,
+  tutorColumnDigit,
 } from '../src/adam/adam-tutor-law';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -558,5 +562,41 @@ describe('tutor quadratic stuck escalation — factoring / tak faham', () => {
     );
     expect(out).not.toMatch(/tidak siapkan kiraan penuh|→ ______/i);
     expect(out).toMatch(/\(x − 2\)\(x − 3\)|x = 2 atau x = 3|Latihan isomorfik/i);
+  });
+});
+
+describe('tutor place value columns — Sa/Puluh alignment', () => {
+  const problem1250 = '1250 + 375';
+
+  const wrongSaReply =
+    'Betul, Pelajar. 5 + 7 = 12\n\n'
+    + 'Sekarang, kita bawa nilai 12 ke langkah seterusnya, iaitu tempat Puluh.\n\n'
+    + 'Mari kita isi dalam susunan menegak:\n\n'
+    + 'Digit **Sa**: berapa **5 + 7**?\n\n'
+    + '→ ______\n\n'
+    + 'Saya tunggu, kemudian kita terus ke tempat **Puluh**.';
+
+  it('V-T-PV01: detects misaligned Sa step for 1,250 + 375', () => {
+    expect(tutorThreadIsPlaceValueAddition(problem1250, [], [])).toBe(true);
+    expect(tutorReplyMisalignsPlaceValueColumn(wrongSaReply, [1250, 375], 'sa')).toBe(true);
+    expect(tutorColumnDigit(1250, 'sa')).toBe(0);
+    expect(tutorColumnDigit(375, 'sa')).toBe(5);
+    expect(tutorColumnDigit(1250, 'puluh')).toBe(5);
+    expect(tutorColumnDigit(375, 'puluh')).toBe(7);
+  });
+
+  it('V-T-PV02: guard replaces wrong Sa digits with 0 + 5 recovery', () => {
+    const out = enforceTutorPlaceValueColumnGuard(wrongSaReply, problem1250, []);
+    expect(out).not.toMatch(/5\s*\+\s*7.*tempat\s+\*?\*?Sa/i);
+    expect(out).toMatch(/0\s*\+\s*5|0 \+ 5/);
+    expect(out).toMatch(/→ ______/);
+  });
+
+  it('V-T-PV03: allows correct Sa step for 2,385 + 1,427', () => {
+    const good =
+      'Mulakan dari kanan, tempat **Sa** (satuan):\nBerapa **5 + 7**?\n→ ______';
+    expect(tutorReplyMisalignsPlaceValueColumn(good, [2385, 1427], 'sa')).toBe(false);
+    const out = enforceTutorPlaceValueColumnGuard(good, '2385 + 1427', []);
+    expect(out).toMatch(/5 \+ 7/);
   });
 });

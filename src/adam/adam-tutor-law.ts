@@ -51,6 +51,7 @@ export {
   ADAM_TUTOR_IDENTITY,
   ADAM_TUTOR_LAW,
   ADAM_TUTOR_MALAY_MATH_TERMS,
+  ADAM_TUTOR_PLACE_VALUE_COLUMN_LAW,
   ADAM_TUTOR_OFF_TOPIC_TURN,
   ADAM_TUTOR_PEDAGOGY_LAW,
   ADAM_TUTOR_PERCENTAGE_WORD_PROBLEM_LAW,
@@ -97,9 +98,18 @@ export {
 } from './tutor-law/tutor-law.algebra-routing';
 
 export {
+  extractAdditionOperands,
+  tutorThreadIsPlaceValueAddition,
+  tutorReplyMisalignsPlaceValueColumn,
+  tutorColumnDigit,
+  buildTutorPlaceValueColumnRecovery,
+} from './tutor-law/tutor-law.place-value-routing';
+
+export {
   enforceTutorMathPedagogyGuard,
   enforceTutorPercentageReplyGuard,
   enforceTutorQuantityReplyGuard,
+  enforceTutorPlaceValueColumnGuard,
   enforceTutorAlgebraStuckGuard,
   enforceTutorPlainLanguageGuard,
   enforceTutorScienceFactualGuard,

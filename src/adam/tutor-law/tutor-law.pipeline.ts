@@ -25,6 +25,7 @@ import {
   enforceTutorScienceFactualGuard,
   enforceTutorZeroAnswerGuard,
   enforceTutorAlgebraStuckGuard,
+  enforceTutorPlaceValueColumnGuard,
   fixTutorMalayPlaceValueTerms,
 } from './tutor-law.guards';
 import {
@@ -65,13 +66,18 @@ export function enforceTutorReplyGuards(
   const pedagogy = scienceFactual
     ? enforceTutorScienceFactualGuard(plain, userMessage ?? '')
     : enforceTutorMathPedagogyGuard(plain, profile, userMessage ?? '');
+  const placeValue = enforceTutorPlaceValueColumnGuard(
+    pedagogy,
+    userMessage ?? '',
+    recentUserMessages,
+  );
   const quantity = tutorThreadIsQuantityWordProblem(
     userMessage ?? '',
     recentUserMessages,
     recentAssistantMessages,
   )
-    ? enforceTutorQuantityReplyGuard(pedagogy, userMessage ?? '', recentAssistantMessages)
-    : pedagogy;
+    ? enforceTutorQuantityReplyGuard(placeValue, userMessage ?? '', recentAssistantMessages)
+    : placeValue;
 
   const algebra = tutorThreadIsQuadraticContext(
     userMessage ?? '',
