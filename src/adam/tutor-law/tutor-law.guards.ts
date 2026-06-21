@@ -706,7 +706,7 @@ export function enforceTutorVerificationWorkingFirstGuard(
   if (out.length >= 40) return out;
 
   const prompt = userMessage.trim().match(/[a-zA-Z]/)
-    ? 'Boleh tunjukkan cara kerja kamu langkah demi langkah? Saya semak selepas itu.'
+    ? 'Boleh tunjukkan cara kerja anda langkah demi langkah? Saya semak selepas itu.'
     : 'Show your working step by step — I will check after that.';
   return prompt;
 }
