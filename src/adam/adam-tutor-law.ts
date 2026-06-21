@@ -115,7 +115,10 @@ export {
   stripRepeatedTutorTeacherIntro,
   stripTutorUniversalOpeners,
   studentDemandsTutorDirectAnswer,
+  tutorParagraphIsPolicyIntroBlock,
   tutorReplyHasTeacherIntro,
+  tutorSessionIdentityEstablished,
+  tutorSessionTeachingStarted,
 } from './tutor-law/tutor-law.intro';
 
 export {

@@ -41,17 +41,77 @@ export function studentDemandsTutorDirectAnswer(message: string): boolean {
   );
 }
 
-export function tutorReplyHasTeacherIntro(text: string, profile?: AdamTutorProfile): boolean {
-  if (!text?.trim()) return false;
+function tutorReplyMentionsAdamTeacher(text: string, profile?: AdamTutorProfile): boolean {
   const lang = normalizeTutorLanguage(profile?.language);
   const title = tutorTeacherTitle(lang);
   if (lang === 'malay') {
-    return new RegExp(
-      `Saya\\s+(?:\\*\\*)?${title}(?:\\*\\*)?\\s+ADAM[\\s\\S]{0,160}jawapan\\s+siap`,
-      'i',
-    ).test(text);
+    return new RegExp(`(?:Saya\\s+)?(?:\\*\\*)?${title}(?:\\*\\*)?\\s+ADAM`, 'i').test(text);
   }
-  return /I(?:'m| am)\s+(?:\*\*)?Teacher(?:\*\*)?\s+ADAM[\s\S]{0,160}finished answers/i.test(text);
+  return /I(?:'m| am)\s+(?:\*\*)?(?:Teacher|Cikgu)(?:\*\*)?\s+ADAM/i.test(text);
+}
+
+function tutorReplyHasZeroAnswerPolicySpeech(text: string, profile?: AdamTutorProfile): boolean {
+  const lang = normalizeTutorLanguage(profile?.language);
+  if (lang === 'malay') {
+    return (
+      /\bjawapan\s+siap\b/i.test(text)
+      || /\blatihan\s+sendiri\b/i.test(text)
+      || /\bbimbing\s+anda\s+sampai\s+faham\b/i.test(text)
+      || /\btidak\s+(?:akan\s+)?beri\s+jawapan\b/i.test(text)
+      || /\banda\s+perlu\s+buat\s+latihan\b/i.test(text)
+    );
+  }
+  return (
+    /\bfinished answers\b/i.test(text)
+    || /\bpractice yourself\b/i.test(text)
+    || /\bguide you until you understand\b/i.test(text)
+    || /\bwon't give\b/i.test(text)
+  );
+}
+
+/** Teaching already underway — identity/policy speech not needed again. */
+export function tutorSessionTeachingStarted(text: string): boolean {
+  if (!text?.trim()) return false;
+  return (
+    /→\s*_{3,}/.test(text)
+    || /\*\*[^*]+\*\*\s*[?？]/.test(text)
+    || /\b(?:Berapa|Mari|Cuba|Tulis|Selesaikan|Apabila|What|Try|Write|Solve)\b/i.test(text)
+  );
+}
+
+export function tutorSessionIdentityEstablished(text: string, profile?: AdamTutorProfile): boolean {
+  if (!text?.trim()) return false;
+  return tutorReplyHasTeacherIntro(text, profile) || tutorSessionTeachingStarted(text);
+}
+
+/** Semantic intro — identity and/or explicit zero-answer policy (any natural wording). */
+export function tutorReplyHasTeacherIntro(text: string, profile?: AdamTutorProfile): boolean {
+  if (!text?.trim()) return false;
+  const hasAdam = tutorReplyMentionsAdamTeacher(text, profile);
+  const hasPolicy = tutorReplyHasZeroAnswerPolicySpeech(text, profile);
+  if (hasAdam && hasPolicy) return true;
+  if (hasAdam && text.trim().length < 220 && !tutorSessionTeachingStarted(text)) return true;
+  return false;
+}
+
+/** Paragraph that is only greeting / identity / policy — safe to strip on repeat turns. */
+export function tutorParagraphIsPolicyIntroBlock(
+  paragraph: string,
+  profile?: AdamTutorProfile,
+): boolean {
+  const t = paragraph.trim();
+  if (!t || /^#{1,6}\s/.test(t)) return false;
+
+  const hasAdam = tutorReplyMentionsAdamTeacher(t, profile);
+  const hasPolicy = tutorReplyHasZeroAnswerPolicySpeech(t, profile);
+  const teaching = tutorSessionTeachingStarted(t);
+
+  if (teaching && !hasPolicy) return false;
+  if (hasAdam && hasPolicy) return true;
+  if (hasPolicy && !teaching) return true;
+  if (hasAdam && !teaching && t.split(/[.!?]+/).filter((s) => s.trim()).length <= 2) return true;
+
+  return false;
 }
 
 export function shouldIncludeTutorTeacherIntro(
@@ -61,7 +121,7 @@ export function shouldIncludeTutorTeacherIntro(
 ): boolean {
   if (studentDemandsTutorDirectAnswer(userMessage ?? '')) return true;
   if (recentAssistantMessages.length === 0) return true;
-  if (!recentAssistantMessages.some((m) => tutorReplyHasTeacherIntro(m, profile))) return true;
+  if (!recentAssistantMessages.some((m) => tutorSessionIdentityEstablished(m, profile))) return true;
   return false;
 }
 
@@ -71,27 +131,27 @@ export function stripRepeatedTutorTeacherIntro(
 ): string {
   if (!text?.trim()) return text;
 
-  let out = text;
-  const lang = normalizeTutorLanguage(profile?.language);
+  let out = text
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter((p) => {
+      if (!p) return false;
+      return !tutorParagraphIsPolicyIntroBlock(p, profile);
+    })
+    .join('\n\n')
+    .trim();
 
+  const lang = normalizeTutorLanguage(profile?.language);
   if (lang === 'malay') {
-    const introBody =
-      'Saya\\s+(?:\\*\\*)?Cikgu(?:\\*\\*)?\\s+ADAM\\.?\\s*Saya akan bimbing anda sampai faham[^.\\n]*jawapan siap[^.\\n]*latihan sendiri\\.?';
     out = out.replace(
-      new RegExp(`^Salam(?:,\\s*[^.\\n]+)?\\.?\\s*(?:\\n+)?${introBody}\\s*`, 'im'),
+      /^Salam(?:,?\s*[^.\n]+)?\.?\s*\n+(?=Saya\s+(?:\*\*)?Cikgu)/im,
       '',
     );
-    out = out.replace(new RegExp(`^${introBody}\\s*`, 'im'), '');
-    out = out.replace(new RegExp(`\\n?\\s*${introBody}\\s*`, 'gi'), '\n');
   } else {
-    const introBody =
-      'I(?:\'m| am)\\s+(?:\\*\\*)?Teacher(?:\\*\\*)?\\s+ADAM\\.?\\s*I(?:\'ll| will) guide you until you understand[^.\\n]*finished answers[^.\\n]*practice yourself\\.?';
     out = out.replace(
-      new RegExp(`^Hello(?:,\\s*[^.\\n]+)?\\.?\\s*(?:\\n+)?${introBody}\\s*`, 'im'),
+      /^Hello(?:,?\s*[^.\n]+)?\.?\s*\n+(?=I(?:'m| am)\s+(?:\*\*)?Teacher)/im,
       '',
     );
-    out = out.replace(new RegExp(`^${introBody}\\s*`, 'im'), '');
-    out = out.replace(new RegExp(`\\n?\\s*${introBody}\\s*`, 'gi'), '\n');
   }
 
   return out.replace(/\n{3,}/g, '\n\n').trim();

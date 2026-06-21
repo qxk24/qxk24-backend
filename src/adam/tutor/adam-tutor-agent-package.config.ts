@@ -43,13 +43,13 @@ export const TUTOR_AGENT_PACKAGE_TIER_LABELS: Record<TutorAgentPackageTier, stri
 };
 
 const TIER_PIN_COUNTS: Record<TutorAgentPackageTier, number> = {
-  silver:   150,
-  gold:     1_500,
-  diamond:  3_750,
-  platinum: 7_500,
+  silver:   100,
+  gold:     500,
+  diamond:  1_000,
+  platinum: 1_500,
 };
 
-/** RM per PIN — canonical from ADAM Tutor Agent PDF (Jun 2026). */
+/** RM per PIN — jadual rasmi pakej ejen (Founder, Jun 2026). */
 const PRICE_PER_PIN_MYR: Record<
   TutorSubscriptionLevel,
   Record<TutorAgentPackageTier, number>

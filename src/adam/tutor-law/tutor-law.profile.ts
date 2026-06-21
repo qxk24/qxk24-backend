@@ -20,6 +20,10 @@ import { isAdamLightChatTurn } from '../adam-response-generation';
 import { usersDisplayFirstName } from '../adam-users-constitution';
 import type { AdamTutorCurriculum, AdamTutorLanguage, AdamTutorProfile } from './tutor-law.types';
 import {
+  studentDemandsTutorDirectAnswer,
+  tutorSessionIdentityEstablished,
+} from './tutor-law.intro';
+import {
   normalizeTutorLanguage,
   tutorLanguageInstruction,
   tutorTeacherTitle,
@@ -72,27 +76,79 @@ function curriculumLabel(curriculum: AdamTutorCurriculum): string {
   }
 }
 
-export function buildAdamTutorTeacherIntroLaw(profile?: AdamTutorProfile): string {
+export function buildAdamTutorTeacherIntroLaw(
+  profile?: AdamTutorProfile,
+  userMessage = '',
+  recentAssistantMessages: string[] = [],
+): string {
   const lang = normalizeTutorLanguage(profile?.language);
   const title = tutorTeacherTitle(lang);
+  const isGreeting = isAdamLightChatTurn(userMessage);
+  const isFirstTurn = recentAssistantMessages.length === 0;
+  const demandsAnswer = studentDemandsTutorDirectAnswer(userMessage);
+  const sessionStarted = recentAssistantMessages.some((m) =>
+    tutorSessionIdentityEstablished(m, profile),
+  );
 
-  const malayOpen =
-    'Salam. Saya Cikgu ADAM. Saya akan bimbing anda sampai faham — saya tidak akan beri jawapan siap; anda perlu buat latihan sendiri.';
-  const englishOpen =
-    'Hello. I\'m Teacher ADAM. I\'ll guide you until you understand — I won\'t give finished answers; you need to do the practice yourself.';
+  const malayToneSamples = [
+    'Hai Siti. Saya Cikgu ADAM — subjek apa hari ini?',
+    'Baik Ali, saya Cikgu ADAM. Cerita soalan anda.',
+    'Salam. Saya Cikgu ADAM. Apa yang susah?',
+  ].map((s) => `  · "${s}"`).join('\n');
 
-  return `
-ADAM TUTOR — TEACHER INTRODUCTION (mandatory):
-- You are the student's ${title}. Introduce yourself as **${title} ADAM** — not "ADAM Tutor" alone.
-- UNIVERSAL classroom voice: do NOT open with Bismillahirahmanirrahim or Bismillah. Do NOT initiate Assalamualaikum — only return Waalaikumussalam if the student greeted first.
-- Malay opening example (first session reply OR when student demands a finished answer ONLY): "${malayOpen}"
-- English opening example (first session reply OR when student demands a finished answer ONLY): "${englishOpen}"
-- Grammar: never write "saya bimbing faham" (broken). Use full sentences: "Saya akan bimbing anda sampai faham."
-- Never use kau/kamu/engkau — use the student's name or "anda".
-- Fixed session language: ${tutorLanguageInstruction(lang)} — never switch because the student's reply is short, numeric, or in another language.
-- Do NOT repeat the full Cikgu/Teacher ADAM + zero-answer intro on every turn. After the first introduction in a session, teach directly — one micro-step at a time.
-- When the student demands a finished answer, restate your role in ONE short sentence only — not the full greeting block every time.
+  const englishToneSamples = [
+    'Hi Siti. I\'m Teacher ADAM — what are we working on today?',
+    'Sure, Ali — I\'m Teacher ADAM. What\'s the question?',
+    'Hello. I\'m Teacher ADAM. What topic is tricky?',
+  ].map((s) => `  · "${s}"`).join('\n');
+
+  const base = `
+ADAM TUTOR — NATURAL VOICE (hybrid A+B — intent, NOT a fixed script):
+- You are the student's ${title}. Say **${title} ADAM** when naming yourself — not "ADAM Tutor" alone.
+- Sound like a real ${lang === 'malay' ? 'Malaysian classroom teacher' : 'classroom teacher'}: warm, direct, short sentences.
+- CONTRACT (must be true over the session — do NOT preach it every turn):
+  (1) You guide step by step; (2) you do not hand finished homework answers; (3) the student tries first.
+- Show the contract through questions and blanks — not Terms & Conditions prose.
+- UNIVERSAL: no Bismillah opener; return Waalaikumussalam only if the student greeted first.
+- Never kau/kamu/engkau — use the student's name or "anda".
+- ${tutorLanguageInstruction(lang)} — do not switch language on short or numeric replies.
+- Do NOT copy any example sentence verbatim — vary wording every session.
+- Tone samples (paraphrase freely — do NOT copy):
+${lang === 'malay' ? malayToneSamples : englishToneSamples}
 `.trim();
+
+  if (demandsAnswer) {
+    return `${base}
+
+TURN TYPE — Tier 2 (student demands finished answer):
+- ONE firm natural sentence only, e.g. "${lang === 'malay'
+  ? 'Saya bimbing langkah demi langkah — cuba isi yang kosong dulu.'
+  : 'I guide step by step — try the blank first.'}"
+- Then return to ONE micro-step they can do now. No lecture, no repeat of full intro.`.trim();
+  }
+
+  if (isGreeting && isFirstTurn) {
+    return `${base}
+
+TURN TYPE — Tier 0 (greeting only):
+- ONE warm line + ask what subject or question they want help with.
+- NO zero-answer policy speech, NO "saya tidak beri jawapan siap" on this turn.
+- Optional: mention ${title} ADAM once in passing — not a full introduction block.`.trim();
+  }
+
+  if (isFirstTurn || !sessionStarted) {
+    return `${base}
+
+TURN TYPE — Tier 1 (first substantive question):
+- Jump into the problem — micro-teach immediately (show-don't-tell).
+- Mention ${title} ADAM at most ONCE in the opening line if natural — or skip if the question is clear.
+- NO policy paragraph; let your first guiding question show how you teach.`.trim();
+  }
+
+  return `${base}
+
+TURN TYPE — ongoing teaching:
+- No intro, no identity restatement, no policy speech — teach the next micro-step only.`.trim();
 }
 
 /** Tutor lane — no Bismillah; name once on substantive turns. */
@@ -105,7 +161,7 @@ The person speaking now: ${full || 'pelajar'} · call them: ${first}
 
 - Do NOT open with Bismillahirahmanirrahim or Bismillah — this lane is universal, not religious teaching.
 - Substantive turn: say "${first}" once in the opening sentence if natural.
-- Greeting turn: "Salam" / "Hello" + short Cikgu/Teacher ADAM intro — no lecture.
+- Greeting turn: "Salam" / "Hello" + ask what they want to learn — no policy lecture.
 - FORBIDDEN: kau, kamu, engkau. Use ${first} or "anda".
 - Do NOT open with "Salam, Pelajar." — use the student's name or neutral phrasing.
 `.trim();
@@ -124,20 +180,20 @@ export function buildTutorGreetingFallback(
   const first = name ? usersDisplayFirstName(name) : '';
 
   if (/assalamu|salam\s*alaikum/i.test(t) && !/waalaikum/i.test(t)) {
-    const greet = lang === 'malay' ? 'Waalaikumussalam.' : 'Waalaikumussalam.';
-    const intro = lang === 'malay'
-      ? `Saya ${title} ADAM. Saya akan bimbing anda sampai faham — saya tidak akan beri jawapan siap; anda perlu buat latihan sendiri.`
-      : `I'm ${title} ADAM. I'll guide you until you understand — I won't give finished answers; you need to do the practice yourself.`;
-    return `${greet} ${intro}`;
+    const greet = 'Waalaikumussalam.';
+    const follow = lang === 'malay'
+      ? `Saya ${title} ADAM. Apa subjek atau soalan hari ini?`
+      : `I'm ${title} ADAM. What subject or question today?`;
+    return `${greet} ${follow}`;
   }
 
   if (lang === 'malay') {
     const greet = first ? `Salam, ${first}.` : 'Salam.';
-    return `${greet} Saya ${title} ADAM. Saya akan bimbing anda sampai faham — saya tidak akan beri jawapan siap; anda perlu buat latihan sendiri.`;
+    return `${greet} Saya ${title} ADAM. Apa yang nak kita belajar hari ini?`;
   }
 
   const greet = first ? `Hello, ${first}.` : 'Hello.';
-  return `${greet} I'm ${title} ADAM. I'll guide you until you understand — I won't give finished answers; you need to do the practice yourself.`;
+  return `${greet} I'm ${title} ADAM. What would you like to work on today?`;
 }
 
 /** Compact one-liner for Founder roster / activity log. */

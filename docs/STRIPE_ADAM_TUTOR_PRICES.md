@@ -48,20 +48,20 @@ alamtologi_tier=silver|gold|diamond|platinum
 
 | Product name (cadangan) | MYR | `.env` key |
 |-------------------------|-----|------------|
-| ADAM Tutor Ejen · Rendah · Silver | **300.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_SILVER` |
-| ADAM Tutor Ejen · Rendah · Gold | **2,700.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_GOLD` |
-| ADAM Tutor Ejen · Rendah · Diamond | **6,000.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_DIAMOND` |
-| ADAM Tutor Ejen · Rendah · Platinum | **10,500.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_PLATINUM` |
-| ADAM Tutor Ejen · Menengah · Silver | **450.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_SILVER` |
-| ADAM Tutor Ejen · Menengah · Gold | **4,200.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_GOLD` |
-| ADAM Tutor Ejen · Menengah · Diamond | **9,750.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_DIAMOND` |
-| ADAM Tutor Ejen · Menengah · Platinum | **18,000.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_PLATINUM` |
-| ADAM Tutor Ejen · IPT · Silver | **600.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_SILVER` |
-| ADAM Tutor Ejen · IPT · Gold | **5,700.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_GOLD` |
-| ADAM Tutor Ejen · IPT · Diamond | **13,500.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_DIAMOND` |
-| ADAM Tutor Ejen · IPT · Platinum | **25,500.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_PLATINUM` |
+| ADAM Tutor Ejen · Rendah · Silver | **200.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_SILVER` |
+| ADAM Tutor Ejen · Rendah · Gold | **900.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_GOLD` |
+| ADAM Tutor Ejen · Rendah · Diamond | **1,600.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_DIAMOND` |
+| ADAM Tutor Ejen · Rendah · Platinum | **2,100.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_PLATINUM` |
+| ADAM Tutor Ejen · Menengah · Silver | **300.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_SILVER` |
+| ADAM Tutor Ejen · Menengah · Gold | **1,400.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_GOLD` |
+| ADAM Tutor Ejen · Menengah · Diamond | **2,600.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_DIAMOND` |
+| ADAM Tutor Ejen · Menengah · Platinum | **3,600.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_PLATINUM` |
+| ADAM Tutor Ejen · IPT · Silver | **400.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_SILVER` |
+| ADAM Tutor Ejen · IPT · Gold | **1,900.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_GOLD` |
+| ADAM Tutor Ejen · IPT · Diamond | **3,600.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_DIAMOND` |
+| ADAM Tutor Ejen · IPT · Platinum | **5,100.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_PLATINUM` |
 
-**PIN count** (untuk description, bukan harga Stripe): Silver 150 · Gold 1,500 · Diamond 3,750 · Platinum 7,500.
+**PIN count** (untuk description, bukan harga Stripe): Silver 100 · Gold 500 · Diamond 1,000 · Platinum 1,500.
 
 ### `.env` — 12 Price IDs
 

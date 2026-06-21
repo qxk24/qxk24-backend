@@ -7,6 +7,7 @@
 import { describe, expect, it } from '@jest/globals';
 import {
   buildTutorAmbiguousInputReply,
+  buildTutorGreetingFallback,
   buildTutorMalayFollowUpRecovery,
   enforceTutorMathPedagogyGuard,
   enforceTutorQuantityReplyGuard,
@@ -28,6 +29,9 @@ import {
   tutorReplyHasCompleteWorkingSummary,
   tutorReplySummaryLooksIncomplete,
   tutorReplyHasTeacherIntro,
+  tutorSessionIdentityEstablished,
+  tutorSessionTeachingStarted,
+  tutorParagraphIsPolicyIntroBlock,
   tutorReplyIsPredominantlyEnglish,
   tutorQuestionIsQuadraticEquation,
   tutorAlgebraFullExampleWarranted,
@@ -54,11 +58,17 @@ Would you like to:
 
 Let me know, and I'll guide you step by step. You do the thinking; I hold the light.`;
 
-const malayIntroReply =
+const malayPolicyIntroReply =
   `Salam, Ali. Saya Cikgu ADAM. Saya akan bimbing anda sampai faham — saya tidak akan beri jawapan siap; anda perlu buat latihan sendiri.
 
 Berapa **5 + 7** di tempat Sa?
 → ______`;
+
+const malayNaturalFirstTurn =
+  `Baik Ali. Apabila f(x) = 0, persamaan apa kita tulis?
+→ ______`;
+
+const malayIntroReply = malayPolicyIntroReply;
 
 const malayTeachingOnly =
   `Bagus, Ali. Mari kita semak tempat **Sa** sahaja.
@@ -107,6 +117,34 @@ describe('tutor teacher intro repetition', () => {
     );
     expect(out).not.toMatch(/Saya Cikgu ADAM/i);
     expect(out).toMatch(/5 \+ 7/);
+  });
+
+  it('V-T-V01: natural first turn establishes session without policy speech', () => {
+    expect(tutorSessionTeachingStarted(malayNaturalFirstTurn)).toBe(true);
+    expect(tutorSessionIdentityEstablished(malayNaturalFirstTurn, malayProfile)).toBe(true);
+    expect(tutorReplyHasTeacherIntro(malayNaturalFirstTurn, malayProfile)).toBe(false);
+    expect(
+      shouldIncludeTutorTeacherIntro('12', [malayNaturalFirstTurn], malayProfile),
+    ).toBe(false);
+  });
+
+  it('V-T-V02: greeting fallback is warm without policy lecture', () => {
+    const out = buildTutorGreetingFallback('salam', 'Ali Ahmad', malayProfile);
+    expect(out).toMatch(/Salam, Ali|Saya Cikgu ADAM/i);
+    expect(out).toMatch(/belajar|subjek|soalan/i);
+    expect(out).not.toMatch(/jawapan siap|latihan sendiri/i);
+  });
+
+  it('V-T-V03: strips legacy policy intro block on repeat turns', () => {
+    const repeated =
+      `${malayPolicyIntroReply}\n\nSalam, Ali. Saya Cikgu ADAM. Saya tidak beri jawapan siap.\n\nBerapa **1 + 2**?\n→ ______`;
+    const out = stripRepeatedTutorTeacherIntro(repeated, malayProfile);
+    expect(out).not.toMatch(/jawapan siap|latihan sendiri/i);
+    expect(out).toMatch(/1 \+ 2|→ ______/i);
+    expect(tutorParagraphIsPolicyIntroBlock(
+      'Saya Cikgu ADAM. Saya tidak beri jawapan siap; anda buat latihan sendiri.',
+      malayProfile,
+    )).toBe(true);
   });
 });
 

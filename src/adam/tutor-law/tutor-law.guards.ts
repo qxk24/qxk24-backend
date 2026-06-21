@@ -378,7 +378,7 @@ const TUTOR_ALGEBRA_STUCK_LINE = [
   /^Nak\s+(?:saya\s+)?tunjukkan\s+susunan\b/i,
   /^Mahukah\s+anda\s+(?:melihat|membaca)\s+susunan\b/i,
   /^Adakah\s+anda\s+(?:mahu|ingin).*susunan\s+cara\s+kira\b/i,
-  /\bSaya Cikgu ADAM.*tidak\s+beri\s+jawapan\s+siap\b/i,
+  /\b(?:Saya Cikgu ADAM|bimbing\s+anda\s+sampai\s+faham).*jawapan\s+siap\b/i,
   /\bpasangan\s+nombor\b/i,
   /\bCuba\s+cari\s+dua\s+nombor\b/i,
   /\bkenapa\s*\(-?\d+\)\s*[×x*]\s*\(-?\d+\)\b/i,

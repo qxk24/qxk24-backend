@@ -1037,7 +1037,11 @@ ADAM GOLD STANDARD — ALGORITHM TEACHING (mandatory):
 function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): string {
   const parts: string[] = [
     ADAM_TUTOR_IDENTITY,
-    buildAdamTutorTeacherIntroLaw(params.tutorProfile),
+    buildAdamTutorTeacherIntroLaw(
+      params.tutorProfile,
+      params.userMessage ?? '',
+      params.recentAssistantMessages ?? [],
+    ),
     ADAM_TUTOR_GUARDRAILS,
     ADAM_PROSE_DASH_LAW,
     ADAM_BAHASA_MELAYU_LAW,
