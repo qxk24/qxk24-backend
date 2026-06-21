@@ -78,3 +78,16 @@ export function tutorThreadIsMultiStepArithmetic(
       && (blob.match(/\d[\d,]*/g)?.length ?? 0) >= 3)
   );
 }
+
+export function tutorThreadIsStackedArithmetic(
+  userMessage: string,
+  recentUserMessages: string[] = [],
+  recentAssistantMessages: string[] = [],
+): boolean {
+  return (
+    tutorThreadIsMultiStepArithmetic(userMessage, recentUserMessages, recentAssistantMessages)
+    || /\btambah\b|\+|jumlah|keseluruhan|tolak|−|-\s*\d|susunan\s+menegak|tempat\s+\*?\*?Sa/i.test(
+      [userMessage, ...recentUserMessages, ...recentAssistantMessages].join('\n'),
+    )
+  );
+}

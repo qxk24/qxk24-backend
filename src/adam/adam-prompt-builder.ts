@@ -198,6 +198,8 @@ import {
   ADAM_TUTOR_PLACE_VALUE_COLUMN_LAW,
   ADAM_TUTOR_CARRY_PLACEMENT_LAW,
   ADAM_TUTOR_ARITHMETIC_ADAPTIVE_LAW,
+  ADAM_TUTOR_ARITHMETIC_COMPACT_LAW,
+  ADAM_TUTOR_ARITHMETIC_FLUENT_LAW,
   ADAM_TUTOR_STUDENT_CORRECTION_LAW,
   ADAM_TUTOR_FULL_WORKING_LAW,
   ADAM_TUTOR_SESSION_CLOSURE_LAW,
@@ -213,6 +215,7 @@ import {
   tutorThreadIsPlaceValueAddition,
   tutorStudentFlagsTeacherMathError,
   tutorInferArithmeticProficiency,
+  tutorThreadIsMultiStepArithmetic,
   buildAdamTutorTeacherIntroLaw,
   buildAdamTutorProfileBlock,
   buildTutorStudentAddressLaw,
@@ -1072,15 +1075,28 @@ function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): string 
       params.recentUserMessages ?? [],
       params.recentAssistantMessages ?? [],
     )
+    || tutorThreadIsMultiStepArithmetic(
+      params.userMessage ?? '',
+      params.recentUserMessages ?? [],
+      params.recentAssistantMessages ?? [],
+    )
   ) {
-    parts.push(ADAM_TUTOR_PLACE_VALUE_COLUMN_LAW);
-    parts.push(ADAM_TUTOR_CARRY_PLACEMENT_LAW);
-    parts.push(ADAM_TUTOR_ARITHMETIC_ADAPTIVE_LAW);
     const tier = tutorInferArithmeticProficiency(
       params.userMessage ?? '',
       ...(params.recentUserMessages ?? []),
     );
+    parts.push(ADAM_TUTOR_ARITHMETIC_ADAPTIVE_LAW);
     parts.push(`TAHAP PELAJAR TURN INI: **${tier.toUpperCase()}** — ikut ADAM_TUTOR_ARITHMETIC_ADAPTIVE_LAW.`);
+
+    if (tier === 'fluent') {
+      parts.push(ADAM_TUTOR_ARITHMETIC_FLUENT_LAW);
+    } else if (tier === 'compact') {
+      parts.push(ADAM_TUTOR_PLACE_VALUE_COLUMN_LAW);
+      parts.push(ADAM_TUTOR_ARITHMETIC_COMPACT_LAW);
+    } else {
+      parts.push(ADAM_TUTOR_PLACE_VALUE_COLUMN_LAW);
+      parts.push(ADAM_TUTOR_CARRY_PLACEMENT_LAW);
+    }
   }
 
   if (tutorStudentFlagsTeacherMathError(params.userMessage ?? '')) {
