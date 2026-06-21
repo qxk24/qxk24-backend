@@ -61,5 +61,12 @@ describe('ADAM Tutor pricing (USD)', () => {
   it('lists agent tutor bands for kod-daftar quotes', () => {
     const levels = listTutorLevelPricing('agent');
     expect(levels.map((l) => l.monthlyAmount)).toEqual([19, 23, 29]);
+    expect(levels.every((l) => l.currency === 'USD')).toBe(true);
+  });
+
+  it('agent channel stays USD in Malaysia (student pay USD; komisen wallet MYR)', () => {
+    const p = getTutorPricing('secondary', 'agent', SupportedRegion.MY, 4.5);
+    expect(p.currency).toBe('USD');
+    expect(p.monthly).toBe(23);
   });
 });

@@ -404,6 +404,18 @@ export function getTutorPricing(
   myrRate?: number | null,
 ): IRegionalPrice {
   const monthlyUsd = tutorMonthlyUsdByLevel(level, channel);
+
+  if (channel === 'agent') {
+    return {
+      region,
+      currency:     DEFAULT_TUTOR_FEE_CURRENCY,
+      monthly:      monthlyUsd,
+      annual:       0,
+      provider:     PaymentProvider.STRIPE,
+      extensionFee: 0,
+    };
+  }
+
   const envMyr = ENV.ADAM_USD_MYR_RATE > 0 ? ENV.ADAM_USD_MYR_RATE : null;
   const { monthlyLocal, currency } = convertTutorUsdToRegionalFee(
     monthlyUsd,

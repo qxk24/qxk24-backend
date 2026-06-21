@@ -78,6 +78,26 @@ export function buildTutorBandPricing(
   const myrRate = region === SupportedRegion.MY
     ? (fx?.rate ?? (ENV.ADAM_USD_MYR_RATE > 0 ? ENV.ADAM_USD_MYR_RATE : null))
     : null;
+
+  /** Student kod-daftar / agent channel — Stripe charge USD; wallet komisen guna MYR rujukan. */
+  if (channel === 'agent') {
+    const monthlyMyr = myrRate && myrRate > 0
+      ? convertUsdToMyr(monthlyUsd, myrRate)
+      : 0;
+    return {
+      level,
+      bandLabel:     TUTOR_REGISTER_BAND_LABELS_BM[level],
+      monthlyUsd,
+      monthlyAmount: monthlyUsd,
+      currency:      DEFAULT_TUTOR_FEE_CURRENCY,
+      monthlyMyr,
+      usdMyrRate:    myrRate ?? undefined,
+      rateSource:    fx?.source,
+      rateFetchedAt: fx?.fetchedAt,
+      rateProvider:  fx?.provider,
+    };
+  }
+
   const regional = convertTutorUsdToRegionalFee(monthlyUsd, region, myrRate);
 
   const myrEquivalent = myrRate && myrRate > 0
