@@ -156,8 +156,8 @@ export const ENV = {
 
   /** Password reset email (Resend) */
   RESEND_API_KEY:                 optional('RESEND_API_KEY', ''),
-  MAIL_FROM:                        optional('MAIL_FROM', 'ADAM Lab <noreply@alamtologi.com>'),
-  MAIL_REPLY_TO:                    optional('MAIL_REPLY_TO', 'support@alamtologi.com'),
+  MAIL_FROM:                        optional('MAIL_FROM', 'Alamtologi <info@alamtologi.com>'),
+  MAIL_REPLY_TO:                    optional('MAIL_REPLY_TO', 'info@alamtologi.com'),
   ADAM_WEB_BASE_URL:                optional('ADAM_WEB_BASE_URL', 'https://alamtologi.com'),
   /** Public web URL for subscription checkout redirects */
   APP_URL:                          optional('APP_URL', optional('ADAM_WEB_BASE_URL', 'https://alamtologi.com')),

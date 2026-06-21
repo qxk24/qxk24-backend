@@ -66,7 +66,7 @@ function buildCredentialsHtml(input: {
     Portal URL: <span style="word-break:break-all;">${input.portalUrl}</span>
   </p>
   <p style="margin:24px 0 0;font-size:0.875rem;color:#64748b;">
-    — Alamtologi · ADAM Tutor · support@alamtologi.com
+    — Alamtologi · ADAM Tutor · info@alamtologi.com
   </p>
 </div>
   `.trim();

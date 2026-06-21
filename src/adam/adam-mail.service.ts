@@ -41,7 +41,7 @@ export async function sendMail(options: SendMailOptions): Promise<boolean> {
 
   const replyTo = options.replyTo?.trim()
     || ENV.MAIL_REPLY_TO?.trim()
-    || 'enterprise@alamtologi.com';
+    || 'info@alamtologi.com';
 
   try {
     const res = await fetch('https://api.resend.com/emails', {
@@ -114,7 +114,7 @@ export async function sendPasswordResetEmail(
       to,
       subject: 'Reset your ADAM Lab password',
       html,
-      replyTo: ENV.MAIL_REPLY_TO?.trim() || 'support@alamtologi.com',
+      replyTo: ENV.MAIL_REPLY_TO?.trim() || 'info@alamtologi.com',
     });
   } catch (err) {
     console.warn('[adam:mail] password reset send error', err);

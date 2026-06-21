@@ -191,6 +191,19 @@ import {
   ADAM_TUTOR_IDENTITY,
   ADAM_TUTOR_LAW,
   ADAM_TUTOR_OFF_TOPIC_TURN,
+  ADAM_TUTOR_SCIENCE_FACTUAL_LAW,
+  tutorQuestionIsScienceFactual,
+  ADAM_TUTOR_PERCENTAGE_WORD_PROBLEM_LAW,
+  ADAM_TUTOR_FRACTION_REMAINDER_LAW,
+  ADAM_TUTOR_FULL_WORKING_LAW,
+  ADAM_TUTOR_SESSION_CLOSURE_LAW,
+  ADAM_TUTOR_STUCK_ESCALATION_LAW,
+  ADAM_TUTOR_QUADRATIC_FACTORING_LAW,
+  tutorThreadIsQuantityWordProblem,
+  tutorThreadIsMultiStepFractionWordProblem,
+  tutorTurnNeedsFullWorkingLaw,
+  tutorTurnNeedsAlgebraWorkedExampleLaw,
+  tutorTurnWarrantsAutoClosingSummary,
   buildAdamTutorTeacherIntroLaw,
   buildAdamTutorProfileBlock,
   buildTutorStudentAddressLaw,
@@ -1034,6 +1047,61 @@ function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): string 
 
   if (params.userMessage?.trim() && isAdamTutorOffTopicMessage(params.userMessage)) {
     parts.push(ADAM_TUTOR_OFF_TOPIC_TURN);
+  }
+
+  if (params.userMessage?.trim() && tutorQuestionIsScienceFactual(params.userMessage)) {
+    parts.push(ADAM_TUTOR_SCIENCE_FACTUAL_LAW);
+  }
+
+  if (
+    tutorThreadIsQuantityWordProblem(
+      params.userMessage ?? '',
+      params.recentUserMessages ?? [],
+      params.recentAssistantMessages ?? [],
+    )
+  ) {
+    parts.push(ADAM_TUTOR_PERCENTAGE_WORD_PROBLEM_LAW);
+  }
+
+  if (
+    tutorThreadIsMultiStepFractionWordProblem(
+      params.userMessage ?? '',
+      params.recentUserMessages ?? [],
+      params.recentAssistantMessages ?? [],
+    )
+  ) {
+    parts.push(ADAM_TUTOR_FRACTION_REMAINDER_LAW);
+  }
+
+  if (
+    tutorTurnNeedsFullWorkingLaw(
+      params.userMessage ?? '',
+      params.recentUserMessages ?? [],
+      params.recentAssistantMessages ?? [],
+    )
+  ) {
+    parts.push(ADAM_TUTOR_FULL_WORKING_LAW);
+  }
+
+  if (
+    tutorTurnWarrantsAutoClosingSummary(
+      params.userMessage ?? '',
+      params.recentUserMessages ?? [],
+      params.recentAssistantMessages ?? [],
+    )
+  ) {
+    parts.push(ADAM_TUTOR_SESSION_CLOSURE_LAW);
+  }
+
+  if (
+    tutorTurnNeedsAlgebraWorkedExampleLaw(
+      params.userMessage ?? '',
+      params.recentUserMessages ?? [],
+      params.recentAssistantMessages ?? [],
+    )
+  ) {
+    parts.push(ADAM_TUTOR_STUCK_ESCALATION_LAW);
+    parts.push(ADAM_TUTOR_QUADRATIC_FACTORING_LAW);
   }
 
   if (params.webSearchPrompt) parts.push(params.webSearchPrompt);

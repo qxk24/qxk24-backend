@@ -433,6 +433,7 @@ export async function executeAdamSynthesisTurn(input: {
         shell.userMessage,
         shell.participant.userName,
         recentAssistantTurns,
+        recentUserTurns,
       );
       if (scrubbed !== fullResponse) {
         fullResponse = scrubbed;

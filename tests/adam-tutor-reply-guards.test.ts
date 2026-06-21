@@ -9,13 +9,30 @@ import {
   buildTutorAmbiguousInputReply,
   buildTutorMalayFollowUpRecovery,
   enforceTutorMathPedagogyGuard,
+  enforceTutorQuantityReplyGuard,
+  enforceTutorAlgebraStuckGuard,
   enforceTutorReplyGuards,
+  enforceTutorScienceFactualGuard,
   enforceTutorSessionLanguage,
   shouldIncludeTutorTeacherIntro,
+  shouldSkipTutorZeroAnswerGuard,
   stripRepeatedTutorTeacherIntro,
   studentDemandsTutorDirectAnswer,
+  studentMessageLooksLikeFinalAnswer,
+  tutorQuestionIsPercentageWordProblem,
+  tutorQuestionIsMultiStepFractionWordProblem,
+  tutorThreadIsQuantityWordProblem,
+  tutorQuestionIsScienceFactual,
+  tutorThreadIsPercentageWordProblem,
+  tutorTurnWarrantsAutoClosingSummary,
+  tutorReplyHasCompleteWorkingSummary,
+  tutorReplySummaryLooksIncomplete,
   tutorReplyHasTeacherIntro,
   tutorReplyIsPredominantlyEnglish,
+  tutorQuestionIsQuadraticEquation,
+  tutorAlgebraFullExampleWarranted,
+  tutorReplyHasAlgebraFactoringExample,
+  tutorTurnNeedsAlgebraWorkedExampleLaw,
 } from '../src/adam/adam-tutor-law';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -238,5 +255,270 @@ describe('enforceTutorMathPedagogyGuard — tester library regression', () => {
     );
     expect(out).not.toMatch(/Utara|empat arah|contoh harian/i);
     expect(out).toMatch(/langkah matematik|satu langkah/i);
+  });
+});
+
+describe('tutor science factual routing — sunlight / physics Q&A', () => {
+  const sunlightQ =
+    'Berapa masa yang diambil oleh cahaya matahari untuk sampai ke bumi?';
+
+  it('V-T-S01: detects factual science question (not math exercise)', () => {
+    expect(tutorQuestionIsScienceFactual(sunlightQ)).toBe(true);
+    expect(tutorQuestionIsScienceFactual('Ali ada 2,385 biji guli. Dia beli lagi 1,427.')).toBe(false);
+    expect(tutorQuestionIsScienceFactual('a − 4 = 2')).toBe(false);
+  });
+
+  it('V-T-S02: strips gatekeeping, blank lines, and "Saya tunggu arahan" from old-style reply', () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/tutor-science-factual-bad-close.txt'),
+      'utf8',
+    );
+    const out = enforceTutorScienceFactualGuard(raw, sunlightQ);
+    expect(out).not.toMatch(/bukan soalan matematik|soalan sains tinggi|→ _{5,}/i);
+    expect(out).not.toMatch(/Saya tunggu|Apakah yang membuat cahaya|Tulis di sini/i);
+    expect(out).toMatch(/8 minit dan 20 saat|149\.6 juta km|299,792 km\/s/i);
+  });
+
+  it('V-T-S03: preserves factual answer and skips zero-answer guard', () => {
+    const good =
+      'Cahaya matahari mengambil **lebih kurang 8 minit dan 20 saat** untuk sampai ke Bumi.\n\n'
+      + '**Masa = Jarak ÷ Kelajuan**\n\n'
+      + '149,600,000 km ÷ 299,792 km/s ≈ 499 saat ≈ 8 minit 19 saat';
+    const out = enforceTutorReplyGuards(
+      good,
+      malayProfile,
+      sunlightQ,
+      'Pelajar',
+      [malayTeachingOnly],
+    );
+    expect(out).toMatch(/8 minit dan 20 saat|Masa = Jarak/i);
+    expect(out).not.toMatch(/tidak siapkan kiraan penuh|→ ______/i);
+  });
+});
+
+describe('tutor percentage word problems — Year 6 pedagogy', () => {
+  const percentQ =
+    'Daripada 240 orang murid, 35% ialah murid lelaki. Berapakah bilangan murid perempuan?';
+
+  it('V-T-P01: detects percentage word problem thread', () => {
+    expect(tutorQuestionIsPercentageWordProblem(percentQ)).toBe(true);
+    expect(tutorThreadIsPercentageWordProblem('156', [], ['35% daripada 240'])).toBe(true);
+  });
+
+  it('V-T-P02: strips 10%+30%+5% decomposition chain', () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/tutor-percentage-decomposition-leak.txt'),
+      'utf8',
+    );
+    const out = enforceTutorQuantityReplyGuard(raw, percentQ, [percentQ]);
+    expect(out).not.toMatch(/10% daripada|30% = 3|5% = ½|Saya di sini, bersama anda/i);
+    expect(out).toMatch(/35\/100 × 240|35% daripada 240/i);
+  });
+
+  it('V-T-P03: skips zero-answer nudge when full working summary present', () => {
+    const summary =
+      'Susunan cara kira keseluruhan (seperti di buku latihan):\n\n'
+      + 'Murid lelaki (35%) = 35/100 × 240\n'
+      + ' = (35 × 240) ÷ 100\n'
+      + ' = 8400 ÷ 100\n'
+      + ' = 84 orang\n\n'
+      + 'Murid perempuan = 240 − 84\n'
+      + ' = 156 orang\n\n'
+      + 'Jawapan: 156 orang';
+    expect(shouldSkipTutorZeroAnswerGuard(summary, 'Boleh tunjukkan susunan cara kira keseluruhan?', [])).toBe(true);
+    const out = enforceTutorReplyGuards(
+      summary,
+      malayProfile,
+      'Boleh tunjukkan susunan cara kira keseluruhan?',
+      'Pelajar',
+      [malayTeachingOnly],
+    );
+    expect(out).not.toMatch(/tidak siapkan kiraan penuh|→ ______/i);
+    expect(out).toMatch(/Susunan cara kira keseluruhan|156 orang/i);
+  });
+});
+
+describe('tutor fraction remainder multi-step — lorry / baki', () => {
+  const lorryQ =
+    'Sebuah lori membawa 480 kotak minuman. Pada hari pertama, 3/8 daripada jumlah kotak dihantar ke Kedai A. '
+    + 'Pada hari kedua, 1/4 daripada baki kotak dihantar ke Kedai B. '
+    + 'Berapakah bilangan kotak minuman yang masih berada di dalam lori selepas hari kedua?';
+
+  it('V-T-F01: detects multi-step fraction + baki word problem', () => {
+    expect(tutorQuestionIsMultiStepFractionWordProblem(lorryQ)).toBe(true);
+    expect(tutorThreadIsQuantityWordProblem('225', [], ['3/8 × 480', lorryQ])).toBe(true);
+  });
+
+  it('V-T-F02: strips MASA/nombor hidup philosophy after full working', () => {
+    const raw = readFileSync(
+      join(__dirname, 'fixtures/tutor-fraction-remainder-philosophy-leak.txt'),
+      'utf8',
+    );
+    const summary =
+      'Susunan cara kira keseluruhan:\n'
+      + '3/8 × 480 = 180\n'
+      + 'Baki = 480 − 180 = 300\n'
+      + '1/4 × 300 = 75\n'
+      + '300 − 75 = 225\n'
+      + 'Jawapan: 225 kotak\n\n'
+      + raw;
+    const out = enforceTutorQuantityReplyGuard(summary, lorryQ, [lorryQ]);
+    expect(out).not.toMatch(/MASA baru|Setiap angka itu hidup|✅ Baki bukan|Saya di sini, bersama anda/i);
+    expect(out).toMatch(/225 kotak|Susunan cara kira/i);
+  });
+
+  it('V-T-F03: auto-summary turn skips zero-answer nudge', () => {
+    const summary =
+      'Susunan cara kira keseluruhan (seperti di buku latihan):\n\n'
+      + 'Bilangan kotak dihantar ke Kedai A\n'
+      + '= 3/8 × 480\n'
+      + '= 180 kotak\n\n'
+      + 'Baki kotak\n'
+      + '= 480 − 180\n'
+      + '= 300 kotak\n\n'
+      + 'Bilangan kotak yang masih tinggal\n'
+      + '= 300 − 75\n'
+      + '= 225 kotak\n\n'
+      + 'Jawapan: 225 kotak';
+    const out = enforceTutorReplyGuards(
+      summary,
+      malayProfile,
+      'Boleh berikan susunan cara kira keseluruhan',
+      'Pelajar',
+      [lorryQ],
+    );
+    expect(out).not.toMatch(/tidak siapkan kiraan penuh|→ ______/i);
+    expect(out).toMatch(/225 kotak/i);
+  });
+});
+
+describe('tutor session auto-closure — full summary without student request', () => {
+  const percentQ =
+    'Daripada 240 orang murid, 35% ialah murid lelaki. Berapakah bilangan murid perempuan?';
+
+  it('V-T-C01: detects final numeric answer after micro-teaching thread', () => {
+    expect(studentMessageLooksLikeFinalAnswer('156')).toBe(true);
+    expect(studentMessageLooksLikeFinalAnswer('156 orang')).toBe(true);
+    expect(studentMessageLooksLikeFinalAnswer('Boleh tunjukkan susunan?')).toBe(false);
+    expect(
+      tutorTurnWarrantsAutoClosingSummary(
+        '156',
+        [percentQ],
+        ['Berapa 35 × 240?\n→ ______\n\nSaya tunggu.'],
+      ),
+    ).toBe(true);
+  });
+
+  it('V-T-C02: skips zero-answer nudge when closure turn warranted', () => {
+    const partialGood =
+      'Betul!\n\nSusunan cara kira keseluruhan:\n\n'
+      + 'Murid lelaki (35%) = 35/100 × 240\n'
+      + ' = 8400 ÷ 100\n'
+      + ' = 84 orang\n\n'
+      + 'Murid perempuan = 240 − 84\n'
+      + ' = 156 orang\n\n'
+      + 'Jawapan: 156 orang';
+    expect(
+      shouldSkipTutorZeroAnswerGuard(
+        partialGood,
+        '156',
+        ['Berapa 35 × 240?\n→ ______'],
+        [percentQ],
+      ),
+    ).toBe(true);
+    const out = enforceTutorReplyGuards(
+      partialGood,
+      malayProfile,
+      '156',
+      'Pelajar',
+      ['Berapa 35 × 240?\n→ ______'],
+      [percentQ],
+    );
+    expect(out).not.toMatch(/tidak siapkan kiraan penuh|→ ______/i);
+    expect(out).toMatch(/Susunan cara kira keseluruhan|156 orang/i);
+  });
+
+  it('V-T-W01: rejects prose-only closure without intermediate = steps', () => {
+    const incomplete = 'Betul! Jawapan akhirnya 156 orang murid perempuan.';
+    expect(tutorReplyHasCompleteWorkingSummary(incomplete)).toBe(false);
+    expect(tutorReplySummaryLooksIncomplete(incomplete)).toBe(true);
+    const complete =
+      'Murid lelaki = 35/100 × 240\n = 8400 ÷ 100\n = 84 orang\n'
+      + 'Murid perempuan = 240 − 84\n = 156 orang\nJawapan: 156 orang';
+    expect(tutorReplyHasCompleteWorkingSummary(complete)).toBe(true);
+    expect(tutorReplySummaryLooksIncomplete(complete)).toBe(false);
+  });
+});
+
+describe('tutor quadratic stuck escalation — factoring / tak faham', () => {
+  const quadQ =
+    'Fungsi f(x) = x² − 5x + 6. Cari nilai x apabila f(x) = 0.';
+
+  const microTeachingTurn =
+    'Baik. Cuba cari dua nombor (pasangan nombor) yang darabnya 6 dan tolaknya 5.\n'
+    + '→ ______\n\nSaya tunggu, dan kita teruskan bersama.';
+
+  it('V-T-Q01: detects repeated tak faham on quadratic thread', () => {
+    expect(tutorQuestionIsQuadraticEquation(quadQ)).toBe(true);
+    expect(
+      tutorAlgebraFullExampleWarranted(
+        'Saya tak faham',
+        [quadQ, 'Saya tak faham'],
+        [microTeachingTurn],
+      ),
+    ).toBe(true);
+    expect(
+      tutorTurnNeedsAlgebraWorkedExampleLaw(
+        'Saya tak faham',
+        [quadQ, 'Saya tak faham'],
+        [microTeachingTurn],
+      ),
+    ).toBe(true);
+  });
+
+  it('V-T-Q02: strips philosophy + micro-teaching when escalation warranted', () => {
+    const raw =
+      'Ambang pemahaman anda sudah hampir sampai.\n\n'
+      + 'Saya di sini, bersama anda.\n\n'
+      + microTeachingTurn;
+    const out = enforceTutorAlgebraStuckGuard(
+      raw,
+      'Saya tak faham',
+      [microTeachingTurn],
+      [quadQ, 'Saya tak faham'],
+    );
+    expect(out).not.toMatch(/ambang pemahaman|Saya di sini, bersama anda|→ ______|pasangan nombor/i);
+  });
+
+  it('V-T-Q03: preserves full factoring example and skips zero-answer nudge', () => {
+    const good =
+      'Baik, kita tengok contoh lengkap dulu.\n\n'
+      + 'Diberi: f(x) = x² − 5x + 6, cari x apabila f(x) = 0.\n\n'
+      + 'x² − 5x + 6 = 0\n'
+      + '= (x − 2)(x − 3) = 0\n\n'
+      + 'Jika hasil darab = 0, maka x − 2 = 0 atau x − 3 = 0\n'
+      + '→ x = 2 atau x = 3\n\n'
+      + 'Semak (x = 2): f(2) = 2² − 5(2) + 6 = 4 − 10 + 6 = 0 ✓\n\n'
+      + 'Jawapan: x = 2 atau x = 3\n\n'
+      + '**Latihan isomorfik**: Selesaikan x² − 7x + 12 = 0.';
+    expect(tutorReplyHasAlgebraFactoringExample(good)).toBe(true);
+    expect(
+      shouldSkipTutorZeroAnswerGuard(
+        good,
+        'Saya tak faham',
+        [microTeachingTurn],
+        [quadQ, 'Saya tak faham'],
+      ),
+    ).toBe(true);
+    const out = enforceTutorReplyGuards(
+      good,
+      malayProfile,
+      'Saya tak faham',
+      'Pelajar',
+      [microTeachingTurn],
+      [quadQ, 'Saya tak faham'],
+    );
+    expect(out).not.toMatch(/tidak siapkan kiraan penuh|→ ______/i);
+    expect(out).toMatch(/\(x − 2\)\(x − 3\)|x = 2 atau x = 3|Latihan isomorfik/i);
   });
 });

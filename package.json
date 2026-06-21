@@ -24,7 +24,8 @@
     "bootstrap:platform-admin": "node dist/scripts/bootstrap-platform-admin.js",
     "seed:tutor-test-agent": "ts-node --transpile-only src/scripts/seed-tutor-test-agent.ts",
     "seed:tutor-agent-marketing": "ts-node --transpile-only src/scripts/seed-tutor-agent-marketing.ts",
-    "verify:stripe-prices": "ts-node --transpile-only src/scripts/verify-stripe-prices.ts"
+    "verify:stripe-prices": "ts-node --transpile-only src/scripts/verify-stripe-prices.ts",
+    "test:resend-mail": "ts-node --transpile-only src/scripts/test-resend-mail.ts"
   },
   "engines": {
     "node": ">=18.0.0"
