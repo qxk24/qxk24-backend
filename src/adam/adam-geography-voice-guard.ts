@@ -15,7 +15,7 @@
  * ============================================================
  *
  * Geography teaching — strip essay voice, orphan measures, companion closes.
- * V-GEO03 Antarctica pattern: salvage facts + structured sections.
+ * Channel repair only: never inject topic-specific facts (model owns content).
  */
 
 import { isAdamGeographyTurn } from './adam-domain-detectors';
@@ -82,7 +82,6 @@ export function paragraphIsGeographyOrphanMeasureLeak(paragraph: string): boolea
   if (/^\d+(?:[.,]\d+)?\s*°C\**,?\s*diukur\b/i.test(t)) return true;
   if (/^\d+(?:[.,]\d+)?\s*°C,\s*diukur\b/i.test(t)) return true;
   if (/^[−-]?\d+(?:[.,]\d+)?\s*°C\.?$/i.test(t) && t.length < 24) return true;
-  if (/^\d{1,2}\s*(?:kilometer|km)\*+\.\s*Ketebalan\b/i.test(t)) return true;
   return false;
 }
 
@@ -100,8 +99,8 @@ export function paragraphIsGeographyPassiveMenuLeak(paragraph: string): boolean 
 
 const ORPHAN_KM = String.raw`\d{1,2}(?:[.,]\d+)?\s*(?:kilometer|km)\*+\.?`;
 const ORPHAN_KM_PLAIN = String.raw`\d{1,2}(?:[.,]\d+)?\s*(?:kilometer|km)\.?`;
-const VOSTOK_ORPHAN = String.raw`\d+(?:[.,]\d+)?\s*°C\**,?\s*diukur di St(?:asi|esyen|esen)\b[^.\n]*1983\.?`;
-const VOSTOK_FACT = 'Suhu terendah direkod di Bumi ialah −89.2 °C, di Stesen Vostok (1983).';
+/** Stream-cut temperature fragment — e.g. "2°C**, diukur di Stesen Vostok…". Strip only; never replace with canned facts. */
+const ORPHAN_TEMP_READING = String.raw`\d+(?:[.,]\d+)?\s*°C\**,?\s*diukur\b[^.\n]*\.?`;
 
 function collapseHorizontalSpaces(text: string): string {
   return text.replace(/[^\S\n]{2,}/g, ' ');
@@ -119,11 +118,11 @@ function normalizeGeographyMarkdownOrphans(text: string): string {
   ).trim();
 }
 
-function repairBrokenVostokTemperatureLine(text: string): string {
+function stripOrphanTemperatureReading(text: string): string {
   return collapseHorizontalSpaces(
     text
-      .replace(new RegExp(String.raw`^\s*${VOSTOK_ORPHAN}\s*`, 'gim'), VOSTOK_FACT)
-      .replace(new RegExp(String.raw`\s+${VOSTOK_ORPHAN}\s*`, 'gi'), ` ${VOSTOK_FACT} `),
+      .replace(new RegExp(String.raw`^\s*${ORPHAN_TEMP_READING}\s*`, 'gim'), '')
+      .replace(new RegExp(String.raw`\s+${ORPHAN_TEMP_READING}\s*`, 'gi'), ' '),
   ).trim();
 }
 
@@ -146,44 +145,6 @@ function stripInlineOrphanMeasures(text: string): string {
   return out;
 }
 
-function ensureAntarcticaIceThicknessFact(text: string): string {
-  if (!/\b(?:antartika|antarctica|ais)\b/i.test(text)) return text;
-  if (/\b(?:2[.,]\d|1[.,]\d|4[.,]\d)\s*km\b|\b(?:purata|ketebalan|tebal)\b.*\b(?:kilometer|km)\b/i.test(text)) {
-    return text;
-  }
-  if (!/\b60\s*meter\b/i.test(text)) return text;
-  const fact = 'Ketebalan lapisan ais purata kira-kira 2,1 km (maksimum sekitar 4,8 km).';
-  if (/\bJika semua ais\b/i.test(text)) {
-    return text.replace(/\b(Jika semua ais\b)/i, `${fact}\n\n$1`);
-  }
-  return `${text}\n\n${fact}`;
-}
-
-function ensureAntarcticaVostokFact(text: string): string {
-  if (!/\b(?:Vostok|vostok)\b/i.test(text)) return text;
-  if (/−89|89\.2/i.test(text)) return text;
-  if (/\n### Iklim/m.test(text)) {
-    return text.replace(/\n### Iklim/, `\n\n${VOSTOK_FACT}\n\n### Iklim`);
-  }
-  if (/\bgurun\s+ais\b/i.test(text)) {
-    return text.replace(/\b(Ia adalah gurun ais:[^\n]+)/i, `$1\n\n${VOSTOK_FACT}`);
-  }
-  return `${text}\n\n${VOSTOK_FACT}`;
-}
-
-function dedupeGeographyFacts(text: string): string {
-  const lines = text.split('\n');
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const line of lines) {
-    const key = line.trim();
-    if (key === VOSTOK_FACT && seen.has(key)) continue;
-    if (key === VOSTOK_FACT) seen.add(key);
-    out.push(line);
-  }
-  return out.join('\n').replace(new RegExp(`(${VOSTOK_FACT}\\s*){2,}`, 'g'), `${VOSTOK_FACT}\n\n`);
-}
-
 function salvageGeographyParagraphs(raw: string): string {
   return raw
     .split(/\n{2,}/)
@@ -196,7 +157,7 @@ function salvageGeographyParagraphs(raw: string): string {
       if (paragraphIsGeographyPassiveMenuLeak(p)) return false;
       return true;
     })
-    .map((p) => stripInlineOrphanMeasures(repairBrokenVostokTemperatureLine(p)))
+    .map((p) => stripInlineOrphanMeasures(stripOrphanTemperatureReading(p)))
     .join('\n\n')
     .trim();
 }
@@ -241,11 +202,11 @@ export function repairGeographyVoiceOutput(
 
   const prepped = normalizeGeographyMarkdownOrphans(polished);
   const salvaged = salvageGeographyParagraphs(prepped) || salvageGeographyParagraphs(rawBeforeStrip);
-  let out = repairBrokenVostokTemperatureLine(salvaged || prepped.trim());
+  let out = stripOrphanTemperatureReading(salvaged || prepped.trim());
 
   out = out
     .split(/\n{2,}/)
-    .map((p) => stripInlineOrphanMeasures(repairBrokenVostokTemperatureLine(p.trim())))
+    .map((p) => stripInlineOrphanMeasures(stripOrphanTemperatureReading(p.trim())))
     .filter((p) => p
       && !paragraphIsGeographyEssayOpenerLeak(p)
       && !paragraphIsGeographyEssayCloseLeak(p)
@@ -260,5 +221,5 @@ export function repairGeographyVoiceOutput(
     out = applyGeographyStructure(out, topicFromQuestion(userMessage));
   }
 
-  return dedupeGeographyFacts(ensureAntarcticaIceThicknessFact(ensureAntarcticaVostokFact(out)));
+  return out;
 }

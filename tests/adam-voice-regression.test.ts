@@ -297,12 +297,12 @@ describe('Voice regression — warm tutor passes through', () => {
     expect(out).not.toMatch(/^9 kilometer\.?$|^8 kilometer\.?$/m);
     expect(out).not.toMatch(/\b9 kilometer\b|\b8 kilometer\b/i);
     expect(out).not.toMatch(/QA Unlimited|perjalanan ini|Jika QA Unlimited ingin/i);
-    expect(out).toMatch(/−89\.2|89\.2/i);
-    expect(out).toMatch(/Antartika|ais|gurun|Antarctic Treaty|krill|Vostok/i);
+    expect(out).not.toMatch(/\b2°C\b/i);
+    expect(out).toMatch(/Antartika|ais|gurun|Antarctic Treaty|krill|Vostok|60 meter/i);
     expect(out).toMatch(/###/);
   });
 
-  it('V-GEO03b: Antartika markdown orphans (8 km**, 2°C**) → clean facts', async () => {
+  it('V-GEO03b: Antartika markdown orphans (8 km**, 2°C**) → strip leaks, keep model facts', async () => {
     const raw = readFileSync(
       join(__dirname, 'fixtures/antarctica-essay-leak-v2.txt'),
       'utf8',
@@ -316,9 +316,8 @@ describe('Voice regression — warm tutor passes through', () => {
     expect(out).not.toMatch(/\b8 kilometer\b|\b9 kilometer\b|\b2°C\b/i);
     expect(out).not.toMatch(/QA Unlimited|Allah letakkan|ayat\)/i);
     expect(out).not.toMatch(/^-\s+bagaimana\s+ais/m);
-    expect(out).toMatch(/−89\.2|89\.2/i);
-    expect(out).toMatch(/2,1 km|2\.1 km/i);
-    expect(out).toMatch(/Antartika|Antarctic Treaty|krill|Vostok|60 meter/i);
+    expect(out).not.toMatch(/\b2°C\b/i);
+    expect(out).toMatch(/Antartika|Antarctic Treaty|krill|Vostok|60 meter|14 juta/i);
     expect(out).toMatch(/### Apa itu Benua Antartika/i);
   });
 });
