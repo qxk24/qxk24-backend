@@ -196,16 +196,23 @@ import {
   ADAM_TUTOR_PERCENTAGE_WORD_PROBLEM_LAW,
   ADAM_TUTOR_FRACTION_REMAINDER_LAW,
   ADAM_TUTOR_PLACE_VALUE_COLUMN_LAW,
+  ADAM_TUTOR_CARRY_PLACEMENT_LAW,
+  ADAM_TUTOR_ARITHMETIC_ADAPTIVE_LAW,
+  ADAM_TUTOR_STUDENT_CORRECTION_LAW,
   ADAM_TUTOR_FULL_WORKING_LAW,
   ADAM_TUTOR_SESSION_CLOSURE_LAW,
   ADAM_TUTOR_STUCK_ESCALATION_LAW,
   ADAM_TUTOR_QUADRATIC_FACTORING_LAW,
+  ADAM_TUTOR_FACTOR_PAIR_MICRO_LAW,
   tutorThreadIsQuantityWordProblem,
   tutorThreadIsMultiStepFractionWordProblem,
   tutorTurnNeedsFullWorkingLaw,
   tutorTurnNeedsAlgebraWorkedExampleLaw,
+  tutorTurnNeedsFactorPairMicroLaw,
   tutorTurnWarrantsAutoClosingSummary,
   tutorThreadIsPlaceValueAddition,
+  tutorStudentFlagsTeacherMathError,
+  tutorInferArithmeticProficiency,
   buildAdamTutorTeacherIntroLaw,
   buildAdamTutorProfileBlock,
   buildTutorStudentAddressLaw,
@@ -1067,6 +1074,17 @@ function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): string 
     )
   ) {
     parts.push(ADAM_TUTOR_PLACE_VALUE_COLUMN_LAW);
+    parts.push(ADAM_TUTOR_CARRY_PLACEMENT_LAW);
+    parts.push(ADAM_TUTOR_ARITHMETIC_ADAPTIVE_LAW);
+    const tier = tutorInferArithmeticProficiency(
+      params.userMessage ?? '',
+      ...(params.recentUserMessages ?? []),
+    );
+    parts.push(`TAHAP PELAJAR TURN INI: **${tier.toUpperCase()}** — ikut ADAM_TUTOR_ARITHMETIC_ADAPTIVE_LAW.`);
+  }
+
+  if (tutorStudentFlagsTeacherMathError(params.userMessage ?? '')) {
+    parts.push(ADAM_TUTOR_STUDENT_CORRECTION_LAW);
   }
 
   if (
@@ -1118,6 +1136,14 @@ function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): string 
   ) {
     parts.push(ADAM_TUTOR_STUCK_ESCALATION_LAW);
     parts.push(ADAM_TUTOR_QUADRATIC_FACTORING_LAW);
+  } else if (
+    tutorTurnNeedsFactorPairMicroLaw(
+      params.userMessage ?? '',
+      params.recentUserMessages ?? [],
+      params.recentAssistantMessages ?? [],
+    )
+  ) {
+    parts.push(ADAM_TUTOR_FACTOR_PAIR_MICRO_LAW);
   }
 
   if (params.webSearchPrompt) parts.push(params.webSearchPrompt);

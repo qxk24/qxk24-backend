@@ -23,6 +23,7 @@ import {
   listTutorLevelPricing,
   tutorMonthlyUsdByLevel,
 } from '../src/subscriptions/tier-access.config';
+import { SupportedRegion } from '../src/subscriptions/subscription.schema';
 
 describe('ADAM Tutor pricing (USD)', () => {
   it('returns public USD amounts by school level', () => {
@@ -37,15 +38,21 @@ describe('ADAM Tutor pricing (USD)', () => {
     expect(tutorMonthlyUsdByLevel('university', 'agent')).toBe(29);
   });
 
-  it('defaults getTutorPricing to public channel', () => {
-    const p = getTutorPricing('secondary');
+  it('defaults getTutorPricing to public channel USD for OTHER', () => {
+    const p = getTutorPricing('secondary', 'public', SupportedRegion.OTHER);
     expect(p.currency).toBe('USD');
     expect(p.monthly).toBe(33);
     expect(p.annual).toBe(0);
   });
 
-  it('lists public tutor bands for Stripe checkout', () => {
-    const levels = listTutorLevelPricing('public');
+  it('returns MYR for Malaysia region', () => {
+    const p = getTutorPricing('secondary', 'public', SupportedRegion.MY, 4.5);
+    expect(p.currency).toBe('MYR');
+    expect(p.monthly).toBe(148.5);
+  });
+
+  it('lists public tutor bands for Stripe checkout (USD default region)', () => {
+    const levels = listTutorLevelPricing('public', SupportedRegion.OTHER);
     expect(levels).toHaveLength(3);
     expect(levels.map((l) => l.monthlyAmount)).toEqual([25, 33, 45]);
     expect(levels.every((l) => l.currency === 'USD')).toBe(true);

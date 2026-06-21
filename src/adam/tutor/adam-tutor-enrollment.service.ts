@@ -135,16 +135,20 @@ export async function lockTutorEnrollmentCode(
 }
 
 export interface TutorCheckoutQuote {
-  band:          TutorSubscriptionLevel;
-  bandLabel:     string;
-  monthlyUsd:    number;
-  monthlyMyr:    number;
-  usdMyrRate:    number;
-  rateSource?:   string;
+  band:           TutorSubscriptionLevel;
+  bandLabel:      string;
+  /** Canonical default base (USD). */
+  monthlyUsd:     number;
+  /** Regional fee in country currency. */
+  monthlyAmount:  number;
+  currency:       string;
+  /** MYR equivalent when currency is MYR or for legacy clients. */
+  monthlyMyr:     number;
+  usdMyrRate?:    number;
+  rateSource?:    string;
   rateFetchedAt?: string;
-  currency:      'USD';
-  agentLabel:    string | null;
-  registerCode:  string;
+  agentLabel:     string | null;
+  registerCode:   string;
 }
 
 export async function getTutorEnrollmentCheckoutQuote(
@@ -171,11 +175,12 @@ export async function getTutorEnrollmentCheckoutQuote(
       const p = await getTutorBandPricing(enrollment.band);
       return {
         monthlyUsd:    p.monthlyUsd,
+        monthlyAmount: p.monthlyAmount,
+        currency:      p.currency,
         monthlyMyr:    p.monthlyMyr,
         usdMyrRate:    p.usdMyrRate,
         rateSource:    p.rateSource,
         rateFetchedAt: p.rateFetchedAt,
-        currency:      'USD' as const,
       };
     })()),
     agentLabel:   enrollment.agentLabel,

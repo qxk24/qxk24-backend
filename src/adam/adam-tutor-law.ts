@@ -52,6 +52,9 @@ export {
   ADAM_TUTOR_LAW,
   ADAM_TUTOR_MALAY_MATH_TERMS,
   ADAM_TUTOR_PLACE_VALUE_COLUMN_LAW,
+  ADAM_TUTOR_CARRY_PLACEMENT_LAW,
+  ADAM_TUTOR_ARITHMETIC_ADAPTIVE_LAW,
+  ADAM_TUTOR_STUDENT_CORRECTION_LAW,
   ADAM_TUTOR_OFF_TOPIC_TURN,
   ADAM_TUTOR_PEDAGOGY_LAW,
   ADAM_TUTOR_PERCENTAGE_WORD_PROBLEM_LAW,
@@ -67,6 +70,7 @@ export {
 export {
   ADAM_TUTOR_STUCK_ESCALATION_LAW,
   ADAM_TUTOR_QUADRATIC_FACTORING_LAW,
+  ADAM_TUTOR_FACTOR_PAIR_MICRO_LAW,
 } from './tutor-law/tutor-law.algebra-laws';
 
 export { tutorQuestionIsScienceFactual } from './tutor-law/tutor-law.science-routing';
@@ -95,7 +99,13 @@ export {
   tutorAlgebraFullExampleWarranted,
   tutorReplyHasAlgebraFactoringExample,
   tutorTurnNeedsAlgebraWorkedExampleLaw,
+  tutorTurnNeedsFactorPairMicroLaw,
 } from './tutor-law/tutor-law.algebra-routing';
+
+export {
+  tutorStudentGaveFactorPairAttempt,
+  dedupeTutorReplyParagraphs,
+} from './tutor-law/tutor-law.algebra-micro';
 
 export {
   extractAdditionOperands,
@@ -106,11 +116,28 @@ export {
 } from './tutor-law/tutor-law.place-value-routing';
 
 export {
+  tutorReplyMisplacesCarry,
+  buildTutorCarryStepRecovery,
+  buildTutorCorrectionAckRecovery,
+  tutorStudentFlagsTeacherMathError,
+  tutorReplyLeakedTotalAfterCorrection,
+} from './tutor-law/tutor-law.arithmetic-carry';
+
+export {
+  tutorInferArithmeticProficiency,
+  tutorThreadWarrantsCompactArithmetic,
+  tutorThreadIsMultiStepArithmetic,
+} from './tutor-law/tutor-law.arithmetic-proficiency';
+
+export {
   enforceTutorMathPedagogyGuard,
   enforceTutorPercentageReplyGuard,
   enforceTutorQuantityReplyGuard,
   enforceTutorPlaceValueColumnGuard,
+  enforceTutorCarryPlacementGuard,
+  enforceTutorStudentCorrectionGuard,
   enforceTutorAlgebraStuckGuard,
+  enforceTutorAlgebraMicroCorrectionGuard,
   enforceTutorPlainLanguageGuard,
   enforceTutorScienceFactualGuard,
   enforceTutorZeroAnswerGuard,

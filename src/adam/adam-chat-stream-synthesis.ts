@@ -441,6 +441,7 @@ export async function executeAdamSynthesisTurn(input: {
           sessionId: resolvedSessionId,
           replace:   true,
           response:  fullResponse,
+          tutorGuardRepair: true,
         }));
       }
     }

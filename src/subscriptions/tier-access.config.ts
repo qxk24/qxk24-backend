@@ -23,6 +23,10 @@ import {
   PaymentProvider,
   type TutorSubscriptionLevel,
 } from './subscription.schema';
+import {
+  convertTutorUsdToRegionalFee,
+  DEFAULT_TUTOR_FEE_CURRENCY,
+} from '../adam/tutor/adam-tutor-fee-currency.service';
 
 // ─── Tier Access Definitions ─────────────────────────────────────────────────
 
@@ -396,12 +400,21 @@ export function normalizeTutorSubscriptionLevel(
 export function getTutorPricing(
   level?: TutorSubscriptionLevel | string | null,
   channel: TutorPriceChannel = 'public',
+  region: SupportedRegion = SupportedRegion.OTHER,
+  myrRate?: number | null,
 ): IRegionalPrice {
-  const monthly = tutorMonthlyUsdByLevel(level, channel);
+  const monthlyUsd = tutorMonthlyUsdByLevel(level, channel);
+  const envMyr = ENV.ADAM_USD_MYR_RATE > 0 ? ENV.ADAM_USD_MYR_RATE : null;
+  const { monthlyLocal, currency } = convertTutorUsdToRegionalFee(
+    monthlyUsd,
+    region,
+    myrRate ?? envMyr,
+  );
+
   return {
-    region:       SupportedRegion.US,
-    currency:     'USD',
-    monthly,
+    region,
+    currency,
+    monthly:      monthlyLocal,
     annual:       0,
     provider:     PaymentProvider.STRIPE,
     extensionFee: 0,
@@ -410,19 +423,24 @@ export function getTutorPricing(
 
 export function listTutorLevelPricing(
   channel: TutorPriceChannel = 'public',
+  region: SupportedRegion = SupportedRegion.OTHER,
+  myrRate?: number | null,
 ): Array<{
   level:          TutorSubscriptionLevel;
   label:          string;
   monthlyAmount:  number;
+  monthlyUsd:     number;
   annualAmount:   number;
   currency:       string;
 }> {
   return (['primary', 'secondary', 'university'] as TutorSubscriptionLevel[]).map((level) => {
-    const p = getTutorPricing(level, channel);
+    const monthlyUsd = tutorMonthlyUsdByLevel(level, channel);
+    const p = getTutorPricing(level, channel, region, myrRate);
     return {
       level,
       label:         TUTOR_LEVEL_LABELS[level],
       monthlyAmount: p.monthly,
+      monthlyUsd,
       annualAmount:  p.annual,
       currency:      p.currency,
     };

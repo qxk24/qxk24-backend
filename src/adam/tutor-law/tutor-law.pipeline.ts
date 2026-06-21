@@ -25,7 +25,10 @@ import {
   enforceTutorScienceFactualGuard,
   enforceTutorZeroAnswerGuard,
   enforceTutorAlgebraStuckGuard,
+  enforceTutorAlgebraMicroCorrectionGuard,
   enforceTutorPlaceValueColumnGuard,
+  enforceTutorCarryPlacementGuard,
+  enforceTutorStudentCorrectionGuard,
   fixTutorMalayPlaceValueTerms,
 } from './tutor-law.guards';
 import {
@@ -71,13 +74,23 @@ export function enforceTutorReplyGuards(
     userMessage ?? '',
     recentUserMessages,
   );
+  const carry = enforceTutorCarryPlacementGuard(
+    placeValue,
+    userMessage ?? '',
+    recentUserMessages,
+  );
+  const correction = enforceTutorStudentCorrectionGuard(
+    carry,
+    userMessage ?? '',
+    recentUserMessages,
+  );
   const quantity = tutorThreadIsQuantityWordProblem(
     userMessage ?? '',
     recentUserMessages,
     recentAssistantMessages,
   )
-    ? enforceTutorQuantityReplyGuard(placeValue, userMessage ?? '', recentAssistantMessages)
-    : placeValue;
+    ? enforceTutorQuantityReplyGuard(correction, userMessage ?? '', recentAssistantMessages)
+    : correction;
 
   const algebra = tutorThreadIsQuadraticContext(
     userMessage ?? '',
@@ -92,6 +105,19 @@ export function enforceTutorReplyGuards(
     )
     : quantity;
 
+  const algebraMicro = tutorThreadIsQuadraticContext(
+    userMessage ?? '',
+    recentUserMessages,
+    recentAssistantMessages,
+  )
+    ? enforceTutorAlgebraMicroCorrectionGuard(
+      algebra,
+      userMessage ?? '',
+      recentUserMessages,
+      recentAssistantMessages,
+    )
+    : algebra;
+
   const closureTurn = tutorTurnWarrantsAutoClosingSummary(
     userMessage ?? '',
     recentUserMessages,
@@ -104,15 +130,14 @@ export function enforceTutorReplyGuards(
   );
   if (
     closureTurn
-    || tutorReplyHasCompleteWorkingSummary(algebra)
+    || tutorReplyHasCompleteWorkingSummary(algebraMicro)
     || algebraEscalation
-    || tutorReplyHasAlgebraFactoringExample(algebra)
   ) {
-    return algebra.replace(/\n{3,}/g, '\n\n').trim();
+    return algebraMicro.replace(/\n{3,}/g, '\n\n').trim();
   }
 
   const language = enforceTutorSessionLanguage(
-    algebra,
+    algebraMicro,
     profile,
     userMessage,
     participantName,

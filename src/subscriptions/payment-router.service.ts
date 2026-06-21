@@ -80,7 +80,7 @@ export async function routeSubscriptionCreation(
     case SubscriptionTier.PROFESIONAL:
       return createProfesionalSubscription(input, region, provider);
     case SubscriptionTier.TUTOR:
-      return createTutorSubscription(input, provider);
+      return createTutorSubscription(input, region, provider);
     case SubscriptionTier.ENTERPRISE:
       return createEnterprisePendingSubscription(input, region);
     default:
@@ -159,6 +159,7 @@ async function createPelajarSubscription(
 
 async function createTutorSubscription(
   input:    CreateSubscriptionInput,
+  region:   SupportedRegion,
   provider: PaymentProvider,
 ): Promise<SubscriptionCreationResult> {
   if (input.billingCycle !== BillingCycle.MONTHLY) {
@@ -166,7 +167,8 @@ async function createTutorSubscription(
   }
 
   const tutorLevel = normalizeTutorSubscriptionLevel(input.tutorLevel);
-  const pricing = getTutorPricing(tutorLevel);
+  const envMyr = ENV.ADAM_USD_MYR_RATE > 0 ? ENV.ADAM_USD_MYR_RATE : null;
+  const pricing = getTutorPricing(tutorLevel, 'public', region, envMyr);
   const amount  = pricing.monthly;
 
   const sub = await saveSubscription({
@@ -176,7 +178,7 @@ async function createTutorSubscription(
     tutorLevel,
     status:          SubscriptionStatus.PENDING,
     billingCycle:    BillingCycle.MONTHLY,
-    region:          SupportedRegion.US,
+    region,
     currency:        pricing.currency,
     amountPerCycle:  amount,
     provider,

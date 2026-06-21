@@ -12,7 +12,9 @@ import {
   enforceTutorMathPedagogyGuard,
   enforceTutorQuantityReplyGuard,
   enforceTutorAlgebraStuckGuard,
+  enforceTutorAlgebraMicroCorrectionGuard,
   enforceTutorPlaceValueColumnGuard,
+  enforceTutorCarryPlacementGuard,
   enforceTutorReplyGuards,
   enforceTutorScienceFactualGuard,
   enforceTutorSessionLanguage,
@@ -38,9 +40,15 @@ import {
   tutorAlgebraFullExampleWarranted,
   tutorReplyHasAlgebraFactoringExample,
   tutorTurnNeedsAlgebraWorkedExampleLaw,
+  tutorTurnNeedsFactorPairMicroLaw,
+  tutorStudentGaveFactorPairAttempt,
   tutorThreadIsPlaceValueAddition,
   tutorReplyMisalignsPlaceValueColumn,
   tutorColumnDigit,
+  tutorReplyMisplacesCarry,
+  tutorStudentFlagsTeacherMathError,
+  tutorInferArithmeticProficiency,
+  tutorThreadWarrantsCompactArithmetic,
 } from '../src/adam/adam-tutor-law';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -598,5 +606,128 @@ describe('tutor place value columns — Sa/Puluh alignment', () => {
     expect(tutorReplyMisalignsPlaceValueColumn(good, [2385, 1427], 'sa')).toBe(false);
     const out = enforceTutorPlaceValueColumnGuard(good, '2385 + 1427', []);
     expect(out).toMatch(/5 \+ 7/);
+  });
+});
+
+describe('tutor carry placement — bawaan after Puluh sum ≥10', () => {
+  const problem1250 = '1250 + 375';
+  const operands = [1250, 375];
+
+  const wrongCarryReply =
+    'Betul, Pelajar.\n**5 + 7 = 12**\n\n'
+    + 'Kita gunakan digit **2** untuk lajur **Sa**, dan **1** sebagai bawaan ke lajur **Puluh**.\n\n'
+    + '```\n  1 250\n+   375\n-------\n    ? 2\n```\n\n'
+    + 'Berapa **5 + 7 + 1 (bawaan)** di tempat **Puluh**?\n→ ______';
+
+  it('V-T-CV01: detects misplaced carry (?32 pattern) for 1,250 + 375', () => {
+    expect(tutorReplyMisplacesCarry(wrongCarryReply, operands)).toBe(true);
+  });
+
+  it('V-T-CV02: guard replaces wrong carry with ?25 recovery and Ratus prompt', () => {
+    const out = enforceTutorCarryPlacementGuard(wrongCarryReply, problem1250, ['5', '12']);
+    expect(out).not.toMatch(/\?\s*3\s*2|digit\s+\*?\*?2\*?\*?\s+untuk\s+lajur\s+\*?\*?Sa/i);
+    expect(out).toMatch(/\?\s*25|25/);
+    expect(out).toMatch(/2\s*\+\s*3\s*\+\s*1.*Ratus/i);
+    expect(out).toMatch(/→ ______/);
+    expect(out).not.toMatch(/\b1[,.]?625\b|\b1625\b/);
+  });
+});
+
+describe('tutor student correction — no full answer leak after fix', () => {
+  const libraryQ =
+    'Perpustakaan 1,250 buku. Beli 375. Lupus 128. Berapa jumlah sekarang?';
+  const studentFix =
+    'saya rasa awak jelaskan tidak tepat sepatutnya ?25 bukan ?32';
+
+  const leakedReply =
+    'Terima kasih, Pelajar, anda betul.\n\n'
+    + '```\n1250\n+ 375\n-------\n1625\n```\n\n'
+    + '→ **1,625** buku sebelum lupus.\n\n'
+    + 'Adakah anda mahu kita sambung dari sini?';
+
+  it('V-T-SC01: detects student flags teacher error', () => {
+    expect(tutorStudentFlagsTeacherMathError(studentFix)).toBe(true);
+  });
+
+  it('V-T-SC02: guard strips 1625 leak and resumes Ratus micro-step', () => {
+    const out = enforceTutorReplyGuards(
+      leakedReply,
+      malayProfile,
+      studentFix,
+      'Pelajar',
+      ['Berapa 5 + 7?', '→ ______'],
+      [libraryQ],
+    );
+    expect(out).not.toMatch(/\b1[,.]?625\b|\b1625\b/);
+    expect(out).not.toMatch(/Adakah anda mahu|Mahu kita sambung/i);
+    expect(out).toMatch(/2\s*\+\s*3\s*\+\s*1|Ratus/i);
+  });
+});
+
+describe('tutor arithmetic proficiency — adaptive tier', () => {
+  it('V-T-PR01: fluent student explaining borrow skips micro tier', () => {
+    const msg =
+      'tidak boleh tolak kerana 2 lebih kecil dari 8. Hendaklah dipinjam dari rumah puluh maka 12 - 8 = 4';
+    expect(tutorInferArithmeticProficiency(msg)).toBe('fluent');
+    expect(tutorThreadWarrantsCompactArithmetic(msg, [])).toBe(true);
+  });
+
+  it('V-T-PR02: numeric-only answers infer compact after repeated digits', () => {
+    expect(tutorInferArithmeticProficiency('5', '12', '6')).toBe('compact');
+  });
+
+  it('V-T-PR03: multi-step library problem triggers auto-closure on final answer', () => {
+    const libraryQ =
+      'Perpustakaan 1,250 buku. Beli 375. Lupus 128. Berapa jumlah sekarang?';
+    expect(
+      tutorTurnWarrantsAutoClosingSummary(
+        '1497 buku',
+        [libraryQ],
+        ['Berapa 1625 − 128?\n→ ______'],
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('tutor algebra micro correction — factor pair attempt', () => {
+  const quadThread = ['f(x) = x² − 5x + 6, cari x apabila f(x) = 0'];
+  const studentPair = 'Maksudnya 2x3=6 dan -1+(-4)=5';
+
+  const verboseLeak =
+    'Saya faham, Pelajar.\n\n'
+    + '✅ Bahagian pertama: 2 × 3 = 6 → Betul.\n\n'
+    + 'x² − 5x + 6 = (x − 2)(x − 3)\n\n'
+    + '→ x = 2 atau x = 3\n\n'
+    + 'Saya faham, Pelajar.\n\n'
+    + '✅ Bahagian pertama: 2 × 3 = 6 → Betul.';
+
+  it('V-T-A01: detects student factor-pair attempt (not tak faham)', () => {
+    expect(tutorTurnNeedsFactorPairMicroLaw(studentPair, quadThread, [])).toBe(true);
+    expect(tutorStudentGaveFactorPairAttempt('Saya tak faham')).toBe(false);
+  });
+
+  it('V-T-A02: guard replaces verbose leak with compact micro-teach', () => {
+    const out = enforceTutorAlgebraMicroCorrectionGuard(
+      verboseLeak,
+      studentPair,
+      quadThread,
+      [],
+    );
+    expect(out).not.toMatch(/\(x\s*[−-]\s*2\)\s*\(x\s*[−-]\s*3\)/);
+    expect(out).not.toMatch(/x\s*=\s*2/);
+    expect(out).toMatch(/→ ______/);
+    expect(out).toMatch(/darab.*6.*tambah.*−5/i);
+  });
+
+  it('V-T-A03: pipeline no longer skips zero-answer when model leaked factor form', () => {
+    const out = enforceTutorReplyGuards(
+      verboseLeak,
+      malayProfile,
+      studentPair,
+      'Pelajar',
+      quadThread,
+      [],
+    );
+    expect(out).not.toMatch(/\(x\s*[−-]\s*2\)\s*\(x\s*[−-]\s*3\)/);
   });
 });

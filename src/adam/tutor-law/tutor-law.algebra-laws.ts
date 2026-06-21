@@ -62,3 +62,20 @@ DILARANG:
 - Placeholder rosak [(x , , ,)] — tulis algebra sebenar.
 - Satu perenggan panjang tanpa baris **=**.
 `.trim();
+
+export const ADAM_TUTOR_FACTOR_PAIR_MICRO_LAW = `
+ADAM TUTOR — PASANGAN NOMBOR FAKTOR (turn ini — pelajar cuba jawab, bukan "tak faham"):
+
+Pelajar baru cuba pasangan nombor — **jangan** beri contoh penuh (x − 2)(x − 3) atau x = 2, x = 3.
+
+WAJIB (maksimum ~6 baris):
+1. Sahkan satu bahagian betul (contoh: darab 2 × 3 = 6).
+2. Betulkan satu bahagian salah (contoh: −1 + (−4) = −5, bukan +5).
+3. Tanya semula: dua nombor yang darabnya 6 **dan** tambahnya −5?
+→ ______
+
+DILARANG turn ini:
+- Essay panjang dengan ✅/❌, jadual penuh, atau ulang "Saya faham, Pelajar" dua kali.
+- Tulis (x − 2)(x − 3), kembangan FOIL, atau jawapan x = 2 / x = 3.
+- Tanya "nak tunjuk susunan kotak?" sebelum pelajar jawab pasangan.
+`.trim();

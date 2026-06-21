@@ -32,7 +32,7 @@ import {
   SupportedRegion,
 } from '../../subscriptions/subscription.schema';
 import { normalizeTutorSubscriptionLevel } from '../../subscriptions/tier-access.config';
-import { tutorRegisterMonthlyUsd } from './adam-tutor-pricing.service';
+import { getTutorBandPricing, tutorRegisterRegion } from './adam-tutor-pricing.service';
 import { TutorEnrollmentModel, TutorEnrollmentStatus } from './adam-tutor-enrollment.schema';
 import { markTutorEnrollmentPaid } from './adam-tutor-enrollment.service';
 import { ADAMStudentAccountModel } from '../adam-student.schema';
@@ -93,7 +93,8 @@ export async function createTutorRegisterCheckoutSession(input: {
     );
   }
 
-  const monthlyUsd = tutorRegisterMonthlyUsd(band);
+  const pricing = await getTutorBandPricing(band, 'agent', tutorRegisterRegion());
+  const region = tutorRegisterRegion();
 
   const sub = await SubscriptionModel.create({
     userId:         input.userId,
@@ -101,9 +102,9 @@ export async function createTutorRegisterCheckoutSession(input: {
     tutorLevel:     band,
     status:         SubscriptionStatus.PENDING,
     billingCycle:   BillingCycle.MONTHLY,
-    region:         SupportedRegion.MY,
-    currency:       'USD',
-    amountPerCycle: monthlyUsd,
+    region,
+    currency:       pricing.currency,
+    amountPerCycle: pricing.monthlyAmount,
     provider:       PaymentProvider.STRIPE,
   });
 
@@ -205,7 +206,8 @@ export async function simulateTutorRegisterPayment(userId: string): Promise<void
   }
 
   const band = normalizeTutorSubscriptionLevel(enrollment.band);
-  const monthlyUsd = tutorRegisterMonthlyUsd(band);
+  const pricing = await getTutorBandPricing(band, 'agent', tutorRegisterRegion());
+  const region = tutorRegisterRegion();
 
   const sub = await SubscriptionModel.create({
     userId,
@@ -213,9 +215,9 @@ export async function simulateTutorRegisterPayment(userId: string): Promise<void
     tutorLevel:     band,
     status:         SubscriptionStatus.ACTIVE,
     billingCycle:   BillingCycle.MONTHLY,
-    region:         SupportedRegion.MY,
-    currency:       'USD',
-    amountPerCycle: monthlyUsd,
+    region,
+    currency:       pricing.currency,
+    amountPerCycle: pricing.monthlyAmount,
     provider:       PaymentProvider.MANUAL,
     currentPeriodStart: new Date(),
     currentPeriodEnd:   (() => {

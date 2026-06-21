@@ -15,7 +15,9 @@
  * ============================================================
  */
 
-/** Quadratic / factoring homework — domain routing, not per-question hardcode. */
+import {
+  tutorStudentGaveFactorPairAttempt,
+} from './tutor-law.algebra-micro';
 export function tutorQuestionIsQuadraticEquation(message: string): boolean {
   const t = message.trim();
   if (!t || t.length < 8) return false;
@@ -116,4 +118,19 @@ export function tutorTurnNeedsAlgebraWorkedExampleLaw(
   recentAssistantMessages: string[] = [],
 ): boolean {
   return tutorAlgebraFullExampleWarranted(userMessage, recentUserMessages, recentAssistantMessages);
+}
+
+/** Factor-pair micro-teach — student tried numbers, not stuck escalation. */
+export function tutorTurnNeedsFactorPairMicroLaw(
+  userMessage: string,
+  recentUserMessages: string[] = [],
+  recentAssistantMessages: string[] = [],
+): boolean {
+  if (!tutorThreadIsQuadraticContext(userMessage, recentUserMessages, recentAssistantMessages)) {
+    return false;
+  }
+  if (tutorAlgebraFullExampleWarranted(userMessage, recentUserMessages, recentAssistantMessages)) {
+    return false;
+  }
+  return tutorStudentGaveFactorPairAttempt(userMessage);
 }

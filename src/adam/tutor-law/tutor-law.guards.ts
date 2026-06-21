@@ -32,12 +32,25 @@ import {
   tutorThreadIsQuadraticContext,
 } from './tutor-law.algebra-routing';
 import {
+  buildTutorFactorPairCorrectionRecovery,
+  dedupeTutorReplyParagraphs,
+  tutorReplyIsVerboseAlgebraEssay,
+  tutorStudentGaveFactorPairAttempt,
+} from './tutor-law.algebra-micro';
+import {
   buildTutorPlaceValueColumnRecovery,
   extractAdditionOperands,
   tutorParagraphActiveColumn,
   tutorReplyMisalignsPlaceValueColumn,
   tutorReplyMentionsPlaceColumn,
 } from './tutor-law.place-value-routing';
+import {
+  buildTutorCarryStepRecovery,
+  buildTutorCorrectionAckRecovery,
+  tutorReplyLeakedTotalAfterCorrection,
+  tutorReplyMisplacesCarry,
+  tutorStudentFlagsTeacherMathError,
+} from './tutor-law.arithmetic-carry';
 import {
   TUTOR_ANSWER_LEAK_LINE,
   TUTOR_ENGLISH_CLOSING_LEAK,
@@ -413,6 +426,71 @@ export function enforceTutorPlaceValueColumnGuard(
   return `${out}\n\n${recovery}`.replace(/\n{3,}/g, '\n\n').trim();
 }
 
+/** Fix bawaan placement after column sum ≥10 (e.g. 12 → ?25 not ?32). */
+export function enforceTutorCarryPlacementGuard(
+  text: string,
+  userMessage = '',
+  recentUserMessages: string[] = [],
+): string {
+  if (!text?.trim()) return text;
+
+  const operands = extractAdditionOperands(userMessage, ...recentUserMessages, text);
+  if (operands.length < 2) return text;
+
+  if (tutorStudentFlagsTeacherMathError(userMessage)) {
+    if (tutorReplyLeakedTotalAfterCorrection(text, userMessage)) {
+      return buildTutorCorrectionAckRecovery(operands);
+    }
+    return text;
+  }
+
+  if (!tutorReplyMisplacesCarry(text, operands)) return text;
+
+  let out = text
+    .split(/\n{2,}/)
+    .filter((p) => {
+      const t = p.trim();
+      if (!t) return false;
+      if (/\bdigit\s+\*?\*?2\*?\*?\s+untuk\s+lajur\s+\*?\*?Sa/i.test(t)) return false;
+      if (/\?\s*3\s*2/.test(t)) return false;
+      if (/5\s*\+\s*7\s*\+\s*1\s*\(?\s*bawaan/i.test(t) && /5\s*\+\s*7\s*=\s*12/i.test(t)) {
+        return false;
+      }
+      if (/\b1[,.]?625\b|\b1625\b/.test(t)) return false;
+      return true;
+    })
+    .join('\n\n')
+    .trim();
+
+  return `${out}\n\n${buildTutorCarryStepRecovery(operands, true)}`.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/** After student corrects teacher — no full totals; resume one micro-step. */
+export function enforceTutorStudentCorrectionGuard(
+  text: string,
+  userMessage = '',
+  recentUserMessages: string[] = [],
+): string {
+  if (!text?.trim() || !tutorStudentFlagsTeacherMathError(userMessage)) return text;
+
+  const operands = extractAdditionOperands(userMessage, ...recentUserMessages, text);
+  if (operands.length < 2) {
+    return text
+      .replace(/\b1[,.]?625\b|\b1625\b|\b1[,.]?497\b|\b1497\b/g, '?')
+      .replace(/\n(?:Adakah anda mahu|ingin saya semak)[\s\S]*$/i, '')
+      .trim();
+  }
+
+  if (tutorReplyLeakedTotalAfterCorrection(text, userMessage)) {
+    return buildTutorCorrectionAckRecovery(operands);
+  }
+
+  return text
+    .replace(/\n(?:Adakah anda mahu|Mahukah anda|Mahu kita sambung)[\s\S]*$/i, '')
+    .replace(/\nSaya di sini[^\n]*memastikan[^\n]*/gi, '')
+    .trim();
+}
+
 const TUTOR_ALGEBRA_STUCK_LINE = [
   /\bambang\s+pemahaman\b/i,
   /\bhidup\s+dalam\s+fikiran\b/i,
@@ -484,6 +562,43 @@ export function enforceTutorAlgebraStuckGuard(
   }
 
   return out;
+}
+
+/** Compact correction when student tries factor pairs — no full factorization leak. */
+export function enforceTutorAlgebraMicroCorrectionGuard(
+  text: string,
+  userMessage = '',
+  recentUserMessages: string[] = [],
+  recentAssistantMessages: string[] = [],
+): string {
+  if (!text?.trim()) return text;
+
+  const inThread = tutorThreadIsQuadraticContext(
+    userMessage,
+    recentUserMessages,
+    recentAssistantMessages,
+  );
+  if (!inThread) return text;
+
+  if (tutorAlgebraFullExampleWarranted(
+    userMessage,
+    recentUserMessages,
+    recentAssistantMessages,
+  )) {
+    return dedupeTutorReplyParagraphs(text);
+  }
+
+  if (!tutorStudentGaveFactorPairAttempt(userMessage)) {
+    return dedupeTutorReplyParagraphs(text);
+  }
+
+  const leaked = tutorReplyHasAlgebraFactoringExample(text)
+    || /\(x\s*[−+-]\s*\d+\)\s*\(?x\s*[−+-]\s*\d+\)?/i.test(text)
+    || tutorReplyIsVerboseAlgebraEssay(text);
+
+  if (!leaked) return dedupeTutorReplyParagraphs(text);
+
+  return buildTutorFactorPairCorrectionRecovery();
 }
 
 /** Post-stream safety net — strip obvious final-answer leaks. */

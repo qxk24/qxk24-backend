@@ -86,7 +86,7 @@ import {
 
 const router = new Hono();
 
-router.get('/pricing', (c) => {
+router.get('/pricing', async (c) => {
   const region      = detectRegionFromHeaders(c.req.raw.headers);
   const pelajar     = getPelajarPricing(region);
   const profesional = getProfesionalPricing(region);
@@ -94,6 +94,19 @@ router.get('/pricing', (c) => {
   const stripe      = getStripeGatewayStatus();
   const paymentWired = ENV.STRIPE_ENABLED && stripe.enabled && stripe.configured;
   const consumerPlan = isConsumerDailyPlan();
+
+  let myrRate: number | null = ENV.ADAM_USD_MYR_RATE > 0 ? ENV.ADAM_USD_MYR_RATE : null;
+  if (region === SupportedRegion.MY) {
+    try {
+      const { getUsdMyrRate } = await import('../adam/tutor/adam-usd-myr-rate.service');
+      const fx = await getUsdMyrRate();
+      myrRate = fx.rate;
+    } catch {
+      /* PPP/env fallback inside getTutorPricing */
+    }
+  }
+
+  const tutorTier = buildTutorPricingTier(paymentWired, region, myrRate);
 
   return c.json({
     region,
@@ -159,7 +172,7 @@ router.get('/pricing', (c) => {
         rollingLimit:  profesionalRollingLimit(),
         rollingWindowHours: rollingWindowHours(),
       },
-      tutor: buildTutorPricingTier(paymentWired),
+      tutor: tutorTier,
     } : {
       basic: {
         label:         'Basic',
@@ -215,13 +228,17 @@ router.get('/pricing', (c) => {
         })),
         description: 'Organisational memory, white-label, and private deployment.',
       },
-      tutor: buildTutorPricingTier(paymentWired),
+      tutor: tutorTier,
     },
   });
 });
 
-function buildTutorPricingTier(paymentWired: boolean) {
-  const secondary = getTutorPricing('secondary');
+function buildTutorPricingTier(
+  paymentWired: boolean,
+  region: SupportedRegion,
+  myrRate?: number | null,
+) {
+  const secondary = getTutorPricing('secondary', 'public', region, myrRate);
   return {
     label:         'ADAM Tutor',
     monthlyAmount: secondary.monthly,
@@ -230,7 +247,7 @@ function buildTutorPricingTier(paymentWired: boolean) {
     description:   'All academic subjects — priced by school level (monthly only).',
     monthlyOnly:   true,
     comingSoon:    !paymentWired,
-    levels:        listTutorLevelPricing(),
+    levels:        listTutorLevelPricing('public', region, myrRate),
   };
 }
 
