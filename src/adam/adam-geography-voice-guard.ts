@@ -25,19 +25,32 @@ import {
   stripLeadingAdamSalutation,
 } from './adam-response-generation';
 import { isAdamSingleTokenConceptTurn } from './adam-stable-curriculum-search-gate';
+import { stripStreamCutOrphanMeasures } from './adam-users-output-law.inline-strips';
 
 function body(message: string): string {
   return stripLeadingAdamSalutation(message).trim();
 }
 
-export function isAdamGeographyVoiceRepairTurn(message: string): boolean {
+export function isAdamGeographyVoiceRepairTurn(message: string, output = ''): boolean {
   const t = body(message);
+  const o = output.trim();
+  if (o && outputHasGeographyStreamCutOrphans(o) && outputHasGeographyTeachingSubstance(o)) return true;
   if (!t || isAdamLightChatTurn(t)) return false;
   if (isAdamGeographyTurn(t)) return true;
   if (isAdamSingleTokenConceptTurn(t) && /\b(?:antartika|antarctica|benua|geografi)\b/i.test(t)) {
     return true;
   }
   return false;
+}
+
+function outputHasGeographyStreamCutOrphans(text: string): boolean {
+  return /\b\d{1,2}\s*(?:kilometer|km)\*+\./i.test(text)
+    || /(?:^|\n)\s*\d{1,2}\s*(?:kilometer|km)\.\s*(?=Jika\b)/im.test(text)
+    || /^\d{1,2}\s*(?:kilometer|km)\.?$/im.test(text);
+}
+
+function outputHasGeographyTeachingSubstance(text: string): boolean {
+  return /\b(?:antartika|antarctica|ais|es\b|paras\s+laut|gurun|benua|kilometer\s+persegi|Antarctic\s+Treaty)\b/i.test(text);
 }
 
 /** Poetic geography opener — "bukan sekadar benua… makna manusiawi". */
@@ -127,22 +140,7 @@ function stripOrphanTemperatureReading(text: string): string {
 }
 
 function stripInlineOrphanMeasures(text: string): string {
-  let out = normalizeGeographyMarkdownOrphans(text)
-    // Stream-cut pair: "ais. 9 kilometer.\n\n8 kilometer. Jika"
-    .replace(
-      /\.\s+\d+(?:[.,]\d+)?\s*(?:kilometer|km)\.\s*\n+\s*\d+(?:[.,]\d+)?\s*(?:kilometer|km)\.\s*/gi,
-      '. ',
-    )
-    // Paragraph opens with orphan measure before a real clause
-    .replace(/^\s*\d+(?:[.,]\d+)?\s*(?:kilometer|km)\.\s+(?=Jika\b)/i, '')
-    .replace(/\s+\d+(?:[.,]\d+)?\s*(?:kilometer|km)\.\s+\d+(?:[.,]\d+)?\s*(?:kilometer|km)\./gi, '.')
-    .replace(/\s+\d+(?:[.,]\d+)?\s*(?:kilometer|km)\.(?=\s*Jika\b)/gi, '.')
-    .replace(/\s+\d+(?:[.,]\d+)?\s*(?:kilometer|km)\.(?=\s*[A-Z])/gi, '.')
-    // Whole-number orphan at paragraph end — stream-cut "1.9 km" → "9 kilometer."
-    .replace(/\.\s+\d{1,2}\s*(?:kilometer|km)\.\s*(?=\n|$)/gi, '.');
-  out = collapseHorizontalSpaces(out).trim();
-  out = out.replace(/\.\s*\./g, '.');
-  return out;
+  return stripStreamCutOrphanMeasures(normalizeGeographyMarkdownOrphans(text));
 }
 
 function salvageGeographyParagraphs(raw: string): string {
@@ -198,7 +196,7 @@ export function repairGeographyVoiceOutput(
   polished: string,
   rawBeforeStrip = '',
 ): string {
-  if (!isAdamGeographyVoiceRepairTurn(userMessage)) return polished;
+  if (!isAdamGeographyVoiceRepairTurn(userMessage, polished)) return polished;
 
   const prepped = normalizeGeographyMarkdownOrphans(polished);
   const salvaged = salvageGeographyParagraphs(prepped) || salvageGeographyParagraphs(rawBeforeStrip);

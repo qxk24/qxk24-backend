@@ -43,6 +43,7 @@ import {
   stripUsersBismillahOpener,
   stripWebSearchAttributionInline,
   clampTechnicalMarkdownBold,
+  stripStreamCutOrphanMeasures,
 } from './adam-users-output-law';
 import {
   userOpenedFaithDoor,
@@ -510,6 +511,7 @@ export function sanitizeUsersOutputSync(
   polished = sanitizeMalaysiaBmDrift(polished, speakerLocale);
   polished = repairKbatAcronymExpansion(polished, userMessage);
   polished = stripSimpleFactualEchoOpener(polished, userMessage);
+  polished = stripStreamCutOrphanMeasures(polished);
   polished = repairGeographyVoiceOutput(userMessage, polished, stashed);
   polished = repairParliamentComponentsOutput(userMessage, polished, stashed);
   polished = repairLifeWellbeingGuttedOutput(userMessage, polished, stashed);

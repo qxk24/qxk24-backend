@@ -363,6 +363,27 @@ export function clampTechnicalMarkdownBold(text: string): string {
   return fixed.join('\n\n').trim();
 }
 
+/**
+ * Universal stream-cut repair — drop bare km fragments (e.g. "8 kilometer." before "Jika semua ais").
+ * Pattern-based channel hygiene only; never inject replacement facts.
+ */
+export function stripStreamCutOrphanMeasures(text: string): string {
+  let out = text
+    .replace(/^\s*\d{1,2}(?:[.,]\d+)?\s*(?:kilometer|km)\*+\.\s*/gim, '')
+    .replace(/^\s*\d{1,2}(?:[.,]\d+)?\s*(?:kilometer|km)\.\s+(?=Jika\b)/gim, '')
+    .replace(/\n\s*\d{1,2}(?:[.,]\d+)?\s*(?:kilometer|km)\*+\.\s*/gi, '\n')
+    .replace(/\n\s*\d{1,2}(?:[.,]\d+)?\s*(?:kilometer|km)\.\s*(?=Jika\b)/gi, '\n')
+    .replace(/\n\s*\d{1,2}(?:[.,]\d+)?\s*(?:kilometer|km)\.\s*(?=\n)/gi, '\n')
+    .replace(/\s+\d{1,2}(?:[.,]\d+)?\s*(?:kilometer|km)\.(?=\s*Jika\b)/gi, ' ')
+    .replace(/\.\s+\d{1,2}(?:[.,]\d+)?\s*(?:kilometer|km)\.\s*(?=\n|$)/gi, '.')
+    .replace(
+      /\.\s+\d{1,2}(?:[.,]\d+)?\s*(?:kilometer|km)\.\s*\n+\s*\d{1,2}(?:[.,]\d+)?\s*(?:kilometer|km)\.\s*/gi,
+      '. ',
+    );
+  out = out.replace(/[ \t]{2,}/g, ' ').replace(/\.\s*\./g, '.');
+  return out.trim();
+}
+
 /** Leading paragraph is web-search meta — drop before Bismillah body. */
 function paragraphIsWebSearchOpenerLeak(paragraph: string): boolean {
   const t = paragraph.trim();

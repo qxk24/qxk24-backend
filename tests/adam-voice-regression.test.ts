@@ -320,6 +320,18 @@ describe('Voice regression — warm tutor passes through', () => {
     expect(out).toMatch(/Antartika|Antarctic Treaty|krill|Vostok|60 meter|14 juta/i);
     expect(out).toMatch(/### Apa itu Benua Antartika/i);
   });
+
+  it('V-GEO03c: stream-cut orphan km stripped even on follow-up turn', async () => {
+    const raw =
+      'Secara fizikal, ia adalah dunia ais yang tidak berpenduduk tetap, tanpa negara, tanpa sempadan politik, dan tanpa tanah yang tidak ditutupi lapisan es. Ia meliputi kira-kira 14 juta kilometer persegi, hampir dua kali saiz Australia.\n'
+      + '8 kilometer. Jika semua ais itu cair hari ini, paras laut global akan naik sekitar 60 meter, cukup untuk menenggelamkan bandar-bandar pantai utama di seluruh dunia.';
+    const out = await runStudentVoicePipeline({
+      userMessage:    'Teruskan',
+      rawModelOutput: raw,
+    });
+    expect(out).not.toMatch(/\b8 kilometer\b|\b9 kilometer\b/i);
+    expect(out).toMatch(/14 juta|60 meter|Jika semua ais/i);
+  });
 });
 
 describe('Voice regression — bad voice stripped or repaired', () => {
