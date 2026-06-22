@@ -222,13 +222,14 @@ export async function createTesterAccount(opts: TesterCreateOptions): Promise<{
       limit,
     });
 
-    const ok = await sendMail({
+    const result = await sendMail({
       to:       account.email,
       subject:  `Your ADAM Tester login — ${limit} questions`,
       text:     emailText,
       html:     textToHtml(emailText),
-      replyTo:  ENV.MAIL_REPLY_TO?.trim(),
-    }).catch(() => false);
+    }).catch(() => ({ sent: false }));
+
+    const ok = result.sent;
 
     if (!ok) {
       console.warn('[tester:mail] tester welcome skipped (mail not configured or send failed)', {

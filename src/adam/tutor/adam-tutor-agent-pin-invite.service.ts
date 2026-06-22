@@ -89,6 +89,7 @@ function buildPinInviteHtml(input: {
   studentName:  string;
   orgName:      string;
   contactName:  string;
+  agentEmail:   string;
   registerCode: string;
   bandLabel:    string;
   registerUrl:  string;
@@ -120,7 +121,10 @@ function buildPinInviteHtml(input: {
     Or copy this link:<br />
     <span style="word-break:break-all;">${input.registerUrl}</span>
   </p>
-  <p style="margin:24px 0 0;font-size:0.875rem;color:#64748b;">
+  <p style="margin:16px 0 0;font-size:0.875rem;color:#64748b;">
+    Questions? Contact ${input.contactName} at <a href="mailto:${input.agentEmail}">${input.agentEmail}</a>.
+  </p>
+  <p style="margin:16px 0 0;font-size:0.875rem;color:#64748b;">
     — Alamtologi · ADAM Tutor
   </p>
 </div>
@@ -131,6 +135,7 @@ function buildPinInviteText(input: {
   studentName:  string;
   orgName:      string;
   contactName:  string;
+  agentEmail:   string;
   registerCode: string;
   bandLabel:    string;
   registerUrl:  string;
@@ -146,6 +151,8 @@ function buildPinInviteText(input: {
     '1 PIN = 1 student account · not shareable.',
     '',
     `Register & pay: ${input.registerUrl}`,
+    '',
+    `Questions? Contact ${input.contactName} at ${input.agentEmail}.`,
     '',
     '— Alamtologi · ADAM Tutor',
   ].join('\n');
@@ -190,6 +197,7 @@ export async function sendTutorAgentPinInvite(
     studentName,
     orgName:      agent.orgName,
     contactName:  agent.contactName,
+    agentEmail:   agent.email,
     registerCode,
     bandLabel,
     registerUrl,
@@ -198,21 +206,21 @@ export async function sendTutorAgentPinInvite(
     studentName,
     orgName:      agent.orgName,
     contactName:  agent.contactName,
+    agentEmail:   agent.email,
     registerCode,
     bandLabel,
     registerUrl,
   });
 
-  const sent = await sendMail({
+  const mail = await sendMail({
     to:       studentEmail,
     subject:  `Your ADAM Tutor PIN — ${agent.orgName}`,
     html,
     text,
-    replyTo:  agent.email,
   });
 
-  if (!sent) {
-    throw new Error('Failed to send email. Try again or contact Alamtologi admin.');
+  if (!mail.sent) {
+    throw new Error(mail.error ?? 'Failed to send email. Try again or contact Alamtologi admin.');
   }
 
   doc.invitedEmail = studentEmail;

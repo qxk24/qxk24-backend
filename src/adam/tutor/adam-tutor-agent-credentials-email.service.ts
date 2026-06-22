@@ -126,14 +126,14 @@ export async function sendTutorAgentPortalCredentialsEmail(
     rotated:     options.rotated === true,
   });
 
-  const sent = await sendMail({
+  const result = await sendMail({
     to:      email,
     subject: `ADAM Tutor agen portal — ${agent.orgName}`,
     html,
     text,
   });
 
-  return { sent, email };
+  return { sent: result.sent, email };
 }
 
 export async function rotateAndEmailTutorAgentPortalCredentials(

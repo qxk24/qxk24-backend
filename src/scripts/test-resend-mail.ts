@@ -57,7 +57,7 @@ async function main(): Promise<void> {
   }
 
   const stamp = new Date().toISOString();
-  const ok = await sendMail({
+  const result = await sendMail({
     to,
     subject: `ADAM Lab · Resend smoke test (${stamp})`,
     html: `
@@ -69,12 +69,12 @@ async function main(): Promise<void> {
     text: `Resend smoke test from alm-backend at ${stamp}`,
   });
 
-  if (!ok) {
-    console.error('[resend:test] FAIL — Resend API rejected the send (check domain verification + logs above)');
+  if (!result.sent) {
+    console.error('[resend:test] FAIL —', result.error ?? 'Resend API rejected the send');
     process.exit(1);
   }
 
-  console.log(`[resend:test] OK — test email sent to ${to}`);
+  console.log(`[resend:test] OK — test email sent to ${to} (id=${result.id ?? 'unknown'})`);
 }
 
 main().catch((err) => {

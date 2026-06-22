@@ -64,12 +64,12 @@ describe('adam-mail.service', () => {
   describe('sendMail', () => {
     it('returns false without calling Resend when mail is not configured', async () => {
       mockEnv.RESEND_API_KEY = '';
-      const ok = await sendMail({
+      const result = await sendMail({
         to:      'student@example.com',
         subject: 'Test',
         html:    '<p>Hi</p>',
       });
-      expect(ok).toBe(false);
+      expect(result.sent).toBe(false);
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
@@ -79,14 +79,15 @@ describe('adam-mail.service', () => {
         text: async () => '{"id":"email_123"}',
       } as Response);
 
-      const ok = await sendMail({
+      const result = await sendMail({
         to:      'student@example.com',
         subject: 'Smoke test',
         html:    '<p>OK</p>',
         text:    'OK',
       });
 
-      expect(ok).toBe(true);
+      expect(result.sent).toBe(true);
+      expect(result.id).toBe('email_123');
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.resend.com/emails');
 
@@ -115,13 +116,32 @@ describe('adam-mail.service', () => {
         text: async () => '{"message":"domain not verified"}',
       } as Response);
 
-      const ok = await sendMail({
+      const result = await sendMail({
         to:      'student@example.com',
         subject: 'Fail test',
         html:    '<p>Fail</p>',
       });
 
-      expect(ok).toBe(false);
+      expect(result.sent).toBe(false);
+      expect(result.error).toContain('domain not verified');
+    });
+    it('aligns mismatched env reply-to to FROM domain', async () => {
+      mockEnv.MAIL_FROM = 'ADAM Tutor <info@updates.alamtologi.com>';
+      mockEnv.MAIL_REPLY_TO = 'info@alamtologi.com';
+      fetchMock.mockResolvedValue({
+        ok:   true,
+        text: async () => '{"id":"email_subdomain"}',
+      } as Response);
+
+      await sendMail({
+        to:      'student@example.com',
+        subject: 'Subdomain test',
+        html:    '<p>OK</p>',
+      });
+
+      const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+      const body = JSON.parse(String(init.body));
+      expect(body.reply_to).toBe('info@updates.alamtologi.com');
     });
   });
 

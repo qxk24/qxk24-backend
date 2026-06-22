@@ -25,6 +25,7 @@ import {
   streamLayerGateBlockedTurn,
 } from '../../adam-servers/adam-layer-gate.service';
 import { streamADAMChat } from '../../adam/adam-chat.service';
+import { ADAM_MAIL_INBOX_HINT } from '../../adam/adam-mail.service';
 import { agentMarketingTutorProfile } from '../../adam/tutor/adam-tutor-agent-marketing.constants';
 import {
   agentDemoDisplayName,
@@ -343,7 +344,7 @@ router.post('/agent/register/complete', zValidator('json', AgentRegisterComplete
         packageStatus: agent.packageStatus,
         credentialsEmailSent: mail.sent,
         message:       mail.sent
-          ? `Payment successful. Credentials emailed to ${mail.email}. Copy them below as backup.`
+          ? `Payment successful. Credentials emailed to ${mail.email}. ${ADAM_MAIL_INBOX_HINT} Copy them below as backup.`
           : 'Payment successful. Save your agen code and portal token — they are shown once.',
       },
       timestamp: new Date().toISOString(),
@@ -652,7 +653,7 @@ router.post(
         kernel:  'ALAMTOLOGI',
         data:    result,
         message: result.credentialsEmailSent
-          ? `QA test agen ${action}. Credentials emailed to ${result.email}.`
+          ? `QA test agen ${action}. Credentials emailed to ${result.email}. ${ADAM_MAIL_INBOX_HINT}`
           : `QA test agen ${action}. Copy credentials below — email was not sent.`,
         timestamp: new Date().toISOString(),
       });
@@ -688,7 +689,7 @@ router.post(
           agentCode: result.agent.agentCode,
           email:     result.email,
         },
-        message: `Portal credentials emailed to ${result.email}. Previous portal token no longer works.`,
+        message: `Portal credentials emailed to ${result.email}. ${ADAM_MAIL_INBOX_HINT} Previous portal token no longer works.`,
         timestamp: new Date().toISOString(),
       });
     } catch (err: unknown) {
@@ -944,7 +945,7 @@ router.post(
         success: true,
         kernel:  'ALAMTOLOGI',
         data:    result,
-        message: `PIN emailed to ${result.studentEmail}.`,
+        message: `PIN emailed to ${result.studentEmail}. ${ADAM_MAIL_INBOX_HINT}`,
         timestamp: new Date().toISOString(),
       });
     } catch (err: unknown) {
