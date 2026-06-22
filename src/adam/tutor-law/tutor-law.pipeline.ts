@@ -87,6 +87,10 @@ import {
   ceIntentSkipsZeroAnswer,
   ceIntentSkipsMathPedagogy,
 } from './tutor-law.code-intent-classifier';
+import {
+  classifyPedagogyV2Turn,
+  pedagogyV2SkipsZeroAnswer,
+} from './tutor-law.pedagogy-v2-classifier';
 import { enforceQuranTranslationOnlyGuard } from './tutor-law.quran-translation';
 
 /** Full tutor post-stream pipeline — intent-first, then topic guards. */
@@ -141,6 +145,14 @@ export function enforceTutorReplyGuards(
     profile,
   });
   const codeIntent = classifyTutorCodeIntentFull(codeCtx);
+  const pedagogyV2 = classifyPedagogyV2Turn({
+    userMessage:             msg,
+    recentUserMessages,
+    recentAssistantMessages,
+    profile,
+    mathIntent:              intent,
+    genericIntent,
+  });
 
   const openers = stripTutorUniversalOpeners(text);
   const introFixed = fixTutorBrokenMalayIntro(openers);
@@ -297,6 +309,10 @@ export function enforceTutorReplyGuards(
   }
 
   if (codeIntent && ceIntentSkipsZeroAnswer(codeIntent.output)) {
+    return out;
+  }
+
+  if (pedagogyV2 && pedagogyV2SkipsZeroAnswer(pedagogyV2.output)) {
     return out;
   }
 

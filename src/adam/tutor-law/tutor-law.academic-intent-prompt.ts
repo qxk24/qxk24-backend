@@ -59,6 +59,11 @@ import {
 } from './tutor-law.code-intent-classifier';
 import type { CodeIntentResult } from './tutor-law.ce-mode.types';
 import { buildCEIntentTurnLaws } from './tutor-law.ce-prompt-laws';
+import {
+  classifyPedagogyV2Turn,
+} from './tutor-law.pedagogy-v2-classifier';
+import { buildPedagogyV2TurnLaw } from './tutor-law.pedagogy-v2-prompt-laws';
+import type { PedagogyV2TurnResult } from './tutor-law.pedagogy-v2.types';
 
 export interface AcademicIntentTurnInput {
   userMessage:             string;
@@ -74,6 +79,7 @@ export interface AcademicIntentTurnBundle {
   islamicIntent:   IslamicClassifierOutput | null;
   genericIntent:   GenericIntentResult | null;
   codeIntent:      CodeIntentResult | null;
+  pedagogyV2:      PedagogyV2TurnResult | null;
 }
 
 export function shouldApplyAcademicIntentRouting(
@@ -94,7 +100,7 @@ export function classifyAcademicTurnIntents(
   const recentAssistantMessages = input.recentAssistantMessages ?? [];
   const profile = input.profile;
 
-  return {
+  const bundle: AcademicIntentTurnBundle = {
     mathIntent: classifyTutorMathIntent(buildTutorMathTurnContext({
       userMessage,
       recentUserMessages,
@@ -131,7 +137,19 @@ export function classifyAcademicTurnIntents(
       recentAssistantMessages,
       profile,
     })),
+    pedagogyV2: null,
   };
+
+  bundle.pedagogyV2 = classifyPedagogyV2Turn({
+    userMessage,
+    recentUserMessages,
+    recentAssistantMessages,
+    profile,
+    mathIntent:    bundle.mathIntent,
+    genericIntent: bundle.genericIntent,
+  });
+
+  return bundle;
 }
 
 export function buildAcademicIntentTurnPromptParts(
@@ -163,6 +181,9 @@ export function buildAcademicIntentTurnPromptParts(
 
   const codeLaw = buildCEIntentTurnLaws(bundle.codeIntent);
   if (codeLaw) parts.push(codeLaw);
+
+  const pedagogyLaw = buildPedagogyV2TurnLaw(bundle.pedagogyV2);
+  if (pedagogyLaw) parts.push(pedagogyLaw);
 
   return parts.filter(Boolean);
 }

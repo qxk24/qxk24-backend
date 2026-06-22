@@ -22,6 +22,7 @@ import {
   ADAM_TUTOR_OFF_TOPIC_TURN,
   classifyAcademicTurnIntents,
   buildAcademicIntentTurnPromptParts,
+  ADAM_TUTOR_PEDAGOGY_V2_CORE_LAW,
   ADAM_TUTOR_MAIN_SYSTEM_LAW_V1,
   ADAM_TUTOR_FIVE_RESPONSE_MODES_LAW,
   ADAM_TUTOR_MATH_MODULE_LAW,
@@ -80,6 +81,7 @@ export function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): 
     ADAM_TUTOR_FIVE_RESPONSE_MODES_LAW,
     ADAM_TUTOR_IDENTITY,
     ADAM_TUTOR_MATH_MODULE_LAW,
+    ADAM_TUTOR_PEDAGOGY_V2_CORE_LAW,
     buildAdamTutorTeacherIntroLaw(
       params.tutorProfile,
       params.userMessage ?? '',

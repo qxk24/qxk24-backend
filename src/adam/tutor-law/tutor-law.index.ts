@@ -237,3 +237,19 @@ export {
 export {
   buildCodeIntentTurnLaw,
 } from './tutor-law.code-prompt-laws';
+
+export {
+  classifyPedagogyV2Turn,
+  classifyPedagogyV2Intent,
+  pedagogyV2SkipsZeroAnswer,
+  defaultPedagogyV2SessionState,
+  ADAM_TUTOR_PEDAGOGY_V2_CORE_LAW,
+  buildPedagogyV2TurnLaw,
+  PedagogyV2Intent,
+  IThinkMapType,
+  CrossCurricularCluster,
+  type PedagogyV2TurnInput,
+  type PedagogyV2TurnResult,
+  type PedagogyV2ClassifierOutput,
+  type PedagogyV2SessionState,
+} from './tutor-law.pedagogy-v2-classifier';
