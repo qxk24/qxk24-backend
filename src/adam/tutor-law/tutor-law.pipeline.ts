@@ -81,6 +81,12 @@ import {
   classifyTutorGenericIntentFull,
   genericIntentSkipsZeroAnswer,
 } from './tutor-law.generic-intent-classifier';
+import {
+  buildTutorCodeTurnContext,
+  classifyTutorCodeIntentFull,
+  ceIntentSkipsZeroAnswer,
+  ceIntentSkipsMathPedagogy,
+} from './tutor-law.code-intent-classifier';
 import { enforceQuranTranslationOnlyGuard } from './tutor-law.quran-translation';
 
 /** Full tutor post-stream pipeline — intent-first, then topic guards. */
@@ -128,6 +134,13 @@ export function enforceTutorReplyGuards(
     profile,
   });
   const genericIntent = classifyTutorGenericIntentFull(genericCtx);
+  const codeCtx = buildTutorCodeTurnContext({
+    userMessage:             msg,
+    recentUserMessages,
+    recentAssistantMessages,
+    profile,
+  });
+  const codeIntent = classifyTutorCodeIntentFull(codeCtx);
 
   const openers = stripTutorUniversalOpeners(text);
   const introFixed = fixTutorBrokenMalayIntro(openers);
@@ -150,6 +163,7 @@ export function enforceTutorReplyGuards(
     || languageIntent
     || islamicIntent
     || genericIntent
+    || (codeIntent && ceIntentSkipsMathPedagogy(codeIntent.output))
   ) {
     body = plain;
   } else {
@@ -279,6 +293,10 @@ export function enforceTutorReplyGuards(
   }
 
   if (genericIntent && genericIntentSkipsZeroAnswer(genericIntent.output)) {
+    return out;
+  }
+
+  if (codeIntent && ceIntentSkipsZeroAnswer(codeIntent.output)) {
     return out;
   }
 

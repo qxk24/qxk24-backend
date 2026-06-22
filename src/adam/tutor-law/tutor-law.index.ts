@@ -80,12 +80,84 @@ export {
 
 export {
   classifyCodeIntent,
+  isTutorCodeDomainMessage,
+  classifyTutorCodeIntentFull,
+  classifyTutorCodeIntentOutput,
+  buildTutorCodeTurnContext,
+  ceIntentSkipsZeroAnswer,
+  ceIntentSkipsMathPedagogy,
   CodeIntent,
   ProgrammingLanguage,
   CodeExamplePermission,
   type CodeClassifierInput,
   type CodeClassifierOutput,
+  type CodeIntentResult,
+  type CETurnContext,
+  type CESessionState,
+  type CETurnHandler,
 } from './tutor-law.code-intent-classifier';
+
+export {
+  classifyCEIntent,
+  classifyTutorCEIntent,
+  buildCEClassifierInput,
+  isTutorCEDomainMessage,
+  resolveCERouteTo,
+  CESubdomain,
+  CEAbstractionLayer,
+  CESecurityFlag,
+  type CEClassifierInput,
+  type CEClassifierOutput,
+} from './tutor-law.ce-intent-classifier';
+
+export {
+  classifyHardwareIntent,
+  classifyTutorCEHardwareIntent,
+  buildHardwareClassifierInput,
+  shouldRouteToCEHardware,
+  CE_HARDWARE_ROUTE,
+  HardwareIntent,
+  HardwareTopic,
+  type HardwareClassifierInput,
+  type HardwareClassifierOutput,
+} from './tutor-law.ce-hardware-classifier';
+
+export {
+  classifyTheoryIntent,
+  classifyTutorCETheoryIntent,
+  buildTheoryClassifierInput,
+  shouldRouteToCETheory,
+  CE_THEORY_ROUTE,
+  CE_THEORY_DISCRETE_ROUTE,
+  TheoryIntent,
+  TheoryTopic,
+  type TheoryClassifierInput,
+  type TheoryClassifierOutput,
+} from './tutor-law.ce-theory-classifier';
+
+export {
+  classifySystemIntent,
+  classifyTutorCESystemIntent,
+  buildSystemClassifierInput,
+  shouldRouteToCESystem,
+  CE_SYSTEM_ROUTE,
+  SystemIntent,
+  SystemTopic,
+  type SystemClassifierInput,
+  type SystemClassifierOutput,
+} from './tutor-law.ce-system-classifier';
+
+export {
+  classifyNetworkIntent,
+  classifyTutorCENetworkIntent,
+  buildNetworkClassifierInput,
+  shouldRouteToCENetwork,
+  CE_NETWORK_ROUTE,
+  NetworkIntent,
+  NetworkTopic,
+  type NetworkClassifierInput,
+  type NetworkClassifierOutput,
+} from './tutor-law.ce-network-classifier';
 
 export {
   classifyIslamicIntent,
@@ -127,3 +199,41 @@ export {
 } from './tutor-law.generic-mode';
 
 export { buildGenericIntentTurnLaw } from './tutor-law.generic-prompt-laws';
+
+export {
+  defaultCESessionState,
+  deriveCESessionState,
+  mergeCESessionState,
+  commitCESessionState,
+  resolveCETurnHandler,
+  applyCESessionToOutput,
+  buildCodeIntentResult,
+} from './tutor-law.ce-mode';
+
+export {
+  ADAM_TUTOR_CE_ABSTRACTION_LAW,
+  ADAM_TUTOR_CE_SECURITY_LAW,
+  ADAM_TUTOR_CE_EXAM_LAW,
+  buildCEMasterTurnLaw,
+  buildCEIntentTurnLaws,
+} from './tutor-law.ce-prompt-laws';
+
+export {
+  buildCEHardwareIntentTurnLaw,
+} from './tutor-law.ce-hardware-prompt-laws';
+
+export {
+  buildCETheoryIntentTurnLaw,
+} from './tutor-law.ce-theory-prompt-laws';
+
+export {
+  buildCESystemIntentTurnLaw,
+} from './tutor-law.ce-system-prompt-laws';
+
+export {
+  buildCENetworkIntentTurnLaw,
+} from './tutor-law.ce-network-prompt-laws';
+
+export {
+  buildCodeIntentTurnLaw,
+} from './tutor-law.code-prompt-laws';

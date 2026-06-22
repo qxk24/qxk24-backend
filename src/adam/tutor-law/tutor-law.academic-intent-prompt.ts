@@ -53,6 +53,12 @@ import {
 } from './tutor-law.generic-intent-classifier';
 import type { GenericIntentResult } from './tutor-law.generic-intent.types';
 import { buildGenericIntentTurnLaw } from './tutor-law.generic-prompt-laws';
+import {
+  buildTutorCodeTurnContext,
+  classifyTutorCodeIntentFull,
+} from './tutor-law.code-intent-classifier';
+import type { CodeIntentResult } from './tutor-law.ce-mode.types';
+import { buildCEIntentTurnLaws } from './tutor-law.ce-prompt-laws';
 
 export interface AcademicIntentTurnInput {
   userMessage:             string;
@@ -67,6 +73,7 @@ export interface AcademicIntentTurnBundle {
   languageIntent:  LanguageClassifierOutput | null;
   islamicIntent:   IslamicClassifierOutput | null;
   genericIntent:   GenericIntentResult | null;
+  codeIntent:      CodeIntentResult | null;
 }
 
 export function shouldApplyAcademicIntentRouting(
@@ -118,6 +125,12 @@ export function classifyAcademicTurnIntents(
       recentAssistantMessages,
       profile,
     })),
+    codeIntent: classifyTutorCodeIntentFull(buildTutorCodeTurnContext({
+      userMessage,
+      recentUserMessages,
+      recentAssistantMessages,
+      profile,
+    })),
   };
 }
 
@@ -147,6 +160,9 @@ export function buildAcademicIntentTurnPromptParts(
     bundle.genericIntent?.handler,
   );
   if (genericLaw) parts.push(genericLaw);
+
+  const codeLaw = buildCEIntentTurnLaws(bundle.codeIntent);
+  if (codeLaw) parts.push(codeLaw);
 
   return parts.filter(Boolean);
 }

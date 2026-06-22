@@ -143,7 +143,7 @@ export function detectDomain(input: RouterInput): SubjectDomain {
   const recent = input.recentUserMessages ?? [];
   const blob = [msg, ...recent].join('\n');
 
-  if (isTutorCodeDomainMessage(msg) || isTutorCodeDomainMessage(blob)) {
+  if (isTutorCodeDomainMessage(msg, recent) || isTutorCodeDomainMessage(blob, recent)) {
     return SubjectDomain.CODE;
   }
   if (isTutorIslamicDomainMessage(msg, recent)) {
