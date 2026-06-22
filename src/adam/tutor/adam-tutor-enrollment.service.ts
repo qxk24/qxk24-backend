@@ -33,6 +33,7 @@ import {
   validateTutorRegisterCode,
 } from './adam-tutor-register-code.service';
 import { creditTutorAgentCommission } from './adam-tutor-agent-wallet.service';
+import { FOUNDER_USER_ID } from '../adam-student.types';
 import {
   TutorEnrollmentModel,
   TutorEnrollmentStatus,
@@ -104,6 +105,10 @@ export async function lockTutorEnrollmentCode(
   userId: string,
   registerCode: string,
 ): Promise<TutorEnrollmentPublic> {
+  if (userId === FOUNDER_USER_ID) {
+    throw new Error('Daftar dengan akaun pelajar — bukan akaun pentadbir.');
+  }
+
   const existing = await TutorEnrollmentModel.findOne({ userId });
   if (existing?.status === TutorEnrollmentStatus.COMPLETE) {
     throw new Error('Pendaftaran ADAM Tutor anda sudah lengkap.');
@@ -257,6 +262,10 @@ export async function completeTutorEnrollmentProfile(
 
   if (!canCompleteProfile) {
     throw new Error('Sila masukkan PIN terlebih dahulu.');
+  }
+
+  if (userId === FOUNDER_USER_ID) {
+    throw new Error('Daftar dengan akaun pelajar — bukan akaun pentadbir.');
   }
 
   const studentName = input.studentName.trim();

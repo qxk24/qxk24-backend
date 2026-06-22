@@ -85,7 +85,7 @@ async function authDelay(ms: number): Promise<void> {
   await new Promise((r) => setTimeout(r, ms));
 }
 
-/** One sign-in for founder and students — founder password checked first. */
+/** One sign-in for founder and students — founder password only when username is blank. */
 export async function attemptUnifiedAdamLogin(
   username: string,
   password: string,
@@ -94,7 +94,7 @@ export async function attemptUnifiedAdamLogin(
   const loginId = username.trim();
   const founderPassword = getFounderPassword();
 
-  if (founderPassword && verifyFounderPassword(submitted, founderPassword)) {
+  if (!loginId && founderPassword && verifyFounderPassword(submitted, founderPassword)) {
     const token = issueFounderToken();
     return {
       kind:   'founder',

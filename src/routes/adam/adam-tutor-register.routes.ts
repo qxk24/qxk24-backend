@@ -37,8 +37,8 @@ import {
 } from '../../adam/tutor/adam-tutor-agent-demo-chat.service';
 import {
   getTokenUser,
-  requireAdamUser,
   requireFounderOrPlatformAdmin,
+  requireStudent,
 } from '../../middleware/auth.middleware';
 import { buildTutorAdminDashboardOverview } from '../../adam/tutor/adam-tutor-admin-dashboard.service';
 import { validateTutorRegisterCode } from '../../adam/tutor/adam-tutor-register-code.service';
@@ -370,7 +370,7 @@ router.post('/register/code/validate', zValidator('json', CodeValidateSchema), a
 });
 
 // GET /api/adam/tutor/register/access — auth; enrollment gate for /adam/tutor
-router.get('/register/access', requireAdamUser, async (c) => {
+router.get('/register/access', requireStudent, async (c) => {
   const uid = userId(c);
   const access = await resolveTutorEnrollmentAccess(uid);
   return c.json({
@@ -382,7 +382,7 @@ router.get('/register/access', requireAdamUser, async (c) => {
 });
 
 // GET /api/adam/tutor/register/me — auth
-router.get('/register/me', requireAdamUser, async (c) => {
+router.get('/register/me', requireStudent, async (c) => {
   const enrollment = await getTutorEnrollmentForUser(userId(c));
   return c.json({
     success: true,
@@ -393,7 +393,7 @@ router.get('/register/me', requireAdamUser, async (c) => {
 });
 
 // POST /api/adam/tutor/register/code/lock — auth; lock kod to student
-router.post('/register/code/lock', requireAdamUser, zValidator('json', CodeLockSchema), async (c) => {
+router.post('/register/code/lock', requireStudent, zValidator('json', CodeLockSchema), async (c) => {
   try {
     const { registerCode } = c.req.valid('json');
     const enrollment = await lockTutorEnrollmentCode(userId(c), registerCode);
@@ -411,7 +411,7 @@ router.post('/register/code/lock', requireAdamUser, zValidator('json', CodeLockS
 });
 
 // GET /api/adam/tutor/register/checkout-quote — auth; fee only after kod locked
-router.get('/register/checkout-quote', requireAdamUser, async (c) => {
+router.get('/register/checkout-quote', requireStudent, async (c) => {
   try {
     const quote = await getTutorEnrollmentCheckoutQuote(userId(c));
     return c.json({
@@ -427,7 +427,7 @@ router.get('/register/checkout-quote', requireAdamUser, async (c) => {
 });
 
 // POST /api/adam/tutor/register/checkout — auth
-router.post('/register/checkout', requireAdamUser, async (c) => {
+router.post('/register/checkout', requireStudent, async (c) => {
   try {
     const uid = userId(c);
     const email = await resolveStudentEmail(uid);
@@ -463,7 +463,7 @@ router.post('/register/checkout', requireAdamUser, async (c) => {
 });
 
 // POST /api/adam/tutor/register/sync-payment — auth; after Stripe return
-router.post('/register/sync-payment', requireAdamUser, async (c) => {
+router.post('/register/sync-payment', requireStudent, async (c) => {
   const body = await c.req.json().catch(() => ({})) as { sessionId?: string };
   const sessionId = body.sessionId?.trim();
   if (!sessionId) {
@@ -482,7 +482,7 @@ router.post('/register/sync-payment', requireAdamUser, async (c) => {
 });
 
 // POST /api/adam/tutor/register/complete — auth; profile form after PIN (before pay)
-router.post('/register/complete', requireAdamUser, zValidator('json', ProfileCompleteSchema), async (c) => {
+router.post('/register/complete', requireStudent, zValidator('json', ProfileCompleteSchema), async (c) => {
   try {
     const enrollment = await completeTutorEnrollmentProfile(userId(c), c.req.valid('json'));
     return c.json({

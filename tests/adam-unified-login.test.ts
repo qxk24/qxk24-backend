@@ -36,11 +36,11 @@ describe('attemptUnifiedAdamLogin', () => {
     expect(result.token).toEqual(expect.any(String));
   });
 
-  it('returns founder token even when username is filled', async () => {
+  it('does not return founder token when username is filled (student desk)', async () => {
     process.env.FOUNDER_PASSWORD = 'founder-secret-123';
-    const result = await attemptUnifiedAdamLogin('masa-bayu', 'founder-secret-123');
-    expect(result.kind).toBe('founder');
-  });
+    const result = await attemptUnifiedAdamLogin('unknown-student-xyz', 'founder-secret-123');
+    expect(result.kind).not.toBe('founder');
+  }, 15_000);
 
   it('rejects blank username when password is not founder', async () => {
     process.env.FOUNDER_PASSWORD = 'founder-secret-123';
