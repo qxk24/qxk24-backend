@@ -88,9 +88,25 @@ End with ONE question; wait for their reply before Layer 2+ teaching.
 export const ADAM_TUTOR_SESSION_CLOSURE_WITH_CHECK_LAW = `
 TURN LAW — CLOSURE (arithmetic / word problem — narrow auto-close only):
 1. Brief confirm ("Betul" / "Bagus") — one sentence.
-2. Full working summary with every step = labelled (model exam standard).
-3. ONE check question on method: "Kenapa kaedah/langkah ini berkesan?" — not a menu of new exercises.
-Do NOT ask three transfer questions; do NOT end without the single check question.
+2. Full working summary with every step labelled (model exam standard) — **Susunan cara kira keseluruhan** dalam turn yang sama.
+3. Satu penutup sahaja: tanya sama ada pelajar mahu **meneruskan latihan mengukuhan** yang lain atau ada soalan matematik seterusnya.
+Do NOT ask reflection on place value, peratus, or "kenapa kaedah ini berkesan" after the summary.
+Do NOT start a new micro-teaching chain on the same problem after the summary.
+`.trim();
+
+export const ADAM_TUTOR_POST_CLOSURE_PRACTICE_LAW = `
+TURN LAW — SELEPAS RUMUSAN PENUTUP (soalan semasa sudah selesai):
+- Rumusan penuh **sudah** diberikan turn lepas — jangan ulang langkah kira atau tanya probe nilai tempat/peratus lagi.
+- Jawab ringkas soalan susulan pelajar jika ada (satu dua ayat).
+- Akhiri dengan tawaran latihan: "Adakah anda ingin meneruskan latihan mengukuhan yang lain, atau ada soalan matematik seterusnya?"
+- Jangan explore "maksud nombor X" atau analisis off-topic.
+`.trim();
+
+export const ADAM_TUTOR_MISREAD_FINAL_ANSWER_LAW = `
+TURN LAW — SALAH FAHAM JAWAPAN AKHIR (pelajar jawab satu digit sahaja):
+- Pelajar mungkin jawab digit tunggal (contoh "1") bila anda minta **nombor penuh** — bukan explore konsep nombor 1.
+- Ingatkan dengan lembut: tulis jawapan penuh (contoh 1 083), bukan satu digit sahaja.
+- Sambung semula dari langkah yang tertinggal jika belum selesai; jangan buka topik matematik baru.
 `.trim();
 
 const LAYER_GUIDANCE: Record<TutorMathReleaseLayer, string> = {
@@ -157,10 +173,21 @@ function buildTopicProbeHint(topic: TutorMathTopic, releaseLayer: TutorMathRelea
 }
 
 export function buildMathIntentTurnLaw(intent: TutorMathIntentResult): string {
+  const postClosure = intent.postClosureTurn;
   const parts: string[] = [
     `MATH INTENT THIS TURN: mode=${intent.mode} | topic=${intent.topic} | layer=${intent.releaseLayer}`,
     `Thread signals: conceptUnderstood=${intent.nextSessionState.conceptUnderstood} | diagnosticAnswered=${intent.nextSessionState.diagnosticAnswered} | workingShown=${intent.nextSessionState.workingShown}`,
   ];
+
+  if (intent.misreadFinalAnswer) {
+    parts.push(ADAM_TUTOR_MISREAD_FINAL_ANSWER_LAW);
+    return parts.filter(Boolean).join('\n\n');
+  }
+
+  if (postClosure) {
+    parts.push(ADAM_TUTOR_POST_CLOSURE_PRACTICE_LAW);
+    return parts.filter(Boolean).join('\n\n');
+  }
 
   parts.push(buildReleaseLayerTurnLaw(intent.releaseLayer, intent.mode));
 
@@ -192,20 +219,7 @@ export function buildMathIntentTurnLaw(intent: TutorMathIntentResult): string {
 }
 
 export function buildTutorMathClosureCheckQuestion(
-  topic: TutorMathIntentResult['topic'],
+  _topic: TutorMathIntentResult['topic'],
 ): string {
-  switch (topic) {
-    case 'arithmetic_place_value':
-    case 'arithmetic_multi_op':
-      return 'Soalan semak: Kenapa kita mula kira dari tempat **Sa** (satuan) dulu?';
-    case 'percentage_word':
-      return 'Soalan semak: Kenapa kita guna pecahan peratus (contoh **35/100 × N**) dan bukan tolak terus?';
-    case 'fraction_remainder':
-      return 'Soalan semak: Kenapa hari kedua kita kira **daripada baki**, bukan daripada jumlah asal?';
-    case 'algebra_linear':
-    case 'algebra_quadratic':
-      return 'Soalan semak: Kenapa langkah mengasingkan pembolehubah (contoh tolak/bahagi kedua-dua belah) berkesan?';
-    default:
-      return 'Soalan semak: Boleh explain kenapa kaedah ini berkesan — dalam satu ayat?';
-  }
+  return 'Adakah anda ingin meneruskan latihan mengukuhan yang lain, atau ada soalan matematik seterusnya?';
 }

@@ -151,3 +151,24 @@ export function studentAsksMathProcedural(message: string): boolean {
     || /\b(?:langkah\s+(?:ni|ini|kedua|ketiga)|step\s+\d)\b/i.test(message)
   );
 }
+
+/** Assistant already delivered full arithmetic closure summary in this thread. */
+export function threadHasArithmeticClosureSummary(
+  recentAssistantMessages: string[],
+): boolean {
+  return recentAssistantMessages.some((msg) =>
+    /Jawapan\s*(?:akhir)?\s*:?\s*[\d,\s]{3,}/i.test(msg)
+    && /(?:Kaedah\s+penyelesaian|Baki\s+bola|ringkaskan\s+cara|Susunan\s+cara\s+kira|560\s*\+|1\s*561\s*−)/i.test(msg)
+  );
+}
+
+/** Pelajar jawab satu digit bila guru minta nombor penuh / jawapan akhir. */
+export function studentAnsweredSingleDigitAfterFullNumberAsk(
+  userMessage: string,
+  recentAssistantMessages: string[],
+): boolean {
+  const t = userMessage.trim();
+  if (!/^\d$/.test(t)) return false;
+  const last = recentAssistantMessages[0] ?? '';
+  return /nombor\s+penuh|jawapan\s+akhir(?:nya)?|apakah\s+nombor|tulis\s+jawapan\s+akhir|nombor\s+penuh\s+yang/i.test(last);
+}

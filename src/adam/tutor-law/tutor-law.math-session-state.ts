@@ -21,6 +21,7 @@ import {
   studentShowsFullWorking,
   studentShowsPartialWorking,
   threadHasMicroTeachingBlank,
+  threadHasArithmeticClosureSummary,
 } from './tutor-law.math-intent-detectors';
 import type {
   TutorMathSessionState,
@@ -129,6 +130,8 @@ export function deriveTutorMathSessionState(ctx: TutorMathTurnContext): TutorMat
   if (base.conceptUnderstood && base.workingShown) {
     base.releaseLayer = 3;
   }
+
+  base.closureDelivered = threadHasArithmeticClosureSummary(ctx.recentAssistantMessages);
 
   return base;
 }

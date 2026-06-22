@@ -123,6 +123,10 @@ export interface TutorMathIntentResult {
   allowsStuckEscalation:   boolean;
   allowsScienceFactual:    boolean;
   closureIncludesCheckQ:   boolean;
+  /** Thread already received full working summary — offer practice, not new probes. */
+  postClosureTurn:         boolean;
+  /** Student gave one digit when full final number was requested. */
+  misreadFinalAnswer:      boolean;
   promptLawTags:           string[];
   topicGuardTags:          string[];
   decisionTrace:           string[];

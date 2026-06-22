@@ -721,6 +721,7 @@ export function appendTutorClosureCheckQuestion(
 ): string {
   if (!text?.trim()) return checkQuestion;
   if (/Soalan semak:/i.test(text)) return text;
+  if (/latihan\s+mengukuhan|soalan\s+matematik\s+seterusnya/i.test(text)) return text;
   if (/\b(?:kenapa kaedah|why (?:this|the) method|explain why)\b/i.test(text)) return text;
   return `${text.trim()}\n\n${checkQuestion}`;
 }

@@ -57,6 +57,7 @@ export {
   studentShowsFullWorking,
   studentShowsPartialWorking,
   threadHasMicroTeachingBlank,
+  studentAnsweredSingleDigitAfterFullNumberAsk,
 } from './tutor-law.math-intent-detectors';
 
 export {
@@ -85,6 +86,7 @@ import {
   studentAsksMathConcept,
   studentRequestsAnswerVerification,
   studentRequestsTeachMePattern,
+  studentAnsweredSingleDigitAfterFullNumberAsk,
 } from './tutor-law.math-intent-detectors';
 import {
   deriveTutorMathSessionState,
@@ -157,13 +159,13 @@ export function resolveTutorMathTopic(ctx: TutorMathTurnContext): TutorMathTopic
     return 'algebra_linear';
   }
   if (tutorQuestionIsMultiStepFractionWordProblem(blob)) return 'fraction_remainder';
-  if (tutorQuestionIsPercentageWordProblem(blob)) return 'percentage_word';
   if (
     tutorThreadIsMultiStepArithmetic(userMessage, recentUserMessages, recentAssistantMessages)
     || resolveActiveAddThenSubtractProblem(userMessage, recentUserMessages, recentAssistantMessages)
   ) {
     return 'arithmetic_multi_op';
   }
+  if (tutorQuestionIsPercentageWordProblem(blob)) return 'percentage_word';
   if (
     tutorThreadIsPlaceValueAddition(userMessage, recentUserMessages, recentAssistantMessages)
     || /\btempat\s+(?:Sa|Puluh|Ratus)\b/i.test(blob)
@@ -407,6 +409,11 @@ export function classifyTutorMathIntent(ctx: TutorMathTurnContext): TutorMathInt
   ) && !allowsScienceFactual;
 
   const closureIncludesCheckQ = warrantsAutoClosure || mode === 'teach_me';
+  const postClosureTurn = state.closureDelivered && !warrantsAutoClosure;
+  const misreadFinalAnswer = studentAnsweredSingleDigitAfterFullNumberAsk(
+    ctx.userMessage,
+    ctx.recentAssistantMessages,
+  );
 
   const decisionTrace = [
     ...rule61._trace,
@@ -435,6 +442,8 @@ export function classifyTutorMathIntent(ctx: TutorMathTurnContext): TutorMathInt
     allowsStuckEscalation,
     allowsScienceFactual,
     closureIncludesCheckQ,
+    postClosureTurn,
+    misreadFinalAnswer,
     promptLawTags: buildPromptLawTags(mode, rule61, allowsStuckEscalation, warrantsAutoClosure),
     topicGuardTags: buildTopicGuardTags(topic),
     decisionTrace,

@@ -335,7 +335,7 @@ SOALAN MATEMATIK / ARITMETIK — empat langkah sahaja (henti bila pelajar nyatak
 1. **Apa soalan minta** — satu ayat ringkas.
 2. **Operasi apa** — tambah/tolak/darab/bahagi; tulis persamaan.
 3. **Aturan operasi** — satu langkah mikro setiap turn (Sa → Puluh → Ratus); pinjam jika perlu.
-4. **Jawapan akhir** — bila pelajar tulis jawapan betul (contoh "1,497 buah"), sahkan ringkas, **Susunan cara kira keseluruhan** (blok vertikal penuh) dalam **turn yang sama** — **automatically**, tanpa menunggu pelajar minta — kemudian **tamat**; jangan tanya refleksi atau menu latihan baru.
+4. **Jawapan akhir** — bila pelajar tulis jawapan betul (contoh "1,497 buah"), sahkan ringkas, **Susunan cara kira keseluruhan** (blok vertikal penuh) dalam **turn yang sama** — **automatically**, tanpa menunggu pelajar minta — kemudian tawarkan latihan mengukuhan/soalan seterusnya; jangan tanya refleksi nilai tempat atau peratus.
 
 SOALAN PERATUS / WORD PROBLEM (Tahun 4–6 & secondary):
 - Ajar dengan **pecahan terus**: \`35/100 × 240\` atau \`(35 × 240) ÷ 100\` — bukan pecah 35% → 10%+30%+5% melainkan pelajar benar-benar stuck.
@@ -548,7 +548,7 @@ Zero-answer rule **tidak** apply turn ini — beri rumusan penuh **automatically
 WAJIB dalam reply yang sama (tanpa menunggu pelajar minta):
 1. Sahkan ringkas — satu ayat ("Betul" / "Bagus").
 2. **Susunan cara kira keseluruhan** — setiap langkah dengan **=**, label, unit, hingga **Jawapan:** — ikut ADAM_TUTOR_FULL_WORKING_LAW.
-3. Tamat — tiada baris → ______, tiada "Saya tunggu", tiada menu "mahu carta?", "cuba soalan baru?", "nak tunjukkan susunan?".
+3. Satu baris penutup: tawarkan latihan mengukuhan serupa atau soalan seterusnya — bukan probe nilai tempat/peratus.
 
 Jangan tanya sama ada pelajar mahu susunan penuh — ADAM beri sebagai rumusan penutup latihan.
 `.trim();
