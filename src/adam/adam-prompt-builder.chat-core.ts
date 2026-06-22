@@ -118,7 +118,11 @@ import {
 } from './adam-founder-teaching-prompts';
 import { resolveAdamAnswerProfile, type AdamAnswerProfile } from './adam-answer-profile';
 import { isAdamNiagaMode, buildAdamNiagaSystemPrompt } from './adam-niaga-law';
-import { isAdamTutorMode } from './adam-tutor-law';
+import {
+  isAdamTutorMode,
+  shouldApplyAcademicIntentRouting,
+  buildAcademicIntentTurnPromptBlock,
+} from './adam-tutor-law';
 import type { AdamChatSystemPromptParams } from './adam-prompt-builder.types';
 import {
   MODE_PROMPTS,
@@ -275,6 +279,19 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
 
   if (params.userMessage?.trim() && isAdamPedagogyKonvensionalTurn(params.userMessage)) {
     parts.push(ADAM_PEDAGOGY_CLASSROOM_TURN);
+  }
+
+  if (
+    params.userMessage?.trim()
+    && shouldApplyAcademicIntentRouting(params.mode, { founderTeachingLearnerTurn: teachingLearnerTurn })
+    && !isAdamTutorMode(params.mode)
+  ) {
+    parts.push(buildAcademicIntentTurnPromptBlock({
+      userMessage:             params.userMessage,
+      recentUserMessages:      params.recentUserMessages,
+      recentAssistantMessages: params.recentAssistantMessages,
+      profile:                 params.tutorProfile,
+    }));
   }
 
   if (params.userMessage?.trim()) {

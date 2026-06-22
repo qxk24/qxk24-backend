@@ -67,6 +67,7 @@ import { isAdamCurrentAffairsTurn, isFactualAdamWebSearchGateReason, isVerifiedD
 import {
   enforceTutorReplyGuards,
   isAdamTutorMode,
+  shouldApplyAcademicIntentRouting,
 } from './adam-tutor-law';
 import type { WorkspaceRecord } from './adam-workspace.service';
 import { detectContextRecallLoaded } from './adam-universal-recall-router';
@@ -426,7 +427,7 @@ export async function executeAdamSynthesisTurn(input: {
   );
 
   if (fullResponse?.trim()) {
-    if (isAdamTutorMode(mode)) {
+    if (shouldApplyAcademicIntentRouting(mode, { founderTeachingLearnerTurn })) {
       const scrubbed = enforceTutorReplyGuards(
         fullResponse,
         shell.options.tutorProfile,

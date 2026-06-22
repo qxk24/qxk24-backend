@@ -28,9 +28,9 @@ function body(message: string): string {
   return stripLeadingAdamSalutation(message).trim();
 }
 
-/** School / syllabus Islamic studies — not faith-door Quran/konstitusi. */
+/** School / syllabus Islamic studies — konvensional classroom layer; faith door wins for wahyu. */
 const ISLAMIC_STUDIES_SUBJECT =
-  /\b(?:fiqh|fiqh|usul\s+al[-\s]?fiqh|usuluddin|akidah|aqidah|aqeedah|sirah|seerah|sejarah\s+islam|islamic\s+studies|pendidikan\s+islam|IGCSE\s+islamic|SPM\s+PI\b|hadith\s+studies|uloom|syariah\s+subject|bab\s+\d+\s+(?:pendidikan\s+)?islam)\b/i;
+  /\b(?:fiqh|fiqh|usul\s+al[-\s]?fiqh|usuluddin|iman|rukun\s+iman|sirah|seerah|sejarah\s+islam|islamic\s+studies|pendidikan\s+islam|IGCSE\s+islamic|SPM\s+PI\b|hadith\s+studies|uloom|syariah\s+subject|bab\s+\d+\s+(?:pendidikan\s+)?islam)\b/i;
 
 export function isAdamIslamicStudiesTurn(message: string): boolean {
   const t = body(message);

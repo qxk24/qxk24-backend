@@ -59,6 +59,24 @@ import {
   classifyTutorMathIntent,
 } from './tutor-law.math-intent-classifier';
 import { buildTutorMathClosureCheckQuestion } from './tutor-law.math-prompt-laws';
+import {
+  buildTutorScienceTurnContext,
+  classifyTutorScienceIntent,
+  scienceIntentSkipsZeroAnswer,
+} from './tutor-law.science-intent-classifier';
+import { ScienceIntent } from './tutor-law.science-intent.types';
+import {
+  buildTutorLanguageTurnContext,
+  classifyTutorLanguageIntent,
+  languageIntentSkipsZeroAnswer,
+} from './tutor-law.language-writing-classifier';
+import {
+  buildTutorIslamicTurnContext,
+  classifyTutorIslamicIntentOutput,
+  islamicIntentSkipsZeroAnswer,
+} from './tutor-law.islamic-intent-classifier';
+import { IslamicIntent } from './tutor-law.islamic-intent.types';
+import { enforceQuranTranslationOnlyGuard } from './tutor-law.quran-translation';
 
 /** Full tutor post-stream pipeline — intent-first, then topic guards. */
 export function enforceTutorReplyGuards(
@@ -77,6 +95,27 @@ export function enforceTutorReplyGuards(
     profile,
   });
   const intent = classifyTutorMathIntent(ctx);
+  const scienceCtx = buildTutorScienceTurnContext({
+    userMessage:             msg,
+    recentUserMessages,
+    recentAssistantMessages,
+    profile,
+  });
+  const scienceIntent = classifyTutorScienceIntent(scienceCtx);
+  const languageCtx = buildTutorLanguageTurnContext({
+    userMessage:             msg,
+    recentUserMessages,
+    recentAssistantMessages,
+    profile,
+  });
+  const languageIntent = classifyTutorLanguageIntent(languageCtx);
+  const islamicCtx = buildTutorIslamicTurnContext({
+    userMessage:             msg,
+    recentUserMessages,
+    recentAssistantMessages,
+    profile,
+  });
+  const islamicIntent = classifyTutorIslamicIntentOutput(islamicCtx);
 
   const openers = stripTutorUniversalOpeners(text);
   const introFixed = fixTutorBrokenMalayIntro(openers);
@@ -86,11 +125,23 @@ export function enforceTutorReplyGuards(
   const terms = fixTutorMalayPlaceValueTerms(intro, profile);
   const plain = enforceTutorPlainLanguageGuard(terms, profile);
 
-  const scienceFactual = intent.allowsScienceFactual;
+  const scienceFactual = intent.allowsScienceFactual
+    || scienceIntent?.intent === ScienceIntent.F_FACTUAL;
 
-  let body = scienceFactual
-    ? enforceTutorScienceFactualGuard(plain, msg)
-    : enforceTutorMathPedagogyGuard(plain, profile, msg);
+  let body: string;
+  if (scienceFactual) {
+    body = enforceTutorScienceFactualGuard(plain, msg);
+  } else if (
+    scienceIntent?.intent === ScienceIntent.E_EXPERIMENT
+    || scienceIntent?.intent === ScienceIntent.AMBIGUOUS
+    || scienceIntent?.intent === ScienceIntent.EXAM_DIRECT
+    || languageIntent
+    || islamicIntent
+  ) {
+    body = plain;
+  } else {
+    body = enforceTutorMathPedagogyGuard(plain, profile, msg);
+  }
 
   if (intent.requiresWorkingFirst) {
     body = enforceTutorVerificationWorkingFirstGuard(body, msg);
@@ -194,6 +245,22 @@ export function enforceTutorReplyGuards(
     participantName,
   );
   if (scienceFactual) return language;
+
+  if (scienceIntent && scienceIntentSkipsZeroAnswer(scienceIntent)) {
+    return language;
+  }
+
+  if (languageIntent && languageIntentSkipsZeroAnswer(languageIntent)) {
+    return language;
+  }
+
+  if (islamicIntent && islamicIntentSkipsZeroAnswer(islamicIntent)) {
+    const quranTurn = islamicIntent.intent === IslamicIntent.Q_QURAN
+      || islamicIntent.intent === IslamicIntent.Q_IMAN;
+    return quranTurn
+      ? enforceQuranTranslationOnlyGuard(language)
+      : language;
+  }
 
   return enforceTutorZeroAnswerGuard(
     language,

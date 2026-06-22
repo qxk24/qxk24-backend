@@ -8,16 +8,16 @@
  * Founder     : Masa Bayu
  * Created     : 2026-06-21
  * ============================================================
- * CONSTITUTIONAL DECLARATION:
- * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
- * belongs to no human. It flows like water to all.
- * ============================================================
  */
 
 import { hasNumericalComputation } from './tutor-law.math-intent-detectors';
-
-export { hasNumericalComputation } from './tutor-law.math-intent-detectors';
+import {
+  buildScienceClassifierInput,
+  classifyScienceIntent,
+  isTutorScienceDomainMessage,
+} from './tutor-law.science-intent-classifier';
+import { ScienceIntent } from './tutor-law.science-intent.types';
+import { countSignalHits, SCIENCE_DOMAIN_MARKERS } from './tutor-law.science-intent-signals';
 
 /** Math exercise / equation-solving — not factual science Q&A. */
 const TUTOR_MATH_EXERCISE_MARKERS = [
@@ -29,7 +29,7 @@ const TUTOR_MATH_EXERCISE_MARKERS = [
   /\b(?:guli|buku|epal|gaji|wang|harga)\b.*\d[\d,]*/i,
 ];
 
-/** Informational science / physics question cues — domain routing, not per-question hardcode. */
+/** Legacy factual cues — used when science domain is thin but question is clearly Q&A. */
 const TUTOR_SCIENCE_FACTUAL_MARKERS = [
   /\b(?:fizik|sains|biologi|kimia|geografi|astronomi|ekologi)\b/i,
   /\b(?:cahaya|matahari|bumi|bulan|planet|bintang|atom|molekul|tenaga|kelajuan|jarak|graviti|elektron|sel\s+suria|vakum|au\b|unit\s+astronomi)\b/i,
@@ -41,9 +41,17 @@ const TUTOR_SCIENCE_FACTUAL_MARKERS = [
   /\b(?:formula|persamaan)\s+(?:fizik|tenaga|physics)\b/i,
 ];
 
+export { hasNumericalComputation } from './tutor-law.math-intent-detectors';
+
 export function tutorQuestionIsScienceFactual(message: string): boolean {
   const t = message.trim();
   if (!t || t.length < 12) return false;
+
+  if (isTutorScienceDomainMessage(t)) {
+    const classified = classifyScienceIntent(buildScienceClassifierInput({ userMessage: t }));
+    return classified.intent === ScienceIntent.F_FACTUAL;
+  }
+
   if (hasNumericalComputation(t)) return false;
   if (TUTOR_MATH_EXERCISE_MARKERS.some((re) => {
     re.lastIndex = 0;
@@ -59,4 +67,9 @@ export function tutorQuestionIsScienceFactual(message: string): boolean {
     re.lastIndex = 0;
     return re.test(t);
   });
+}
+
+export function tutorMessageHasScienceDomainMarkers(message: string): boolean {
+  const norm = message.trim().toLowerCase();
+  return countSignalHits(norm, SCIENCE_DOMAIN_MARKERS) >= 1;
 }

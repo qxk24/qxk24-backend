@@ -46,6 +46,17 @@ export {
 } from './tutor-law/tutor-law.profile';
 
 export {
+  buildTutorLevelScopeLaw,
+  buildTutorLevelScopeRefusalLaw,
+  detectQuestionEducationBand,
+  isQuestionBeyondStudentLevel,
+  isAgentMarketingTutorScope,
+  tutorLevelScopeLabel,
+  tutorLevelScopeCeiling,
+  TUTOR_LEVEL_BAND_ORDER,
+} from './tutor-law/tutor-law.level-scope';
+
+export {
   ADAM_TUTOR_CONVENTIONAL_LAYOUT_LAW,
   ADAM_TUTOR_GUARDRAILS,
   ADAM_TUTOR_IDENTITY,
@@ -77,6 +88,129 @@ export {
 } from './tutor-law/tutor-law.algebra-laws';
 
 export { tutorQuestionIsScienceFactual } from './tutor-law/tutor-law.science-routing';
+
+export {
+  ScienceIntent,
+  ScienceSubject,
+  ExperimentPhase,
+} from './tutor-law/tutor-law.science-intent.types';
+
+export type {
+  ScienceClassifierInput,
+  ScienceClassifierOutput,
+  ScienceSessionState,
+  ScienceTurnContext,
+} from './tutor-law/tutor-law.science-intent.types';
+
+export {
+  buildScienceClassifierInput,
+  buildTutorScienceTurnContext,
+  classifyScienceIntent,
+  classifyTutorScienceIntent,
+  isTutorScienceDomainMessage,
+  mergeScienceSessionState,
+  scienceIntentSkipsZeroAnswer,
+} from './tutor-law/tutor-law.science-intent-classifier';
+
+export {
+  ADAM_TUTOR_SCIENCE_EXPERIMENT_LAW,
+  ADAM_TUTOR_SCIENCE_AMBIGUOUS_LAW,
+  buildScienceIntentTurnLaw,
+} from './tutor-law/tutor-law.science-prompt-laws';
+
+export {
+  LanguageIntent,
+  WritingType,
+  LanguageVariant,
+} from './tutor-law/tutor-law.language-writing.types';
+
+export type {
+  LanguageClassifierInput,
+  LanguageClassifierOutput,
+  LanguageSessionState,
+  LanguageTurnContext,
+} from './tutor-law/tutor-law.language-writing.types';
+
+export {
+  buildLanguageClassifierInput,
+  buildTutorLanguageTurnContext,
+  classifyLanguageIntent,
+  classifyTutorLanguageIntent,
+  isTutorLanguageWritingDomainMessage,
+  mergeLanguageSessionState,
+  languageIntentSkipsMathPedagogy,
+  languageIntentSkipsZeroAnswer,
+} from './tutor-law/tutor-law.language-writing-classifier';
+
+export {
+  ADAM_TUTOR_WRITING_TRAP_LAW,
+  ADAM_TUTOR_WRITING_REVIEW_LAW,
+  ADAM_TUTOR_WRITING_GRAMMAR_LAW,
+  ADAM_TUTOR_WRITING_AMBIGUOUS_LAW,
+  buildLanguageIntentTurnLaw,
+} from './tutor-law/tutor-law.language-prompt-laws';
+
+export {
+  classifyAcademicTurnIntents,
+  buildAcademicIntentTurnPromptParts,
+  buildAcademicIntentTurnPromptBlock,
+  shouldApplyAcademicIntentRouting,
+} from './tutor-law/tutor-law.academic-intent-prompt';
+
+export {
+  IslamicIntent,
+  SourceTier,
+  FabricationRisk,
+} from './tutor-law/tutor-law.islamic-intent.types';
+
+export type {
+  IslamicClassifierInput,
+  IslamicClassifierOutput,
+  IslamicStudentLevel,
+  IslamicTurnContext,
+  IslamicSessionState,
+  IslamicIntentResult,
+} from './tutor-law/tutor-law.islamic-intent.types';
+
+export {
+  buildIslamicClassifierInput,
+  buildTutorIslamicTurnContext,
+  classifyIslamicIntent,
+  classifyTutorIslamicIntent,
+  classifyTutorIslamicIntentOutput,
+  isTutorIslamicDomainMessage,
+  islamicIntentSkipsZeroAnswer,
+} from './tutor-law/tutor-law.islamic-intent-classifier';
+
+export {
+  defaultIslamicSessionState,
+  deriveIslamicSessionState,
+  mergeIslamicSessionState,
+  commitIslamicSessionState,
+  applyIslamicSessionToOutput,
+  applyLockedIntentToOutput,
+  buildIslamicIntentResult,
+} from './tutor-law/tutor-law.islamic-mode';
+
+export {
+  ADAM_QURAN_TRANSLATION_ONLY_LAW,
+  stripParentheticalSegments,
+  sanitizeIslamicUserMessage,
+  enforceQuranTranslationOnlyGuard,
+} from './tutor-law/tutor-law.quran-translation';
+
+export {
+  ADAM_TUTOR_ISLAMIC_SOURCE_HIERARCHY_LAW,
+  ADAM_TUTOR_ISLAMIC_FABRICATION_LAW,
+  ADAM_TUTOR_ISLAMIC_FIQH_LAW,
+  buildIslamicIntentTurnLaw,
+} from './tutor-law/tutor-law.islamic-prompt-laws';
+
+export type {
+  AcademicIntentTurnInput,
+  AcademicIntentTurnBundle,
+} from './tutor-law/tutor-law.academic-intent-prompt';
+
 export { hasNumericalComputation } from './tutor-law/tutor-law.math-intent-detectors';
 
 export {

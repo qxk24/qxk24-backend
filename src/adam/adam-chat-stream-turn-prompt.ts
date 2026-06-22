@@ -32,6 +32,7 @@ import { buildMacBridgeContextBlock } from '../agent/mac-bridge-context';
 import { userHasMacBridgeTier } from './adam-mac-bridge-access.service';
 import { prependCoreToSystem } from '../qxk24brain/adam-core';
 import { buildAdamChatSystemPrompt } from './adam-system-prompts';
+import { resolveAuthoritativeTutorProfile } from './adam-tutor-profile.service';
 import { contextHasRelationalVoice } from './adam-relational-voice';
 import { resolveUsersKnowledgeTier } from './adam-three-tier-knowledge';
 import { buildFounderStudentsAwarenessBlockAsync } from './adam-student-registry.service';
@@ -87,6 +88,17 @@ export async function buildTurnPromptAndSearchGate(input: {
   const isTutorLane = mode === 'TUTOR';
   const isNiagaLane = isAdamNiagaMode(mode);
   const isResearchLane = mode === 'RESEARCH';
+
+  let tutorProfile = isTutorLane ? options.tutorProfile : undefined;
+  if (isTutorLane && shell.participant.userId && !isFounder) {
+    tutorProfile = (await resolveAuthoritativeTutorProfile(
+      shell.participant.userId,
+      options.tutorProfile,
+    )) ?? options.tutorProfile;
+    if (tutorProfile) {
+      shell.options.tutorProfile = tutorProfile;
+    }
+  }
 
   const workspacePrompt = workspace
     ? `\n[AIDIL WORKSPACE: "${workspace.title}" — separate family. Do NOT mix with other books or the student's general chat.]`
@@ -153,10 +165,10 @@ export async function buildTurnPromptAndSearchGate(input: {
     knowledgeMode: turnContext.knowledgeMode,
     answerPlan:    turnContext.river.answerPlan,
     turnGate:      turnContext.river.gate,
-    tutorProfile:         isTutorLane ? options.tutorProfile : undefined,
+    tutorProfile:         isTutorLane ? tutorProfile : undefined,
     niagaProfile:         isNiagaLane ? options.niagaProfile : undefined,
     webSearchPrompt:      webSearchEnabledThisTurn && webSearchGateReason && isTutorLane
-      ? buildTutorWebSearchPrompt(options.tutorProfile, usersSearchFirst)
+      ? buildTutorWebSearchPrompt(tutorProfile, usersSearchFirst)
       : webSearchEnabledThisTurn && webSearchGateReason && founderTeachingSynthesis
         ? getAdamWebSearchPrompt(isFounder, {
           founderTeachingSynthesis: true,
@@ -214,7 +226,7 @@ export async function buildTurnPromptAndSearchGate(input: {
   }
 
   const languageLock = isTutorLane
-    ? buildTutorSessionLanguageLock(options.tutorProfile)
+    ? buildTutorSessionLanguageLock(tutorProfile)
     : buildQwenLanguageLock({
       journalPhase: mode === 'JOURNAL_GEN' && isFounder ? 'draft' : undefined,
     });

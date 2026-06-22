@@ -20,13 +20,11 @@ import {
   ADAM_TUTOR_IDENTITY,
   ADAM_TUTOR_LAW,
   ADAM_TUTOR_OFF_TOPIC_TURN,
-  ADAM_TUTOR_SCIENCE_FACTUAL_LAW,
-  buildTutorMathTurnContext,
-  classifyTutorMathIntent,
+  classifyAcademicTurnIntents,
+  buildAcademicIntentTurnPromptParts,
   ADAM_TUTOR_MAIN_SYSTEM_LAW_V1,
   ADAM_TUTOR_FIVE_RESPONSE_MODES_LAW,
   ADAM_TUTOR_MATH_MODULE_LAW,
-  buildMathIntentTurnLaw,
   ADAM_TUTOR_SESSION_CLOSURE_WITH_CHECK_LAW,
   ADAM_TUTOR_PERCENTAGE_WORD_PROBLEM_LAW,
   ADAM_TUTOR_FRACTION_REMAINDER_LAW,
@@ -56,6 +54,8 @@ import {
   buildAdamTutorProfileBlock,
   buildTutorStudentAddressLaw,
   isAdamTutorOffTopicMessage,
+  buildTutorLevelScopeRefusalLaw,
+  isQuestionBeyondStudentLevel,
 } from './adam-tutor-law';
 import { ADAM_PROSE_DASH_LAW } from './adam-prose-sanitize';
 import { ADAM_BAHASA_MELAYU_LAW } from './adam-language-prompts';
@@ -67,20 +67,19 @@ import {
 import type { AdamChatSystemPromptParams } from './adam-prompt-builder.types';
 
 export function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): string {
-  const mathCtx = buildTutorMathTurnContext({
+  const academic = classifyAcademicTurnIntents({
     userMessage:             params.userMessage ?? '',
     recentUserMessages:      params.recentUserMessages ?? [],
     recentAssistantMessages: params.recentAssistantMessages ?? [],
     profile:                 params.tutorProfile,
   });
-  const mathIntent = classifyTutorMathIntent(mathCtx);
+  const mathIntent = academic.mathIntent;
 
   const parts: string[] = [
     ADAM_TUTOR_MAIN_SYSTEM_LAW_V1,
     ADAM_TUTOR_FIVE_RESPONSE_MODES_LAW,
     ADAM_TUTOR_IDENTITY,
     ADAM_TUTOR_MATH_MODULE_LAW,
-    buildMathIntentTurnLaw(mathIntent),
     buildAdamTutorTeacherIntroLaw(
       params.tutorProfile,
       params.userMessage ?? '',
@@ -97,9 +96,15 @@ export function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): 
     parts.push(ADAM_TUTOR_OFF_TOPIC_TURN);
   }
 
-  if (mathIntent.allowsScienceFactual) {
-    parts.push(ADAM_TUTOR_SCIENCE_FACTUAL_LAW);
+  if (
+    params.tutorProfile
+    && params.userMessage?.trim()
+    && isQuestionBeyondStudentLevel(params.userMessage, params.tutorProfile)
+  ) {
+    parts.push(buildTutorLevelScopeRefusalLaw(params.tutorProfile));
   }
+
+  parts.push(...buildAcademicIntentTurnPromptParts(academic));
 
   const tags = new Set(mathIntent.topicGuardTags);
 

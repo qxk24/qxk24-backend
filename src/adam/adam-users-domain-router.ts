@@ -147,6 +147,7 @@ function resolveDomainFromBody(body: string): AdamUsersDomainFacet {
   if (isAdamProseCraftTurn(t)) return 'prose-craft';
   if (userOpenedFaithDoor(t)) return 'faith';
   if (isAdamPracticalAdvisoryTurn(t)) return 'practical-career';
+  // Syllabus PI/fiqh/sirah — after faith so Surah/tafsir questions route to Mode 4, not syllabus-only.
   if (isAdamIslamicStudiesTurn(t)) return 'islamic-studies';
   if (isAdamCivicsGovernmentTurn(t) || isAdamCivicsLawTurn(t) || isAdamGlobalCivicsTurn(t)) {
     return 'civics';

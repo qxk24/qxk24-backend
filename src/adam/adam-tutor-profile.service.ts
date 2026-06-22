@@ -20,6 +20,11 @@ import {
   formatTutorProfileOneLiner,
   type AdamTutorProfile,
 } from './adam-tutor-law';
+import {
+  agentMarketingTutorProfile,
+  isAgentMarketingStudentUserId,
+} from './tutor/adam-tutor-agent-marketing.constants';
+import { resolveTutorSubscriptionAccess } from './adam-tutor-subscription.service';
 
 /** QA / demo pelajar-lane accounts — skip registration gate on every device. */
 const QA_TUTOR_DEFAULT_PROFILES: Readonly<Record<string, AdamTutorProfile>> = {
@@ -68,12 +73,41 @@ export async function saveTutorProfile(
   userId: string,
   profile: AdamTutorProfile,
 ): Promise<AdamTutorProfile> {
-  const normalized = normalizeProfile(profile);
+  let normalized = normalizeProfile(profile);
+  if (
+    !isAgentMarketingStudentUserId(userId)
+    && normalized.localeNote !== 'ALL_BANDS'
+  ) {
+    const sub = await resolveTutorSubscriptionAccess(userId, normalized.level);
+    if (sub.tutorLevel) {
+      normalized = { ...normalized, level: sub.tutorLevel };
+    }
+  }
   await ADAMStudentAccountModel.updateOne(
     { userId, active: true },
     { $set: { tutorProfile: normalized, tutorProfileUpdatedAt: new Date() } },
   );
   return normalized;
+}
+
+/** Server-authoritative profile — level locked to subscription band. */
+export async function resolveAuthoritativeTutorProfile(
+  userId: string,
+  clientProfile?: AdamTutorProfile | null,
+): Promise<AdamTutorProfile | null> {
+  if (isAgentMarketingStudentUserId(userId)) {
+    return clientProfile ?? agentMarketingTutorProfile();
+  }
+
+  const server = await getTutorProfile(userId);
+  const base = server ?? clientProfile ?? null;
+  if (!base) return null;
+  if (base.localeNote === 'ALL_BANDS') return base;
+
+  const sub = await resolveTutorSubscriptionAccess(userId, base.level);
+  if (!sub.tutorLevel) return base;
+
+  return { ...base, level: sub.tutorLevel };
 }
 
 export async function getTutorProfile(userId: string): Promise<AdamTutorProfile | null> {

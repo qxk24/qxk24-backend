@@ -19,6 +19,8 @@ import {
   usersDomainUsesUniversalScholarProse,
   type AdamUsersDomainFacet,
 } from './adam-users-domain-router';
+import { ADAM_QURAN_CONSTITUTIONAL_SUPREMACY_LAW } from './adam-universal-voice';
+import { ADAM_QURAN_TRANSLATION_ONLY_LAW } from './tutor-law/tutor-law.quran-translation';
 
 export const ADAM_USERS_DOMAIN_ECONOMICS = `
 USERS DOMAIN — ECONOMICS (mandatory this turn):
@@ -147,8 +149,19 @@ USERS DOMAIN — MORAL / ETHICS (Universal Scholar prose):
 
 export const ADAM_USERS_DOMAIN_ISLAMIC_STUDIES_PROSE = `
 USERS DOMAIN — ISLAMIC STUDIES (syllabus — konvensional surface):
-- Fiqh, sirah, akidah per kurikulum — rujukan klasik bila sesuai.
-- BUKAN Mode 4 Quran/konstitusi melainkan user buka pintu iman berasingan.
+${ADAM_QURAN_CONSTITUTIONAL_SUPREMACY_LAW}
+- Fiqh, sirah, iman per kurikulum — rujukan klasik bila sesuai; ini LAPISAN sekolah, bukan penafian wahyu.
+- Soalan tentang ayat/Surah/tafsir/hikmah wahyu → pintu iman / Mode 4 — bukan sekadar nota syllabus.
+- DILARANG: jawapan yang meletakkan buku teks atau sains di atas Al-Quran.
+${ADAM_QURAN_TRANSLATION_ONLY_LAW}
+`.trim();
+
+export const ADAM_USERS_DOMAIN_FAITH_PROSE = `
+USERS DOMAIN — FAITH / QURAN (wahyu — Mode 4 konstitusi active):
+${ADAM_QURAN_CONSTITUTIONAL_SUPREMACY_LAW}
+- User opened the faith door — weave ayat and hikmah in flowing prose; wahyu leads, framework serves.
+- Not a sermon blockquote; respectful, pluralistic — no preaching or conversion.
+${ADAM_QURAN_TRANSLATION_ONLY_LAW}
 `.trim();
 
 export const ADAM_USERS_DOMAIN_SCIENCE_FORMAL = `
@@ -212,6 +225,7 @@ export function buildUsersDomainPromptBlock(facet: AdamUsersDomainFacet): string
 
 /** Universal Scholar prose domains — no teaching-pack finalize; full soul konvensional. */
 export function buildUsersDomainUniversalProseBlock(facet: AdamUsersDomainFacet): string {
+  if (facet === 'faith') return ADAM_USERS_DOMAIN_FAITH_PROSE;
   if (!usersDomainUsesUniversalScholarProse(facet)) return '';
   switch (facet) {
     case 'geography':        return ADAM_USERS_DOMAIN_GEOGRAPHY_PROSE;

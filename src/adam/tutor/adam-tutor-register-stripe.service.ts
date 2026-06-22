@@ -29,9 +29,9 @@ import {
   SubscriptionTier,
   BillingCycle,
   PaymentProvider,
-  SupportedRegion,
+  FOUNDER_SUBSCRIPTION_ID,
 } from '../../subscriptions/subscription.schema';
-import { normalizeTutorSubscriptionLevel } from '../../subscriptions/tier-access.config';
+import { normalizeTutorSubscriptionLevel, TIER_ACCESS } from '../../subscriptions/tier-access.config';
 import { getTutorBandPricing, tutorRegisterRegion } from './adam-tutor-pricing.service';
 import { TutorEnrollmentModel, TutorEnrollmentStatus } from './adam-tutor-enrollment.schema';
 import { markTutorEnrollmentPaid } from './adam-tutor-enrollment.service';
@@ -63,6 +63,36 @@ async function stripePost<T>(path: string, params: Record<string, string>): Prom
   return data;
 }
 
+async function stripeGet<T>(path: string): Promise<T> {
+  const response = await fetch(`${STRIPE_API}${path}`, {
+    headers: { Authorization: `Bearer ${ENV.STRIPE_SECRET_KEY}` },
+  });
+  const data = await response.json() as T & { error?: { message?: string } };
+  if (!response.ok) {
+    throw new Error(data.error?.message ?? `Stripe API error (${response.status})`);
+  }
+  return data;
+}
+
+async function resumeOpenRegisterCheckout(
+  enrollment: { enrollmentId: string; stripeSessionId?: string | null },
+): Promise<StripeCheckoutResult & { enrollmentId: string } | null> {
+  const sessionId = enrollment.stripeSessionId?.trim();
+  if (!sessionId || !ENV.STRIPE_SECRET_KEY) return null;
+
+  const session = await stripeGet<{ id: string; status: string; url: string | null }>(
+    `/checkout/sessions/${sessionId}`,
+  );
+  if (session.status === 'open' && session.url) {
+    return {
+      sessionId:    session.id,
+      checkoutUrl:  session.url,
+      enrollmentId: enrollment.enrollmentId,
+    };
+  }
+  return null;
+}
+
 function tutorAgentStripePriceId(level: string): string {
   return tutorStripePriceId(normalizeTutorSubscriptionLevel(level), 'agent');
 }
@@ -85,11 +115,15 @@ export async function createTutorRegisterCheckoutSession(input: {
     throw new Error('PIN tidak sedia untuk bayaran.');
   }
 
+  const resumed = await resumeOpenRegisterCheckout(enrollment);
+  if (resumed) return resumed;
+
   const band = normalizeTutorSubscriptionLevel(enrollment.band);
   const priceId = tutorAgentStripePriceId(band);
   if (!priceId) {
+    const envKey = `STRIPE_PRICE_ID_TUTOR_${band.toUpperCase()}_AGENT_MONTHLY`;
     throw new Error(
-      'Stripe harga Tutor belum dikonfigurasi. Hubungi pentadbir.',
+      `Stripe harga Tutor belum dikonfigurasi (${envKey}). Hubungi pentadbir.`,
     );
   }
 
@@ -97,15 +131,18 @@ export async function createTutorRegisterCheckoutSession(input: {
   const region = tutorRegisterRegion();
 
   const sub = await SubscriptionModel.create({
-    userId:         input.userId,
-    tier:           SubscriptionTier.TUTOR,
-    tutorLevel:     band,
-    status:         SubscriptionStatus.PENDING,
-    billingCycle:   BillingCycle.MONTHLY,
+    userId:          input.userId,
+    founderId:       FOUNDER_SUBSCRIPTION_ID,
+    tier:            SubscriptionTier.TUTOR,
+    tutorLevel:      band,
+    status:          SubscriptionStatus.PENDING,
+    billingCycle:    BillingCycle.MONTHLY,
     region,
-    currency:       pricing.currency,
-    amountPerCycle: pricing.monthlyAmount,
-    provider:       PaymentProvider.STRIPE,
+    currency:        pricing.currency,
+    amountPerCycle:  pricing.monthlyAmount,
+    provider:        PaymentProvider.STRIPE,
+    access:          TIER_ACCESS[SubscriptionTier.TUTOR],
+    isFounderFunded: false,
   });
 
   const mongoId = sub._id?.toString() ?? newMongoSubscriptionId();
@@ -210,15 +247,18 @@ export async function simulateTutorRegisterPayment(userId: string): Promise<void
   const region = tutorRegisterRegion();
 
   const sub = await SubscriptionModel.create({
-    userId,
-    tier:           SubscriptionTier.TUTOR,
-    tutorLevel:     band,
-    status:         SubscriptionStatus.ACTIVE,
-    billingCycle:   BillingCycle.MONTHLY,
+    userId:          userId,
+    founderId:       FOUNDER_SUBSCRIPTION_ID,
+    tier:            SubscriptionTier.TUTOR,
+    tutorLevel:      band,
+    status:          SubscriptionStatus.ACTIVE,
+    billingCycle:    BillingCycle.MONTHLY,
     region,
-    currency:       pricing.currency,
-    amountPerCycle: pricing.monthlyAmount,
-    provider:       PaymentProvider.MANUAL,
+    currency:        pricing.currency,
+    amountPerCycle:  pricing.monthlyAmount,
+    provider:        PaymentProvider.MANUAL,
+    access:          TIER_ACCESS[SubscriptionTier.TUTOR],
+    isFounderFunded: false,
     currentPeriodStart: new Date(),
     currentPeriodEnd:   (() => {
       const d = new Date();

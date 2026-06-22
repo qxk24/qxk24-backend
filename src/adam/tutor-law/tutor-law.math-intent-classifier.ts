@@ -56,6 +56,12 @@ import { tutorThreadIsMultiStepArithmetic } from './tutor-law.arithmetic-profici
 import { tutorThreadIsPlaceValueAddition } from './tutor-law.place-value-routing';
 import { tutorQuestionIsScienceFactual } from './tutor-law.science-routing';
 import {
+  buildScienceClassifierInput,
+  classifyScienceIntent,
+  isTutorScienceDomainMessage,
+} from './tutor-law.science-intent-classifier';
+import { ScienceIntent } from './tutor-law.science-intent.types';
+import {
   hasNumericalComputation,
   isTutorMathDomainMessage,
   studentAsksMathConcept,
@@ -91,6 +97,18 @@ export function classifyTutorMathQueryShape(
   const blob = [message, ...recentUserMessages].join('\n');
   const hasCompute = hasNumericalComputation(message) || hasNumericalComputation(blob);
   const hasConcept = studentAsksMathConcept(message);
+
+  if (isTutorScienceDomainMessage(message, recentUserMessages)) {
+    const sci = classifyScienceIntent(buildScienceClassifierInput({
+      userMessage:         message,
+      recentUserMessages,
+    }));
+    if (sci.intent === ScienceIntent.F_FACTUAL) return 'science_factual';
+    if (sci.intent === ScienceIntent.C_CALCULATION) {
+      if (hasConcept) return 'mixed';
+      return 'computation';
+    }
+  }
 
   if (
     !hasNumericalComputation(message)

@@ -278,7 +278,9 @@ export async function completeTutorEnrollmentProfile(
   const account = await ADAMStudentAccountModel.findOne({ userId, active: true })
     ?? await ADAMStudentAccountModel.findOne({ userId });
   if (!account) {
-    throw new Error('Akaun pelajar tidak dijumpai. Sila log keluar dan log masuk semula.');
+    throw new Error(
+      'Akaun pelajar belum wujud. Daftar akaun pelajar percuma dahulu (bukan log masuk pentadbir).',
+    );
   }
 
   account.name = studentName;

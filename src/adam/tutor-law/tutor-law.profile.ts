@@ -20,6 +20,10 @@ import { isAdamLightChatTurn } from '../adam-response-generation';
 import { usersDisplayFirstName } from '../adam-users-constitution';
 import type { AdamTutorCurriculum, AdamTutorLanguage, AdamTutorProfile } from './tutor-law.types';
 import {
+  buildTutorLevelScopeLaw,
+  isAgentMarketingTutorScope,
+} from './tutor-law.level-scope';
+import {
   studentDemandsTutorDirectAnswer,
   tutorSessionIdentityEstablished,
 } from './tutor-law.intro';
@@ -273,6 +277,8 @@ ADAM TUTOR PROFILE (agent marketing demo — all bands):
 `.trim();
   }
 
+  const scopeLaw = buildTutorLevelScopeLaw(profile);
+
   const levelLabel =
     profile.level === 'primary'
       ? 'Primary school'
@@ -295,6 +301,7 @@ ADAM TUTOR PROFILE (agent marketing demo — all bands):
   return `
 ADAM TUTOR PROFILE (this session):
 - Level: ${levelLabel}
+- Kategori dikunci: ${isAgentMarketingTutorScope(profile) ? 'demo agen (semua kategori)' : levelLabel}
 - Curriculum framework: ${curriculumLabel(cur)}
 ${countryLine ? `- ${countryLine}` : ''}
 ${localeLine ? `- ${localeLine}` : ''}
@@ -302,5 +309,5 @@ ${yearLine ? `- ${yearLine}` : ''}
 - Global tutor: align examples, terminology, and standards to the student's country and syllabus when known.
 - LANGUAGE (mandatory): ${tutorLanguageInstruction(lang)}
 - Primary: ayat sangat pendek (~12 perkataan); secondary: bahasa mudah (~18); university: jelas dan formal tanpa metafora.
-`.trim();
+${scopeLaw ? `\n${scopeLaw}` : ''}`.trim();
 }
