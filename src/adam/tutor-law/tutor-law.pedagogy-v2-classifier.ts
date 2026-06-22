@@ -35,7 +35,6 @@ import {
   buildPedagogyV2TurnResult,
   derivePedagogyV2SessionState,
   mergePedagogyV2SessionState,
-  pedagogyV2SkipsZeroAnswer,
 } from './tutor-law.pedagogy-v2-mode';
 import type {
   PedagogyV2TurnInput,
