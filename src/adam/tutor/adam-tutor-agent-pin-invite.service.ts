@@ -44,10 +44,13 @@ function normalizeEmail(raw: string): string {
   return raw.trim().toLowerCase();
 }
 
-/** Direct student registration URL — PIN prefilled on /adam/tutor/daftar. */
-export function buildTutorStudentRegisterUrl(registerCode: string): string {
+/** Direct student registration URL — PIN (+ optional email) prefilled on /adam/tutor/daftar. */
+export function buildTutorStudentRegisterUrl(registerCode: string, studentEmail?: string): string {
   const code = normalizeRegisterCode(registerCode);
-  return `${appUrl()}/adam/tutor/daftar?pin=${encodeURIComponent(code)}`;
+  const params = new URLSearchParams({ pin: code });
+  const email = studentEmail?.trim().toLowerCase();
+  if (email) params.set('email', email);
+  return `${appUrl()}/adam/tutor/daftar?${params.toString()}`;
 }
 
 /** @deprecated alias — use buildTutorStudentRegisterUrl */
@@ -180,7 +183,7 @@ async function deliverTutorPinStudentEmail(
   const bandLabel = BAND_LABELS_EN[doc.band]
     ?? TUTOR_REGISTER_BAND_LABELS_BM[doc.band]
     ?? doc.band;
-  const registerUrl = buildTutorStudentRegisterUrl(registerCode);
+  const registerUrl = buildTutorStudentRegisterUrl(registerCode, studentEmail);
 
   const mailPayload = {
     studentName:  input.studentName,
