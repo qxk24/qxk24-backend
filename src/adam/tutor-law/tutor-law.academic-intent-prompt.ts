@@ -47,6 +47,12 @@ import {
 } from './tutor-law.islamic-intent-classifier';
 import type { IslamicClassifierOutput } from './tutor-law.islamic-intent.types';
 import { buildIslamicIntentTurnLaw } from './tutor-law.islamic-prompt-laws';
+import {
+  buildTutorGenericTurnContext,
+  classifyTutorGenericIntentFull,
+} from './tutor-law.generic-intent-classifier';
+import type { GenericIntentResult } from './tutor-law.generic-intent.types';
+import { buildGenericIntentTurnLaw } from './tutor-law.generic-prompt-laws';
 
 export interface AcademicIntentTurnInput {
   userMessage:             string;
@@ -60,6 +66,7 @@ export interface AcademicIntentTurnBundle {
   scienceIntent:   ScienceClassifierOutput | null;
   languageIntent:  LanguageClassifierOutput | null;
   islamicIntent:   IslamicClassifierOutput | null;
+  genericIntent:   GenericIntentResult | null;
 }
 
 export function shouldApplyAcademicIntentRouting(
@@ -105,6 +112,12 @@ export function classifyAcademicTurnIntents(
       recentAssistantMessages,
       profile,
     })),
+    genericIntent: classifyTutorGenericIntentFull(buildTutorGenericTurnContext({
+      userMessage,
+      recentUserMessages,
+      recentAssistantMessages,
+      profile,
+    })),
   };
 }
 
@@ -128,6 +141,12 @@ export function buildAcademicIntentTurnPromptParts(
 
   const islamicLaw = buildIslamicIntentTurnLaw(bundle.islamicIntent);
   if (islamicLaw) parts.push(islamicLaw);
+
+  const genericLaw = buildGenericIntentTurnLaw(
+    bundle.genericIntent?.output ?? null,
+    bundle.genericIntent?.handler,
+  );
+  if (genericLaw) parts.push(genericLaw);
 
   return parts.filter(Boolean);
 }

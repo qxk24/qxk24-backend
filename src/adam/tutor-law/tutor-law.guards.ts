@@ -19,6 +19,7 @@
 import type { AdamTutorProfile } from './tutor-law.types';
 import {
   inferTutorLanguageFromText,
+  normalizeTutorLanguage,
   tutorTeacherTitle,
 } from './tutor-law.types';
 import { tutorQuestionIsScienceFactual } from './tutor-law.science-routing';
@@ -134,7 +135,9 @@ function tutorZeroAnswerClosing(
   languageHint?: string,
   workedSolution = false,
 ): string {
-  const lang = inferTutorLanguageFromText(languageHint ?? text, profile);
+  const lang = profile?.language
+    ? normalizeTutorLanguage(profile.language)
+    : inferTutorLanguageFromText(languageHint ?? text, profile);
   const title = tutorTeacherTitle(lang);
   if (lang === 'malay') {
     if (workedSolution) {

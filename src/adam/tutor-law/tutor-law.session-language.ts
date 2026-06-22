@@ -22,14 +22,71 @@ import { getFastModel } from '../../config/llm-models';
 import { llmCompleteUserPrompt } from '../../llm/llm-client';
 import type { AdamTutorProfile } from './tutor-law.types';
 import {
+  inferTutorLanguageFromText,
   normalizeTutorLanguage,
   tutorLanguageInstruction,
   tutorTeacherTitle,
+  type AdamTutorLanguage,
 } from './tutor-law.types';
 import {
   TUTOR_ENGLISH_SESSION_BLEED,
   TUTOR_PLAIN_LANGUAGE_BLEED,
 } from './tutor-law.guard-patterns';
+
+/** Profile language wins; else infer from recent Cikgu replies in thread. */
+export function resolveTutorSessionLanguage(
+  profile?: AdamTutorProfile,
+  recentAssistantMessages: string[] = [],
+): AdamTutorLanguage {
+  if (profile?.language) {
+    return normalizeTutorLanguage(profile.language);
+  }
+  const threadSample = recentAssistantMessages.slice(-4).join('\n').slice(0, 2400);
+  if (threadSample.trim()) {
+    return inferTutorLanguageFromText(threadSample, profile);
+  }
+  return 'english';
+}
+
+function tutorReplyHasEnglishPlaceValueTeaching(text: string): boolean {
+  return /\b(?:ones column|tens place|hundreds place|Puluh|Ratus|Sa \(ones\))\b/i.test(text)
+    && /\d\s*\+\s*\d/.test(text);
+}
+
+/** Preserve column context when model drifts to English mid place-value drill. */
+export function buildTutorMalayPlaceValueFromEnglish(
+  english: string,
+  userMessage: string,
+  profile?: AdamTutorProfile,
+  participantName?: string,
+): string {
+  const first = participantName?.trim()
+    ? usersDisplayFirstName(participantName.trim())
+    : '';
+  const open = first ? `Baik, ${first}.` : 'Baik.';
+  const trimmed = userMessage.trim();
+  const ack = trimmed
+    ? `Terima kasih — jawapan anda **${trimmed}** untuk langkah sebelumnya.`
+    : 'Terima kasih atas jawapan anda.';
+
+  let column = 'Sa (satuan)';
+  if (/\b(?:puluh|tens)\b/i.test(english)) column = 'Puluh';
+  if (/\b(?:ratus|hundreds)\b/i.test(english)) column = 'Ratus';
+
+  const sumMatch = english.match(/(\d)\s*\+\s*(\d)/);
+  const left = sumMatch?.[1] ?? '?';
+  const right = sumMatch?.[2] ?? '?';
+
+  const title = tutorTeacherTitle(normalizeTutorLanguage(profile?.language));
+
+  return `${open} ${ack}
+
+Mari kita teruskan **satu langkah sahaja** — tempat **${column}**.
+Berapa **${left} + ${right}** di tempat **${column}**?
+→ ______
+
+**${title}** tunggu jawapan anda — kemudian kita bergerak ke tempat seterusnya.`;
+}
 
 function fixTutorPelajarOpener(
   text: string,
@@ -91,8 +148,9 @@ export function tutorReplyIsPredominantlyEnglish(text: string): boolean {
 function tutorReplyViolatesMalaySession(
   text: string,
   profile?: AdamTutorProfile,
+  recentAssistantMessages: string[] = [],
 ): boolean {
-  const lang = normalizeTutorLanguage(profile?.language);
+  const lang = resolveTutorSessionLanguage(profile, recentAssistantMessages);
   if (lang !== 'malay') return false;
   if (tutorReplyHasEnglishMenuBleed(text)) return true;
   return tutorReplyIsPredominantlyEnglish(text);
@@ -101,8 +159,9 @@ function tutorReplyViolatesMalaySession(
 function tutorReplyViolatesSessionLanguage(
   text: string,
   profile?: AdamTutorProfile,
+  recentAssistantMessages: string[] = [],
 ): boolean {
-  return tutorReplyViolatesMalaySession(text, profile);
+  return tutorReplyViolatesMalaySession(text, profile, recentAssistantMessages);
 }
 
 /** Malay recovery when model replies in English or offers Alamtologi menus. */
@@ -215,24 +274,42 @@ export function enforceTutorSessionLanguage(
   profile?: AdamTutorProfile,
   userMessage?: string,
   participantName?: string,
+  recentAssistantMessages: string[] = [],
 ): string {
   const fixedOpener = fixTutorPelajarOpener(text, participantName, profile);
-  if (!tutorReplyViolatesMalaySession(fixedOpener, profile)) {
+  if (!tutorReplyViolatesSessionLanguage(fixedOpener, profile, recentAssistantMessages)) {
     return fixedOpener;
   }
   if (tutorReplyHasEnglishMenuBleed(fixedOpener)) {
     return buildTutorAmbiguousInputReply(userMessage ?? '', profile, participantName);
   }
+  if (tutorReplyHasEnglishPlaceValueTeaching(fixedOpener)) {
+    return buildTutorMalayPlaceValueFromEnglish(
+      fixedOpener,
+      userMessage ?? '',
+      profile,
+      participantName,
+    );
+  }
   return buildTutorMalayFollowUpRecovery(userMessage ?? '', profile, participantName);
 }
 
 /** Tutor lane — profile language overrides ambiguous numeric/symbol input. */
-export function buildTutorSessionLanguageLock(profile?: AdamTutorProfile): string {
-  const lang = normalizeTutorLanguage(profile?.language);
+export function buildTutorSessionLanguageLock(
+  profile?: AdamTutorProfile,
+  recentAssistantMessages: string[] = [],
+): string {
+  const lang = resolveTutorSessionLanguage(profile, recentAssistantMessages);
+  const threadMalay = recentAssistantMessages.some((m) =>
+    /\b(?:cikgu|tempat|puluh|ratus|satuan|mari kita|saya tunggu|berapakah)\b/i.test(m),
+  );
+  const threadAnchor = threadMalay && lang === 'malay'
+    ? '- Thread already in Bahasa Melayu — NEVER switch to English when the student replies with a number, digit, or short symbol (e.g. "1", "12").\n'
+    : '';
   return `
 [TUTOR LANGUAGE LOCK — SESSION FIXED FOR ENTIRE CONVERSATION]
 Session profile language: ${lang} (FIXED — do not switch mid-session).
-${tutorLanguageInstruction(lang)}
+${threadAnchor}${tutorLanguageInstruction(lang)}
 Every turn must use the session profile language — including when the student answers your question with a number, equation, symbol, or short phrase in another language.
 Do NOT mirror the student's reply language on follow-up turns. If you opened in Malay, keep explaining in Malay.
 If the student sends only a number, symbol, or emoji with no language cue, reply in the session profile language — NOT English by default.

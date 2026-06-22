@@ -76,6 +76,11 @@ import {
   islamicIntentSkipsZeroAnswer,
 } from './tutor-law.islamic-intent-classifier';
 import { IslamicIntent } from './tutor-law.islamic-intent.types';
+import {
+  buildTutorGenericTurnContext,
+  classifyTutorGenericIntentFull,
+  genericIntentSkipsZeroAnswer,
+} from './tutor-law.generic-intent-classifier';
 import { enforceQuranTranslationOnlyGuard } from './tutor-law.quran-translation';
 
 /** Full tutor post-stream pipeline — intent-first, then topic guards. */
@@ -116,6 +121,13 @@ export function enforceTutorReplyGuards(
     profile,
   });
   const islamicIntent = classifyTutorIslamicIntentOutput(islamicCtx);
+  const genericCtx = buildTutorGenericTurnContext({
+    userMessage:             msg,
+    recentUserMessages,
+    recentAssistantMessages,
+    profile,
+  });
+  const genericIntent = classifyTutorGenericIntentFull(genericCtx);
 
   const openers = stripTutorUniversalOpeners(text);
   const introFixed = fixTutorBrokenMalayIntro(openers);
@@ -137,6 +149,7 @@ export function enforceTutorReplyGuards(
     || scienceIntent?.intent === ScienceIntent.EXAM_DIRECT
     || languageIntent
     || islamicIntent
+    || genericIntent
   ) {
     body = plain;
   } else {
@@ -222,8 +235,17 @@ export function enforceTutorReplyGuards(
     );
   }
 
+  let out = finalized.replace(/\n{3,}/g, '\n\n').trim();
+  out = enforceTutorSessionLanguage(
+    out,
+    profile,
+    userMessage,
+    participantName,
+    recentAssistantMessages,
+  );
+
   const skipZeroAnswer = shouldSkipTutorZeroAnswerGuard(
-    finalized,
+    out,
     msg,
     recentAssistantMessages,
     recentUserMessages,
@@ -232,40 +254,38 @@ export function enforceTutorReplyGuards(
 
   if (
     skipZeroAnswer
-    || tutorReplyHasCompleteWorkingSummary(finalized)
-    || tutorReplyHasAlgebraFactoringExample(finalized)
+    || tutorReplyHasCompleteWorkingSummary(out)
+    || tutorReplyHasAlgebraFactoringExample(out)
   ) {
-    return finalized.replace(/\n{3,}/g, '\n\n').trim();
+    return out;
   }
 
-  const language = enforceTutorSessionLanguage(
-    finalized,
-    profile,
-    userMessage,
-    participantName,
-  );
-  if (scienceFactual) return language;
+  if (scienceFactual) return out;
 
   if (scienceIntent && scienceIntentSkipsZeroAnswer(scienceIntent)) {
-    return language;
+    return out;
   }
 
   if (languageIntent && languageIntentSkipsZeroAnswer(languageIntent)) {
-    return language;
+    return out;
   }
 
   if (islamicIntent && islamicIntentSkipsZeroAnswer(islamicIntent)) {
     const quranTurn = islamicIntent.intent === IslamicIntent.Q_QURAN
       || islamicIntent.intent === IslamicIntent.Q_IMAN;
     return quranTurn
-      ? enforceQuranTranslationOnlyGuard(language)
-      : language;
+      ? enforceQuranTranslationOnlyGuard(out)
+      : out;
+  }
+
+  if (genericIntent && genericIntentSkipsZeroAnswer(genericIntent.output)) {
+    return out;
   }
 
   return enforceTutorZeroAnswerGuard(
-    language,
+    out,
     profile,
-    text,
+    userMessage ?? msg,
     msg,
     recentAssistantMessages,
     recentUserMessages,

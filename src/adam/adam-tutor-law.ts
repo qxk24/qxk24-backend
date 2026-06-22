@@ -233,10 +233,20 @@ export {
 
 export {
   classifyTutorMathIntent,
+  classifyMathIntent,
   buildTutorMathTurnContext,
   tutorQuestionIsScienceFactualIntent,
   tutorTurnAllowsStuckEscalation,
+  canAutoClose,
+  requiresConceptCheck,
+  isEscalationPermitted,
+  normalizeMathClassifierText,
 } from './tutor-law/tutor-law.math-intent-classifier';
+
+export {
+  MathIntent,
+  MathTopic,
+} from './tutor-law/tutor-law.math-intent.types';
 
 export { tutorTurnWarrantsAutoClosure } from './tutor-law/tutor-law.math-closure-gate';
 
@@ -345,11 +355,56 @@ export {
 export {
   buildTutorAmbiguousInputReply,
   buildTutorMalayFollowUpRecovery,
+  buildTutorMalayPlaceValueFromEnglish,
   buildTutorSessionLanguageLock,
   buildTutorWebSearchPrompt,
   enforceTutorSessionLanguage,
   repairTutorMalaySessionLanguage,
+  resolveTutorSessionLanguage,
   tutorReplyIsPredominantlyEnglish,
 } from './tutor-law/tutor-law.session-language';
 
 export { enforceTutorReplyGuards } from './tutor-law/tutor-law.pipeline';
+
+export {
+  SubjectDomain,
+  type SessionState,
+} from './tutor-law/tutor-law.router';
+
+export { ConceptReadiness } from './tutor-law/tutor-law.math-intent.types';
+
+export type {
+  ClassifierInput,
+  ClassifierOutput,
+} from './tutor-law/tutor-law.math-intent.types';
+
+export {
+  PedagogyLayer,
+  type FullSessionState,
+  type LayerState,
+  type PersistedSession,
+  createFullSession,
+  advanceLayer,
+  resetLayerForNewTopic,
+  recordConceptConfirmed,
+  inferPreferredLang,
+  isDuplicateResponse,
+  addToResponseHistory,
+  isStudentStuck,
+  isEscalationDue,
+  serialiseSession,
+  deserialiseSession,
+} from './tutor-law/tutor-law.session-state';
+
+export { ProgrammingLanguage } from './tutor-law/tutor-law.code-intent-classifier';
+export {
+  GenericIntent,
+  GenericDomain,
+} from './tutor-law/tutor-law.generic-intent.types';
+
+export type {
+  GenericClassifierInput,
+  GenericClassifierOutput,
+} from './tutor-law/tutor-law.generic-intent.types';
+
+export * from './tutor-law/tutor-law.index';

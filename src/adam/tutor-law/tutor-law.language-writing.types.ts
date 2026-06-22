@@ -69,7 +69,8 @@ export interface LanguageClassifierOutput {
   scaffoldPrompt:  string | null;
   feedbackAnchor:  string | null;
   probeQuestion:   string | null;
-  decisionTrace:   string[];
+  /** Diagnostic trace — logging only, never shown to student. */
+  _trace:          string[];
 }
 
 export interface LanguageTurnContext {

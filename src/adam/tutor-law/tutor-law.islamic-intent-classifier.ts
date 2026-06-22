@@ -414,3 +414,14 @@ export function islamicIntentSkipsZeroAnswer(intent: IslamicClassifierOutput): b
     || intent.intent === IslamicIntent.AMBIGUOUS
   );
 }
+
+export {
+  IslamicIntent,
+  SourceTier,
+  FabricationRisk,
+} from './tutor-law.islamic-intent.types';
+
+export type {
+  IslamicClassifierInput,
+  IslamicClassifierOutput,
+} from './tutor-law.islamic-intent.types';

@@ -87,5 +87,15 @@ describe('tutor language & writing intent classifier', () => {
     }));
     expect(out.intent).toBe(LanguageIntent.W_REVIEW);
     expect(out.confidence).toBe('HIGH');
+    expect(out._trace.some((t) => t.startsWith('W_REVIEW'))).toBe(true);
+  });
+
+  it('V-LW-09: KOMSAS ideation probe on no-idea turn', () => {
+    const out = classifyLanguageIntent(buildLanguageClassifierInput({
+      userMessage: 'Saya tak ada idea untuk analisis komsas novel ni.',
+    }));
+    expect(out.intent).toBe(LanguageIntent.W_IDEA);
+    expect(out.writingType).toBe(WritingType.KOMSAS);
+    expect(out.ideationProbe).toMatch(/analisis sastera|literary analysis/i);
   });
 });

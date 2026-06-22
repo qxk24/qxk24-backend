@@ -264,6 +264,32 @@ describe('enforceTutorSessionLanguage — English re-explain', () => {
     expect(out).not.toMatch(/Let me explain|Good try/i);
     expect(out).toMatch(/Salam, Ali|jawapan \*\*12\*\*|Cikgu/i);
   });
+
+  it('V-TL-LANG-01: place-value Puluh step stays Malay after student answers 1', () => {
+    const englishPuluh =
+      `So far, our addition looks like this:
+  560
++ 1001
+------
+    1
+Now let's move to the next column to the left: the Puluh (tens) place.
+From 560 → 6
+From 1001 → 0
+So: 6 + 0 = ? at the Puluh place.
+→ ______
+Take your time, I'll wait for your answer, then we'll continue to the Ratus, and so on.`;
+
+    const out = enforceTutorReplyGuards(
+      englishPuluh,
+      malayProfile,
+      '1',
+      'Pelajar',
+      [malayTeachingOnly],
+      ['Penny mempunyai 560 biji bola pingpong.'],
+    );
+    expect(out).not.toMatch(/Take your time|Now let's move|Teacher won't work/i);
+    expect(out).toMatch(/Puluh|6 \+ 0|jawapan anda \*\*1\*\*|Cikgu/i);
+  });
 });
 
 describe('enforceTutorMathPedagogyGuard — tester library regression', () => {

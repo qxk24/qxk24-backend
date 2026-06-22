@@ -13,9 +13,14 @@
  * Framework. All actions are governed by QXK24. Knowledge
  * belongs to no human. It flows like water to all.
  * ============================================================
+ *
+ * Rule 61 classifyMathIntent is upstream; classifyTutorMathIntent bridges
+ * to legacy prompt-law / guard tags until tutor-law.math-mode.ts lands.
  */
 
 export type {
+  ClassifierInput,
+  ClassifierOutput,
   TutorMathIntentMode,
   TutorMathIntentResult,
   TutorMathQueryShape,
@@ -24,6 +29,21 @@ export type {
   TutorMathTopic,
   TutorMathTurnContext,
 } from './tutor-law.math-intent.types';
+
+export {
+  ConceptReadiness,
+  MathIntent,
+  MathTopic,
+} from './tutor-law.math-intent.types';
+
+export {
+  canAutoClose,
+  classifyMathIntent,
+  isEscalationPermitted,
+  requiresConceptCheck,
+} from './tutor-law.math-intent-classifier.core';
+
+export { normalizeMathClassifierText } from './tutor-law.math-intent.signals';
 
 export {
   hasNumericalComputation,
@@ -49,9 +69,7 @@ import {
   tutorQuestionIsMultiStepFractionWordProblem,
   tutorQuestionIsPercentageWordProblem,
 } from './tutor-law.word-problem-routing';
-import {
-  resolveActiveAddThenSubtractProblem,
-} from './tutor-law.arithmetic-phase';
+import { resolveActiveAddThenSubtractProblem } from './tutor-law.arithmetic-phase';
 import { tutorThreadIsMultiStepArithmetic } from './tutor-law.arithmetic-proficiency';
 import { tutorThreadIsPlaceValueAddition } from './tutor-law.place-value-routing';
 import { tutorQuestionIsScienceFactual } from './tutor-law.science-routing';
@@ -65,26 +83,31 @@ import {
   hasNumericalComputation,
   isTutorMathDomainMessage,
   studentAsksMathConcept,
-  studentAsksMathProcedural,
-  studentHasNoAttemptSignal,
-  studentPresentsExamOrHomeworkDump,
   studentRequestsAnswerVerification,
   studentRequestsTeachMePattern,
-  studentShowsPartialWorking,
-  threadHasMicroTeachingBlank,
 } from './tutor-law.math-intent-detectors';
 import {
   deriveTutorMathSessionState,
   mergeTutorMathSessionState,
 } from './tutor-law.math-session-state';
-import type {
-  TutorMathIntentMode,
-  TutorMathIntentResult,
-  TutorMathQueryShape,
-  TutorMathReleaseLayer,
-  TutorMathSessionState,
-  TutorMathTopic,
-  TutorMathTurnContext,
+import {
+  canAutoClose,
+  classifyMathIntent,
+  requiresConceptCheck,
+} from './tutor-law.math-intent-classifier.core';
+import { normalizeMathClassifierText } from './tutor-law.math-intent.signals';
+import {
+  ConceptReadiness,
+  MathIntent,
+  MathTopic,
+  type ClassifierInput,
+  type TutorMathIntentMode,
+  type TutorMathIntentResult,
+  type TutorMathQueryShape,
+  type TutorMathReleaseLayer,
+  type TutorMathSessionState,
+  type TutorMathTopic,
+  type TutorMathTurnContext,
 } from './tutor-law.math-intent.types';
 import { tutorTurnWarrantsAutoClosure } from './tutor-law.math-closure-gate';
 
@@ -110,10 +133,7 @@ export function classifyTutorMathQueryShape(
     }
   }
 
-  if (
-    !hasNumericalComputation(message)
-    && tutorQuestionIsScienceFactual(message)
-  ) {
+  if (!hasNumericalComputation(message) && tutorQuestionIsScienceFactual(message)) {
     return 'science_factual';
   }
 
@@ -156,57 +176,97 @@ export function resolveTutorMathTopic(ctx: TutorMathTurnContext): TutorMathTopic
   return 'none';
 }
 
-function resolveIntentMode(
-  ctx: TutorMathTurnContext,
-  queryShape: TutorMathQueryShape,
+function rule61TopicFromTutorTopic(topic: TutorMathTopic): MathTopic | null {
+  switch (topic) {
+    case 'arithmetic_place_value':
+    case 'arithmetic_multi_op':
+      return MathTopic.ARITHMETIC_BASIC;
+    case 'fraction_remainder':
+      return MathTopic.ARITHMETIC_FRACTION;
+    case 'percentage_word':
+      return MathTopic.WORD_PROBLEM;
+    case 'algebra_linear':
+      return MathTopic.ALGEBRA_LINEAR;
+    case 'algebra_quadratic':
+      return MathTopic.ALGEBRA_QUADRATIC;
+    case 'general_math':
+      return MathTopic.UNKNOWN;
+    case 'none':
+      return null;
+    default:
+      return null;
+  }
+}
+
+function tutorTopicFromRule61(ruleTopic: MathTopic, ctx: TutorMathTurnContext): TutorMathTopic {
+  const routed = resolveTutorMathTopic(ctx);
+  if (routed !== 'none') return routed;
+  switch (ruleTopic) {
+    case MathTopic.ARITHMETIC_BASIC:
+      return 'arithmetic_multi_op';
+    case MathTopic.ARITHMETIC_FRACTION:
+      return 'fraction_remainder';
+    case MathTopic.ARITHMETIC_DECIMAL:
+      return 'general_math';
+    case MathTopic.ALGEBRA_LINEAR:
+    case MathTopic.ALGEBRA_SYSTEMS:
+      return 'algebra_linear';
+    case MathTopic.ALGEBRA_QUADRATIC:
+      return 'algebra_quadratic';
+    case MathTopic.WORD_PROBLEM:
+      return 'percentage_word';
+    default:
+      return 'general_math';
+  }
+}
+
+function conceptReadinessFromState(state: TutorMathSessionState): ConceptReadiness {
+  if (state.conceptUnderstood) return ConceptReadiness.PASSED;
+  const topic = rule61TopicFromTutorTopic(state.lockedTopic);
+  if (topic && !requiresConceptCheck(topic)) return ConceptReadiness.BYPASSED;
+  return ConceptReadiness.UNVERIFIED;
+}
+
+function buildClassifierInput(ctx: TutorMathTurnContext, state: TutorMathSessionState): ClassifierInput {
+  return {
+    rawText:          ctx.userMessage,
+    normText:         normalizeMathClassifierText(ctx.userMessage),
+    hasShownWorking:  state.workingShown,
+    stuckCount:       state.stuckCount,
+    conceptReadiness: conceptReadinessFromState(state),
+    priorTopic:       rule61TopicFromTutorTopic(state.lockedTopic),
+  };
+}
+
+function mathIntentToMode(
+  intent: MathIntent,
+  inMathLane: boolean,
 ): TutorMathIntentMode {
-  const { userMessage } = ctx;
-  const threadBlob = [
-    ...ctx.recentUserMessages,
-    userMessage,
-    ...ctx.recentAssistantMessages,
-  ].join('\n');
-
-  const inMathLane = isTutorMathDomainMessage(userMessage)
-    || isTutorMathDomainMessage(threadBlob)
-    || studentRequestsAnswerVerification(userMessage);
-
-  if (!inMathLane) {
-    return 'non_math';
+  switch (intent) {
+    case MathIntent.A_CONCEPT:
+      return 'concept';
+    case MathIntent.B_PROCEDURE:
+      return 'procedural';
+    case MathIntent.C_VERIFICATION:
+      return 'verification';
+    case MathIntent.EXAM_DIRECT:
+      return 'exam_block';
+    case MathIntent.SCIENCE_FACTUAL:
+      return 'non_math';
+    case MathIntent.AMBIGUOUS:
+      return inMathLane ? 'concept' : 'non_math';
+    default:
+      return 'concept';
   }
+}
 
-  if (queryShape === 'science_factual') {
-    return 'non_math';
-  }
-
-  if (studentPresentsExamOrHomeworkDump(userMessage)) {
-    return 'exam_block';
-  }
-
-  if (studentRequestsTeachMePattern(userMessage)) {
-    return 'teach_me';
-  }
-
-  if (studentRequestsAnswerVerification(userMessage)) {
-    return 'verification';
-  }
-
-  if (
-    studentHasNoAttemptSignal(userMessage)
-    && !studentAsksMathProcedural(userMessage)
-  ) {
-    return 'concept';
-  }
-
-  if (studentAsksMathProcedural(userMessage)) {
-    return 'procedural';
-  }
-
-  if (studentAsksMathConcept(userMessage)) {
-    return 'concept';
-  }
-
-  return 'concept';
+function threadExpectsShortAnswer(ctx: TutorMathTurnContext): boolean {
+  const lastAssistant = ctx.recentAssistantMessages[0] ?? '';
+  return (
+    /\?/.test(lastAssistant)
+    || /→\s*_{3,}/.test(lastAssistant)
+    || /\b(?:berapa|how many|what is)\b/i.test(lastAssistant)
+  );
 }
 
 export function inferTutorMathReleaseLayer(
@@ -254,6 +314,7 @@ function buildTopicGuardTags(topic: TutorMathTopic): string[] {
 
 function buildPromptLawTags(
   mode: TutorMathIntentMode,
+  rule61: ReturnType<typeof classifyMathIntent>,
   allowsEscalation: boolean,
   warrantsClosure: boolean,
 ): string[] {
@@ -277,24 +338,67 @@ function buildPromptLawTags(
     default:
       break;
   }
+  if (rule61.intent === MathIntent.AMBIGUOUS && rule61.probeQuestion) {
+    tags.push('AMBIGUOUS_PROBE');
+  }
   if (allowsEscalation) tags.push('STUCK_ESCALATION');
   if (warrantsClosure) tags.push('SESSION_CLOSURE_WITH_CHECK');
   return tags;
 }
 
-/** Intent-first classifier — call before topic guards and prompt laws. */
+/** Intent-first classifier — Rule 61 core + legacy bridge. */
 export function classifyTutorMathIntent(ctx: TutorMathTurnContext): TutorMathIntentResult {
   const derived = deriveTutorMathSessionState(ctx);
   const state = mergeTutorMathSessionState(ctx.sessionState, derived);
+  const rule61 = classifyMathIntent(buildClassifierInput(ctx, state));
   const queryShape = classifyTutorMathQueryShape(ctx.userMessage, ctx.recentUserMessages);
-  const topic = resolveTutorMathTopic(ctx);
-  const mode = resolveIntentMode(ctx, queryShape);
-  const releaseLayer = inferTutorMathReleaseLayer(mode, state);
+  const topic = tutorTopicFromRule61(rule61.topic, ctx);
 
-  const allowsScienceFactual = queryShape === 'science_factual';
-  const allowsStuckEscalation = tutorTurnAllowsStuckEscalation(ctx, state, topic);
+  const threadBlob = [
+    ...ctx.recentUserMessages,
+    ctx.userMessage,
+    ...ctx.recentAssistantMessages,
+  ].join('\n');
+  const inMathLane = isTutorMathDomainMessage(ctx.userMessage)
+    || isTutorMathDomainMessage(threadBlob)
+    || studentRequestsAnswerVerification(ctx.userMessage)
+    || topic !== 'none';
+
+  let mode = mathIntentToMode(rule61.intent, inMathLane);
+
+  if (studentRequestsTeachMePattern(ctx.userMessage)) {
+    mode = 'teach_me';
+  }
+
+  if (
+    rule61.intent === MathIntent.C_VERIFICATION
+    || (threadExpectsShortAnswer(ctx) && hasExplicitAnswerShort(ctx.userMessage))
+  ) {
+    mode = 'verification';
+  }
+
+  if (!inMathLane && queryShape !== 'science_factual' && rule61.intent !== MathIntent.EXAM_DIRECT) {
+    mode = 'non_math';
+  }
+
+  const releaseLayer = inferTutorMathReleaseLayer(mode, state);
+  const allowsScienceFactual = (
+    rule61.intent === MathIntent.SCIENCE_FACTUAL
+    || queryShape === 'science_factual'
+  );
+  const allowsStuckEscalation = (
+    rule61.escalationActive || tutorTurnAllowsStuckEscalation(ctx, state, topic)
+  );
   const warrantsAutoClosure = !allowsScienceFactual
-    && tutorTurnWarrantsAutoClosure(ctx, mode, topic, state);
+    && (
+      tutorTurnWarrantsAutoClosure(ctx, mode, topic, state)
+      || canAutoClose(
+        rule61.topic,
+        state.workingShown,
+        state.workingShown,
+        rule61.escalationActive,
+      )
+    );
 
   const requiresWorkingFirst = (
     mode === 'verification'
@@ -305,9 +409,10 @@ export function classifyTutorMathIntent(ctx: TutorMathTurnContext): TutorMathInt
   const closureIncludesCheckQ = warrantsAutoClosure || mode === 'teach_me';
 
   const decisionTrace = [
+    ...rule61._trace,
     `queryShape=${queryShape}`,
     `mode=${mode}`,
-    `topic=${topic}`,
+    `tutorTopic=${topic}`,
     `conceptUnderstood=${state.conceptUnderstood}`,
     `workingShown=${state.workingShown}`,
   ];
@@ -330,19 +435,29 @@ export function classifyTutorMathIntent(ctx: TutorMathTurnContext): TutorMathInt
     allowsStuckEscalation,
     allowsScienceFactual,
     closureIncludesCheckQ,
-    promptLawTags: buildPromptLawTags(mode, allowsStuckEscalation, warrantsAutoClosure),
+    promptLawTags: buildPromptLawTags(mode, rule61, allowsStuckEscalation, warrantsAutoClosure),
     topicGuardTags: buildTopicGuardTags(topic),
     decisionTrace,
     nextSessionState,
+    rule61,
   };
 }
 
+function hasExplicitAnswerShort(message: string): boolean {
+  const t = message.trim();
+  if (!t) return false;
+  return (
+    /^\d+[\d,]*\s*(?:orang|unit|cm|kg|rm|ringgit)?\s*$/i.test(t)
+    || /^\d+[\d,]*$/.test(t)
+  );
+}
+
 export function buildTutorMathTurnContext(input: {
-  userMessage:             string;
-  recentUserMessages?:     string[];
+  userMessage:              string;
+  recentUserMessages?:      string[];
   recentAssistantMessages?: string[];
-  profile?:                TutorMathTurnContext['profile'];
-  sessionState?:           Partial<TutorMathSessionState>;
+  profile?:                 TutorMathTurnContext['profile'];
+  sessionState?:            Partial<TutorMathSessionState>;
 }): TutorMathTurnContext {
   return {
     userMessage:             input.userMessage ?? '',

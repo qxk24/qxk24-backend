@@ -52,4 +52,17 @@ describe('academic intent — general + tutor shared routing', () => {
     });
     expect(bundle.languageIntent?.intent).toBe(LanguageIntent.TRAP);
   });
+
+  it('general prompt block includes generic G_ANALYSIS argument probe law', () => {
+    const block = buildAcademicIntentTurnPromptBlock({
+      userMessage: 'Bincangkan faktor kemerdekaan Tanah Melayu dan kesan terhadap masyarakat.',
+    });
+    expect(block).toMatch(/G_ANALYSIS/i);
+    expect(block).toMatch(/ARGUMENT PROBE/i);
+    const bundle = classifyAcademicTurnIntents({
+      userMessage: 'Bincangkan faktor kemerdekaan Tanah Melayu dan kesan terhadap masyarakat.',
+    });
+    expect(bundle.genericIntent?.output.intent).toBeDefined();
+    expect(bundle.genericIntent?.handler).toBe('ARGUMENT_PROBE');
+  });
 });

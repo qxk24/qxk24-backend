@@ -346,3 +346,14 @@ export function scienceIntentSkipsZeroAnswer(intent: ScienceClassifierOutput): b
     || intent.intent === ScienceIntent.AMBIGUOUS
   );
 }
+
+export {
+  ScienceIntent,
+  ScienceSubject,
+  ExperimentPhase,
+} from './tutor-law.science-intent.types';
+
+export type {
+  ScienceClassifierInput,
+  ScienceClassifierOutput,
+} from './tutor-law.science-intent.types';

@@ -226,7 +226,7 @@ export async function buildTurnPromptAndSearchGate(input: {
   }
 
   const languageLock = isTutorLane
-    ? buildTutorSessionLanguageLock(tutorProfile)
+    ? buildTutorSessionLanguageLock(tutorProfile, recentAssistantTurns)
     : buildQwenLanguageLock({
       journalPhase: mode === 'JOURNAL_GEN' && isFounder ? 'draft' : undefined,
     });
