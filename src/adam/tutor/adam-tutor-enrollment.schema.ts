@@ -19,9 +19,10 @@ import mongoose, { Document, Schema } from 'mongoose';
 import type { TutorSubscriptionLevel } from '../../subscriptions/subscription.schema';
 
 export enum TutorEnrollmentStatus {
-  CODE_LOCKED = 'code_locked',
-  PAID        = 'paid',
-  COMPLETE    = 'complete',
+  CODE_LOCKED   = 'code_locked',
+  PROFILE_SAVED = 'profile_saved',
+  PAID          = 'paid',
+  COMPLETE      = 'complete',
 }
 
 export interface ITutorEnrollment extends Document {

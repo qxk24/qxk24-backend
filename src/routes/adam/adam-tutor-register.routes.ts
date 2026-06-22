@@ -480,7 +480,7 @@ router.post('/register/sync-payment', requireAdamUser, async (c) => {
   });
 });
 
-// POST /api/adam/tutor/register/complete — auth; profile form after paid
+// POST /api/adam/tutor/register/complete — auth; profile form after PIN (before pay)
 router.post('/register/complete', requireAdamUser, zValidator('json', ProfileCompleteSchema), async (c) => {
   try {
     const enrollment = await completeTutorEnrollmentProfile(userId(c), c.req.valid('json'));
@@ -488,7 +488,7 @@ router.post('/register/complete', requireAdamUser, zValidator('json', ProfileCom
       success: true,
       kernel:  'ALAMTOLOGI',
       data:    { enrollment },
-      message: 'Pendaftaran ADAM Tutor lengkap. Selamat belajar!',
+      message: 'Profil disimpan. Teruskan ke bayaran.',
       timestamp: new Date().toISOString(),
     });
   } catch (err: unknown) {

@@ -164,7 +164,10 @@ export async function getTutorEnrollmentCheckoutQuote(
     throw new Error('Bayaran untuk kod ini sudah selesai.');
   }
 
-  if (enrollment.status !== TutorEnrollmentStatus.CODE_LOCKED) {
+  if (enrollment.status !== TutorEnrollmentStatus.PROFILE_SAVED) {
+    if (enrollment.status === TutorEnrollmentStatus.CODE_LOCKED) {
+      throw new Error('Sila lengkapkan borang pendaftaran sebelum bayar.');
+    }
     throw new Error('PIN tidak sah atau belum dikunci.');
   }
 
@@ -206,6 +209,12 @@ export async function markTutorEnrollmentPaid(input: {
   enrollment.paidAt = new Date();
   if (input.stripeSessionId) enrollment.stripeSessionId = input.stripeSessionId;
   if (input.subscriptionId) enrollment.subscriptionId = input.subscriptionId;
+
+  if (enrollment.studentName && enrollment.schoolName && enrollment.state) {
+    enrollment.status = TutorEnrollmentStatus.COMPLETE;
+    enrollment.completedAt = new Date();
+  }
+
   await enrollment.save();
 
   await markTutorCodeRedeemed(enrollment.registerCode, input.userId);
@@ -237,9 +246,16 @@ export async function completeTutorEnrollmentProfile(
     throw new Error('Tiada pendaftaran PIN. Sila masukkan PIN anda.');
   }
 
-  if (enrollment.status !== TutorEnrollmentStatus.PAID
-    && enrollment.status !== TutorEnrollmentStatus.COMPLETE) {
-    throw new Error('Sila selesaikan bayaran sebelum mengisi borang pendaftaran.');
+  if (enrollment.status === TutorEnrollmentStatus.COMPLETE) {
+    throw new Error('Pendaftaran ADAM Tutor anda sudah lengkap.');
+  }
+
+  if (enrollment.status !== TutorEnrollmentStatus.CODE_LOCKED
+    && enrollment.status !== TutorEnrollmentStatus.PROFILE_SAVED) {
+    if (enrollment.status === TutorEnrollmentStatus.PAID) {
+      throw new Error('Sila selesaikan bayaran atau hubungi pentadbir.');
+    }
+    throw new Error('Sila masukkan PIN terlebih dahulu.');
   }
 
   const studentName = input.studentName.trim();
@@ -275,8 +291,7 @@ export async function completeTutorEnrollmentProfile(
   enrollment.state = state;
   enrollment.yearLabel = input.yearLabel?.trim() || null;
   enrollment.language = language;
-  enrollment.status = TutorEnrollmentStatus.COMPLETE;
-  enrollment.completedAt = new Date();
+  enrollment.status = TutorEnrollmentStatus.PROFILE_SAVED;
   await enrollment.save();
 
   return toPublic(enrollment);

@@ -81,7 +81,7 @@ export async function createTutorRegisterCheckoutSession(input: {
   if (!enrollment) {
     throw new Error('Sila masukkan PIN terlebih dahulu.');
   }
-  if (enrollment.status !== TutorEnrollmentStatus.CODE_LOCKED) {
+  if (enrollment.status !== TutorEnrollmentStatus.PROFILE_SAVED) {
     throw new Error('PIN tidak sedia untuk bayaran.');
   }
 
@@ -201,7 +201,7 @@ export async function activateTutorRegisterFromStripeCheckout(
 /** Dev / QA — mark paid without Stripe when billing not wired. */
 export async function simulateTutorRegisterPayment(userId: string): Promise<void> {
   const enrollment = await TutorEnrollmentModel.findOne({ userId });
-  if (!enrollment || enrollment.status !== TutorEnrollmentStatus.CODE_LOCKED) {
+  if (!enrollment || enrollment.status !== TutorEnrollmentStatus.PROFILE_SAVED) {
     throw new Error('Tiada PIN untuk disimulasikan.');
   }
 
