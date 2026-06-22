@@ -250,11 +250,12 @@ export async function completeTutorEnrollmentProfile(
     throw new Error('Pendaftaran ADAM Tutor anda sudah lengkap.');
   }
 
-  if (enrollment.status !== TutorEnrollmentStatus.CODE_LOCKED
-    && enrollment.status !== TutorEnrollmentStatus.PROFILE_SAVED) {
-    if (enrollment.status === TutorEnrollmentStatus.PAID) {
-      throw new Error('Sila selesaikan bayaran atau hubungi pentadbir.');
-    }
+  const canCompleteProfile =
+    enrollment.status === TutorEnrollmentStatus.CODE_LOCKED
+    || enrollment.status === TutorEnrollmentStatus.PROFILE_SAVED
+    || enrollment.status === TutorEnrollmentStatus.PAID;
+
+  if (!canCompleteProfile) {
     throw new Error('Sila masukkan PIN terlebih dahulu.');
   }
 
@@ -265,9 +266,10 @@ export async function completeTutorEnrollmentProfile(
     throw new Error('Nama, sekolah, dan negeri diperlukan.');
   }
 
-  const account = await ADAMStudentAccountModel.findOne({ userId });
+  const account = await ADAMStudentAccountModel.findOne({ userId, active: true })
+    ?? await ADAMStudentAccountModel.findOne({ userId });
   if (!account) {
-    throw new Error('Akaun pelajar tidak dijumpai.');
+    throw new Error('Akaun pelajar tidak dijumpai. Sila log keluar dan log masuk semula.');
   }
 
   account.name = studentName;
