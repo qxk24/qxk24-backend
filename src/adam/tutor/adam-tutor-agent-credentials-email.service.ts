@@ -46,6 +46,10 @@ function buildCredentialsHtml(input: {
   </p>
   <p style="margin:0 0 12px;">Hello ${input.contactName},</p>
   <p style="margin:0 0 12px;">${intro}</p>
+  <p style="margin:0 0 16px;padding:12px 14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;font-size:0.875rem;color:#92400e;">
+    <strong>For agen only.</strong> This email does <strong>not</strong> contain student registration PINs.
+    To invite a student, open the agen portal → <strong>Send PIN to student</strong> (or ask Alamtologi admin).
+  </p>
   <p style="margin:0 0 8px;font-weight:700;">Agen code</p>
   <p style="margin:0 0 16px;font-family:ui-monospace,monospace;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 16px;">
     ${input.agentCode}
@@ -87,6 +91,9 @@ function buildCredentialsText(input: {
     `Hello ${input.contactName},`,
     '',
     intro,
+    '',
+    'FOR AGEN ONLY — this email does NOT contain student registration PINs.',
+    'To invite a student: agen portal → Send PIN to student.',
     '',
     `Organisation: ${input.orgName}`,
     `Agen code: ${input.agentCode}`,

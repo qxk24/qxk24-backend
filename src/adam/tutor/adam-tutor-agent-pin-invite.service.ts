@@ -18,6 +18,7 @@
 import { ENV } from '../../config/environments';
 import { isMailConfigured, sendMail } from '../adam-mail.service';
 import type { ITutorAgent } from './adam-tutor-agent.schema';
+import { getTutorAgentById } from './adam-tutor-agent.service';
 import {
   TutorRegisterCodeModel,
   TutorRegisterCodeStatus,
@@ -43,11 +44,15 @@ function normalizeEmail(raw: string): string {
   return raw.trim().toLowerCase();
 }
 
-export function buildTutorRegisterLoginUrl(registerCode: string): string {
+/** Direct student registration URL — PIN prefilled on /adam/tutor/daftar. */
+export function buildTutorStudentRegisterUrl(registerCode: string): string {
   const code = normalizeRegisterCode(registerCode);
-  const registerPath = `/adam/tutor/daftar?pin=${encodeURIComponent(code)}`;
-  const loginPath = `/login?next=${encodeURIComponent(registerPath)}`;
-  return `${appUrl()}${loginPath}`;
+  return `${appUrl()}/adam/tutor/daftar?pin=${encodeURIComponent(code)}`;
+}
+
+/** @deprecated alias — use buildTutorStudentRegisterUrl */
+export function buildTutorRegisterLoginUrl(registerCode: string): string {
+  return buildTutorStudentRegisterUrl(registerCode);
 }
 
 export interface TutorAgentAvailablePinRow {
@@ -100,17 +105,17 @@ function buildPinInviteHtml(input: {
   <p style="margin:0 0 16px;font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#6366f1;">
     Alamtologi · ADAM Tutor · Malaysia
   </p>
+  <p style="margin:0 0 8px;font-size:0.75rem;font-weight:700;text-transform:uppercase;color:#4338ca;">Your registration PIN</p>
+  <p style="margin:0 0 20px;font-size:1.5rem;font-weight:700;font-family:ui-monospace,monospace;background:#eef2ff;border:2px solid #6366f1;border-radius:8px;padding:14px 18px;letter-spacing:0.06em;">
+    ${input.registerCode}
+  </p>
   <p style="margin:0 0 12px;">${greeting}</p>
   <p style="margin:0 0 12px;">
     <strong>${input.orgName}</strong> (${input.contactName}) has invited you to register for
     <strong>ADAM Tutor</strong> — ${input.bandLabel}.
   </p>
-  <p style="margin:0 0 8px;font-weight:700;">Your registration PIN</p>
-  <p style="margin:0 0 16px;font-size:1.25rem;font-family:ui-monospace,monospace;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 16px;">
-    ${input.registerCode}
-  </p>
   <p style="margin:0 0 20px;color:#475569;">
-    1 PIN = 1 student account · not shareable. Click below to sign in (or create an account), then complete payment.
+    1 PIN = 1 student account · not shareable. Open the link below, sign in (or create a student account), enter this PIN, then complete your profile and payment.
   </p>
   <p style="margin:0 0 24px;">
     <a href="${input.registerUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:8px;">
@@ -142,11 +147,13 @@ function buildPinInviteText(input: {
 }): string {
   const greeting = input.studentName ? `Hello ${input.studentName},` : 'Hello,';
   return [
+    `YOUR ADAM TUTOR PIN: ${input.registerCode}`,
+    '',
     greeting,
     '',
     `${input.orgName} (${input.contactName}) has invited you to register for ADAM Tutor — ${input.bandLabel}.`,
     '',
-    `Your registration PIN: ${input.registerCode}`,
+    `Registration PIN (copy): ${input.registerCode}`,
     '',
     '1 PIN = 1 student account · not shareable.',
     '',
@@ -156,6 +163,89 @@ function buildPinInviteText(input: {
     '',
     '— Alamtologi · ADAM Tutor',
   ].join('\n');
+}
+
+async function deliverTutorPinStudentEmail(
+  doc: ITutorRegisterCode & { save: () => Promise<unknown> },
+  input: {
+    studentEmail: string;
+    studentName:   string;
+    orgName:       string;
+    contactName:   string;
+    agentEmail:    string;
+  },
+): Promise<{ registerCode: string; studentEmail: string; registerUrl: string }> {
+  const registerCode = doc.registerCode;
+  const studentEmail = normalizeEmail(input.studentEmail);
+  const bandLabel = BAND_LABELS_EN[doc.band]
+    ?? TUTOR_REGISTER_BAND_LABELS_BM[doc.band]
+    ?? doc.band;
+  const registerUrl = buildTutorStudentRegisterUrl(registerCode);
+
+  const mailPayload = {
+    studentName:  input.studentName,
+    orgName:      input.orgName,
+    contactName:  input.contactName,
+    agentEmail:   input.agentEmail,
+    registerCode,
+    bandLabel,
+    registerUrl,
+  };
+
+  const mail = await sendMail({
+    to:       studentEmail,
+    subject:  `ADAM Tutor PIN ${registerCode} — ${input.orgName}`,
+    html:     buildPinInviteHtml(mailPayload),
+    text:     buildPinInviteText(mailPayload),
+  });
+
+  if (!mail.sent) {
+    throw new Error(mail.error ?? 'Failed to send email. Try again or contact Alamtologi admin.');
+  }
+
+  doc.invitedEmail = studentEmail;
+  doc.invitedAt = new Date();
+  doc.invitedStudentName = input.studentName || null;
+  await doc.save();
+
+  return { registerCode, studentEmail, registerUrl };
+}
+
+export async function sendTutorRegisterPinToStudent(input: {
+  registerCode: string;
+  studentEmail: string;
+  studentName?: string;
+}): Promise<{ registerCode: string; studentEmail: string; registerUrl: string }> {
+  if (!isMailConfigured()) {
+    throw new Error('Email is not configured on the server. Contact Alamtologi admin.');
+  }
+
+  const registerCode = normalizeRegisterCode(input.registerCode);
+  const studentEmail = normalizeEmail(input.studentEmail);
+  const studentName = input.studentName?.trim() || '';
+
+  if (!registerCode || registerCode.length < 8) {
+    throw new Error('Select a valid PIN.');
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(studentEmail)) {
+    throw new Error('Enter a valid student email address.');
+  }
+
+  const doc = await TutorRegisterCodeModel.findOne({ registerCode });
+  if (!doc) throw new Error('PIN not found.');
+  if (doc.status !== TutorRegisterCodeStatus.AVAILABLE) {
+    throw new Error('This PIN is no longer available.');
+  }
+
+  const agent = doc.agentId ? await getTutorAgentById(doc.agentId) : null;
+
+  return deliverTutorPinStudentEmail(doc, {
+    studentEmail,
+    studentName,
+    orgName:     agent?.orgName ?? doc.agentLabel ?? 'Alamtologi',
+    contactName: agent?.contactName ?? 'ADAM Tutor',
+    agentEmail:  agent?.email ?? 'info@alamtologi.com',
+  });
 }
 
 export async function sendTutorAgentPinInvite(
@@ -190,45 +280,13 @@ export async function sendTutorAgentPinInvite(
     throw new Error('This PIN is no longer available.');
   }
 
-  const bandLabel = BAND_LABELS_EN[doc.band] ?? TUTOR_REGISTER_BAND_LABELS_BM[doc.band] ?? doc.band;
-  const registerUrl = buildTutorRegisterLoginUrl(registerCode);
-
-  const html = buildPinInviteHtml({
+  return deliverTutorPinStudentEmail(doc, {
+    studentEmail,
     studentName,
-    orgName:      agent.orgName,
-    contactName:  agent.contactName,
-    agentEmail:   agent.email,
-    registerCode,
-    bandLabel,
-    registerUrl,
+    orgName:     agent.orgName,
+    contactName: agent.contactName,
+    agentEmail:  agent.email,
   });
-  const text = buildPinInviteText({
-    studentName,
-    orgName:      agent.orgName,
-    contactName:  agent.contactName,
-    agentEmail:   agent.email,
-    registerCode,
-    bandLabel,
-    registerUrl,
-  });
-
-  const mail = await sendMail({
-    to:       studentEmail,
-    subject:  `Your ADAM Tutor PIN — ${agent.orgName}`,
-    html,
-    text,
-  });
-
-  if (!mail.sent) {
-    throw new Error(mail.error ?? 'Failed to send email. Try again or contact Alamtologi admin.');
-  }
-
-  doc.invitedEmail = studentEmail;
-  doc.invitedAt = new Date();
-  doc.invitedStudentName = studentName || null;
-  await doc.save();
-
-  return { registerCode, studentEmail, registerUrl };
 }
 
 export function serializeAvailablePin(doc: ITutorRegisterCode): TutorAgentAvailablePinRow {

@@ -105,6 +105,7 @@ import {
 import {
   listAgentAvailableRegisterCodes,
   sendTutorAgentPinInvite,
+  sendTutorRegisterPinToStudent,
 } from '../../adam/tutor/adam-tutor-agent-pin-invite.service';
 import type { ITutorAgent } from '../../adam/tutor/adam-tutor-agent.schema';
 
@@ -581,6 +582,29 @@ router.post('/admin/codes/revoke', requireFounderOrPlatformAdmin, zValidator('js
     timestamp: new Date().toISOString(),
   });
 });
+
+// POST /api/adam/tutor/admin/codes/send-student-email — founder emails student PIN
+router.post(
+  '/admin/codes/send-student-email',
+  requireFounderOrPlatformAdmin,
+  zValidator('json', AgentPinEmailSchema),
+  async (c) => {
+    try {
+      const body = c.req.valid('json');
+      const result = await sendTutorRegisterPinToStudent(body);
+      return c.json({
+        success: true,
+        kernel:  'ALAMTOLOGI',
+        data:    result,
+        message: `Student PIN ${result.registerCode} emailed to ${result.studentEmail}. ${ADAM_MAIL_INBOX_HINT}`,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to send student PIN email.';
+      return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+    }
+  },
+);
 
 // GET /api/adam/tutor/admin/agents — founder
 router.get('/admin/agents', requireFounderOrPlatformAdmin, async (c) => {
