@@ -18,11 +18,17 @@
 import { ADAMStudentAccountModel } from './adam-student.schema';
 import {
   analyzeStealthAssessment,
-  detectAdaptiveAssessmentPhase,
   detectLearnerEmotionalSignal,
   inferConceptTagsFromMessage,
-  AdaptiveAssessmentPhase,
 } from './tutor-law/tutor-law.adaptive-assessment';
+import {
+  isCheckpointDue,
+  userRequestedCheckpoint,
+} from './tutor-law/tutor-law.checkpoint-bank';
+import {
+  applyCheckpointAnswer,
+  startCheckpointSession,
+} from './tutor-law/tutor-law.learning-profile-checkpoint';
 import {
   applyPlacementAnswer,
   applyStealthTurnUpdate,
@@ -42,9 +48,10 @@ import {
 } from './tutor-law/tutor-law.placement-bank';
 
 export interface TutorLearningTurnPrep {
-  profile:          AdamTutorLearningProfile;
-  placementPrompt:  string | null;
-  placementItem:    PlacementItem | null;
+  profile:           AdamTutorLearningProfile;
+  placementPrompt:   string | null;
+  checkpointPrompt:  string | null;
+  placementItem:     PlacementItem | null;
 }
 
 function normalizeLearningProfile(raw: unknown): AdamTutorLearningProfile {
@@ -53,22 +60,55 @@ function normalizeLearningProfile(raw: unknown): AdamTutorLearningProfile {
   }
   const base = defaultTutorLearningProfile();
   const src = raw as Partial<AdamTutorLearningProfile>;
+
+  const conceptMastery: AdamTutorLearningProfile['conceptMastery'] = {
+    ...base.conceptMastery,
+  };
+  for (const [tag, rec] of Object.entries(src.conceptMastery ?? {})) {
+    if (!rec || typeof rec !== 'object') continue;
+    const attempts = rec.attempts ?? 0;
+    const correctCount = rec.correctCount
+      ?? Math.round((rec.pMastery ?? 0) * attempts);
+    conceptMastery[tag] = {
+      pMastery:     rec.pMastery ?? 0,
+      attempts,
+      correctCount,
+      lastUpdated:  rec.lastUpdated ?? base.updatedAt,
+    };
+  }
+
+  const placementComplete = src.placementComplete ?? base.placementComplete;
+  const placementCompletedAt = src.placementCompletedAt
+    ?? (placementComplete ? (src.updatedAt ?? base.updatedAt) : undefined);
+
   return {
     ...base,
     ...src,
-    version:           1,
-    conceptMastery:    { ...base.conceptMastery, ...(src.conceptMastery ?? {}) },
-    strengths:         src.strengths ?? base.strengths,
-    focusAreas:        src.focusAreas ?? base.focusAreas,
-    stealth:           { ...base.stealth, ...(src.stealth ?? {}) },
-    gamification:      { ...base.gamification, ...(src.gamification ?? {}) },
-    voice:             src.voice
+    version:              1,
+    conceptMastery,
+    placementComplete,
+    placementCompletedAt,
+    subjectLevels:        { ...base.subjectLevels, ...(src.subjectLevels ?? {}) },
+    strengths:            src.strengths ?? base.strengths,
+    focusAreas:           src.focusAreas ?? base.focusAreas,
+    stealth:              { ...base.stealth, ...(src.stealth ?? {}) },
+    gamification:         { ...base.gamification, ...(src.gamification ?? {}) },
+    voice:                src.voice
       ? { ...base.voice, ...src.voice, recent: src.voice.recent ?? base.voice.recent }
       : base.voice,
-    placement:         src.placement
-      ? { ...base.placement!, ...src.placement }
+    placement:            src.placement
+      ? {
+        ...base.placement!,
+        ...src.placement,
+        subjectScores: src.placement.subjectScores ?? base.placement?.subjectScores ?? {},
+      }
       : base.placement,
-    updatedAt:         typeof src.updatedAt === 'string' ? src.updatedAt : base.updatedAt,
+    checkpoint:           src.checkpoint
+      ? { ...src.checkpoint }
+      : base.checkpoint,
+    checkpointHistory:    src.checkpointHistory ?? base.checkpointHistory,
+    lastCheckpointAt:     src.lastCheckpointAt,
+    updatedAt:            typeof src.updatedAt === 'string' ? src.updatedAt : base.updatedAt,
   };
 }
 
@@ -100,13 +140,18 @@ export async function saveTutorLearningProfile(
   return normalized;
 }
 
-function shouldRunPlacement(profile: AdamTutorLearningProfile, phase: AdaptiveAssessmentPhase): boolean {
-  if (profile.placementComplete) return false;
-  return (
-    phase === AdaptiveAssessmentPhase.PLACEMENT
-    || phase === AdaptiveAssessmentPhase.ONBOARDING
-    || !profile.placement?.questionsAnswered
-  );
+function shouldRunPlacement(profile: AdamTutorLearningProfile): boolean {
+  return !profile.placementComplete;
+}
+
+function shouldOfferCheckpoint(
+  profile: AdamTutorLearningProfile,
+  userMessage: string,
+  recentUserMessages: string[],
+): boolean {
+  if (!profile.placementComplete) return false;
+  if (profile.checkpoint?.active) return true;
+  return isCheckpointDue(profile) || userRequestedCheckpoint(userMessage, recentUserMessages);
 }
 
 export async function prepareTutorLearningTurn(
@@ -116,14 +161,10 @@ export async function prepareTutorLearningTurn(
   recentAssistantMessages: string[] = [],
 ): Promise<TutorLearningTurnPrep> {
   let profile = await getTutorLearningProfile(userId);
-  const phase = detectAdaptiveAssessmentPhase(
-    userMessage,
-    recentUserMessages,
-    recentAssistantMessages,
-  );
 
   let placementItem: PlacementItem | null = null;
   let placementPrompt: string | null = null;
+  let checkpointPrompt: string | null = null;
 
   if (
     profile.placement?.awaitingAnswer
@@ -140,7 +181,7 @@ export async function prepareTutorLearningTurn(
     }
   }
 
-  const needsPlacement = shouldRunPlacement(profile, phase);
+  const needsPlacement = shouldRunPlacement(profile);
   if (needsPlacement && !profile.placementComplete && !profile.placement?.awaitingAnswer) {
     let item = profile.placement?.currentItemId
       ? getPlacementItemById(profile.placement.currentItemId)
@@ -158,7 +199,46 @@ export async function prepareTutorLearningTurn(
     }
   }
 
-  return { profile, placementPrompt, placementItem };
+  if (
+    profile.placementComplete
+    && profile.checkpoint?.active
+    && profile.checkpoint.awaitingAnswer
+    && profile.checkpoint.currentItemId
+    && userMessage.trim().length > 0
+  ) {
+    const active = getPlacementItemById(profile.checkpoint.currentItemId);
+    if (active) {
+      profile = await saveTutorLearningProfile(
+        userId,
+        applyCheckpointAnswer(profile, active, userMessage),
+      );
+    }
+  }
+
+  const offerCheckpoint = shouldOfferCheckpoint(profile, userMessage, recentUserMessages);
+  if (
+    offerCheckpoint
+    && !profile.checkpoint?.awaitingAnswer
+    && !(profile.checkpoint?.active === false && (profile.checkpoint?.questionsAnswered ?? 0) > 0)
+  ) {
+    let item = profile.checkpoint?.active && profile.checkpoint.currentItemId
+      ? getPlacementItemById(profile.checkpoint.currentItemId)
+      : null;
+
+    if (!item) {
+      const started = startCheckpointSession(profile);
+      profile = started.profile;
+      item = started.item;
+    }
+
+    if (item && profile.checkpoint) {
+      checkpointPrompt = item.prompt;
+      profile.checkpoint.awaitingAnswer = true;
+      profile = await saveTutorLearningProfile(userId, profile);
+    }
+  }
+
+  return { profile, placementPrompt, checkpointPrompt, placementItem };
 }
 
 export async function recordTutorLearningTurn(input: {

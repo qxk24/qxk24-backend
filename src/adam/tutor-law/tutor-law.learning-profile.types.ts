@@ -17,18 +17,54 @@
  * Tahap pembelajaran semasa + ZPD — NOT intelligence/IQ labels.
  */
 
+import type { PlacementSubject } from './tutor-law.placement-bank';
+import { PLACEMENT_TARGET_QUESTIONS } from './tutor-law.placement-bank';
+
 export interface ConceptMasteryRecord {
-  pMastery:     number;
-  attempts:     number;
-  lastUpdated:  string;
+  pMastery:      number;
+  attempts:      number;
+  correctCount:  number;
+  lastUpdated:   string;
+}
+
+export interface PlacementSubjectScore {
+  correct:  number;
+  total:    number;
 }
 
 export interface PlacementSessionState {
   itemIdsAsked:       string[];
   currentItemId:      string | null;
-  questionsAnswered:    number;
+  questionsAnswered:  number;
   abilityEstimate:    number;
   awaitingAnswer:     boolean;
+  subjectScores?:     Partial<Record<PlacementSubject, PlacementSubjectScore>>;
+}
+
+export interface CheckpointSessionState {
+  active:              boolean;
+  itemIds:             string[];
+  currentItemId:       string | null;
+  questionsAnswered:   number;
+  awaitingAnswer:      boolean;
+  subjectScores?:      Partial<Record<PlacementSubject, PlacementSubjectScore>>;
+  abilityDelta?:       number;
+  priorSubjectLevels?: TutorSubjectLevels;
+}
+
+export interface CheckpointHistoryRecord {
+  at:          string;
+  itemIds:     string[];
+  correct:     number;
+  total:       number;
+  priorLevels: TutorSubjectLevels;
+  nextLevels:  TutorSubjectLevels;
+}
+
+export interface TutorSubjectLevels {
+  english:  string;
+  math:     string;
+  bm:       string;
 }
 
 export interface TutorGamificationState {
@@ -68,6 +104,7 @@ export interface AdamTutorLearningProfile {
   placementComplete:      boolean;
   placementAbility:     number;
   estimatedCefr:        string;
+  subjectLevels:        TutorSubjectLevels;
   overallMastery:       number;
   conceptMastery:       Record<string, ConceptMasteryRecord>;
   strengths:            string[];
@@ -80,6 +117,9 @@ export interface AdamTutorLearningProfile {
   gamification:           TutorGamificationState;
   voice:                  TutorVoiceAssessmentState;
   placement?:             PlacementSessionState;
+  placementCompletedAt?:  string;
+  checkpoint?:            CheckpointSessionState;
+  checkpointHistory?:     CheckpointHistoryRecord[];
   lastCheckpointAt?:      string;
   updatedAt:              string;
 }
@@ -91,6 +131,11 @@ export function defaultTutorLearningProfile(now = new Date()): AdamTutorLearning
     placementComplete: false,
     placementAbility:  0,
     estimatedCefr:     'UNKNOWN',
+    subjectLevels: {
+      english: 'UNKNOWN',
+      math:    'UNKNOWN',
+      bm:      'UNKNOWN',
+    },
     overallMastery:    0,
     conceptMastery:    {},
     strengths:         [],
@@ -122,7 +167,13 @@ export function defaultTutorLearningProfile(now = new Date()): AdamTutorLearning
       questionsAnswered:   0,
       abilityEstimate:     0,
       awaitingAnswer:      false,
+      subjectScores:       {},
     },
     updatedAt: iso,
   };
+}
+
+export function placementProgressLabel(profile: AdamTutorLearningProfile): string {
+  const answered = profile.placement?.questionsAnswered ?? 0;
+  return `${answered}/${PLACEMENT_TARGET_QUESTIONS}`;
 }

@@ -143,6 +143,7 @@ export async function buildTurnPromptAndSearchGate(input: {
 
   let tutorLearningProfile = undefined;
   let tutorPlacementPrompt: string | null = null;
+  let tutorCheckpointPrompt: string | null = null;
   if (isTutorLane && shell.participant.userId) {
     const prep = await prepareTutorLearningTurn(
       shell.participant.userId,
@@ -152,6 +153,7 @@ export async function buildTurnPromptAndSearchGate(input: {
     );
     tutorLearningProfile = prep.profile;
     tutorPlacementPrompt = prep.placementPrompt;
+    tutorCheckpointPrompt = prep.checkpointPrompt;
   }
 
   const builtPrompt = buildAdamChatSystemPrompt({
@@ -182,6 +184,7 @@ export async function buildTurnPromptAndSearchGate(input: {
     tutorProfile:         isTutorLane ? tutorProfile : undefined,
     tutorLearningProfile: isTutorLane ? tutorLearningProfile : undefined,
     tutorPlacementPrompt: isTutorLane ? tutorPlacementPrompt : undefined,
+    tutorCheckpointPrompt: isTutorLane ? tutorCheckpointPrompt : undefined,
     viaVoice:             isTutorLane ? options.viaVoice === true : undefined,
     niagaProfile:         isNiagaLane ? options.niagaProfile : undefined,
     webSearchPrompt:      webSearchEnabledThisTurn && webSearchGateReason && isTutorLane

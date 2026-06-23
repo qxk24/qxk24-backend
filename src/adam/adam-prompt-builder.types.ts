@@ -55,6 +55,7 @@ export interface AdamChatSystemPromptParams {
   /** ERA_2 — persisted learning profile for adaptive/ZPD prompts. */
   tutorLearningProfile?:   import('./tutor-law/tutor-law.learning-profile.types').AdamTutorLearningProfile;
   tutorPlacementPrompt?:   string | null;
+  tutorCheckpointPrompt?:  string | null;
   /** ERA_2c — voice/STT turn from student microphone */
   viaVoice?:               boolean;
   /** ADAM Niaga lane — Malaysia SME business profile */

@@ -113,6 +113,7 @@ export function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): 
     profile:                 params.tutorProfile,
     learningProfile:         params.tutorLearningProfile,
     placementPrompt:         params.tutorPlacementPrompt,
+    checkpointPrompt:        params.tutorCheckpointPrompt,
     viaVoice:                params.viaVoice === true,
   }));
 

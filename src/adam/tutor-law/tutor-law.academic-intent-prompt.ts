@@ -165,6 +165,7 @@ export function buildAcademicIntentTurnPromptParts(
   > & {
     learningProfile?: import('./tutor-law.learning-profile.types').AdamTutorLearningProfile;
     placementPrompt?: string | null;
+    checkpointPrompt?: string | null;
     viaVoice?:        boolean;
   },
 ): string[] {
@@ -225,6 +226,7 @@ export function buildAcademicIntentTurnPromptParts(
     turnIndex:               context?.recentUserMessages?.length ?? 0,
     learningProfile:         context?.learningProfile,
     placementPrompt:         context?.placementPrompt,
+    checkpointPrompt:        context?.checkpointPrompt,
     stuckCount:              context?.learningProfile?.stealth.stuckStreak,
   });
   if (adaptiveLaw) parts.push(adaptiveLaw);

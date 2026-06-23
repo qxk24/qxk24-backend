@@ -12,16 +12,25 @@
 
 import type {
   AdamTutorLearningProfile,
+  ConceptMasteryRecord,
   PlacementSessionState,
+  PlacementSubjectScore,
 } from './tutor-law.learning-profile.types';
+import { placementProgressLabel } from './tutor-law.learning-profile.types';
+import { checkpointProgressLabel } from './tutor-law.learning-profile-checkpoint';
 import type { VoiceAssessmentResult } from './tutor-law.voice-assessment';
 import { KNOWLEDGE_CONCEPT_GRAPH } from './tutor-law.adaptive-assessment';
 import {
   abilityToCefr,
+  detectBmLevelFromPercent,
+  detectEnglishLevelFromAbility,
+  detectMathLevelFromPercent,
+  getStaticPlacementItemByIndex,
+  PLACEMENT_TARGET_QUESTIONS,
   scorePlacementAnswer,
-  selectNextPlacementItem,
   xpToLevelLabel,
   type PlacementItem,
+  type PlacementSubject,
 } from './tutor-law.placement-bank';
 import type { StealthAssessmentSnapshot } from './tutor-law.adaptive-assessment';
 import { LearnerEmotionalSignal, LearnerMasteryBand } from './tutor-law.adaptive-assessment';
@@ -46,6 +55,52 @@ export function masteryBandFromProbability(p: number): LearnerMasteryBand {
   return LearnerMasteryBand.NOT_STARTED;
 }
 
+/** Simple knowledge tracking — % betul per topik (MVP Fasa 1). */
+export function conceptPercentCorrect(rec: ConceptMasteryRecord): number {
+  if (rec.attempts <= 0) return 0;
+  const correct = rec.correctCount ?? 0;
+  return Math.max(0, Math.min(1, correct / rec.attempts));
+}
+
+export interface ConceptMasteryDisplayRow {
+  tag:      string;
+  label:    string;
+  percent:  number;
+  correct:  number;
+  attempts: number;
+}
+
+export function listConceptMasteryDisplay(
+  profile: AdamTutorLearningProfile,
+  limit = 8,
+): ConceptMasteryDisplayRow[] {
+  return Object.entries(profile.conceptMastery)
+    .map(([tag, rec]) => ({
+      tag,
+      label:    KNOWLEDGE_CONCEPT_GRAPH[tag]?.label ?? tag,
+      percent:  conceptPercentCorrect(rec),
+      correct:  rec.correctCount ?? 0,
+      attempts: rec.attempts,
+    }))
+    .filter((row) => row.attempts > 0)
+    .sort((a, b) => b.attempts - a.attempts)
+    .slice(0, limit);
+}
+
+export function recordConceptAttempt(
+  profile: AdamTutorLearningProfile,
+  tag: string,
+  correct: boolean,
+  now: Date,
+): void {
+  touchConcept(profile, tag, correct, now);
+}
+
+export function recomputeProfileAggregates(profile: AdamTutorLearningProfile): void {
+  recomputeOverallMastery(profile);
+  recomputeStrengthsAndFocus(profile);
+}
+
 function touchConcept(
   profile: AdamTutorLearningProfile,
   tag: string,
@@ -54,11 +109,28 @@ function touchConcept(
 ): void {
   const prior = profile.conceptMastery[tag]?.pMastery ?? 0;
   const next = bktUpdateMastery(prior, correct);
+  const attempts = (profile.conceptMastery[tag]?.attempts ?? 0) + 1;
+  const correctCount = (profile.conceptMastery[tag]?.correctCount ?? 0) + (correct ? 1 : 0);
   profile.conceptMastery[tag] = {
-    pMastery:    next,
-    attempts:    (profile.conceptMastery[tag]?.attempts ?? 0) + 1,
-    lastUpdated: now.toISOString(),
+    pMastery:     next,
+    attempts,
+    correctCount,
+    lastUpdated:  now.toISOString(),
   };
+}
+
+function bumpSubjectScore(
+  placement: PlacementSessionState,
+  subject: PlacementSubject,
+  correct: boolean,
+): void {
+  const scores = placement.subjectScores ?? {};
+  const prior: PlacementSubjectScore = scores[subject] ?? { correct: 0, total: 0 };
+  scores[subject] = {
+    correct: prior.correct + (correct ? 1 : 0),
+    total:   prior.total + 1,
+  };
+  placement.subjectScores = scores;
 }
 
 function recomputeOverallMastery(profile: AdamTutorLearningProfile): void {
@@ -67,7 +139,10 @@ function recomputeOverallMastery(profile: AdamTutorLearningProfile): void {
     profile.overallMastery = 0;
     return;
   }
-  profile.overallMastery = values.reduce((s, v) => s + v.pMastery, 0) / values.length;
+  profile.overallMastery = values.reduce(
+    (s, v) => s + conceptPercentCorrect(v),
+    0,
+  ) / values.length;
 }
 
 function recomputeStrengthsAndFocus(profile: AdamTutorLearningProfile): void {
@@ -75,11 +150,11 @@ function recomputeStrengthsAndFocus(profile: AdamTutorLearningProfile): void {
     .map(([tag, rec]) => ({
       tag,
       label: KNOWLEDGE_CONCEPT_GRAPH[tag]?.label ?? tag,
-      p:     rec.pMastery,
+      p:     conceptPercentCorrect(rec),
     }));
 
   profile.strengths = entries
-    .filter((e) => e.p >= 0.75)
+    .filter((e) => e.p >= 0.75 && profile.conceptMastery[e.tag]!.attempts >= 1)
     .sort((a, b) => b.p - a.p)
     .slice(0, 3)
     .map((e) => e.label);
@@ -89,6 +164,21 @@ function recomputeStrengthsAndFocus(profile: AdamTutorLearningProfile): void {
     .sort((a, b) => a.p - b.p)
     .slice(0, 3)
     .map((e) => e.label);
+}
+
+function subjectPercent(scores: PlacementSubjectScore | undefined): number {
+  if (!scores || scores.total <= 0) return 0;
+  return scores.correct / scores.total;
+}
+
+export function finalizeSubjectLevels(profile: AdamTutorLearningProfile): void {
+  const scores = profile.placement?.subjectScores ?? {};
+  profile.subjectLevels = {
+    english: detectEnglishLevelFromAbility(profile.placementAbility),
+    math:    detectMathLevelFromPercent(subjectPercent(scores.math)),
+    bm:      detectBmLevelFromPercent(subjectPercent(scores.bm)),
+  };
+  profile.estimatedCefr = profile.subjectLevels.english;
 }
 
 function updateStreak(profile: AdamTutorLearningProfile, now: Date): void {
@@ -161,12 +251,11 @@ export function startPlacementSession(
     questionsAnswered: 0,
     abilityEstimate:   next.placementAbility,
     awaitingAnswer:    false,
+    subjectScores:     {},
   };
 
-  const item = selectNextPlacementItem(
-    next.placement.abilityEstimate,
-    next.placement.itemIdsAsked,
-  );
+  const index = next.placement.questionsAnswered;
+  const item = getStaticPlacementItemByIndex(index);
   if (item) {
     next.placement.currentItemId = item.id;
     next.placement.awaitingAnswer = false;
@@ -191,6 +280,7 @@ export function applyPlacementAnswer(
     questionsAnswered: 0,
     abilityEstimate:   next.placementAbility,
     awaitingAnswer:    false,
+    subjectScores:     {},
   };
 
   const correct = scorePlacementAnswer(item, answer);
@@ -200,26 +290,25 @@ export function applyPlacementAnswer(
     Math.min(3, placement.abilityEstimate + (correct ? 0.5 : -0.5)),
   );
   next.placementAbility = placement.abilityEstimate;
-  next.estimatedCefr = abilityToCefr(placement.abilityEstimate);
-
+  bumpSubjectScore(placement, item.subject, correct);
   touchConcept(next, item.conceptTag, correct, now);
 
-  const nextItem = selectNextPlacementItem(
-    placement.abilityEstimate,
-    placement.itemIdsAsked,
-  );
+  const nextItem = getStaticPlacementItemByIndex(placement.questionsAnswered);
   if (nextItem && !placement.itemIdsAsked.includes(nextItem.id)) {
     placement.itemIdsAsked.push(nextItem.id);
   }
   placement.currentItemId = nextItem?.id ?? null;
 
-  if (placement.questionsAnswered >= 5 || !nextItem) {
+  if (placement.questionsAnswered >= PLACEMENT_TARGET_QUESTIONS || !nextItem) {
     next.placementComplete = true;
+    next.placementCompletedAt = now.toISOString();
     placement.currentItemId = null;
     placement.awaitingAnswer = false;
+    finalizeSubjectLevels(next);
   } else {
-    placement.currentItemId = nextItem?.id ?? null;
+    placement.currentItemId = nextItem.id;
     placement.awaitingAnswer = false;
+    next.estimatedCefr = abilityToCefr(placement.abilityEstimate);
   }
 
   next.placement = placement;
@@ -272,7 +361,10 @@ export function applyVoiceTurnUpdate(
 
 export function listZpdConceptTags(profile: AdamTutorLearningProfile): string[] {
   return Object.entries(profile.conceptMastery)
-    .filter(([, rec]) => rec.pMastery >= 0.4 && rec.pMastery < 0.8)
+    .filter(([, rec]) => {
+      const p = conceptPercentCorrect(rec);
+      return p >= 0.4 && p < 0.8;
+    })
     .map(([tag]) => tag);
 }
 
@@ -289,7 +381,17 @@ export function buildLearningProfilePromptSummary(
     `LEARNING PROFILE (tahap semasa — bukan IQ): CEFR≈${profile.estimatedCefr}, `
     + `mastery=${Math.round(profile.overallMastery * 100)}%, `
     + `stuck=${profile.stealth.stuckStreak}, emotion=${profile.emotionalLast}`,
+    `Tahap subjek (rule-based): English=${profile.subjectLevels.english}, `
+    + `Math=${profile.subjectLevels.math}, BM=${profile.subjectLevels.bm}`,
   ];
+
+  const topicRows = listConceptMasteryDisplay(profile, 4);
+  if (topicRows.length) {
+    parts.push(
+      'Topik (% betul): '
+      + topicRows.map((r) => `${r.label} ${Math.round(r.percent * 100)}% (${r.correct}/${r.attempts})`).join('; '),
+    );
+  }
 
   if (profile.strengths.length) {
     parts.push(`Kekuatan: ${profile.strengths.join(', ')}`);
@@ -311,7 +413,13 @@ export function buildLearningProfilePromptSummary(
     );
   }
   if (!profile.placementComplete) {
-    parts.push('Placement: belum lengkap — satu soalan adaptif setiap turn jika sesuai.');
+    parts.push(
+      `Placement statik: ${placementProgressLabel(profile)} — satu soalan setiap turn sehingga lengkap.`,
+    );
+  } else if (profile.checkpoint?.active) {
+    parts.push(
+      `Checkpoint 2 minggu: ${checkpointProgressLabel(profile)} — banding kemajuan vs diri sendiri, bukan pelajar lain.`,
+    );
   }
 
   return parts.join('\n');

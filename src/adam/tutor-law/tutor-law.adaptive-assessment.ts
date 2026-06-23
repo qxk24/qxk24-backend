@@ -64,6 +64,16 @@ export const KNOWLEDGE_CONCEPT_GRAPH: Readonly<Record<string, {
   'reading.comprehension':             { label: 'Reading Comprehension', parent: 'reading' },
   'speaking.pronunciation':            { label: 'Speaking — Pronunciation', parent: 'speaking' },
   'speaking.fluency':                  { label: 'Speaking — Fluency', parent: 'speaking' },
+  'math.arithmetic.addition':          { label: 'Matematik — Tambah', parent: 'math.arithmetic' },
+  'math.arithmetic.subtraction':       { label: 'Matematik — Tolak', parent: 'math.arithmetic' },
+  'math.arithmetic.multiplication':    { label: 'Matematik — Darab', parent: 'math.arithmetic' },
+  'math.arithmetic.division':          { label: 'Matematik — Bahagi', parent: 'math.arithmetic' },
+  'math.fractions.operations':         { label: 'Matematik — Pecahan', parent: 'math.fractions' },
+  'math.percentage.basic':             { label: 'Matematik — Peratus', parent: 'math.percentage' },
+  'bm.spelling':                       { label: 'BM — Ejaan', parent: 'bm' },
+  'bm.grammar.connectors':             { label: 'BM — Kata Hubung', parent: 'bm.grammar' },
+  'bm.grammar.affixes':                { label: 'BM — Imbuhan', parent: 'bm.grammar' },
+  'bm.writing.structure':              { label: 'BM — Struktur Karangan', parent: 'bm.writing' },
 };
 
 const CONCEPT_ERROR_SIGNALS: Readonly<Record<string, RegExp>> = {
@@ -95,6 +105,7 @@ export interface AdaptiveAssessmentTurnContext {
   turnIndex?:              number;
   learningProfile?:        AdamTutorLearningProfile | null;
   placementPrompt?:        string | null;
+  checkpointPrompt?:       string | null;
 }
 
 export const ADAM_TUTOR_ADAPTIVE_ETHICS_LAW = `
@@ -261,10 +272,10 @@ export function buildKnowledgeGraphHint(conceptTags: string[]): string {
 
 export function buildPlacementProbeTurn(): string {
   return (
-    'Adaptive placement (satu soalan turn ini):\n'
-    + '1 soalan sahaja — mudah→sederhana→mencabar berdasarkan jawapan lepas.\n'
-    + 'Betul → naik kesukaran; salah → kekal atau turun satu tangga.\n'
-    + 'Jangan hantar 5 soalan sekali gus; jangan umumkan "IQ" atau label pelajar.'
+    'Placement statik MVP (satu soalan turn ini, 20 soalan tetap keseluruhan):\n'
+    + 'Guna PLACEMENT ITEM dari prompt — jangan cipta soalan lain.\n'
+    + 'Satu soalan sahaja setiap turn; jangan hantar berbilang soalan sekali gus.\n'
+    + 'Jangan umumkan "IQ" atau label pelajar pintar/lemah.'
   );
 }
 
@@ -280,9 +291,9 @@ export function buildOnboardingSelfAssessmentProbe(): string {
 
 export function buildCheckpointReportProbe(): string {
   return (
-    'Checkpoint (2 minggu / atas permintaan):\n'
-    + 'Ringkas: kemajuan vs diri sendiri, 2 kuat, 1 fokus seterusnya, 1 cabaran 5 minit.\n'
-    + 'Jangan banding dengan pelajar lain; guna bahasa growth mindset.'
+    'Checkpoint 2 minggu (6 soalan mini, satu per turn):\n'
+    + 'Buka dengan tawaran ringkas 5 minit — banding kemajuan vs diri sendiri semasa placement/lepas.\n'
+    + 'Selepas selesai: 2 kuat, 1 fokus ZPD, tanpa label IQ atau banding pelajar lain.'
   );
 }
 
@@ -360,6 +371,16 @@ export function buildAdaptiveAssessmentTurnLaw(
   }
   if (ctx.placementPrompt) {
     parts.push(`PLACEMENT ITEM (turn ini — satu soalan sahaja):\n${ctx.placementPrompt}`);
+  }
+
+  if (ctx.checkpointPrompt) {
+    parts.push(
+      'CHECKPOINT ITEM (turn ini — satu soalan sahaja, 6 soalan keseluruhan):\n'
+      + ctx.checkpointPrompt,
+    );
+    if ((ctx.learningProfile?.checkpoint?.questionsAnswered ?? 0) === 0) {
+      parts.push(buildCheckpointReportProbe());
+    }
   }
 
   const emotional = emotionalAdaptationHint(emotion);
