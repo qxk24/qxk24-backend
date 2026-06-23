@@ -36,6 +36,8 @@ export interface StreamADAMChatOptions {
   tutorProfile?:      AdamTutorProfile;
   /** ERA_2c — student sent message via browser STT microphone */
   viaVoice?:          boolean;
+  /** ERA_2h — client-measured response time since last ADAM prompt (ms) */
+  responseMs?:        number;
   /** ADAM Niaga lane — trader business profile */
   niagaProfile?:      import('./adam-niaga-law').AdamNiagaBusinessProfile;
   /** R&D Industry — project context for RESEARCH mode */

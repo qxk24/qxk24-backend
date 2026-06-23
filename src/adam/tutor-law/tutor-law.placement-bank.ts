@@ -2,7 +2,7 @@
  * ============================================================
  * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
- * Module      : ADAM Tutor Placement Item Bank (MVP static 20)
+ * Module      : ADAM Tutor Placement Item Bank (20 items, IRT-ready)
  * Platform    : Backend (TypeScript)
  * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
@@ -22,9 +22,7 @@ export interface PlacementItem {
   acceptPatterns:   readonly RegExp[];
 }
 
-/** MVP Fasa 1 — same 20 questions, fixed order, for every student. */
-export const PLACEMENT_TARGET_QUESTIONS = 20;
-
+/** Legacy static order — used when placement.mode === 'static'. */
 export const STATIC_PLACEMENT_ORDER: readonly string[] = [
   'pl-past-go',
   'pl-math-add-20',
@@ -47,6 +45,8 @@ export const STATIC_PLACEMENT_ORDER: readonly string[] = [
   'pl-writing-linker',
   'pl-math-pct-20',
 ] as const;
+
+export const PLACEMENT_TARGET_QUESTIONS = 20;
 
 export const PLACEMENT_ITEM_BANK: readonly PlacementItem[] = [
   {
@@ -181,7 +181,7 @@ export function getStaticPlacementItemByIndex(index: number): PlacementItem | nu
   return getPlacementItemById(id);
 }
 
-/** @deprecated Adaptive pick — retained for tests; production uses static order. */
+/** Legacy nearest-difficulty pick — superseded by selectNextIrtItem (ERA_2f). */
 export function selectNextPlacementItem(
   ability: number,
   excludeIds: readonly string[],

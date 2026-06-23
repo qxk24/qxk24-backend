@@ -34,12 +34,17 @@ import {
 } from './adam-tutor-register-code.service';
 import { creditTutorAgentCommission } from './adam-tutor-agent-wallet.service';
 import { FOUNDER_USER_ID } from '../adam-student.types';
+import type { TutorSubscriptionLevel } from '../../subscriptions/subscription.schema';
+import type { GuardianRelationship } from './adam-tutor-parent-guardian.schema';
 import {
   TutorEnrollmentModel,
   TutorEnrollmentStatus,
   type ITutorEnrollment,
 } from './adam-tutor-enrollment.schema';
-import type { TutorSubscriptionLevel } from '../../subscriptions/subscription.schema';
+import {
+  normalizeSubjectsTaken,
+  upsertParentGuardian,
+} from './adam-tutor-parent.service';
 
 export function newTutorEnrollmentId(): string {
   return `TUTOR-ENR-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
@@ -57,6 +62,7 @@ export interface TutorEnrollmentPublic {
   state:         string | null;
   yearLabel:     string | null;
   language:      string | null;
+  subjectsTaken: string[];
   paidAt:        string | null;
   completedAt:   string | null;
 }
@@ -74,6 +80,7 @@ function toPublic(doc: ITutorEnrollment): TutorEnrollmentPublic {
     state:        doc.state,
     yearLabel:    doc.yearLabel,
     language:     doc.language,
+    subjectsTaken: doc.subjectsTaken ?? [],
     paidAt:       doc.paidAt?.toISOString() ?? null,
     completedAt:  doc.completedAt?.toISOString() ?? null,
   };
@@ -238,14 +245,23 @@ export async function markTutorEnrollmentPaid(input: {
 export async function completeTutorEnrollmentProfile(
   userId: string,
   input: {
-    studentName: string;
-    schoolName:  string;
-    state:       string;
-    yearLabel?:  string;
-    language?:   string;
-    curriculum?: string;
+    studentName:      string;
+    schoolName:       string;
+    state:            string;
+    yearLabel?:       string;
+    language?:        string;
+    curriculum?:      string;
+    subjectsTaken?:   string[];
+    guardianName?:    string;
+    guardianEmail?:   string;
+    guardianRelationship?: GuardianRelationship;
+    guardianConsent?: boolean;
   },
-): Promise<TutorEnrollmentPublic> {
+): Promise<{
+  enrollment:          TutorEnrollmentPublic;
+  parentAccessToken?:  string;
+  parentGuardianHint?: string;
+}> {
   const enrollment = await TutorEnrollmentModel.findOne({ userId });
   if (!enrollment) {
     throw new Error('Tiada pendaftaran PIN. Sila masukkan PIN anda.');
@@ -304,10 +320,32 @@ export async function completeTutorEnrollmentProfile(
   enrollment.state = state;
   enrollment.yearLabel = input.yearLabel?.trim() || null;
   enrollment.language = language;
+  enrollment.subjectsTaken = normalizeSubjectsTaken(input.subjectsTaken);
   enrollment.status = TutorEnrollmentStatus.PROFILE_SAVED;
   await enrollment.save();
 
-  return toPublic(enrollment);
+  let parentAccessToken: string | undefined;
+  let parentGuardianHint: string | undefined;
+
+  const guardianName = input.guardianName?.trim();
+  const guardianEmail = input.guardianEmail?.trim();
+  if (guardianName && guardianEmail && input.guardianConsent === true) {
+    const linked = await upsertParentGuardian({
+      studentUserId: userId,
+      guardianName,
+      guardianEmail,
+      relationship: input.guardianRelationship,
+      consent:      true,
+    });
+    parentAccessToken = linked.parentAccessToken;
+    parentGuardianHint = linked.guardian.accessTokenHint;
+  }
+
+  return {
+    enrollment: toPublic(enrollment),
+    parentAccessToken,
+    parentGuardianHint,
+  };
 }
 
 export async function resolveTutorEnrollmentAccess(userId: string): Promise<{

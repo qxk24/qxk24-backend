@@ -55,7 +55,20 @@ import {
   lockTutorEnrollmentCode,
   resolveTutorEnrollmentAccess,
 } from '../../adam/tutor/adam-tutor-enrollment.service';
-import { getTutorLearningProfile } from '../../adam/adam-tutor-learning-profile.service';
+import {
+  getTutorLearningProfile,
+  getTutorLearningProgress,
+} from '../../adam/adam-tutor-learning-profile.service';
+import {
+  buildParentDashboard,
+  buildParentReportForStudent,
+  resolveParentGuardianByToken,
+} from '../../adam/tutor/adam-tutor-parent.service';
+import { listSubjectsForBand } from '../../adam/tutor-law/tutor-law.curriculum-catalog';
+import {
+  getParentGuardian,
+  requireParentGuardian,
+} from '../../middleware/adam-tutor-parent.middleware';
 import {
   createTutorRegisterCheckoutSession,
   resolveStudentEmail,
@@ -138,6 +151,22 @@ const ProfileCompleteSchema = z.object({
   curriculum: z.enum([
     'national', 'kpm', 'cambridge', 'mixed', 'international', 'us', 'uk', 'other',
   ]).optional(),
+  subjectsTaken: z.array(z.string().min(2).max(40)).max(16).optional(),
+  guardianName:  z.string().min(2).max(80).optional(),
+  guardianEmail: z.string().email().max(120).optional(),
+  guardianRelationship: z.enum(['mother', 'father', 'guardian', 'other']).optional(),
+  guardianConsent:      z.boolean().optional(),
+}).refine(
+  (d) => {
+    const hasGuardian = Boolean(d.guardianName?.trim() && d.guardianEmail?.trim());
+    if (!hasGuardian) return true;
+    return d.guardianConsent === true;
+  },
+  { message: 'Kebenaran penjaga diperlukan untuk portal ibu bapa.' },
+);
+
+const ParentSessionSchema = z.object({
+  accessToken: z.string().min(16).max(200),
 });
 
 const AdminGenerateSchema = z.object({
@@ -408,6 +437,73 @@ router.get('/learning-profile', requireStudent, async (c) => {
   });
 });
 
+// GET /api/adam/tutor/curriculum/subjects — public; subjects by school band
+router.get('/curriculum/subjects', async (c) => {
+  const band = c.req.query('band')?.trim() as 'primary' | 'secondary' | 'university' | undefined;
+  const valid = band === 'primary' || band === 'secondary' || band === 'university'
+    ? band
+    : 'secondary';
+  const subjects = listSubjectsForBand(valid);
+  return c.json({
+    success: true,
+    kernel:  'ALAMTOLOGI',
+    data:    { band: valid, subjects },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// POST /api/adam/tutor/parent/session — validate parent access token
+router.post('/parent/session', zValidator('json', ParentSessionSchema), async (c) => {
+  const { accessToken } = c.req.valid('json');
+  const guardian = await resolveParentGuardianByToken(accessToken);
+  if (!guardian) {
+    return c.json({ success: false, error: 'Token tidak sah.', kernel: 'ALAMTOLOGI' }, 401);
+  }
+  const dashboard = await buildParentDashboard(guardian, '/adam/tutor/parent');
+  return c.json({
+    success: true,
+    kernel:  'ALAMTOLOGI',
+    data:    { dashboard, accessTokenHint: guardian.accessTokenHint },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /api/adam/tutor/parent/dashboard — parent portal (X-Parent-Access-Token)
+router.get('/parent/dashboard', requireParentGuardian, async (c) => {
+  const guardian = getParentGuardian(c);
+  const dashboard = await buildParentDashboard(guardian, '/adam/tutor/parent');
+  return c.json({
+    success: true,
+    kernel:  'ALAMTOLOGI',
+    data:    { dashboard },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /api/adam/tutor/parent/report — weekly | monthly
+router.get('/parent/report', requireParentGuardian, async (c) => {
+  const guardian = getParentGuardian(c);
+  const kind = c.req.query('kind') === 'monthly' ? 'monthly' : 'weekly';
+  const report = await buildParentReportForStudent(guardian.studentUserId, kind);
+  return c.json({
+    success: true,
+    kernel:  'ALAMTOLOGI',
+    data:    { report },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /api/adam/tutor/learning-progress — auth; ERA_2h metrics from event log
+router.get('/learning-progress', requireStudent, async (c) => {
+  const progress = await getTutorLearningProgress(userId(c));
+  return c.json({
+    success: true,
+    kernel:  'ALAMTOLOGI',
+    data:    { progress },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // POST /api/adam/tutor/register/code/lock — auth; lock kod to student
 router.post('/register/code/lock', requireStudent, zValidator('json', CodeLockSchema), async (c) => {
   try {
@@ -500,11 +596,15 @@ router.post('/register/sync-payment', requireStudent, async (c) => {
 // POST /api/adam/tutor/register/complete — auth; profile form after PIN (before pay)
 router.post('/register/complete', requireStudent, zValidator('json', ProfileCompleteSchema), async (c) => {
   try {
-    const enrollment = await completeTutorEnrollmentProfile(userId(c), c.req.valid('json'));
+    const result = await completeTutorEnrollmentProfile(userId(c), c.req.valid('json'));
     return c.json({
       success: true,
       kernel:  'ALAMTOLOGI',
-      data:    { enrollment },
+      data:    {
+        enrollment:         result.enrollment,
+        parentAccessToken:  result.parentAccessToken,
+        parentGuardianHint: result.parentGuardianHint,
+      },
       message: 'Profil disimpan. Teruskan ke bayaran.',
       timestamp: new Date().toISOString(),
     });

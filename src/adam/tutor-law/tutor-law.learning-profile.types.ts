@@ -20,6 +20,23 @@
 import type { PlacementSubject } from './tutor-law.placement-bank';
 import { PLACEMENT_TARGET_QUESTIONS } from './tutor-law.placement-bank';
 
+export const MAX_INTERACTION_LOG = 100;
+
+export type PlacementMode = 'static' | 'irt';
+
+export type LearningInteractionKind = 'placement' | 'checkpoint' | 'drill' | 'probe' | 'reading' | 'voice';
+
+export interface LearningInteractionEvent {
+  at:           string;
+  kind:         LearningInteractionKind;
+  contentId:    string;
+  conceptTag:   string;
+  subject:      PlacementSubject;
+  correct:      boolean;
+  responseMs?:  number;
+  thetaAfter?:  number;
+}
+
 export interface ConceptMasteryRecord {
   pMastery:      number;
   attempts:      number;
@@ -38,6 +55,9 @@ export interface PlacementSessionState {
   questionsAnswered:  number;
   abilityEstimate:    number;
   awaitingAnswer:     boolean;
+  mode?:              PlacementMode;
+  abilitySe?:         number;
+  perSubjectTheta?:   Partial<Record<PlacementSubject, number>>;
   subjectScores?:     Partial<Record<PlacementSubject, PlacementSubjectScore>>;
 }
 
@@ -99,8 +119,19 @@ export interface TutorVoiceAssessmentState {
   recent:           VoiceAssessmentRecord[];
 }
 
+export interface ContentSessionState {
+  lastContentId:     string | null;
+  lastContentAt:     string | null;
+  recentContentIds:  string[];
+  weeklyBySubject:   Partial<Record<PlacementSubject, number>>;
+  /** ISO date (YYYY-MM-DD) of Monday for current weekly bucket — ERA_2h */
+  weeklyWeekStart?:  string | null;
+  currentContentId:  string | null;
+  awaitingAnswer:    boolean;
+}
+
 export interface AdamTutorLearningProfile {
-  version:              1;
+  version:              1 | 2;
   placementComplete:      boolean;
   placementAbility:     number;
   estimatedCefr:        string;
@@ -121,13 +152,39 @@ export interface AdamTutorLearningProfile {
   checkpoint?:            CheckpointSessionState;
   checkpointHistory?:     CheckpointHistoryRecord[];
   lastCheckpointAt?:      string;
+  interactionLog?:        LearningInteractionEvent[];
+  content?:               ContentSessionState;
   updatedAt:              string;
+}
+
+export function appendInteractionEvent(
+  profile: AdamTutorLearningProfile,
+  event: LearningInteractionEvent,
+): void {
+  const log = profile.interactionLog ?? [];
+  profile.interactionLog = [event, ...log].slice(0, MAX_INTERACTION_LOG);
+}
+
+export function isPlacementIrtMode(placement?: PlacementSessionState): boolean {
+  return placement?.mode !== 'static';
+}
+
+export function defaultContentSession(): ContentSessionState {
+  return {
+    lastContentId:     null,
+    lastContentAt:     null,
+    recentContentIds:  [],
+    weeklyBySubject:   {},
+    weeklyWeekStart:   null,
+    currentContentId:  null,
+    awaitingAnswer:    false,
+  };
 }
 
 export function defaultTutorLearningProfile(now = new Date()): AdamTutorLearningProfile {
   const iso = now.toISOString();
   return {
-    version:           1,
+    version:           2,
     placementComplete: false,
     placementAbility:  0,
     estimatedCefr:     'UNKNOWN',
@@ -167,8 +224,13 @@ export function defaultTutorLearningProfile(now = new Date()): AdamTutorLearning
       questionsAnswered:   0,
       abilityEstimate:     0,
       awaitingAnswer:      false,
+      mode:                'irt',
+      abilitySe:           1,
+      perSubjectTheta:     {},
       subjectScores:       {},
     },
+    interactionLog:        [],
+    content:               defaultContentSession(),
     updatedAt: iso,
   };
 }

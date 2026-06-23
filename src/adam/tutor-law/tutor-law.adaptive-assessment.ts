@@ -106,6 +106,8 @@ export interface AdaptiveAssessmentTurnContext {
   learningProfile?:        AdamTutorLearningProfile | null;
   placementPrompt?:        string | null;
   checkpointPrompt?:       string | null;
+  contentPrompt?:          string | null;
+  contentId?:              string | null;
 }
 
 export const ADAM_TUTOR_ADAPTIVE_ETHICS_LAW = `
@@ -272,8 +274,9 @@ export function buildKnowledgeGraphHint(conceptTags: string[]): string {
 
 export function buildPlacementProbeTurn(): string {
   return (
-    'Placement statik MVP (satu soalan turn ini, 20 soalan tetap keseluruhan):\n'
+    'Placement adaptif IRT (satu soalan turn ini, 12–20 soalan keseluruhan):\n'
     + 'Guna PLACEMENT ITEM dari prompt — jangan cipta soalan lain.\n'
+    + 'Kesukaran soalan menyesuaikan jawapan pelajar (bukan IQ).\n'
     + 'Satu soalan sahaja setiap turn; jangan hantar berbilang soalan sekali gus.\n'
     + 'Jangan umumkan "IQ" atau label pelajar pintar/lemah.'
   );
@@ -381,6 +384,10 @@ export function buildAdaptiveAssessmentTurnLaw(
     if ((ctx.learningProfile?.checkpoint?.questionsAnswered ?? 0) === 0) {
       parts.push(buildCheckpointReportProbe());
     }
+  }
+
+  if (ctx.contentPrompt) {
+    parts.push(ctx.contentPrompt);
   }
 
   const emotional = emotionalAdaptationHint(emotion);

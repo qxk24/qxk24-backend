@@ -33,6 +33,7 @@ import {
   recordConceptAttempt,
   recomputeProfileAggregates,
 } from './tutor-law.learning-profile-bkt';
+import { appendInteractionEvent } from './tutor-law.learning-profile.types';
 
 function bumpSubjectScore(
   scores: Partial<Record<PlacementSubject, PlacementSubjectScore>>,
@@ -125,6 +126,7 @@ export function applyCheckpointAnswer(
   profile: AdamTutorLearningProfile,
   item: PlacementItem,
   answer: string,
+  responseMs?: number,
   now = new Date(),
 ): AdamTutorLearningProfile {
   const next: AdamTutorLearningProfile = JSON.parse(JSON.stringify(profile));
@@ -151,6 +153,17 @@ export function applyCheckpointAnswer(
   }
 
   recordConceptAttempt(next, item.conceptTag, correct, now);
+
+  appendInteractionEvent(next, {
+    at:          now.toISOString(),
+    kind:        'checkpoint',
+    contentId:   item.id,
+    conceptTag:  item.conceptTag,
+    subject:     item.subject,
+    correct,
+    responseMs,
+    thetaAfter:  next.placementAbility,
+  });
 
   const nextItem = getCheckpointItemByIndex(
     checkpoint.itemIds,

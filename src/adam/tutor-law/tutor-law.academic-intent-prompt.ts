@@ -166,6 +166,8 @@ export function buildAcademicIntentTurnPromptParts(
     learningProfile?: import('./tutor-law.learning-profile.types').AdamTutorLearningProfile;
     placementPrompt?: string | null;
     checkpointPrompt?: string | null;
+    contentPrompt?:   string | null;
+    contentId?:       string | null;
     viaVoice?:        boolean;
   },
 ): string[] {
@@ -227,6 +229,8 @@ export function buildAcademicIntentTurnPromptParts(
     learningProfile:         context?.learningProfile,
     placementPrompt:         context?.placementPrompt,
     checkpointPrompt:        context?.checkpointPrompt,
+    contentPrompt:           context?.contentPrompt,
+    contentId:               context?.contentId,
     stuckCount:              context?.learningProfile?.stealth.stuckStreak,
   });
   if (adaptiveLaw) parts.push(adaptiveLaw);

@@ -40,6 +40,7 @@ export interface ITutorEnrollment extends Document {
   state:          string | null;
   yearLabel:      string | null;
   language:       string | null;
+  subjectsTaken:  string[];
   paidAt:         Date | null;
   completedAt:    Date | null;
   createdAt:      Date;
@@ -67,6 +68,7 @@ const TutorEnrollmentSchema = new Schema<ITutorEnrollment>(
     state:           { type: String, default: null },
     yearLabel:       { type: String, default: null },
     language:        { type: String, default: null },
+    subjectsTaken:   { type: [String], default: [] },
     paidAt:          { type: Date, default: null },
     completedAt:     { type: Date, default: null },
   },

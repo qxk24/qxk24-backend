@@ -275,6 +275,9 @@ export async function finishAdamChatTurn(input: {
       userId:                  shell.participant.userId,
       userMessage:             shell.userMessage,
       viaVoice:                shell.options.viaVoice === true,
+      responseMs:              typeof shell.options.responseMs === 'number'
+        ? shell.options.responseMs
+        : undefined,
       recentUserMessages:      input.turnBrainMeta?.recentUserMessages,
       recentAssistantMessages: input.turnBrainMeta?.recentAssistantMessages,
     }).catch((err) => console.error('[ADAM Tutor] learning profile update:', err));

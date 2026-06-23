@@ -56,6 +56,8 @@ export interface AdamChatSystemPromptParams {
   tutorLearningProfile?:   import('./tutor-law/tutor-law.learning-profile.types').AdamTutorLearningProfile;
   tutorPlacementPrompt?:   string | null;
   tutorCheckpointPrompt?:  string | null;
+  tutorContentPrompt?:     string | null;
+  tutorContentId?:         string | null;
   /** ERA_2c — voice/STT turn from student microphone */
   viaVoice?:               boolean;
   /** ADAM Niaga lane — Malaysia SME business profile */

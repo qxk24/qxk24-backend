@@ -16,16 +16,29 @@ import type {
   PlacementSessionState,
   PlacementSubjectScore,
 } from './tutor-law.learning-profile.types';
-import { placementProgressLabel } from './tutor-law.learning-profile.types';
+import {
+  appendInteractionEvent,
+  isPlacementIrtMode,
+  placementProgressLabel,
+} from './tutor-law.learning-profile.types';
 import { checkpointProgressLabel } from './tutor-law.learning-profile-checkpoint';
 import type { VoiceAssessmentResult } from './tutor-law.voice-assessment';
 import { KNOWLEDGE_CONCEPT_GRAPH } from './tutor-law.adaptive-assessment';
+import {
+  abilityStandardError,
+  getPlacementItemsByIds,
+  selectNextIrtItem,
+  shouldStopPlacement,
+  subjectCountsFromPlacement,
+  updateAbilityEap,
+} from './tutor-law.irt-engine';
 import {
   abilityToCefr,
   detectBmLevelFromPercent,
   detectEnglishLevelFromAbility,
   detectMathLevelFromPercent,
   getStaticPlacementItemByIndex,
+  PLACEMENT_ITEM_BANK,
   PLACEMENT_TARGET_QUESTIONS,
   scorePlacementAnswer,
   xpToLevelLabel,
@@ -119,6 +132,163 @@ function touchConcept(
   };
 }
 
+function defaultPlacementMode(profile: AdamTutorLearningProfile): 'static' | 'irt' {
+  if (profile.placement?.mode) return profile.placement.mode;
+  if (profile.version === 1 && profile.placementComplete) return 'static';
+  return 'irt';
+}
+
+function ensurePlacementState(
+  profile: AdamTutorLearningProfile,
+  partial?: PlacementSessionState,
+): PlacementSessionState {
+  const base = profile.placement ?? {
+    itemIdsAsked:      [],
+    currentItemId:     null,
+    questionsAnswered: 0,
+    abilityEstimate:   profile.placementAbility,
+    awaitingAnswer:    false,
+    subjectScores:     {},
+  };
+
+  const mode = partial?.mode ?? base.mode ?? defaultPlacementMode(profile);
+
+  return {
+    ...base,
+    ...partial,
+    mode,
+    abilitySe:         partial?.abilitySe ?? base.abilitySe ?? 1,
+    perSubjectTheta:   { ...base.perSubjectTheta, ...partial?.perSubjectTheta },
+    subjectScores:     { ...base.subjectScores, ...partial?.subjectScores },
+  };
+}
+
+function logPlacementInteraction(
+  profile: AdamTutorLearningProfile,
+  item: PlacementItem,
+  correct: boolean,
+  thetaAfter: number,
+  now: Date,
+  responseMs?: number,
+): void {
+  appendInteractionEvent(profile, {
+    at:         now.toISOString(),
+    kind:       'placement',
+    contentId:  item.id,
+    conceptTag: item.conceptTag,
+    subject:    item.subject,
+    correct,
+    thetaAfter,
+    responseMs,
+  });
+}
+
+function selectNextPlacementItemForProfile(
+  placement: PlacementSessionState,
+): PlacementItem | null {
+  if (placement.mode === 'static') {
+    return getStaticPlacementItemByIndex(placement.questionsAnswered);
+  }
+
+  return selectNextIrtItem({
+    theta:          placement.abilityEstimate,
+    pool:           PLACEMENT_ITEM_BANK,
+    excludeIds:     new Set(placement.itemIdsAsked),
+    subjectCounts:  subjectCountsFromPlacement(placement),
+  });
+}
+
+function applyIrtPlacementAnswer(
+  next: AdamTutorLearningProfile,
+  placement: PlacementSessionState,
+  item: PlacementItem,
+  correct: boolean,
+  now: Date,
+  responseMs?: number,
+): void {
+  placement.questionsAnswered += 1;
+
+  placement.abilityEstimate = updateAbilityEap(
+    placement.abilityEstimate,
+    item.difficulty,
+    correct,
+  );
+  next.placementAbility = placement.abilityEstimate;
+
+  const perSubject = { ...placement.perSubjectTheta };
+  const subjectPrior = perSubject[item.subject] ?? placement.abilityEstimate;
+  perSubject[item.subject] = updateAbilityEap(subjectPrior, item.difficulty, correct);
+  placement.perSubjectTheta = perSubject;
+
+  bumpSubjectScore(placement, item.subject, correct);
+  touchConcept(next, item.conceptTag, correct, now);
+  logPlacementInteraction(next, item, correct, placement.abilityEstimate, now, responseMs);
+
+  const answeredItems = getPlacementItemsByIds(placement.itemIdsAsked);
+  placement.abilitySe = abilityStandardError(placement.abilityEstimate, answeredItems);
+
+  const counts = subjectCountsFromPlacement(placement);
+  const stop = shouldStopPlacement(
+    placement.questionsAnswered,
+    placement.abilitySe,
+    counts,
+  );
+
+  if (stop) {
+    next.placementComplete = true;
+    next.placementCompletedAt = now.toISOString();
+    placement.currentItemId = null;
+    placement.awaitingAnswer = false;
+    finalizeSubjectLevels(next);
+    return;
+  }
+
+  const nextItem = selectNextPlacementItemForProfile(placement);
+  if (nextItem && !placement.itemIdsAsked.includes(nextItem.id)) {
+    placement.itemIdsAsked.push(nextItem.id);
+  }
+  placement.currentItemId = nextItem?.id ?? null;
+  placement.awaitingAnswer = false;
+  next.estimatedCefr = abilityToCefr(placement.abilityEstimate);
+}
+
+function applyStaticPlacementAnswer(
+  next: AdamTutorLearningProfile,
+  placement: PlacementSessionState,
+  item: PlacementItem,
+  correct: boolean,
+  now: Date,
+  responseMs?: number,
+): void {
+  placement.questionsAnswered += 1;
+  placement.abilityEstimate = Math.max(
+    -3,
+    Math.min(3, placement.abilityEstimate + (correct ? 0.5 : -0.5)),
+  );
+  next.placementAbility = placement.abilityEstimate;
+  bumpSubjectScore(placement, item.subject, correct);
+  touchConcept(next, item.conceptTag, correct, now);
+  logPlacementInteraction(next, item, correct, placement.abilityEstimate, now, responseMs);
+
+  const nextItem = getStaticPlacementItemByIndex(placement.questionsAnswered);
+  if (nextItem && !placement.itemIdsAsked.includes(nextItem.id)) {
+    placement.itemIdsAsked.push(nextItem.id);
+  }
+  placement.currentItemId = nextItem?.id ?? null;
+
+  if (placement.questionsAnswered >= PLACEMENT_TARGET_QUESTIONS || !nextItem) {
+    next.placementComplete = true;
+    next.placementCompletedAt = now.toISOString();
+    placement.currentItemId = null;
+    placement.awaitingAnswer = false;
+    finalizeSubjectLevels(next);
+  } else {
+    placement.currentItemId = nextItem.id;
+    placement.awaitingAnswer = false;
+    next.estimatedCefr = abilityToCefr(placement.abilityEstimate);
+  }
+}
+
 function bumpSubjectScore(
   placement: PlacementSessionState,
   subject: PlacementSubject,
@@ -208,6 +378,7 @@ export function applyStealthTurnUpdate(
   stealth: StealthAssessmentSnapshot,
   emotion: LearnerEmotionalSignal,
   conceptTags: string[],
+  responseMs?: number,
   now = new Date(),
 ): AdamTutorLearningProfile {
   const next: AdamTutorLearningProfile = JSON.parse(JSON.stringify(profile));
@@ -234,6 +405,24 @@ export function applyStealthTurnUpdate(
     touchConcept(next, tag, inferredCorrect, now);
   }
 
+  if (conceptTags.length > 0) {
+    const primaryTag = conceptTags[0];
+    const subject: PlacementSubject = primaryTag.startsWith('math.')
+      ? 'math'
+      : primaryTag.startsWith('bm.')
+        ? 'bm'
+        : 'english';
+    appendInteractionEvent(next, {
+      at:          now.toISOString(),
+      kind:        'probe',
+      contentId:   `stealth-${next.stealth.totalTurns}`,
+      conceptTag:  primaryTag,
+      subject,
+      correct:     inferredCorrect,
+      responseMs,
+    });
+  }
+
   recomputeOverallMastery(next);
   recomputeStrengthsAndFocus(next);
   next.updatedAt = now.toISOString();
@@ -245,22 +434,29 @@ export function startPlacementSession(
   profile: AdamTutorLearningProfile,
 ): { profile: AdamTutorLearningProfile; item: PlacementItem | null } {
   const next: AdamTutorLearningProfile = JSON.parse(JSON.stringify(profile));
-  next.placement = next.placement ?? {
-    itemIdsAsked:      [],
-    currentItemId:     null,
-    questionsAnswered: 0,
-    abilityEstimate:   next.placementAbility,
-    awaitingAnswer:    false,
-    subjectScores:     {},
-  };
+  const placement = ensurePlacementState(next, next.placement);
+  next.placement = placement;
 
-  const index = next.placement.questionsAnswered;
-  const item = getStaticPlacementItemByIndex(index);
-  if (item) {
-    next.placement.currentItemId = item.id;
-    next.placement.awaitingAnswer = false;
-    if (!next.placement.itemIdsAsked.includes(item.id)) {
-      next.placement.itemIdsAsked.push(item.id);
+  let item: PlacementItem | null = null;
+
+  if (isPlacementIrtMode(placement)) {
+    item = selectNextPlacementItemForProfile(placement);
+    if (item) {
+      placement.currentItemId = item.id;
+      placement.awaitingAnswer = false;
+      if (!placement.itemIdsAsked.includes(item.id)) {
+        placement.itemIdsAsked.push(item.id);
+      }
+    }
+  } else {
+    const index = placement.questionsAnswered;
+    item = getStaticPlacementItemByIndex(index);
+    if (item) {
+      placement.currentItemId = item.id;
+      placement.awaitingAnswer = false;
+      if (!placement.itemIdsAsked.includes(item.id)) {
+        placement.itemIdsAsked.push(item.id);
+      }
     }
   }
 
@@ -271,44 +467,17 @@ export function applyPlacementAnswer(
   profile: AdamTutorLearningProfile,
   item: PlacementItem,
   answer: string,
+  responseMs?: number,
   now = new Date(),
 ): AdamTutorLearningProfile {
   const next: AdamTutorLearningProfile = JSON.parse(JSON.stringify(profile));
-  const placement: PlacementSessionState = next.placement ?? {
-    itemIdsAsked:      [],
-    currentItemId:     null,
-    questionsAnswered: 0,
-    abilityEstimate:   next.placementAbility,
-    awaitingAnswer:    false,
-    subjectScores:     {},
-  };
-
+  const placement = ensurePlacementState(next, next.placement);
   const correct = scorePlacementAnswer(item, answer);
-  placement.questionsAnswered += 1;
-  placement.abilityEstimate = Math.max(
-    -3,
-    Math.min(3, placement.abilityEstimate + (correct ? 0.5 : -0.5)),
-  );
-  next.placementAbility = placement.abilityEstimate;
-  bumpSubjectScore(placement, item.subject, correct);
-  touchConcept(next, item.conceptTag, correct, now);
 
-  const nextItem = getStaticPlacementItemByIndex(placement.questionsAnswered);
-  if (nextItem && !placement.itemIdsAsked.includes(nextItem.id)) {
-    placement.itemIdsAsked.push(nextItem.id);
-  }
-  placement.currentItemId = nextItem?.id ?? null;
-
-  if (placement.questionsAnswered >= PLACEMENT_TARGET_QUESTIONS || !nextItem) {
-    next.placementComplete = true;
-    next.placementCompletedAt = now.toISOString();
-    placement.currentItemId = null;
-    placement.awaitingAnswer = false;
-    finalizeSubjectLevels(next);
+  if (isPlacementIrtMode(placement)) {
+    applyIrtPlacementAnswer(next, placement, item, correct, now, responseMs);
   } else {
-    placement.currentItemId = nextItem.id;
-    placement.awaitingAnswer = false;
-    next.estimatedCefr = abilityToCefr(placement.abilityEstimate);
+    applyStaticPlacementAnswer(next, placement, item, correct, now, responseMs);
   }
 
   next.placement = placement;
@@ -322,6 +491,7 @@ export function applyPlacementAnswer(
 export function applyVoiceTurnUpdate(
   profile: AdamTutorLearningProfile,
   assessment: VoiceAssessmentResult,
+  responseMs?: number,
   now = new Date(),
 ): AdamTutorLearningProfile {
   const next: AdamTutorLearningProfile = JSON.parse(JSON.stringify(profile));
@@ -351,6 +521,16 @@ export function applyVoiceTurnUpdate(
   const correct = assessment.combinedScore >= 0.55;
   touchConcept(next, 'speaking.pronunciation', correct, now);
   touchConcept(next, 'speaking.fluency', assessment.fluencyScore >= 0.5, now);
+
+  appendInteractionEvent(next, {
+    at:          now.toISOString(),
+    kind:        'voice',
+    contentId:   assessment.targetPhrase ?? `voice-session-${sessions}`,
+    conceptTag:  'speaking.pronunciation',
+    subject:     'english',
+    correct,
+    responseMs,
+  });
 
   recomputeOverallMastery(next);
   recomputeStrengthsAndFocus(next);
@@ -413,8 +593,14 @@ export function buildLearningProfilePromptSummary(
     );
   }
   if (!profile.placementComplete) {
+    const modeLabel = isPlacementIrtMode(profile.placement)
+      ? 'Placement adaptif (IRT)'
+      : 'Placement statik';
+    const seNote = profile.placement?.abilitySe != null
+      ? `, SE≈${profile.placement.abilitySe.toFixed(2)}`
+      : '';
     parts.push(
-      `Placement statik: ${placementProgressLabel(profile)} — satu soalan setiap turn sehingga lengkap.`,
+      `${modeLabel}: ${placementProgressLabel(profile)}${seNote} — satu soalan setiap turn sehingga lengkap.`,
     );
   } else if (profile.checkpoint?.active) {
     parts.push(

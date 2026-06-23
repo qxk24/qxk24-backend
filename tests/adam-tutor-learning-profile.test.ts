@@ -79,8 +79,9 @@ describe('ERA_2 BKT + profile', () => {
     expect(conceptPercentCorrect(next.conceptMastery[item.conceptTag]!)).toBe(1);
   });
 
-  it('LP-09: placement completes at 20 answers with subject levels', () => {
+  it('LP-09: static placement completes at 20 answers with subject levels', () => {
     let profile = defaultTutorLearningProfile();
+    profile.placement = { ...profile.placement!, mode: 'static' };
     for (let i = 0; i < PLACEMENT_TARGET_QUESTIONS; i += 1) {
       const item = getStaticPlacementItemByIndex(i)!;
       profile = applyPlacementAnswer(profile, item, 'wrong answer');
@@ -123,9 +124,9 @@ describe('ERA_2 BKT + profile', () => {
     expect(next.conceptMastery['grammar.irregular_verbs']?.correctCount).toBe(1);
   });
 
-  it('LP-11: prompt summary mentions static placement progress', () => {
+  it('LP-11: prompt summary mentions adaptive placement progress', () => {
     const summary = buildLearningProfilePromptSummary(defaultTutorLearningProfile());
-    expect(summary).toMatch(/Placement statik: 0\/20/);
+    expect(summary).toMatch(/Placement adaptif \(IRT\): 0\/20/);
     expect(summary).toMatch(/Tahap subjek/);
   });
 });
