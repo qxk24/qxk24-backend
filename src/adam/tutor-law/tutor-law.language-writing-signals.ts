@@ -16,7 +16,8 @@ export const TRAP_EXPLICIT = [
   'tolong tulis', 'tolong buat karangan', 'tolong buatkan',
   'tolong siapkan', 'boleh tuliskan', 'tuliskan untuk saya',
   'tulis esei', 'tulis karangan', 'tulis laporan', 'tulis surat',
-  'write for me', 'write this for me', 'write an essay',
+  'write for me', 'write this for me', 'write an essay', 'write my essay',
+  'write my english', 'write me a',
   'write a report', 'write a letter', 'do my essay',
   'complete my essay', 'finish my essay', 'siapkan esei',
   'siapkan karangan', 'buat karangan untuk saya',
@@ -65,8 +66,8 @@ export const GRAMMAR_SIGNALS = [
 ] as const;
 
 export const TYPE_SIGNALS: Partial<Record<WritingType, readonly string[]>> = {
-  [WritingType.KARANGAN]:   ['karangan', 'karangan bm', 'karangan bahasa'],
-  [WritingType.ESEI]:       ['esei', 'essay', 'academic writing'],
+  [WritingType.KARANGAN]:   ['karangan', 'karangan bm', 'karangan bahasa', 'mengarang', 'upsr', 'pt3', 'spm'],
+  [WritingType.ESEI]:       ['esei', 'essay', 'academic writing', 'english essay', 'spm english'],
   [WritingType.LAPORAN]:    ['laporan', 'report', 'minit mesyuarat'],
   [WritingType.SURAT]:      ['surat', 'letter', 'surat rasmi', 'surat kiriman'],
   [WritingType.PUISI]:      ['sajak', 'puisi', 'poem', 'poetry', 'pantun', 'syair'],
@@ -79,6 +80,8 @@ export const LANGUAGE_DOMAIN_MARKERS = [
   ...Object.values(TYPE_SIGNALS).flat(),
   'mengarang', 'penulisan', 'writing', 'composition',
   'bm essay', 'english essay', 'sastera', 'literature',
+  'bahasa inggeris', 'english class', 'grammar', 'vocabulary',
+  'listening', 'speaking', 'reading', 'pronunciation', 'cefr',
 ] as const;
 
 export const DRAFT_STRUCTURE_MARKERS = [

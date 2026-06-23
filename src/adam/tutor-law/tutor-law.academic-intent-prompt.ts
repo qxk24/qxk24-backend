@@ -63,6 +63,10 @@ import {
   classifyPedagogyV2Turn,
 } from './tutor-law.pedagogy-v2-classifier';
 import { buildPedagogyV2TurnLaw } from './tutor-law.pedagogy-v2-prompt-laws';
+import { buildKaranganPedagogyTurnLaw } from './tutor-law.karangan-pedagogy';
+import { buildEnglishPedagogyTurnLaw } from './tutor-law.english-pedagogy';
+import { buildVoicePedagogyTurnLaw } from './tutor-law.voice-assessment';
+import { buildAdaptiveAssessmentTurnLaw } from './tutor-law.adaptive-assessment';
 import { buildStemToolTurnLaw } from './tutor-law.stem-tool-links';
 import type { PedagogyV2TurnResult } from './tutor-law.pedagogy-v2.types';
 
@@ -155,7 +159,14 @@ export function classifyAcademicTurnIntents(
 
 export function buildAcademicIntentTurnPromptParts(
   bundle: AcademicIntentTurnBundle,
-  context?: Pick<AcademicIntentTurnInput, 'userMessage' | 'recentUserMessages' | 'profile'>,
+  context?: Pick<
+    AcademicIntentTurnInput,
+    'userMessage' | 'recentUserMessages' | 'recentAssistantMessages' | 'profile'
+  > & {
+    learningProfile?: import('./tutor-law.learning-profile.types').AdamTutorLearningProfile;
+    placementPrompt?: string | null;
+    viaVoice?:        boolean;
+  },
 ): string[] {
   const parts: string[] = [buildMathIntentTurnLaw(bundle.mathIntent)];
 
@@ -181,6 +192,43 @@ export function buildAcademicIntentTurnPromptParts(
   const languageLaw = buildLanguageIntentTurnLaw(bundle.languageIntent);
   if (languageLaw) parts.push(languageLaw);
 
+  const karanganLaw = buildKaranganPedagogyTurnLaw({
+    languageIntent: bundle.languageIntent,
+    userMessage:    context?.userMessage ?? '',
+    profile:        context?.profile,
+  });
+  if (karanganLaw) parts.push(karanganLaw);
+
+  const englishLaw = buildEnglishPedagogyTurnLaw({
+    languageIntent: bundle.languageIntent,
+    userMessage:    context?.userMessage ?? '',
+    profile:        context?.profile,
+    stuckCount:     context?.learningProfile?.stealth.stuckStreak,
+    viaVoice:       context?.viaVoice === true,
+    learningProfile: context?.learningProfile,
+    recentAssistantMessages: context?.recentAssistantMessages,
+  });
+  if (englishLaw) parts.push(englishLaw);
+
+  const voiceLaw = buildVoicePedagogyTurnLaw({
+    viaVoice:                context?.viaVoice === true,
+    learningProfile:         context?.learningProfile,
+    recentAssistantMessages: context?.recentAssistantMessages,
+  });
+  if (voiceLaw) parts.push(voiceLaw);
+
+  const adaptiveLaw = buildAdaptiveAssessmentTurnLaw({
+    userMessage:             context?.userMessage ?? '',
+    recentUserMessages:      context?.recentUserMessages,
+    recentAssistantMessages: context?.recentAssistantMessages,
+    profile:                 context?.profile,
+    turnIndex:               context?.recentUserMessages?.length ?? 0,
+    learningProfile:         context?.learningProfile,
+    placementPrompt:         context?.placementPrompt,
+    stuckCount:              context?.learningProfile?.stealth.stuckStreak,
+  });
+  if (adaptiveLaw) parts.push(adaptiveLaw);
+
   const islamicLaw = buildIslamicIntentTurnLaw(bundle.islamicIntent);
   if (islamicLaw) parts.push(islamicLaw);
 
@@ -204,8 +252,9 @@ export function buildAcademicIntentTurnPromptBlock(
 ): string {
   const bundle = classifyAcademicTurnIntents(input);
   return buildAcademicIntentTurnPromptParts(bundle, {
-    userMessage:        input.userMessage,
-    recentUserMessages: input.recentUserMessages,
-    profile:            input.profile,
+    userMessage:             input.userMessage,
+    recentUserMessages:      input.recentUserMessages,
+    recentAssistantMessages: input.recentAssistantMessages,
+    profile:                 input.profile,
   }).join('\n\n');
 }

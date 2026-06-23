@@ -265,5 +265,104 @@ export {
 } from './tutor-law.stem-tool-links';
 
 export {
+  ADAM_TUTOR_KARANGAN_CORE_LAW,
+  ADAM_TUTOR_KARANGAN_REVIEW_LAW,
+  buildKaranganPedagogyTurnLaw,
+  buildKaranganBrainstormProbe,
+  buildKaranganStructureScaffold,
+  buildKaranganTrapRedirect,
+  detectKaranganGenre,
+  resolveKaranganExamTier,
+  resolveKaranganVocabTopic,
+  lookupKaranganVocab,
+  buildKaranganVocabHint,
+  KARANGAN_VOCAB_BANK,
+  KaranganGenre,
+  KaranganExamTier,
+  KaranganVocabTopic,
+  type KaranganTurnContext,
+} from './tutor-law.karangan-pedagogy';
+
+export {
+  ADAM_TUTOR_ENGLISH_CORE_LAW,
+  ADAM_TUTOR_ENGLISH_REVIEW_LAW,
+  buildEnglishPedagogyTurnLaw,
+  buildEnglishGrammarInductiveProbe,
+  buildEnglishSpeakingRolePlayProbe,
+  isEnglishPedagogyApplicable,
+  detectEnglishSkill,
+  resolveCefrLevel,
+  resolveEnglishCollocationTopic,
+  lookupEnglishCollocations,
+  buildEnglishCollocationHint,
+  ENGLISH_COLLOCATION_BANK,
+  EnglishSkill,
+  CefrLevel,
+  EnglishCollocationTopic,
+  type EnglishTurnContext,
+} from './tutor-law.english-pedagogy';
+
+export {
+  ADAM_TUTOR_ADAPTIVE_ETHICS_LAW,
+  ADAM_TUTOR_ZPD_LAW,
+  buildAdaptiveAssessmentTurnLaw,
+  analyzeStealthAssessment,
+  detectLearnerEmotionalSignal,
+  detectAdaptiveAssessmentPhase,
+  inferConceptTagsFromMessage,
+  lookupKnowledgeConceptLabel,
+  masteryBandFromStealth,
+  KNOWLEDGE_CONCEPT_GRAPH,
+  LearnerMasteryBand,
+  LearnerEmotionalSignal,
+  AdaptiveAssessmentPhase,
+  type StealthAssessmentSnapshot,
+  type AdaptiveAssessmentTurnContext,
+} from './tutor-law.adaptive-assessment';
+
+export {
+  defaultTutorLearningProfile,
+  type AdamTutorLearningProfile,
+  type ConceptMasteryRecord,
+  type PlacementSessionState,
+  type TutorGamificationState,
+  type TutorStealthCounters,
+  type TutorVoiceAssessmentState,
+  type VoiceAssessmentRecord,
+} from './tutor-law.learning-profile.types';
+
+export {
+  assessVoiceTurn,
+  scoreVoiceTranscript,
+  extractSpeakingTargetFromAssistant,
+  buildVoicePedagogyTurnLaw,
+  buildVoiceProfilePromptHint,
+  ADAM_TUTOR_VOICE_STT_LAW,
+  type VoiceAssessmentInput,
+  type VoiceAssessmentResult,
+} from './tutor-law.voice-assessment';
+
+export {
+  applyVoiceTurnUpdate,
+  bktUpdateMastery,
+  applyStealthTurnUpdate,
+  applyPlacementAnswer,
+  startPlacementSession,
+  buildLearningProfilePromptSummary,
+  listZpdConceptTags,
+  masteryBandFromProbability,
+} from './tutor-law.learning-profile-bkt';
+
+export {
+  PLACEMENT_ITEM_BANK,
+  selectNextPlacementItem,
+  scorePlacementAnswer,
+  getPlacementItemById,
+  abilityToCefr,
+  xpToLevelLabel,
+  type PlacementItem,
+} from './tutor-law.placement-bank';
+
+export {
   buildTutorLearningStyleLaw,
 } from './tutor-law.profile';

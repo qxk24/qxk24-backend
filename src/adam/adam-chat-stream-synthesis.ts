@@ -480,7 +480,8 @@ export async function executeAdamSynthesisTurn(input: {
     workspace,
     river,
     oceanSink: branchPolicy.oceanSink,
-    turnBrainMeta: isStudentOceanSink(branchPolicy.oceanSink) && mode !== 'JOURNAL_GEN'
+    turnBrainMeta: (isStudentOceanSink(branchPolicy.oceanSink) && mode !== 'JOURNAL_GEN')
+      || isAdamTutorMode(mode)
       ? {
         recallLoaded: detectContextRecallLoaded(turnContext.contextMessages),
         webSearchUsed: webSearchUsedThisTurn,

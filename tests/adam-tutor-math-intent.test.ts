@@ -18,6 +18,7 @@ import {
   studentRequestsAnswerVerification,
   tutorQuestionIsScienceFactualIntent,
 } from '../src/adam/tutor-law/tutor-law.math-intent-classifier';
+import { buildMathIntentTurnLaw } from '../src/adam/tutor-law/tutor-law.math-prompt-laws';
 import { tutorInferFurthestColumnInThread } from '../src/adam/tutor-law/tutor-law.arithmetic-phase';
 
 describe('tutor math intent classifier', () => {
@@ -86,10 +87,36 @@ describe('tutor math intent classifier', () => {
     const recentUser = ['12'];
     tutorInferFurthestColumnInThread(recentUser, recentAssistant, '1083');
     const intent = classifyTutorMathIntent(buildTutorMathTurnContext({
-      userMessage:            '1083',
+      userMessage:            '1 083 biji',
       recentUserMessages:     recentUser,
       recentAssistantMessages: recentAssistant,
     }));
     expect(intent.nextSessionState.workingShown).toBe(true);
+    expect(intent.warrantsAutoClosure).toBe(true);
+    expect(intent.studentGaveFinalAnswer).toBe(true);
+  });
+
+  it('V-MI-08: micro blank answer stays procedural — not verification drill', () => {
+    const intent = classifyTutorMathIntent(buildTutorMathTurnContext({
+      userMessage: '12',
+      recentAssistantMessages: ['Berapa **5 + 7** di tempat **Sa**?\n→ ______'],
+    }));
+    expect(intent.mode).toBe('procedural');
+    expect(intent.answeringMicroBlank).toBe(true);
+    expect(intent.warrantsAutoClosure).toBe(false);
+    expect(buildMathIntentTurnLaw(intent)).toMatch(/JAWAPAN MIKRO BETUL/i);
+  });
+
+  it('V-MI-09: final answer with working thread triggers closure law', () => {
+    const intent = classifyTutorMathIntent(buildTutorMathTurnContext({
+      userMessage: '156 orang',
+      recentUserMessages: ['12', '8', '5'],
+      recentAssistantMessages: [
+        'Berapa di tempat Puluh?\n→ ______',
+        'Berapa **5 + 7** di tempat **Sa**?\n→ ______',
+      ],
+    }));
+    expect(intent.warrantsAutoClosure).toBe(true);
+    expect(buildMathIntentTurnLaw(intent)).toMatch(/CLOSURE/i);
   });
 });

@@ -55,6 +55,7 @@ import {
   lockTutorEnrollmentCode,
   resolveTutorEnrollmentAccess,
 } from '../../adam/tutor/adam-tutor-enrollment.service';
+import { getTutorLearningProfile } from '../../adam/adam-tutor-learning-profile.service';
 import {
   createTutorRegisterCheckoutSession,
   resolveStudentEmail,
@@ -383,11 +384,26 @@ router.get('/register/access', requireStudent, async (c) => {
 
 // GET /api/adam/tutor/register/me — auth
 router.get('/register/me', requireStudent, async (c) => {
-  const enrollment = await getTutorEnrollmentForUser(userId(c));
+  const uid = userId(c);
+  const [enrollment, learningProfile] = await Promise.all([
+    getTutorEnrollmentForUser(uid),
+    getTutorLearningProfile(uid),
+  ]);
   return c.json({
     success: true,
     kernel:  'ALAMTOLOGI',
-    data:    { enrollment },
+    data:    { enrollment, learningProfile },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /api/adam/tutor/learning-profile — auth; ERA_2 adaptive state
+router.get('/learning-profile', requireStudent, async (c) => {
+  const learningProfile = await getTutorLearningProfile(userId(c));
+  return c.json({
+    success: true,
+    kernel:  'ALAMTOLOGI',
+    data:    { learningProfile },
     timestamp: new Date().toISOString(),
   });
 });

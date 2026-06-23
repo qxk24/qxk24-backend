@@ -51,6 +51,7 @@ import {
 } from './adam-brain-river';
 import type { AdamBrainRiverTurn } from './adam-brain-river';
 import { handleAdamTurnRelays } from './adam-chat-stream-post-relay';
+import { recordTutorLearningTurn } from './adam-tutor-learning-profile.service';
 
 export { persistInteractiveJournalDraft } from './adam-chat-stream-journal-persist';
 
@@ -267,6 +268,16 @@ export async function finishAdamChatTurn(input: {
       shell.userMessage,
       finalResponse,
     ).catch((err) => console.error('[ADAM Workspace] understanding update:', err));
+  }
+
+  if (shell.participant.sessionType === 'tutor' && !isGuestUserId(shell.participant.userId)) {
+    void recordTutorLearningTurn({
+      userId:                  shell.participant.userId,
+      userMessage:             shell.userMessage,
+      viaVoice:                shell.options.viaVoice === true,
+      recentUserMessages:      input.turnBrainMeta?.recentUserMessages,
+      recentAssistantMessages: input.turnBrainMeta?.recentAssistantMessages,
+    }).catch((err) => console.error('[ADAM Tutor] learning profile update:', err));
   }
 
   if (isStudentOceanSink(oceanSink ?? 'guest-ephemeral')) {

@@ -70,7 +70,7 @@ import {
   tutorQuestionIsMultiStepFractionWordProblem,
   tutorQuestionIsPercentageWordProblem,
 } from './tutor-law.word-problem-routing';
-import { resolveActiveAddThenSubtractProblem } from './tutor-law.arithmetic-phase';
+import { resolveActiveAddThenSubtractProblem, tutorInferFurthestColumnInThread } from './tutor-law.arithmetic-phase';
 import { tutorThreadIsMultiStepArithmetic } from './tutor-law.arithmetic-proficiency';
 import { tutorThreadIsPlaceValueAddition } from './tutor-law.place-value-routing';
 import { tutorQuestionIsScienceFactual } from './tutor-law.science-routing';
@@ -87,7 +87,12 @@ import {
   studentRequestsAnswerVerification,
   studentRequestsTeachMePattern,
   studentAnsweredSingleDigitAfterFullNumberAsk,
+  threadHasMicroTeachingBlank,
 } from './tutor-law.math-intent-detectors';
+import {
+  tutorTurnWarrantsAutoClosure,
+  studentAnsweringMicroTeachingBlank,
+} from './tutor-law.math-closure-gate';
 import {
   deriveTutorMathSessionState,
   mergeTutorMathSessionState,
@@ -111,9 +116,12 @@ import {
   type TutorMathTopic,
   type TutorMathTurnContext,
 } from './tutor-law.math-intent.types';
-import { tutorTurnWarrantsAutoClosure } from './tutor-law.math-closure-gate';
+import { studentStatesFinalArithmeticAnswer } from './tutor-law.arithmetic-closure';
 
-export { tutorTurnWarrantsAutoClosure } from './tutor-law.math-closure-gate';
+export {
+  tutorTurnWarrantsAutoClosure,
+  studentAnsweringMicroTeachingBlank,
+} from './tutor-law.math-closure-gate';
 
 export function classifyTutorMathQueryShape(
   message: string,
@@ -372,11 +380,20 @@ export function classifyTutorMathIntent(ctx: TutorMathTurnContext): TutorMathInt
     mode = 'teach_me';
   }
 
+  const answeringMicroBlank = studentAnsweringMicroTeachingBlank(
+    ctx.userMessage,
+    ctx.recentAssistantMessages,
+  );
+
   if (
     rule61.intent === MathIntent.C_VERIFICATION
     || (threadExpectsShortAnswer(ctx) && hasExplicitAnswerShort(ctx.userMessage))
   ) {
-    mode = 'verification';
+    if (answeringMicroBlank) {
+      mode = 'procedural';
+    } else {
+      mode = 'verification';
+    }
   }
 
   if (!inMathLane && queryShape !== 'science_factual' && rule61.intent !== MathIntent.EXAM_DIRECT) {
@@ -391,22 +408,52 @@ export function classifyTutorMathIntent(ctx: TutorMathTurnContext): TutorMathInt
   const allowsStuckEscalation = (
     rule61.escalationActive || tutorTurnAllowsStuckEscalation(ctx, state, topic)
   );
-  const warrantsAutoClosure = !allowsScienceFactual
+
+  const studentGaveFinalAnswer = studentStatesFinalArithmeticAnswer(ctx.userMessage);
+  const inMicroThread = threadHasMicroTeachingBlank(ctx.recentAssistantMessages)
+    || tutorInferFurthestColumnInThread(
+      ctx.recentUserMessages,
+      ctx.recentAssistantMessages,
+      ctx.userMessage,
+    ) != null;
+
+  const arithmeticTopic = (
+    topic === 'arithmetic_place_value'
+    || topic === 'arithmetic_multi_op'
+    || topic === 'percentage_word'
+    || topic === 'fraction_remainder'
+    || topic === 'general_math'
+  );
+
+  let warrantsAutoClosure = !allowsScienceFactual
+    && !answeringMicroBlank
     && (
       tutorTurnWarrantsAutoClosure(ctx, mode, topic, state)
-      || canAutoClose(
-        rule61.topic,
-        state.workingShown,
-        state.workingShown,
-        rule61.escalationActive,
+      || (
+        studentGaveFinalAnswer
+        && (state.workingShown || inMicroThread)
+        && arithmeticTopic
+      )
+      || (
+        canAutoClose(
+          rule61.topic,
+          state.workingShown,
+          state.workingShown,
+          rule61.escalationActive,
+        )
+        && studentGaveFinalAnswer
       )
     );
+
+  if (warrantsAutoClosure && mode === 'verification') {
+    mode = 'procedural';
+  }
 
   const requiresWorkingFirst = (
     mode === 'verification'
     || (mode === 'procedural' && !state.workingShown)
     || mode === 'teach_me'
-  ) && !allowsScienceFactual;
+  ) && !warrantsAutoClosure && !allowsScienceFactual;
 
   const closureIncludesCheckQ = warrantsAutoClosure || mode === 'teach_me';
   const postClosureTurn = state.closureDelivered && !warrantsAutoClosure;
@@ -444,6 +491,8 @@ export function classifyTutorMathIntent(ctx: TutorMathTurnContext): TutorMathInt
     closureIncludesCheckQ,
     postClosureTurn,
     misreadFinalAnswer,
+    answeringMicroBlank,
+    studentGaveFinalAnswer,
     promptLawTags: buildPromptLawTags(mode, rule61, allowsStuckEscalation, warrantsAutoClosure),
     topicGuardTags: buildTopicGuardTags(topic),
     decisionTrace,

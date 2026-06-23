@@ -24,7 +24,7 @@ import type { FounderChannelId } from './adam-channel-router';
 import { repairEastAsianScriptLeak } from './adam-language-guard';
 import { repairFormulaXyzStreamOutput } from './adam-book-aware-recall';
 import { stripMisplacedPracticalCareerDoor } from './adam-universal-scholar';
-import { restoreFounderPaltAddress } from './adam-founder-address-guard';
+import { restoreFounderPaltAddress, founderOutputHasAddressDrift } from './adam-founder-address-guard';
 import { repairFounderTeachingRecallEssay } from './adam-founder-teaching-recall-guard';
 import { repairFounderKonvensionalSurface } from './adam-founder-konvensional-surface';
 import {
@@ -160,6 +160,19 @@ export async function repairFounderStreamOutput(input: {
         briefTier1Repair:    true,
         response:            fullResponse,
       }));
+    } else if (
+      fullResponse.trim()
+      && fullResponse !== rawModelStream
+      && founderOutputHasAddressDrift(rawModelStream)
+    ) {
+      sanitizedRepairApplied = true;
+      onEvent('adam_stream_done', JSON.stringify({
+        sessionId:        resolvedSessionId,
+        replace:          true,
+        sanitizedRepair:  true,
+        founderAddressRepair: true,
+        response:         fullResponse,
+      }));
     }
   } else if (channelId === 'founder-teaching-learner') {
     if (isFounderReplyRevisionDirective(userMessage)) {
@@ -229,6 +242,8 @@ export async function repairFounderStreamOutput(input: {
         /\\frac_/.test(rawModelStream)
         || /\|:\s*-+\s*\|/.test(rawModelStream)
         || /Cikgu guna bahasa mudah/i.test(rawModelStream)
+        || founderOutputHasAddressDrift(rawModelStream)
+        || /\bSaya\s+tunggu\s+arahan\s+seterusnya\b/i.test(rawModelStream)
       )
     ) {
       sanitizedRepairApplied = true;

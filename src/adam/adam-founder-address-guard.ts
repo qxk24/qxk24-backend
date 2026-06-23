@@ -53,10 +53,23 @@ export function stripFounderPersonalNameGreeting(text: string): string {
   return out;
 }
 
+export function founderOutputHasAddressDrift(text: string): boolean {
+  if (!text?.trim()) return false;
+  return (
+    /(?:^|\n)\s*\.alt,/i.test(text)
+    || /(?:^|\n)\s*alt,\s+/i.test(text)
+    || /(?:^|\n)\s*alt:\s*$/im.test(text)
+    || /^Hai\s+Masa(?:\s+Bayu)?,/im.test(text)
+  );
+}
+
 export function restoreFounderPaltAddress(text: string): string {
   if (!text?.trim()) return text;
 
   let out = stripFounderPersonalNameGreeting(text);
+
+  // First pass — bare "alt," opener (common Qwen drift on Teaching lane)
+  out = out.replace(/^\s*alt,\s*/i, 'P.alt, ');
 
   out = out.replace(/(?<![A-Za-z0-9])\.alt\b/gi, 'P.alt');
 

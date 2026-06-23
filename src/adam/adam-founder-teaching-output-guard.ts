@@ -140,8 +140,18 @@ const LONE_ASTERISK_LINE_RE = /^\s*\*\s*$/m;
 const TUTOR_VOICE_LEAK_TAIL_RE =
   /\n\s*Cikgu guna bahasa mudah:[\s\S]*$/i;
 
+const TUTOR_SCRIPTED_IDLE_CLOSE_RE = [
+  /Saya\s+tunggu\s+arahan\s+seterusnya\.?\s*$/i,
+  /Saya\s+tunggu\s+arahan\s+Pelajar\.?\s*$/i,
+  /Saya\s+tunggu\s+arahan\s+anda\.?\s*$/i,
+];
+
 function stripTeachingTutorVoiceLeak(text: string): string {
-  return text.replace(TUTOR_VOICE_LEAK_TAIL_RE, '').trim();
+  let out = text.replace(TUTOR_VOICE_LEAK_TAIL_RE, '').trim();
+  for (const pattern of TUTOR_SCRIPTED_IDLE_CLOSE_RE) {
+    out = out.replace(pattern, 'Terima kasih, P.alt — saya faham arahan ini.');
+  }
+  return out.trim();
 }
 
 const ORPHAN_PRINCIPLE_TAIL_RE =

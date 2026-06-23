@@ -90,8 +90,17 @@ TURN LAW — CLOSURE (arithmetic / word problem — narrow auto-close only):
 1. Brief confirm ("Betul" / "Bagus") — one sentence.
 2. Full working summary with every step labelled (model exam standard) — **Susunan cara kira keseluruhan** dalam turn yang sama.
 3. Satu penutup sahaja: tanya sama ada pelajar mahu **meneruskan latihan mengukuhan** yang lain atau ada soalan matematik seterusnya.
+4. **JANGAN** beri soalan latihan baharu dalam turn ini — tunggu pelajar jawab ya/tidak dahulu.
 Do NOT ask reflection on place value, peratus, or "kenapa kaedah ini berkesan" after the summary.
 Do NOT start a new micro-teaching chain on the same problem after the summary.
+`.trim();
+
+export const ADAM_TUTOR_MICRO_STEP_CORRECT_LAW = `
+TURN LAW — JAWAPAN MIKRO BETUL (lajur / langkah semasa):
+- Pelajar jawab betul slot → ______ (contoh digit Sa/Puluh).
+- Sahkan ringkas (satu ayat) — jangan minta latihan tambahan atau kuiz.
+- Teruskan SATU langkah seterusnya dalam soalan yang sama ATAU minta jawapan akhir jika semua lajur siap.
+- Jangan ulang soalan lajur yang sama; jangan beri soalan latihan baharu sebelum soalan semasa selesai.
 `.trim();
 
 export const ADAM_TUTOR_POST_CLOSURE_PRACTICE_LAW = `
@@ -182,6 +191,10 @@ export function buildMathIntentTurnLaw(intent: TutorMathIntentResult): string {
   if (intent.misreadFinalAnswer) {
     parts.push(ADAM_TUTOR_MISREAD_FINAL_ANSWER_LAW);
     return parts.filter(Boolean).join('\n\n');
+  }
+
+  if (intent.answeringMicroBlank && !intent.warrantsAutoClosure) {
+    parts.push(ADAM_TUTOR_MICRO_STEP_CORRECT_LAW);
   }
 
   if (postClosure) {

@@ -107,9 +107,13 @@ export function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): 
   }
 
   parts.push(...buildAcademicIntentTurnPromptParts(academic, {
-    userMessage:        params.userMessage ?? '',
-    recentUserMessages: params.recentUserMessages,
-    profile:            params.tutorProfile,
+    userMessage:             params.userMessage ?? '',
+    recentUserMessages:      params.recentUserMessages,
+    recentAssistantMessages: params.recentAssistantMessages,
+    profile:                 params.tutorProfile,
+    learningProfile:         params.tutorLearningProfile,
+    placementPrompt:         params.tutorPlacementPrompt,
+    viaVoice:                params.viaVoice === true,
   }));
 
   const tags = new Set(mathIntent.topicGuardTags);

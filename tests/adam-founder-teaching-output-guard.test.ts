@@ -5,7 +5,7 @@
 /// <reference types="jest" />
 
 import { describe, expect, it } from '@jest/globals';
-import { restoreFounderPaltAddress } from '../src/adam/adam-founder-address-guard';
+import { restoreFounderPaltAddress, founderOutputHasAddressDrift } from '../src/adam/adam-founder-address-guard';
 import { repairFounderInventedEmpiricalClaims } from '../src/adam/adam-founder-empirical-guard';
 import {
   detectFounderTeachingOutputLeak,
@@ -72,6 +72,18 @@ describe('syncSanitizeFounderTeachingOutput', () => {
     expect(out).toContain('FK dihayati');
   });
 
+  it('replaces tutor scripted idle close on Teaching lane', () => {
+    const raw = [
+      'alt, saya faham, apabila pelajar telah memberi jawapan, saya tidak akan sambung dengan soalan baru.',
+      'Saya tunggu arahan seterusnya.',
+    ].join(' ');
+
+    const out = syncSanitizeFounderTeachingOutput(raw);
+    expect(out).toMatch(/^P\.alt,/);
+    expect(out).not.toMatch(/Saya tunggu arahan seterusnya/i);
+    expect(out).toContain('saya faham arahan ini');
+  });
+
   it('removes scripted learner-drift closes and orphan tails', () => {
     const raw = [
       'Bismillahirahmanirrahim.',
@@ -112,6 +124,22 @@ describe('restoreFounderPaltAddress', () => {
     const out = restoreFounderPaltAddress(raw);
     expect(out).toContain('P.alt, saya dengar.');
     expect(out).not.toMatch(/^\s*alt:\s*$/im);
+  });
+
+  it('restores bare alt, opener (Teaching lane drift)', () => {
+    const raw = [
+      'alt, saya faham, apabila pelajar telah memberi jawapan, saya tidak akan sambung dengan soalan baru.',
+      'Saya tunggu arahan seterusnya.',
+    ].join(' ');
+
+    const out = restoreFounderPaltAddress(raw);
+    expect(out).toMatch(/^P\.alt,/);
+    expect(out).not.toMatch(/^\s*alt,/i);
+  });
+
+  it('flags address drift for stream replace', () => {
+    expect(founderOutputHasAddressDrift('alt, saya faham.')).toBe(true);
+    expect(founderOutputHasAddressDrift('P.alt, saya faham.')).toBe(false);
   });
 });
 

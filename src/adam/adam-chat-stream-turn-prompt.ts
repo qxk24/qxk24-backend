@@ -33,6 +33,7 @@ import { userHasMacBridgeTier } from './adam-mac-bridge-access.service';
 import { prependCoreToSystem } from '../qxk24brain/adam-core';
 import { buildAdamChatSystemPrompt } from './adam-system-prompts';
 import { resolveAuthoritativeTutorProfile } from './adam-tutor-profile.service';
+import { prepareTutorLearningTurn } from './adam-tutor-learning-profile.service';
 import { contextHasRelationalVoice } from './adam-relational-voice';
 import { resolveUsersKnowledgeTier } from './adam-three-tier-knowledge';
 import { buildFounderStudentsAwarenessBlockAsync } from './adam-student-registry.service';
@@ -140,6 +141,19 @@ export async function buildTurnPromptAndSearchGate(input: {
     ? resolveUsersKnowledgeTier(messageForAdam, recentUserTurns, recentAssistantTurns)
     : isResearchLane ? 2 as const : undefined;
 
+  let tutorLearningProfile = undefined;
+  let tutorPlacementPrompt: string | null = null;
+  if (isTutorLane && shell.participant.userId) {
+    const prep = await prepareTutorLearningTurn(
+      shell.participant.userId,
+      messageForAdam,
+      recentUserTurns,
+      recentAssistantTurns,
+    );
+    tutorLearningProfile = prep.profile;
+    tutorPlacementPrompt = prep.placementPrompt;
+  }
+
   const builtPrompt = buildAdamChatSystemPrompt({
     mode,
     answerStyle:          options.answerStyle,
@@ -166,6 +180,9 @@ export async function buildTurnPromptAndSearchGate(input: {
     answerPlan:    turnContext.river.answerPlan,
     turnGate:      turnContext.river.gate,
     tutorProfile:         isTutorLane ? tutorProfile : undefined,
+    tutorLearningProfile: isTutorLane ? tutorLearningProfile : undefined,
+    tutorPlacementPrompt: isTutorLane ? tutorPlacementPrompt : undefined,
+    viaVoice:             isTutorLane ? options.viaVoice === true : undefined,
     niagaProfile:         isNiagaLane ? options.niagaProfile : undefined,
     webSearchPrompt:      webSearchEnabledThisTurn && webSearchGateReason && isTutorLane
       ? buildTutorWebSearchPrompt(tutorProfile, usersSearchFirst)

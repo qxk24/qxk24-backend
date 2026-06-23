@@ -127,6 +127,10 @@ export interface TutorMathIntentResult {
   postClosureTurn:         boolean;
   /** Student gave one digit when full final number was requested. */
   misreadFinalAnswer:      boolean;
+  /** Student answered a micro-teaching blank (e.g. "12" for Sa column). */
+  answeringMicroBlank:     boolean;
+  /** Student stated a final arithmetic answer this turn. */
+  studentGaveFinalAnswer:  boolean;
   promptLawTags:           string[];
   topicGuardTags:          string[];
   decisionTrace:           string[];

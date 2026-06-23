@@ -52,6 +52,7 @@ export function studentStatesFinalArithmeticAnswer(message: string): boolean {
     return false;
   }
   if (/^[\d,]+(?:\.\d+)?\s*(?:biji|buah|guli|kotak|buku|orang|kg)?\.?$/i.test(t)) return true;
+  if (/^\d(?:\s\d{3})+\s*(?:biji|buah|guli|orang|kotak|buku)?\.?$/i.test(t)) return true;
   if (/^=\s*[\d,]+/i.test(t)) return true;
   if (/^(?:betul|ya|yes|ok)\b/i.test(t) && t.length <= 24) return true;
   if (/\b\d[\d,]{3,}\s*(?:biji|buah|guli)\b/i.test(t) && t.length <= 140) return true;

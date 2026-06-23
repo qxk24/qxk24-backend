@@ -16,6 +16,7 @@
  */
 
 import { tutorInferFurthestColumnInThread, tutorStudentFlagsTeachingLoopError } from './tutor-law.arithmetic-phase';
+import { studentStatesFinalArithmeticAnswer } from './tutor-law.arithmetic-closure';
 import { tutorThreadIsMultiStepArithmetic } from './tutor-law.arithmetic-proficiency';
 import { threadHasMicroTeachingBlank } from './tutor-law.math-intent-detectors';
 import type {
@@ -33,11 +34,21 @@ const ARITHMETIC_TOPICS: TutorMathTopic[] = [
 ];
 
 function looksLikeSessionFinalAnswer(message: string): boolean {
-  const t = message.trim();
-  if (!t || tutorStudentFlagsTeachingLoopError(t)) return false;
-  if (/jawapan\s+akhir/i.test(t) && /\d/.test(t)) return true;
-  if (/^[\d,]{3,}(?:\.\d+)?$/.test(t.replace(/\s/g, ''))) return true;
-  return /^[\d,]+(?:\.\d+)?\s*(?:biji|buah|guli|orang|kotak|buku)\.?\s*$/i.test(t);
+  return studentStatesFinalArithmeticAnswer(message);
+}
+
+/** Pelajar menjawab slot mikro (contoh "12" untuk 5+7) — bukan penutup sesi. */
+export function studentAnsweringMicroTeachingBlank(
+  userMessage: string,
+  recentAssistantMessages: string[] = [],
+): boolean {
+  const t = userMessage.trim();
+  if (!t || !threadHasMicroTeachingBlank(recentAssistantMessages)) return false;
+  if (/\b(?:biji|buah|guli|orang|kotak|buku|kg|cm)\b/i.test(t)) return false;
+  if (/jawapan\s+akhir|maka\s+jawapan|hasil(?:nya)?\s+(?:ialah|adalah)/i.test(t)) return false;
+  const digitsOnly = t.replace(/[^\d]/g, '');
+  if (digitsOnly.length >= 4) return false;
+  return /^[\d,]+(?:\.\d+)?$/.test(t.replace(/\s/g, ''));
 }
 
 /** S1 — narrow auto-close: arithmetic with spontaneous working only. */

@@ -91,6 +91,10 @@ export function countSignalHits(norm: string, signals: readonly string[]): numbe
 export function studentAcceptedPracticeOffer(message: string): boolean {
   const t = message.trim();
   if (!t) return false;
+  if (/^[\d,]+(?:\.\d+)?(?:\s*(?:biji|buah|guli|orang|kotak|buku|kg|cm))?\s*$/i.test(t)) {
+    return false;
+  }
+  if (/^=\s*[\d,]+/i.test(t)) return false;
   return PRACTICE_ACCEPT_SIGNALS.some((re) => {
     re.lastIndex = 0;
     return re.test(t);

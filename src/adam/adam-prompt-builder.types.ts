@@ -52,6 +52,11 @@ export interface AdamChatSystemPromptParams {
   userMessage?:            string;
   /** ADAM Tutor lane — conventional academics only (no Alamtologi stack). */
   tutorProfile?:           AdamTutorProfile;
+  /** ERA_2 — persisted learning profile for adaptive/ZPD prompts. */
+  tutorLearningProfile?:   import('./tutor-law/tutor-law.learning-profile.types').AdamTutorLearningProfile;
+  tutorPlacementPrompt?:   string | null;
+  /** ERA_2c — voice/STT turn from student microphone */
+  viaVoice?:               boolean;
   /** ADAM Niaga lane — Malaysia SME business profile */
   niagaProfile?:           import('./adam-niaga-law').AdamNiagaBusinessProfile;
   /** Dedicated knowledge surface — resolved per turn when omitted */

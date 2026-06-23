@@ -34,6 +34,8 @@ export interface StreamADAMChatOptions {
   builderEvaluate?:   boolean;
   /** ADAM Tutor lane — level, curriculum, year */
   tutorProfile?:      AdamTutorProfile;
+  /** ERA_2c — student sent message via browser STT microphone */
+  viaVoice?:          boolean;
   /** ADAM Niaga lane — trader business profile */
   niagaProfile?:      import('./adam-niaga-law').AdamNiagaBusinessProfile;
   /** R&D Industry — project context for RESEARCH mode */

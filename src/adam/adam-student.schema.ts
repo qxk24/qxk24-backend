@@ -42,6 +42,9 @@ export interface ADAMStudentAccountDocument extends Document {
     localeNote?: string;
   };
   tutorProfileUpdatedAt?: Date;
+  /** ERA_2 — adaptive learning state (ZPD, BKT, placement, gamification). */
+  tutorLearningProfile?: Record<string, unknown>;
+  tutorLearningProfileUpdatedAt?: Date;
   /** Profesional+ — route ADAM Builder tools through local bridge daemon */
   macBridgeRoutingOpen?: boolean;
   createdAt:      Date;
@@ -70,6 +73,8 @@ const ADAMStudentAccountSchema = new Schema<ADAMStudentAccountDocument>(
       localeNote:  { type: String },
     },
     tutorProfileUpdatedAt: { type: Date },
+    tutorLearningProfile:  { type: Schema.Types.Mixed },
+    tutorLearningProfileUpdatedAt: { type: Date },
     macBridgeRoutingOpen:  { type: Boolean, default: false },
   },
   { timestamps: true },

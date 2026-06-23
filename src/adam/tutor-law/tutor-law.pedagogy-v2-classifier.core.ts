@@ -16,6 +16,7 @@
  */
 
 import { normalizeMathClassifierText } from './tutor-law.math-intent.signals';
+import { studentStatesFinalArithmeticAnswer } from './tutor-law.arithmetic-closure';
 import {
   buildCrossLinkPrompt,
   buildFiveWhysProbe,
@@ -167,16 +168,16 @@ export function classifyPedagogyV2Intent(
   }
 
   const practiceOffered = threadOfferedPractice(assistants);
-  const acceptedPractice = studentAcceptedPracticeOffer(raw)
-    || (practiceOffered && studentAcceptedPracticeOffer(raw));
+  const acceptedPractice = practiceOffered
+    && studentAcceptedPracticeOffer(raw)
+    && !studentStatesFinalArithmeticAnswer(raw);
   const explicitFormative = countSignalHits(norm, FORMATIVE_SIGNALS) >= 1;
   const postClosure = input.mathIntent?.postClosureTurn ?? false;
 
   if (
     explicitFormative
     || acceptedPractice
-    || (postClosure && session.practiceOfferAccepted)
-    || (practiceOffered && studentAcceptedPracticeOffer(raw))
+    || (postClosure && session.practiceOfferAccepted && studentAcceptedPracticeOffer(raw))
   ) {
     const topicKey = inferFormativeTopicKey(
       input.mathIntent?.topic,

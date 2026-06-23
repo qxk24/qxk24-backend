@@ -188,6 +188,7 @@ const TutorChatSchema = z.object({
   answerStyle:   z.enum(['natural', 'philosophy', 'formal', 'technical']).optional(),
   uploadIds:     z.array(z.string().min(1)).max(5).optional(),
   tutorProfile:  TutorProfileSchema.optional(),
+  viaVoice:      z.boolean().optional(),
 }).refine(
   (d) => (d.message?.trim()?.length ?? 0) > 0 || (d.uploadIds?.length ?? 0) > 0,
   { message: 'Provide a message and/or at least one attached file (uploadIds).' },
@@ -1100,7 +1101,7 @@ router.post('/tutor/chat', requireStudent, requireTutorSubscription, zValidator(
             role:        'student',
             sessionType: 'tutor',
           },
-          { answerStyle: body.answerStyle, tutorProfile: body.tutorProfile },
+          { answerStyle: body.answerStyle, tutorProfile: body.tutorProfile, viaVoice: body.viaVoice },
         ),
       );
     } catch (err: unknown) {
