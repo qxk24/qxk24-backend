@@ -30,6 +30,8 @@ import {
 export function defaultPedagogyV2SessionState(): PedagogyV2SessionState {
   return {
     feynmanDelivered:        false,
+    fiveWhysStarted:         false,
+    fiveWhysDepth:           0,
     formativeQuizStarted:    false,
     formativeQuestionsAsked: 0,
     metacognitionDelivered:  false,
@@ -59,6 +61,12 @@ export function mergePedagogyV2SessionState(
   return {
     feynmanDelivered:
       (prior?.feynmanDelivered ?? false) || derived.feynmanDelivered,
+    fiveWhysStarted:
+      (prior?.fiveWhysStarted ?? false) || derived.fiveWhysStarted,
+    fiveWhysDepth: Math.max(
+      prior?.fiveWhysDepth ?? 0,
+      derived.fiveWhysDepth,
+    ),
     formativeQuizStarted:
       (prior?.formativeQuizStarted ?? false) || derived.formativeQuizStarted,
     formativeQuestionsAsked: Math.max(
@@ -81,6 +89,13 @@ export function commitPedagogyV2SessionState(
     feynmanDelivered:
       state.feynmanDelivered
       || output.intent === PedagogyV2Intent.FEYNMAN,
+    fiveWhysStarted:
+      state.fiveWhysStarted
+      || output.intent === PedagogyV2Intent.FIVE_WHYS,
+    fiveWhysDepth:
+      output.intent === PedagogyV2Intent.FIVE_WHYS
+        ? state.fiveWhysDepth + 1
+        : state.fiveWhysDepth,
     formativeQuizStarted:
       state.formativeQuizStarted
       || output.intent === PedagogyV2Intent.FORMATIVE_QUIZ,
@@ -111,6 +126,7 @@ export function buildPedagogyV2TurnResult(
 export function pedagogyV2SkipsZeroAnswer(output: PedagogyV2ClassifierOutput): boolean {
   return (
     output.intent === PedagogyV2Intent.FEYNMAN
+    || output.intent === PedagogyV2Intent.FIVE_WHYS
     || output.intent === PedagogyV2Intent.ITHINK_MAP
     || output.intent === PedagogyV2Intent.CROSS_CURRICULAR
     || output.intent === PedagogyV2Intent.FORMATIVE_QUIZ

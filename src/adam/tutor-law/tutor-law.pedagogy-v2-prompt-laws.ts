@@ -35,6 +35,7 @@ Layer 3 (merentas subjek):
 • Cross-curricular — SATU pautan konkrit antara bidang, pelajar jelaskan.
 • i-Think — struktur peta kosong; pelajar isi node.
 • Feynman — pelajar terangkan balik; ADAM semak jurang.
+• 5 Whys — SATU "kenapa" setiap turn; pelajar jawab sebelum lapisan seterusnya.
 • Formatif — 2–3 soalan mikro, satu setiap turn.
 • Metakognisi — tiga prompt refleksi; pelajar tulis sendiri.
 `.trim();
@@ -44,6 +45,14 @@ ADAM TUTOR — KAEDAH FEYNMAN (explain-back):
 - JANGAN lecture panjang — minta pelajar jelaskan dalam ayat mudah dulu.
 - Semak JURANG (gap): istilah tanpa maksud, langkah tertinggal, analogi salah.
 - Satu soalan susulan sahaja selepas pelajar hantar explain-back.
+`.trim();
+
+export const ADAM_TUTOR_FIVE_WHYS_LAW = `
+ADAM TUTOR — 5 WHYS (rantai punca akar):
+- SATU "kenapa" setiap turn — jangan hantar rantai 5 kenapa siap.
+- Pelajar jawab setiap lapisan; ADAM probe lapisan seterusnya sahaja.
+- Berhenti di punca praktikal atau bila pelajar stuck — jangan paksa 5 lapisan.
+- Selepas punca akar dikenal pasti, ringkas + SATU soalan refleksi.
 `.trim();
 
 export const ADAM_TUTOR_ITHINK_LAW = `
@@ -84,6 +93,14 @@ export function buildPedagogyV2TurnLaw(
       parts.push(ADAM_TUTOR_FEYNMAN_LAW);
       if (output.feynmanProbe) {
         parts.push(`FEYNMAN PROBE (turn ini):\n${output.feynmanProbe}`);
+      }
+      break;
+    case PedagogyV2Intent.FIVE_WHYS:
+      parts.push(ADAM_TUTOR_FIVE_WHYS_LAW);
+      if (output.fiveWhysProbe) {
+        parts.push(
+          `5 WHYS PROBE (${result.sessionState.fiveWhysDepth + 1}/5):\n${output.fiveWhysProbe}`,
+        );
       }
       break;
     case PedagogyV2Intent.ITHINK_MAP:
@@ -127,6 +144,8 @@ export function buildPedagogyV2TurnLawFromOutput(
     output,
     sessionState:        {
       feynmanDelivered: false,
+      fiveWhysStarted: false,
+      fiveWhysDepth: 0,
       formativeQuizStarted: false,
       formativeQuestionsAsked: 0,
       metacognitionDelivered: false,
@@ -134,6 +153,8 @@ export function buildPedagogyV2TurnLawFromOutput(
     },
     nextSessionState:    {
       feynmanDelivered: false,
+      fiveWhysStarted: false,
+      fiveWhysDepth: 0,
       formativeQuizStarted: false,
       formativeQuestionsAsked: 0,
       metacognitionDelivered: false,

@@ -69,5 +69,8 @@ export function restoreFounderPaltAddress(text: string): string {
 
   out = out.replace(/(^|\n)\s*alt,\s+/gi, '$1P.alt, ');
 
+  out = out.replace(/^\s*alt:\s*$/gim, '');
+  out = out.replace(/\n\s*alt:\s*\n/g, '\n\nP.alt, ');
+
   return out;
 }

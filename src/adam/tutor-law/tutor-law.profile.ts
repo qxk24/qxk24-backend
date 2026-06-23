@@ -18,7 +18,13 @@
 import type { ADAMChatMode } from '../adam.types';
 import { isAdamLightChatTurn } from '../adam-response-generation';
 import { usersDisplayFirstName } from '../adam-users-constitution';
-import type { AdamTutorCurriculum, AdamTutorLanguage, AdamTutorProfile } from './tutor-law.types';
+import type {
+  AdamTutorCurriculum,
+  AdamTutorLanguage,
+  AdamTutorLearningStyle,
+  AdamTutorProfile,
+} from './tutor-law.types';
+import { normalizeTutorLearningStyle } from './tutor-law.types';
 import {
   buildTutorLevelScopeLaw,
   isAgentMarketingTutorScope,
@@ -254,6 +260,28 @@ export function isAdamTutorOffTopicMessage(message: string): boolean {
   );
 }
 
+const LEARNING_STYLE_HINTS: Record<AdamTutorLearningStyle, string> = {
+  visual:
+    'Utamakan graf, susunan digit, diagram, peta kosong; satu link STEM allowlist jika topik sesuai.',
+  auditory:
+    'Galakkan baca kuat, perbincangan ringkas, explain-back verbal; kurangkan simulasi melainkan pelajar minta.',
+  kinesthetic:
+    'Galakkan cuba dulu, ramalan, simulasi allowlist (PhET); probe hands-on mental sebelum teori.',
+  mixed:
+    'Adapt ikut domain: STEM visual/kinestetik; Bahasa auditori/verbal; Kemanusiaan naratif/visual.',
+};
+
+export function buildTutorLearningStyleLaw(profile?: AdamTutorProfile): string {
+  const style = normalizeTutorLearningStyle(profile?.learningStyle);
+  if (!style) return '';
+  return `
+ADAM TUTOR — GAYA BELAJAR (VAK hint — lembut, bukan label tetap):
+- Preferens pelajar: ${style}
+- ${LEARNING_STYLE_HINTS[style]}
+- Jangan langgar zero-answer atau satu-soalan-per-turn.
+`.trim();
+}
+
 export function buildAdamTutorProfileBlock(profile?: AdamTutorProfile): string {
   if (!profile) {
     return `
@@ -278,6 +306,7 @@ ADAM TUTOR PROFILE (agent marketing demo — all bands):
   }
 
   const scopeLaw = buildTutorLevelScopeLaw(profile);
+  const vakLaw = buildTutorLearningStyleLaw(profile);
 
   const levelLabel =
     profile.level === 'primary'
@@ -309,5 +338,5 @@ ${yearLine ? `- ${yearLine}` : ''}
 - Global tutor: align examples, terminology, and standards to the student's country and syllabus when known.
 - LANGUAGE (mandatory): ${tutorLanguageInstruction(lang)}
 - Primary: ayat sangat pendek (~12 perkataan); secondary: bahasa mudah (~18); university: jelas dan formal tanpa metafora.
-${scopeLaw ? `\n${scopeLaw}` : ''}`.trim();
+${scopeLaw ? `\n${scopeLaw}` : ''}${vakLaw ? `\n\n${vakLaw}` : ''}`.trim();
 }

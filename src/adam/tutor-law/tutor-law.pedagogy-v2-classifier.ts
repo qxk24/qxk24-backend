@@ -52,6 +52,7 @@ export {
 
 export {
   ADAM_TUTOR_PEDAGOGY_V2_CORE_LAW,
+  ADAM_TUTOR_FIVE_WHYS_LAW,
   buildPedagogyV2TurnLaw,
 } from './tutor-law.pedagogy-v2-prompt-laws';
 

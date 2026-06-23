@@ -244,6 +244,7 @@ export {
   pedagogyV2SkipsZeroAnswer,
   defaultPedagogyV2SessionState,
   ADAM_TUTOR_PEDAGOGY_V2_CORE_LAW,
+  ADAM_TUTOR_FIVE_WHYS_LAW,
   buildPedagogyV2TurnLaw,
   PedagogyV2Intent,
   IThinkMapType,
@@ -253,3 +254,16 @@ export {
   type PedagogyV2ClassifierOutput,
   type PedagogyV2SessionState,
 } from './tutor-law.pedagogy-v2-classifier';
+
+export {
+  ADAM_TUTOR_STEM_TOOL_LINKS_LAW,
+  buildStemToolTurnLaw,
+  matchStemToolLink,
+  isAllowedStemToolUrl,
+  type StemToolLink,
+  type StemToolTurnContext,
+} from './tutor-law.stem-tool-links';
+
+export {
+  buildTutorLearningStyleLaw,
+} from './tutor-law.profile';

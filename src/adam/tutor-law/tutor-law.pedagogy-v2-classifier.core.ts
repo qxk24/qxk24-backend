@@ -18,6 +18,7 @@
 import { normalizeMathClassifierText } from './tutor-law.math-intent.signals';
 import {
   buildCrossLinkPrompt,
+  buildFiveWhysProbe,
   buildFormativeQuestion,
   buildIThinkScaffold,
   FEYNMAN_PROBE_BM,
@@ -29,10 +30,12 @@ import {
   CROSS_CURRICULAR_SIGNALS,
   detectIThinkMapType,
   FEYNMAN_SIGNALS,
+  FIVE_WHYS_SIGNALS,
   FORMATIVE_SIGNALS,
   ITHINK_SIGNALS,
   METACOGNITION_SIGNALS,
   studentAcceptedPracticeOffer,
+  threadInFiveWhysChain,
   threadOfferedPractice,
 } from './tutor-law.pedagogy-v2.signals';
 import {
@@ -51,6 +54,7 @@ function emptyOutput(trace: string[]): PedagogyV2ClassifierOutput {
     crossCluster:       CrossCurricularCluster.GENERAL,
     topicHint:          null,
     feynmanProbe:       null,
+    fiveWhysProbe:      null,
     mapScaffold:        null,
     crossLinkPrompt:    null,
     formativeQuestion:  null,
@@ -139,6 +143,27 @@ export function classifyPedagogyV2Intent(
       topicHint:    raw.slice(0, 80),
       confidence:   'HIGH',
     };
+  }
+
+  const fiveWhysExplicit = countSignalHits(norm, FIVE_WHYS_SIGNALS) >= 1;
+  const fiveWhysContinuing =
+    session.fiveWhysStarted
+    && session.fiveWhysDepth < 5
+    && (threadInFiveWhysChain(assistants) || fiveWhysExplicit);
+
+  if (fiveWhysExplicit || fiveWhysContinuing) {
+    const depth = session.fiveWhysDepth;
+    if (depth < 5) {
+      trace.push(`FIVE_WHYS:q${depth + 1}`);
+      return {
+        ...emptyOutput(trace),
+        intent:        PedagogyV2Intent.FIVE_WHYS,
+        fiveWhysProbe: buildFiveWhysProbe(depth, raw.slice(0, 120)),
+        topicHint:     raw.slice(0, 80),
+        confidence:    fiveWhysExplicit ? 'HIGH' : 'MEDIUM',
+      };
+    }
+    trace.push('FIVE_WHYS:complete');
   }
 
   const practiceOffered = threadOfferedPractice(assistants);

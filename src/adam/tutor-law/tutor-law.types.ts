@@ -35,6 +35,13 @@ export type AdamTutorLanguage =
   | 'french'
   | 'other';
 
+/** VAK learning-style hint — soft pedagogical preference, not a rigid label. */
+export type AdamTutorLearningStyle =
+  | 'visual'
+  | 'auditory'
+  | 'kinesthetic'
+  | 'mixed';
+
 export interface AdamTutorProfile {
   level:       AdamTutorLevel;
   curriculum:  AdamTutorCurriculum | string;
@@ -45,6 +52,20 @@ export interface AdamTutorProfile {
   countryCode?: string;
   /** Exam board or syllabus detail */
   localeNote?:  string;
+  /** VAK / differentiated learning hint (Pedagogy v2.1 P1) */
+  learningStyle?: AdamTutorLearningStyle;
+}
+
+export function normalizeTutorLearningStyle(
+  raw: unknown,
+): AdamTutorLearningStyle | undefined {
+  const allowed: AdamTutorLearningStyle[] = [
+    'visual', 'auditory', 'kinesthetic', 'mixed',
+  ];
+  if (typeof raw === 'string' && (allowed as string[]).includes(raw)) {
+    return raw as AdamTutorLearningStyle;
+  }
+  return undefined;
 }
 
 export function normalizeTutorLanguage(raw: unknown): AdamTutorLanguage {

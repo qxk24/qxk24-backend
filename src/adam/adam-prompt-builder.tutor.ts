@@ -106,7 +106,11 @@ export function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): 
     parts.push(buildTutorLevelScopeRefusalLaw(params.tutorProfile));
   }
 
-  parts.push(...buildAcademicIntentTurnPromptParts(academic));
+  parts.push(...buildAcademicIntentTurnPromptParts(academic, {
+    userMessage:        params.userMessage ?? '',
+    recentUserMessages: params.recentUserMessages,
+    profile:            params.tutorProfile,
+  }));
 
   const tags = new Set(mathIntent.topicGuardTags);
 

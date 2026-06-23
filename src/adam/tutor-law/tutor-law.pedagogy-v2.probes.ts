@@ -169,3 +169,19 @@ export function inferFormativeTopicKey(
   if (genericDomain && genericDomain !== 'UMUM') return 'humanities';
   return 'general';
 }
+
+const FIVE_WHYS_STEPS_BM: readonly string[] = [
+  'Kenapa #1 (permukaan): Apa sebab langsung yang paling jelas? Tulis satu ayat.',
+  'Kenapa #2 (lebih dalam): Kenapa berlaku begitu? Satu sebab seterusnya sahaja.',
+  'Kenapa #3: Apa punca di sebalik sebab tadi? Satu lapisan lagi.',
+  'Kenapa #4: Apa faktor sistemik, sejarah, atau struktur yang menyokong?',
+  'Kenapa #5 (punca akar): Apa punca paling asas yang awak boleh kenal pasti sekarang?',
+];
+
+export function buildFiveWhysProbe(depth: number, topicHint?: string | null): string {
+  const idx = Math.min(Math.max(depth, 0), FIVE_WHYS_STEPS_BM.length - 1);
+  const step = FIVE_WHYS_STEPS_BM[idx] ?? FIVE_WHYS_STEPS_BM[0]!;
+  const topic = topicHint?.trim();
+  if (!topic) return step;
+  return `${step}\n(Konteks: ${topic.slice(0, 100)})`;
+}

@@ -23,12 +23,20 @@ export const FEYNMAN_SIGNALS = [
   'explain to a friend', 'simple words', 'ringkaskan penjelasan',
 ] as const;
 
+export const FIVE_WHYS_SIGNALS = [
+  '5 whys', 'five whys', 'lima kenapa', '5 kenapa', 'lima soalan kenapa',
+  'root cause', 'punca akar', 'sebab sebenar', 'chain of why',
+  'analisis punca', 'kenapa berlaku', 'teknik 5 whys', 'teknik lima kenapa',
+] as const;
+
 export const ITHINK_SIGNALS = [
   'peta minda', 'i-think', 'ithink', 'i think map', 'thinking map',
   'peta buih', 'bubble map', 'peta alir', 'flow map', 'peta pokok',
   'tree map', 'peta jejari', 'circle map', 'peta jambatan', 'bridge map',
   'peta berbilang alir', 'multi flow', 'peta kurungan', 'brace map',
   'peta double bubble', 'double bubble',
+  'peta sesaran', 'peta teras', 'peta bulatan', 'peta buih berganda',
+  'peta ikat tanduk', 'ikat tanduk',
 ] as const;
 
 export const CROSS_CURRICULAR_SIGNALS = [
@@ -55,14 +63,15 @@ export const PRACTICE_ACCEPT_SIGNALS = [
 ] as const;
 
 const MAP_TYPE_PATTERNS: [RegExp, IThinkMapType][] = [
-  [/double\s*bubble|peta\s*double/i, IThinkMapType.DOUBLE_BUBBLE],
-  [/multi\s*flow|berbilang\s*alir/i, IThinkMapType.MULTI_FLOW],
+  [/double\s*bubble|peta\s*(?:double|buih\s*berganda)/i, IThinkMapType.DOUBLE_BUBBLE],
+  [/multi\s*flow|berbilang\s*alir|peta\s*sesaran/i, IThinkMapType.MULTI_FLOW],
+  [/peta\s*teras\b/i, IThinkMapType.BUBBLE],
   [/bubble|peta\s*buih/i, IThinkMapType.BUBBLE],
   [/flow|peta\s*alir/i, IThinkMapType.FLOW],
   [/bridge|peta\s*jambatan/i, IThinkMapType.BRIDGE],
   [/tree|peta\s*pokok/i, IThinkMapType.TREE],
-  [/circle|peta\s*jejari/i, IThinkMapType.CIRCLE],
-  [/brace|peta\s*kurungan/i, IThinkMapType.BRACE],
+  [/circle|peta\s*(?:jejari|bulatan)/i, IThinkMapType.CIRCLE],
+  [/brace|peta\s*(?:kurungan|ikat\s*tanduk)/i, IThinkMapType.BRACE],
 ];
 
 export function detectIThinkMapType(norm: string): IThinkMapType {
@@ -91,4 +100,9 @@ export function studentAcceptedPracticeOffer(message: string): boolean {
 export function threadOfferedPractice(recentAssistantMessages: string[]): boolean {
   return recentAssistantMessages.some((msg) =>
     /latihan\s+mengukuhan|soalan\s+matematik\s+seterusnya|teruskan\s+latihan/i.test(msg));
+}
+
+export function threadInFiveWhysChain(recentAssistantMessages: string[]): boolean {
+  return recentAssistantMessages.some((msg) =>
+    /5\s*WHYS|5\s*KENAPA|WHYS PROBE|LAPISAN KENAPA/i.test(msg));
 }

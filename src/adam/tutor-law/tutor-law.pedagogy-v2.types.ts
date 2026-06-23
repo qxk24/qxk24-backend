@@ -22,6 +22,7 @@ import type { TutorMathIntentResult } from './tutor-law.math-intent.types';
 export enum PedagogyV2Intent {
   NONE              = 'NONE',
   FEYNMAN           = 'FEYNMAN',
+  FIVE_WHYS         = 'FIVE_WHYS',
   ITHINK_MAP        = 'ITHINK_MAP',
   CROSS_CURRICULAR  = 'CROSS_CURRICULAR',
   FORMATIVE_QUIZ    = 'FORMATIVE_QUIZ',
@@ -50,6 +51,8 @@ export enum CrossCurricularCluster {
 
 export interface PedagogyV2SessionState {
   feynmanDelivered:        boolean;
+  fiveWhysStarted:         boolean;
+  fiveWhysDepth:           number;
   formativeQuizStarted:    boolean;
   formativeQuestionsAsked: number;
   metacognitionDelivered:  boolean;
@@ -72,6 +75,7 @@ export interface PedagogyV2ClassifierOutput {
   crossCluster:      CrossCurricularCluster;
   topicHint:         string | null;
   feynmanProbe:      string | null;
+  fiveWhysProbe:     string | null;
   mapScaffold:       string | null;
   crossLinkPrompt:   string | null;
   formativeQuestion: string | null;

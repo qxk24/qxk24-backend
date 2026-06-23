@@ -60,12 +60,13 @@ export function qaTutorDefaultProfile(userId: string): AdamTutorProfile | null {
 
 function normalizeProfile(profile: AdamTutorProfile): AdamTutorProfile {
   return {
-    level:       profile.level,
-    curriculum:  profile.curriculum,
-    language:    profile.language,
-    yearLabel:   profile.yearLabel?.trim() || undefined,
-    countryCode: profile.countryCode?.trim().toUpperCase() || undefined,
-    localeNote:  profile.localeNote?.trim() || undefined,
+    level:         profile.level,
+    curriculum:    profile.curriculum,
+    language:      profile.language,
+    yearLabel:     profile.yearLabel?.trim() || undefined,
+    countryCode:   profile.countryCode?.trim().toUpperCase() || undefined,
+    localeNote:    profile.localeNote?.trim() || undefined,
+    learningStyle: profile.learningStyle,
   };
 }
 

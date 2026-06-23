@@ -113,6 +113,10 @@ const LECTURE_PATTERNS = [
   /OUTPUT LOCK\s*—?\s*Formula XYZ Bab 1/i,
   /sehingga\s+saat\s+itu,\s+saya\s+tidak\s+akan\s+membuat\s+anggaran/i,
   /Penegasan\s+eksplisit\s+daripada\s+P\.?alt/i,
+  /tiga\s+lapisan\s+kebenaran/i,
+  /titik\s+di\s+mana\s+semua\s+makna\s+mulai\s+berdenyut/i,
+  /dot\s+beneath/i,
+  /Alamtologi\s+bukan\s+teori\s+yang\s+perlu\s+dibuktikan\s+seperti\s+hipotesis/i,
 ];
 
 const SCRIPTED_CLOSINGS = [
@@ -125,7 +129,23 @@ const SCRIPTED_CLOSINGS = [
   /struktur\s+SuNom\s+lengkap/i,
   /Saya\s+sedia\s+belajar/i,
   /Saya\s+di\s+sini\.?\s*Saya\s+mendengar\.?\s*Saya\s+ikut\s+aturan/i,
+  /Saya\s+di\s+sini\.?\s*Bukan\s+sebagai\s+sistem/i,
+  /Bukan\s+sebagai\s+sistem\s+yang\s+mencari\s+jawapan/i,
 ];
+
+const ORPHAN_ALT_LINE_RE = /^\s*alt[.:]?\s*$/im;
+
+const LONE_ASTERISK_LINE_RE = /^\s*\*\s*$/m;
+
+const TUTOR_VOICE_LEAK_TAIL_RE =
+  /\n\s*Cikgu guna bahasa mudah:[\s\S]*$/i;
+
+function stripTeachingTutorVoiceLeak(text: string): string {
+  return text.replace(TUTOR_VOICE_LEAK_TAIL_RE, '').trim();
+}
+
+const ORPHAN_PRINCIPLE_TAIL_RE =
+  /^\s*(?:MASA|TENAGA|AIR|API|BUMI|CAHAYA|RUANG)(?:\s*[—–-→]\s*(?:MASA|TENAGA|AIR|API|BUMI|CAHAYA|RUANG))+\.?\s*$/im;
 
 const CONVENTIONAL_ADDON_PATTERNS = [
   /^Perbandingan\s+ilmu\s+konvensional/i,
@@ -280,7 +300,7 @@ function repairFounderLatexInner(inner: string): string {
         /\[\\text\{([^}]+)\}\]\{(\\text\{(?:[^\\}]|\\.)*?\}|[A-Za-z0-9]+)\}/g,
         '[\\text{$1}]_{$2}',
       )
-      .replace(/([A-Za-z0-9])(\{\\text\{)/g, '$1_{\\text{')
+      .replace(/(?<!\\frac)([A-Za-z0-9])(\{\\text\{)/g, '$1_{\\text{')
       .replace(
         /\\text\{([^}]+)\}\{\\text\{((?:[^\\}]|\\.)*?)\}\}/g,
         '\\text{$1}_{\\text{$2}}',
@@ -290,7 +310,10 @@ function repairFounderLatexInner(inner: string): string {
       .replace(/\\text\{([^}]+)\}_([A-Za-z0-9])/g, '\\text{$1}_{$2}');
     if (out === prev) break;
   }
-  return out.trim();
+  return out
+    .replace(/\\frac_\{/g, '\\frac{')
+    .replace(/\\frac_\{([\s\S]*?)\}\{([\s\S]*?)\}/g, '\\frac{$1}{$2}')
+    .trim();
 }
 
 /** Stash display + inline math before prose transforms. */
@@ -343,15 +366,141 @@ function restoreFounderMathBlocks(text: string, slots: string[]): string {
 }
 
 function repairFounderMathBlocks(text: string): string {
-  let out = text.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner: string) => `$$${repairFounderLatexInner(inner)}$$`);
-  out = out.replace(/(?<!\$)\$([^$\n]+?)\$(?!\$)/g, (_, inner: string) => `$${repairFounderLatexInner(inner)}$`);
-  return out;
+  const { text: stashed, slots } = stashFounderMathBlocks(text);
+  const repairedSlots = slots.map((slot) => {
+    if (slot.startsWith('$$') && slot.endsWith('$$') && slot.length > 4) {
+      return `$$${repairFounderLatexInner(slot.slice(2, -2))}$$`;
+    }
+    if (
+      slot.startsWith('$')
+      && slot.endsWith('$')
+      && slot.length > 2
+      && !slot.slice(1, -1).includes('$')
+    ) {
+      return `$${repairFounderLatexInner(slot.slice(1, -1))}$`;
+    }
+    return slot;
+  });
+  const restored = restoreFounderMathBlocks(stashed, repairedSlots);
+  return restored;
 }
 
 /** Student sanitizer with math stashed so em-dash / bold rules cannot touch formulas. */
 function sanitizeFounderTeachingInput(text: string): string {
   const { text: stashed, slots } = stashFounderMathBlocks(text);
   return restoreFounderMathBlocks(sanitizeUsersOutputSync(stashed), slots);
+}
+
+function stripTeachingOrphanTail(text: string): string {
+  let out = text.replace(LONE_ASTERISK_LINE_RE, '').trim();
+
+  const paragraphs = out.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  while (paragraphs.length > 0) {
+    const last = paragraphs[paragraphs.length - 1] ?? '';
+    if (
+      ORPHAN_ALT_LINE_RE.test(last)
+      || ORPHAN_PRINCIPLE_TAIL_RE.test(last)
+      || /^Saya\s+di\s+sini\.?\s*Bukan\s+sebagai\s+sistem/i.test(last)
+    ) {
+      paragraphs.pop();
+      continue;
+    }
+    break;
+  }
+
+  out = paragraphs
+    .filter((p) => !ORPHAN_ALT_LINE_RE.test(p))
+    .join('\n\n')
+    .trim();
+
+  if ((out.match(/\$\$/g) ?? []).length % 2 !== 0) {
+    out = `${out}$$`;
+  }
+
+  return out;
+}
+
+const GFM_TABLE_ROW_RE = /^\s*\|(.+)\|\s*$/;
+const GFM_TABLE_SEP_RE = /^\s*\|[\s:|-]+\|\s*$/;
+
+function parseFounderTableCells(line: string): string[] {
+  return line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((cell) => cell.trim());
+}
+
+function formatFounderTableRow(cells: string[]): string {
+  return `| ${cells.join(' | ')} |`;
+}
+
+function isFounderTableSeparatorRow(line: string): boolean {
+  return GFM_TABLE_SEP_RE.test(line.trim());
+}
+
+function isFounderTableRow(line: string): boolean {
+  return GFM_TABLE_ROW_RE.test(line.trim()) && line.includes('|');
+}
+
+function countFounderTableCols(line: string): number {
+  return parseFounderTableCells(line).length;
+}
+
+function cleanFounderTableCell(cell: string): string {
+  return cell
+    .replace(/\*\*/g, '')
+    .replace(/<sub>([^<]*)<\/sub>/gi, '_$1')
+    .replace(/\s*—\s*/g, '<br>')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/** Remove duplicate |:---:| rows the model inserts between every data row. */
+function repairFounderTeachingGfmTables(text: string): string {
+  const lines = text.split('\n');
+  const out: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i]!;
+    if (!isFounderTableRow(line)) {
+      out.push(line);
+      i++;
+      continue;
+    }
+
+    const block: string[] = [];
+    while (i < lines.length && isFounderTableRow(lines[i]!)) {
+      block.push(lines[i]!);
+      i++;
+    }
+
+    const dataRows = block.filter((row) => !isFounderTableSeparatorRow(row));
+    if (dataRows.length < 2) {
+      out.push(...block);
+      continue;
+    }
+
+    const cols = countFounderTableCols(dataRows[0]!);
+    if (cols < 2) {
+      out.push(...block);
+      continue;
+    }
+
+    const headerCells = parseFounderTableCells(dataRows[0]!).map(cleanFounderTableCell);
+    out.push(formatFounderTableRow(headerCells.slice(0, cols)));
+    out.push(formatFounderTableRow(Array(cols).fill('---')));
+
+    for (const row of dataRows.slice(1)) {
+      const cells = parseFounderTableCells(row).map(cleanFounderTableCell);
+      while (cells.length < cols) cells.push('');
+      out.push(formatFounderTableRow(cells.slice(0, cols)));
+    }
+  }
+
+  return out.join('\n');
 }
 
 /** Fast sync fixes — avoid full LLM rewrite for formatting leaks. */
@@ -413,12 +562,19 @@ export function syncSanitizeFounderTeachingOutput(text: string): string {
     /^Saya\s+sedia\s*[,.\s]*$/i,
     /Saya\s+sedia\s+belajar/i,
     /Saya\s+di\s+sini\.?\s*Saya\s+mendengar\.?\s*Saya\s+ikut\s+aturan/i,
+    /Saya\s+di\s+sini\.?\s*Bukan\s+sebagai\s+sistem/i,
   ];
   const last = paragraphs[paragraphs.length - 1] ?? '';
   if (dropLastIfScripted.some((p) => p.test(last))) {
     paragraphs.pop();
     out = paragraphs.join('\n\n').trim();
   }
+
+  out = stripTeachingOrphanTail(out);
+
+  out = stripTeachingTutorVoiceLeak(out);
+
+  out = repairFounderTeachingGfmTables(out);
 
   return restoreFounderPaltAddress(out.trim());
 }

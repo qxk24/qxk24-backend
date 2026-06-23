@@ -215,7 +215,31 @@ export async function repairFounderStreamOutput(input: {
           sessionId: resolvedSessionId,
         });
       }
+      fullResponse = repairFounderInventedEmpiricalClaims(
+        fullResponse,
+        searchResults,
+        extractedFacts,
+      );
     }
+    }
+    if (
+      fullResponse.trim()
+      && fullResponse !== rawModelStream
+      && (
+        /\\frac_/.test(rawModelStream)
+        || /\|:\s*-+\s*\|/.test(rawModelStream)
+        || /Cikgu guna bahasa mudah/i.test(rawModelStream)
+      )
+    ) {
+      sanitizedRepairApplied = true;
+      onEvent('adam_stream_done', JSON.stringify({
+        sessionId:            resolvedSessionId,
+        replace:              true,
+        sanitizedRepair:      true,
+        founderTeachingRepair: true,
+        structurePreserving:  true,
+        response:             fullResponse,
+      }));
     }
   } else {
     fullResponse = restoreFounderPaltAddress(fullResponse);

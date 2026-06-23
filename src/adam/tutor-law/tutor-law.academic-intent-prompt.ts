@@ -63,6 +63,7 @@ import {
   classifyPedagogyV2Turn,
 } from './tutor-law.pedagogy-v2-classifier';
 import { buildPedagogyV2TurnLaw } from './tutor-law.pedagogy-v2-prompt-laws';
+import { buildStemToolTurnLaw } from './tutor-law.stem-tool-links';
 import type { PedagogyV2TurnResult } from './tutor-law.pedagogy-v2.types';
 
 export interface AcademicIntentTurnInput {
@@ -154,6 +155,7 @@ export function classifyAcademicTurnIntents(
 
 export function buildAcademicIntentTurnPromptParts(
   bundle: AcademicIntentTurnBundle,
+  context?: Pick<AcademicIntentTurnInput, 'userMessage' | 'recentUserMessages' | 'profile'>,
 ): string[] {
   const parts: string[] = [buildMathIntentTurnLaw(bundle.mathIntent)];
 
@@ -166,6 +168,15 @@ export function buildAcademicIntentTurnPromptParts(
 
   const scienceLaw = buildScienceIntentTurnLaw(bundle.scienceIntent);
   if (scienceLaw) parts.push(scienceLaw);
+
+  const stemLaw = buildStemToolTurnLaw({
+    userMessage:         context?.userMessage ?? '',
+    recentUserMessages:  context?.recentUserMessages,
+    mathIntent:          bundle.mathIntent,
+    scienceIntent:       bundle.scienceIntent,
+    profile:             context?.profile,
+  });
+  if (stemLaw) parts.push(stemLaw);
 
   const languageLaw = buildLanguageIntentTurnLaw(bundle.languageIntent);
   if (languageLaw) parts.push(languageLaw);
@@ -191,6 +202,10 @@ export function buildAcademicIntentTurnPromptParts(
 export function buildAcademicIntentTurnPromptBlock(
   input: AcademicIntentTurnInput,
 ): string {
-  return buildAcademicIntentTurnPromptParts(classifyAcademicTurnIntents(input))
-    .join('\n\n');
+  const bundle = classifyAcademicTurnIntents(input);
+  return buildAcademicIntentTurnPromptParts(bundle, {
+    userMessage:        input.userMessage,
+    recentUserMessages: input.recentUserMessages,
+    profile:            input.profile,
+  }).join('\n\n');
 }

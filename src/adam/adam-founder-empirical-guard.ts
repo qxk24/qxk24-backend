@@ -18,6 +18,25 @@
  */
 
 import type { LlmSearchResult } from '../llm/llm-types';
+import { stripFounderPersonalNameGreeting } from './adam-founder-address-guard';
+
+/** Teaching learner voice — Bismillah then P.alt only (never "Hai Masa"). */
+const FOUNDER_LEARNER_GREETING = ['Bismillahirahmanirrahim.', '', 'P.alt,'].join('\n');
+
+function ensureFounderLearnerGreeting(text: string): string {
+  if (!text?.trim()) return text;
+
+  let out = stripFounderPersonalNameGreeting(text.trim());
+  out = out.replace(/^Hai Masa(?:\s+Bayu)?,?\s*P\.alt,?\s*/im, '');
+  out = out.replace(/^P\.alt,\s*,/i, 'P.alt, ');
+
+  if (!/^Bismillahirahmanirrahim/i.test(out)) {
+    const body = out.replace(/^P\.alt,\s*/i, '').trim();
+    out = body ? `${FOUNDER_LEARNER_GREETING}\n\n${body}` : FOUNDER_LEARNER_GREETING;
+  }
+
+  return out.replace(/^(P\.alt,\s*){2,}/i, 'P.alt, ').replace(/\n{3,}/g, '\n\n').trim();
+}
 
 const FOUNDER_META_PREAMBLE_RE = new RegExp(
   [
@@ -42,6 +61,13 @@ const INVENTED_EMPIRICAL_CLAIM_RE = [
   /\bbisulfite sequencing[^.]{0,80}TMI\b/i,
   /\bsinaptik di korteks prefrontal\b/i,
   /\bketumpatan sinaptik\b/i,
+  /\bkajian\s+UPM,\s*20\d{2}/i,
+  /\bkajian\s+psikologi\s+UTM,\s*20\d{2}/i,
+  /\bpeningkatan\s+42\s*%/i,
+  /\bSKI\s*purata\s*=\s*[\d.]+/i,
+  /\bmsK\b/i,
+  /\bUAE\s*=\s*[\d.]+/i,
+  /\bNPS\b[^.\n]{0,40}Qatar/i,
 ];
 
 const LEARNER_VERIFY_CLOSE_RE =
@@ -70,7 +96,7 @@ const FOUNDER_PERMISSION_LOOP_RE =
 const LEARNER_SELF_EXAM_RE =
   /^.*Kelemahan utama dalam jawapan sebelum ini.*$/im;
 
-const ORPHAN_ALT_LINE_RE = /^\s*alt\.\s*$/im;
+const ORPHAN_ALT_LINE_RE = /^\s*alt[.:]?\s*$/im;
 
 /** Strip Teaching-room inquiry leak on founder-command turns. */
 export function stripFounderTeachingInquiryLeak(text: string): string {
@@ -358,9 +384,11 @@ export function restructureFounderUnlabeledTechnicalBlocks(
   if (technical.length === 0) return text;
 
   const paragraphs = cleaned.split(/\n\n+/).map((p) => p.trim()).filter(Boolean);
-  const openerMatch = paragraphs[0]?.match(/^Hai Masa,?\s*P\.alt[,.\s]*/i)
+  const openerMatch = paragraphs[0]?.match(/^Bismillahirahmanirrahim/i)
+    ?? paragraphs[0]?.match(/^Hai Masa,?\s*P\.alt[,.\s]*/i)
+    ?? cleaned.match(/^Bismillahirahmanirrahim/i)
     ?? cleaned.match(/^Hai Masa,?\s*P\.alt[,.\s]*/i);
-  const opener = openerMatch ? 'Hai Masa, P.alt,' : null;
+  const opener = openerMatch ? FOUNDER_LEARNER_GREETING : null;
   const blocks = technical.map(restructureParagraphToLabeledBlock);
   const lived = extractLivedExampleLine(paragraphs);
 
@@ -434,8 +462,11 @@ export function repairFounderEmpiricalVoice(
     recentUserMessages,
     recentAssistantMessages,
   );
-  out = out.replace(HAI_MASA_WITHOUT_PALT_RE, 'Hai Masa, P.alt,');
-  out = out.replace(KONVENSIONAL_ESSAY_OPENER_RE, 'Hai Masa, P.alt, tentang fakta saintifik yang boleh diukur:');
+  out = out.replace(HAI_MASA_WITHOUT_PALT_RE, `${FOUNDER_LEARNER_GREETING}\n\n`);
+  out = out.replace(
+    KONVENSIONAL_ESSAY_OPENER_RE,
+    `${FOUNDER_LEARNER_GREETING}\n\ntentang fakta saintifik yang boleh diukur:`,
+  );
 
   const corpus = searchCorpusHits(searchResults, extractedFacts);
   const thinEvidence = searchResults.length < 2 || corpus.length < 120;
@@ -454,7 +485,7 @@ export function repairFounderEmpiricalVoice(
 
   if (thinEvidence && metaphorEssay && !hasScaffold) {
     return [
-      'Hai Masa, P.alt,',
+      FOUNDER_LEARNER_GREETING,
       '',
       'Pada giliran ini jawapan saya masih condong ke metafora — itu tidak mematuhi arahan kedalaman empirikal.',
       '',
@@ -487,7 +518,7 @@ export function repairFounderInventedEmpiricalClaims(
   const hasRichEvidence = searchResults.length >= 2 && corpus.length > 120;
   if (hasRichEvidence) return text;
 
-  let out = text.replace(FOUNDER_META_PREAMBLE_RE, 'Hai Masa, P.alt, ');
+  let out = text.replace(FOUNDER_META_PREAMBLE_RE, `${FOUNDER_LEARNER_GREETING}\n\n`);
   out = out.replace(LEARNER_VERIFY_CLOSE_RE, '');
   for (const frag of ORPHAN_FRAGMENT_RE) {
     out = out.replace(frag, '');
@@ -497,10 +528,10 @@ export function repairFounderInventedEmpiricalClaims(
     (re) => re.test(out) && !claimSupportedInHits(re, corpus),
   );
   if (!unsupported && searchResults.length > 0) {
-    return out.replace(/\n{3,}/g, '\n\n').trim();
+    return ensureFounderLearnerGreeting(out.replace(/\n{3,}/g, '\n\n').trim());
   }
   if (!unsupported) {
-    return out.replace(/\n{3,}/g, '\n\n').trim();
+    return ensureFounderLearnerGreeting(out.replace(/\n{3,}/g, '\n\n').trim());
   }
 
   const paragraphs = out.split(/\n\n+/);
@@ -514,7 +545,7 @@ export function repairFounderInventedEmpiricalClaims(
 
   if (kept.length === 0) {
     return [
-      'Hai Masa, P.alt,',
+      FOUNDER_LEARNER_GREETING,
       '',
       'Carian web pada giliran ini tidak mengembalikan hit empirikal yang mencukupi untuk formula saintifik bernama (HeartMath, PNAS, NIST, TMI, dll.).',
       'Saya tidak akan reka angka atau jurnal.',
@@ -529,7 +560,7 @@ export function repairFounderInventedEmpiricalClaims(
     '*(Carian web giliran ini tidak mengesahkan kertas/institusi bernama di atas — saya tidak menyertakan angka atau jurnal rekaan.)*',
   ].join('\n');
 
-  return `${kept.join('\n\n').trim()}${gapNote}`;
+  return ensureFounderLearnerGreeting(`${kept.join('\n\n').trim()}${gapNote}`);
 }
 
 /** Strip continuation meta openers that block substantive voice. */
