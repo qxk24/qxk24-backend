@@ -24,13 +24,14 @@ import {
   TutorEnrollmentModel,
   TutorEnrollmentStatus,
 } from './adam-tutor-enrollment.schema';
-import { TUTOR_REGISTER_BAND_LABELS_BM } from './adam-tutor-register.constants';
+import { TUTOR_PIN_LABEL, TUTOR_REGISTER_BAND_LABELS_BM, tutorBandLabel } from './adam-tutor-register.constants';
 import { listAgentWalletLedger, sumAgentCommission } from './adam-tutor-agent-wallet.service';
 import {
   TutorAgentPackageStatus,
   type TutorAgentPackageTier,
 } from './adam-tutor-agent-package.config';
 import { serializeAgentPackage } from './adam-tutor-agent-package.service';
+import { resolveAgentLicenseExpiry } from './adam-tutor-pricing-renewal.service';
 import {
   ensureAgentMarketingStudent,
   marketingEnrollmentFilter,
@@ -72,7 +73,7 @@ export async function createTutorAgent(input: {
   postcode:            string;
   city:                string;
   state:               string;
-  band?:               TutorSubscriptionLevel;
+  band?:               TutorSubscriptionLevel | null;
   packageTier?:        TutorAgentPackageTier;
   commissionPercent?:  number;
   notes?:              string;
@@ -85,7 +86,7 @@ export async function createTutorAgent(input: {
   const phone = normalizeMalaysiaPhone(input.phone);
 
   const agentCode = await allocateTutorAgentCode();
-  const hasPackage = Boolean(input.band && input.packageTier);
+  const hasPackage = Boolean(input.packageTier);
   const agentId = newTutorAgentId();
 
   const agent = await TutorAgentModel.create({
@@ -224,6 +225,10 @@ export interface TutorAgentPortalOverview {
   pinBalance:         number;
   pinPurchasedTotal:  number;
   packagePaidAt:      string | null;
+  packageExpiresAt:   string | null;
+  packageRenewedAt:   string | null;
+  packageRenewalCount: number;
+  licenseActive:      boolean;
   packageQuote:       ReturnType<typeof serializeAgentPackage>['packageQuote'];
 }
 
@@ -281,6 +286,15 @@ export async function getTutorAgentPortalOverview(
     pinBalance:         agent.pinBalance,
     pinPurchasedTotal:  agent.pinPurchasedTotal,
     packagePaidAt:      agent.packagePaidAt?.toISOString() ?? null,
+    packageExpiresAt:   agent.packageExpiresAt?.toISOString() ?? null,
+    packageRenewedAt:   agent.packageRenewedAt?.toISOString() ?? null,
+    packageRenewalCount: agent.packageRenewalCount ?? 0,
+    licenseActive:      Boolean(
+      (() => {
+        const exp = resolveAgentLicenseExpiry(agent);
+        return exp && exp > new Date();
+      })(),
+    ),
     packageQuote:       serializeAgentPackage(agent).packageQuote,
   };
 }
@@ -291,12 +305,16 @@ export interface TutorAgentStudentRow {
   studentName:   string | null;
   schoolName:    string | null;
   state:         string | null;
-  band:          string;
+  band:          string | null;
   bandLabel:     string;
+  /** @deprecated use bandLabel — always universal PIN */
+  pinLabel:      string;
   registerCode:  string;
   status:        string;
   paidAt:        string | null;
   completedAt:   string | null;
+  pricingChannel: string;
+  agentPriceEndsAt: string | null;
   createdAt:     string;
 }
 
@@ -316,11 +334,14 @@ export async function listTutorAgentStudents(
     schoolName:   doc.schoolName,
     state:        doc.state,
     band:         doc.band,
-    bandLabel:    TUTOR_REGISTER_BAND_LABELS_BM[doc.band],
+    bandLabel:    TUTOR_PIN_LABEL,
+    pinLabel:     TUTOR_PIN_LABEL,
     registerCode: doc.registerCode,
     status:       doc.status,
     paidAt:       doc.paidAt?.toISOString() ?? null,
     completedAt:  doc.completedAt?.toISOString() ?? null,
+    pricingChannel: doc.pricingChannel ?? 'agent',
+    agentPriceEndsAt: doc.agentPriceEndsAt?.toISOString() ?? null,
     createdAt:    doc.createdAt.toISOString(),
   }));
 }

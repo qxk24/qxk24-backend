@@ -56,8 +56,10 @@ export {
 
 export {
   buildTutorLevelScopeLaw,
+  buildTutorAboveBaselineGuidanceLaw,
   buildTutorLevelScopeRefusalLaw,
   detectQuestionEducationBand,
+  isQuestionAboveBaselineLevel,
   isQuestionBeyondStudentLevel,
   isAgentMarketingTutorScope,
   tutorLevelScopeLabel,

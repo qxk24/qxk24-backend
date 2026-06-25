@@ -19,17 +19,12 @@
  *   npm run verify:stripe-prices -- --required-only
  */
 
-import { ADAMGURU_STRIPE_PRICES } from '../adam-servers/adam-server-stripe.config';
 import {
   TUTOR_AGENT_PACKAGE_TIERS,
   quoteTutorAgentPackage,
   tutorAgentPackageStripeEnvKey,
 } from '../adam/tutor/adam-tutor-agent-package.config';
 import { ENV } from '../config/environments';
-import { NIAGA_SKU_SEAT, NIAGA_SKU_SEAT_ANN } from '../niaga/niaga.constants';
-import { getNiagaStripePriceDef } from '../niaga/niaga-stripe.config';
-import { NiagaBillingCycle } from '../niaga/niaga-subscription.schema';
-import { RD_APPLIED_STRIPE_PRICES } from '../rd-applied/rd-stripe.config';
 import { toStripeUnitAmount } from '../subscriptions/stripe-currency';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
@@ -85,91 +80,24 @@ function buildCatalog(): PriceExpectation[] {
 
   pushEnvFee(catalog, 'ADAM Pro', 'Pro monthly', 'STRIPE_PRICE_ID_PRO_MONTHLY', ENV.ADAM_PRO_MONTHLY_USD, 'usd', 'month', true);
   pushEnvFee(catalog, 'ADAM Pro', 'Pro annual', 'STRIPE_PRICE_ID_PRO_ANNUAL', ENV.ADAM_PRO_ANNUAL_USD, 'usd', 'year', true);
-  pushEnvFee(catalog, 'ADAM Profesional', 'Profesional monthly', 'STRIPE_PRICE_ID_PROFESIONAL_MONTHLY', 450, 'myr', 'month', true);
-  pushEnvFee(catalog, 'ADAM Profesional', 'Profesional annual', 'STRIPE_PRICE_ID_PROFESIONAL_ANNUAL', 4500, 'myr', 'year', true);
 
-  pushEnvFee(
-    catalog, 'ADAM Tutor · pelajar public', 'Primary public monthly',
-    'STRIPE_PRICE_ID_TUTOR_PRIMARY_PUBLIC_MONTHLY', ENV.ADAM_TUTOR_PRIMARY_PUBLIC_MONTHLY_USD, 'usd', 'month', true,
-  );
-  pushEnvFee(
-    catalog, 'ADAM Tutor · pelajar public', 'Secondary public monthly',
-    'STRIPE_PRICE_ID_TUTOR_SECONDARY_PUBLIC_MONTHLY', ENV.ADAM_TUTOR_SECONDARY_PUBLIC_MONTHLY_USD, 'usd', 'month', true,
-  );
-  pushEnvFee(
-    catalog, 'ADAM Tutor · pelajar public', 'University public monthly',
-    'STRIPE_PRICE_ID_TUTOR_UNIVERSITY_PUBLIC_MONTHLY', ENV.ADAM_TUTOR_UNIVERSITY_PUBLIC_MONTHLY_USD, 'usd', 'month', true,
-  );
-  pushEnvFee(
-    catalog, 'ADAM Tutor · pelajar agent', 'Primary agent monthly',
-    'STRIPE_PRICE_ID_TUTOR_PRIMARY_AGENT_MONTHLY', ENV.ADAM_TUTOR_PRIMARY_AGENT_MONTHLY_USD, 'usd', 'month', true,
-  );
-  pushEnvFee(
-    catalog, 'ADAM Tutor · pelajar agent', 'Secondary agent monthly',
-    'STRIPE_PRICE_ID_TUTOR_SECONDARY_AGENT_MONTHLY', ENV.ADAM_TUTOR_SECONDARY_AGENT_MONTHLY_USD, 'usd', 'month', true,
-  );
-  pushEnvFee(
-    catalog, 'ADAM Tutor · pelajar agent', 'University agent monthly',
-    'STRIPE_PRICE_ID_TUTOR_UNIVERSITY_AGENT_MONTHLY', ENV.ADAM_TUTOR_UNIVERSITY_AGENT_MONTHLY_USD, 'usd', 'month', true,
-  );
-
-  for (const band of ['primary', 'secondary', 'university'] as const) {
-    for (const tier of TUTOR_AGENT_PACKAGE_TIERS) {
-      const quote = quoteTutorAgentPackage(band, tier);
-      const envKey = tutorAgentPackageStripeEnvKey(band, tier);
-      catalog.push({
-        group:    'ADAM Tutor · ejen pakej',
-        label:    `${band} · ${tier} (${quote.pinCount} PIN)`,
-        envKey,
-        amount:   quote.totalMyr,
-        currency: 'myr',
-        interval: 'one_time',
-        required: true,
-      });
-    }
-  }
-
-  for (const def of RD_APPLIED_STRIPE_PRICES) {
+  for (const tier of TUTOR_AGENT_PACKAGE_TIERS) {
+    const quote = quoteTutorAgentPackage(tier);
+    const envKey = tutorAgentPackageStripeEnvKey(tier);
     catalog.push({
-      group:    'R&D & Applied',
-      label:    def.sku,
-      envKey:   def.envKey,
-      amount:   def.annualUsd,
-      currency: 'usd',
-      interval: 'year',
-      required: false,
-    });
-  }
-
-  for (const def of ADAMGURU_STRIPE_PRICES) {
-    catalog.push({
-      group:    'ADAMGuru',
-      label:    def.tier,
-      envKey:   def.envKey,
-      amount:   def.monthlyMYR,
+      group:    'ADAM Ejen',
+      label:    `${tier} (${quote.pinCount} PIN)`,
+      envKey,
+      amount:   quote.totalMyr,
       currency: 'myr',
-      interval: 'month',
-      required: false,
+      interval: 'one_time',
+      required: true,
     });
   }
 
-  for (const sku of [NIAGA_SKU_SEAT, NIAGA_SKU_SEAT_ANN]) {
-    const def = getNiagaStripePriceDef(sku);
-    if (!def) continue;
-    catalog.push({
-      group:    'ADAM Niaga',
-      label:    def.label,
-      envKey:   def.envKey,
-      amount:   def.amountMyr,
-      currency: 'myr',
-      interval: def.billingCycle === NiagaBillingCycle.ANNUAL ? 'year' : 'month',
-      required: false,
-    });
-  }
-
-  pushEnvFee(catalog, 'ADAM Credits', 'Credits $50', 'STRIPE_PRICE_ID_CREDITS_50', 50, 'usd', 'one_time', false);
-  pushEnvFee(catalog, 'ADAM Credits', 'Credits $250', 'STRIPE_PRICE_ID_CREDITS_250', 250, 'usd', 'one_time', false);
-  pushEnvFee(catalog, 'ADAM Credits', 'Credits $1000', 'STRIPE_PRICE_ID_CREDITS_1000', 1000, 'usd', 'one_time', false);
+  pushEnvFee(catalog, 'ADAM Token', 'Token $10', 'STRIPE_PRICE_ID_CREDITS_10', 10, 'usd', 'one_time', false);
+  pushEnvFee(catalog, 'ADAM Token', 'Token $50', 'STRIPE_PRICE_ID_CREDITS_50', 50, 'usd', 'one_time', false);
+  pushEnvFee(catalog, 'ADAM Token', 'Token $200', 'STRIPE_PRICE_ID_CREDITS_200', 200, 'usd', 'one_time', false);
 
   return catalog;
 }

@@ -17,6 +17,7 @@
 
 import mongoose, { Document, Schema } from 'mongoose';
 import type { TutorSubscriptionLevel } from '../../subscriptions/subscription.schema';
+import type { TutorPricingChannel } from './adam-tutor-pricing.types';
 
 export enum TutorEnrollmentStatus {
   CODE_LOCKED   = 'code_locked',
@@ -29,7 +30,7 @@ export interface ITutorEnrollment extends Document {
   enrollmentId:   string;
   userId:         string;
   registerCode:   string;
-  band:           TutorSubscriptionLevel;
+  band:           TutorSubscriptionLevel | null;
   agentLabel:     string | null;
   agentId:        string | null;
   status:         TutorEnrollmentStatus;
@@ -43,6 +44,15 @@ export interface ITutorEnrollment extends Document {
   subjectsTaken:  string[];
   paidAt:         Date | null;
   completedAt:    Date | null;
+  /** First successful monthly payment — start of 12-month agent-price window. */
+  agentPriceStartedAt: Date | null;
+  /** End of current agent-price window (USD 15.90/mo). */
+  agentPriceEndsAt:    Date | null;
+  /** When public USD 19 switch is scheduled (usually = agentPriceEndsAt). */
+  priceSwitchAt:       Date | null;
+  /** When subscription actually moved to public pricing. */
+  priceSwitchedAt:     Date | null;
+  pricingChannel:      TutorPricingChannel;
   createdAt:      Date;
   updatedAt:      Date;
 }
@@ -52,7 +62,7 @@ const TutorEnrollmentSchema = new Schema<ITutorEnrollment>(
     enrollmentId:    { type: String, required: true, unique: true, index: true },
     userId:          { type: String, required: true, unique: true, index: true },
     registerCode:    { type: String, required: true, index: true },
-    band:            { type: String, enum: ['primary', 'secondary', 'university'], required: true },
+    band:            { type: String, enum: ['primary', 'secondary', 'university', null], default: null },
     agentLabel:      { type: String, default: null },
     agentId:         { type: String, default: null, index: true },
     status:          {
@@ -71,6 +81,16 @@ const TutorEnrollmentSchema = new Schema<ITutorEnrollment>(
     subjectsTaken:   { type: [String], default: [] },
     paidAt:          { type: Date, default: null },
     completedAt:     { type: Date, default: null },
+    agentPriceStartedAt: { type: Date, default: null, index: true },
+    agentPriceEndsAt:    { type: Date, default: null, index: true },
+    priceSwitchAt:       { type: Date, default: null },
+    priceSwitchedAt:     { type: Date, default: null },
+    pricingChannel:      {
+      type:    String,
+      enum:    ['agent', 'public'],
+      default: 'agent',
+      index:   true,
+    },
   },
   { timestamps: true, collection: 'adam_tutor_enrollments' },
 );

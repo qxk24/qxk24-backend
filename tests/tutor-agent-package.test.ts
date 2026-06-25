@@ -14,45 +14,31 @@
 
 import { describe, expect, it } from '@jest/globals';
 import {
-  listTutorAgentPackagesForBand,
+  listTutorAgentPackages,
   quoteTutorAgentPackage,
 } from '../src/adam/tutor/adam-tutor-agent-package.config';
 
-describe('tutor agent package pricing', () => {
-  it('matches PDF — Sekolah Rendah', () => {
-    expect(quoteTutorAgentPackage('primary', 'silver')).toMatchObject({
-      pinCount: 150, pricePerPinMyr: 2.0, totalMyr: 300,
+describe('tutor agent package pricing (band-independent)', () => {
+  it('quotes one flat schedule across 4 tiers', () => {
+    expect(quoteTutorAgentPackage('silver')).toMatchObject({
+      pinCount: 100, pricePerPinMyr: 2.0, totalMyr: 200,
     });
-    expect(quoteTutorAgentPackage('primary', 'gold')).toMatchObject({
-      pinCount: 1500, pricePerPinMyr: 1.8, totalMyr: 2700,
+    expect(quoteTutorAgentPackage('gold')).toMatchObject({
+      pinCount: 500, pricePerPinMyr: 1.8, totalMyr: 900,
     });
-    expect(quoteTutorAgentPackage('primary', 'diamond')).toMatchObject({
-      pinCount: 3750, pricePerPinMyr: 1.6, totalMyr: 6000,
+    expect(quoteTutorAgentPackage('diamond')).toMatchObject({
+      pinCount: 1000, pricePerPinMyr: 1.6, totalMyr: 1600,
     });
-    expect(quoteTutorAgentPackage('primary', 'platinum')).toMatchObject({
-      pinCount: 7500, pricePerPinMyr: 1.4, totalMyr: 10500,
-    });
-  });
-
-  it('matches PDF — Sekolah Menengah', () => {
-    expect(quoteTutorAgentPackage('secondary', 'silver')).toMatchObject({
-      pinCount: 150, pricePerPinMyr: 3.0, totalMyr: 450,
-    });
-    expect(quoteTutorAgentPackage('secondary', 'platinum')).toMatchObject({
-      pinCount: 7500, pricePerPinMyr: 2.4, totalMyr: 18000,
+    expect(quoteTutorAgentPackage('platinum')).toMatchObject({
+      pinCount: 1500, pricePerPinMyr: 1.4, totalMyr: 2100,
     });
   });
 
-  it('matches PDF — IPT', () => {
-    expect(quoteTutorAgentPackage('university', 'silver')).toMatchObject({
-      pinCount: 150, pricePerPinMyr: 4.0, totalMyr: 600,
-    });
-    expect(quoteTutorAgentPackage('university', 'platinum')).toMatchObject({
-      pinCount: 7500, pricePerPinMyr: 3.4, totalMyr: 25500,
-    });
+  it('quotes carry no band dimension', () => {
+    expect(quoteTutorAgentPackage('silver')).not.toHaveProperty('band');
   });
 
-  it('returns four tiers per band', () => {
-    expect(listTutorAgentPackagesForBand('secondary')).toHaveLength(4);
+  it('returns exactly four tiers', () => {
+    expect(listTutorAgentPackages()).toHaveLength(4);
   });
 });

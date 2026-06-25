@@ -55,8 +55,8 @@ import {
   buildAdamTutorProfileBlock,
   buildTutorStudentAddressLaw,
   isAdamTutorOffTopicMessage,
-  buildTutorLevelScopeRefusalLaw,
-  isQuestionBeyondStudentLevel,
+  buildTutorAboveBaselineGuidanceLaw,
+  isQuestionAboveBaselineLevel,
   buildTutorBehaviorModePrompt,
   classifyTutorBehaviorMode,
 } from './adam-tutor-law';
@@ -120,9 +120,9 @@ export function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): 
   if (
     params.tutorProfile
     && params.userMessage?.trim()
-    && isQuestionBeyondStudentLevel(params.userMessage, params.tutorProfile)
+    && isQuestionAboveBaselineLevel(params.userMessage, params.tutorProfile)
   ) {
-    parts.push(buildTutorLevelScopeRefusalLaw(params.tutorProfile));
+    parts.push(buildTutorAboveBaselineGuidanceLaw(params.tutorProfile));
   }
 
   parts.push(...buildAcademicIntentTurnPromptParts(academic, {

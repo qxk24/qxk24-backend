@@ -61,7 +61,7 @@ export interface ParentReportCard {
   studentName:       string;
   schoolName:        string | null;
   yearLabel:         string | null;
-  band:              string;
+  band:              string | null;
   overall:           ParentReportOverall;
   subjects:          ParentSubjectSummary[];
   insights:          ParentReportInsights;

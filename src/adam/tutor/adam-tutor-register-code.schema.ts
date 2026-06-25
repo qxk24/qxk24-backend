@@ -28,7 +28,7 @@ export enum TutorRegisterCodeStatus {
 export interface ITutorRegisterCode extends Document {
   codeId:       string;
   registerCode: string;
-  band:         TutorSubscriptionLevel;
+  band:         TutorSubscriptionLevel | null;
   agentLabel:   string | null;
   agentId:      string | null;
   status:       TutorRegisterCodeStatus;
@@ -49,7 +49,7 @@ const TutorRegisterCodeSchema = new Schema<ITutorRegisterCode>(
   {
     codeId:       { type: String, required: true, unique: true, index: true },
     registerCode: { type: String, required: true, unique: true, index: true },
-    band:         { type: String, enum: ['primary', 'secondary', 'university'], required: true, index: true },
+    band:         { type: String, enum: ['primary', 'secondary', 'university', null], default: null, index: true },
     agentLabel:   { type: String, default: null },
     agentId:      { type: String, default: null, index: true },
     status:       {

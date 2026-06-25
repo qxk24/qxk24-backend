@@ -175,7 +175,7 @@ export async function buildParentReportForStudent(
     studentName:   enrollment.studentName ?? 'Pelajar',
     schoolName:    enrollment.schoolName,
     yearLabel:     enrollment.yearLabel,
-    band:          enrollment.band,
+    band:          null,
     subjectsTaken,
     kind,
   });

@@ -69,12 +69,15 @@ function checkoutBranding(): Record<string, string> {
 
 function stripePriceIdForPack(packId: string): string | null {
   const map: Record<string, string> = {
+    'credits-10':   ENV.STRIPE_PRICE_ID_CREDITS_10,
     'credits-50':   ENV.STRIPE_PRICE_ID_CREDITS_50,
-    'credits-250':  ENV.STRIPE_PRICE_ID_CREDITS_250,
-    'credits-1000': ENV.STRIPE_PRICE_ID_CREDITS_1000,
+    'credits-200':  ENV.STRIPE_PRICE_ID_CREDITS_200,
+    // Legacy pack ids — map to the current $200 / $50 prices.
+    'credits-250':  ENV.STRIPE_PRICE_ID_CREDITS_200,
+    'credits-1000': ENV.STRIPE_PRICE_ID_CREDITS_200,
     'premium-50':   ENV.STRIPE_PRICE_ID_CREDITS_50,
-    'premium-250':  ENV.STRIPE_PRICE_ID_CREDITS_250,
-    'premium-1000': ENV.STRIPE_PRICE_ID_CREDITS_1000,
+    'premium-250':  ENV.STRIPE_PRICE_ID_CREDITS_200,
+    'premium-1000': ENV.STRIPE_PRICE_ID_CREDITS_200,
   };
   const id = map[packId]?.trim();
   return id || null;

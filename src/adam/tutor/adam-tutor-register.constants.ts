@@ -32,6 +32,33 @@ export const TUTOR_REGISTER_BAND_PREFIX: Record<TutorSubscriptionLevel, string> 
   university: 'UNIV',
 };
 
+/** Universal PIN — one category for all learners; ADAM infers level from questions. */
+export const TUTOR_PIN_LABEL = 'Semua aras';
+export const TUTOR_PIN_PREFIX = 'UMUM';
+
+/** Agent license + student agent-price window length (months). */
+export const TUTOR_AGENT_LICENSE_MONTHS = 12;
+
+/** @deprecated use TUTOR_PIN_LABEL */
+export const TUTOR_REGISTER_BAND_LABEL_GENERAL = TUTOR_PIN_LABEL;
+/** @deprecated use TUTOR_PIN_PREFIX */
+export const TUTOR_REGISTER_BAND_PREFIX_GENERAL = TUTOR_PIN_PREFIX;
+
+/** Neutral level used only where a concrete level is structurally required (soft baseline). */
+export const TUTOR_REGISTER_BAND_FALLBACK: TutorSubscriptionLevel = 'secondary';
+
+export function tutorBandLabel(
+  band: TutorSubscriptionLevel | null | undefined,
+): string {
+  return band ? TUTOR_REGISTER_BAND_LABELS_BM[band] : TUTOR_REGISTER_BAND_LABEL_GENERAL;
+}
+
+export function tutorBandPrefix(
+  band: TutorSubscriptionLevel | null | undefined,
+): string {
+  return band ? TUTOR_REGISTER_BAND_PREFIX[band] : TUTOR_REGISTER_BAND_PREFIX_GENERAL;
+}
+
 export {
   tutorRegisterMonthlyUsd,
   tutorRegisterMonthlyMyr,

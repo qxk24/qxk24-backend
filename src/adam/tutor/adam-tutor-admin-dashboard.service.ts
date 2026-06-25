@@ -122,7 +122,7 @@ export interface TutorAdminDashboardData {
     studentName:  string | null;
     schoolName:   string | null;
     state:        string | null;
-    band:         TutorSubscriptionLevel;
+    band:         TutorSubscriptionLevel | null;
     status:       string;
     agentLabel:   string | null;
     registerCode: string;
@@ -131,7 +131,7 @@ export interface TutorAdminDashboardData {
   recentPins: Array<{
     codeId:       string;
     registerCode: string;
-    band:         TutorSubscriptionLevel;
+    band:         TutorSubscriptionLevel | null;
     agentLabel:   string | null;
     status:       string;
     createdAt:    string;

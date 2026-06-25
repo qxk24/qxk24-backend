@@ -18,14 +18,14 @@ import {
   tutorAgentPackageStripeEnvKey,
 } from '../src/adam/tutor/adam-tutor-agent-package.config';
 
-describe('tutor agent package stripe env keys', () => {
-  it('maps 12 band×tier keys', () => {
-    expect(tutorAgentPackageStripeEnvKey('primary', 'silver')).toBe(
-      'STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_SILVER',
+describe('tutor agent package stripe env keys (band-independent)', () => {
+  it('maps 4 tier keys', () => {
+    expect(tutorAgentPackageStripeEnvKey('silver')).toBe(
+      'STRIPE_PRICE_ID_TUTOR_EJEN_SILVER',
     );
-    expect(tutorAgentPackageStripeEnvKey('university', 'platinum')).toBe(
-      'STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_PLATINUM',
+    expect(tutorAgentPackageStripeEnvKey('platinum')).toBe(
+      'STRIPE_PRICE_ID_TUTOR_EJEN_PLATINUM',
     );
-    expect(listMissingTutorAgentPackageStripePriceIds()).toHaveLength(12);
+    expect(listMissingTutorAgentPackageStripePriceIds()).toHaveLength(4);
   });
 });

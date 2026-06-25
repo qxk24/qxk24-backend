@@ -24,13 +24,7 @@ import {
   TutorRegisterCodeStatus,
   type ITutorRegisterCode,
 } from './adam-tutor-register-code.schema';
-import { TUTOR_REGISTER_BAND_LABELS_BM } from './adam-tutor-register.constants';
-
-const BAND_LABELS_EN: Record<string, string> = {
-  primary:    'Primary school',
-  secondary:  'Secondary school',
-  university: 'College & university',
-};
+import { TUTOR_PIN_LABEL } from './adam-tutor-register.constants';
 
 function appUrl(): string {
   return (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
@@ -61,8 +55,7 @@ export function buildTutorRegisterLoginUrl(registerCode: string): string {
 export interface TutorAgentAvailablePinRow {
   codeId:             string;
   registerCode:       string;
-  band:               string;
-  bandLabel:          string;
+  pinLabel:           string;
   invitedEmail:       string | null;
   invitedAt:          string | null;
   invitedStudentName: string | null;
@@ -84,8 +77,7 @@ export async function listAgentAvailableRegisterCodes(
   return docs.map((doc) => ({
     codeId:             doc.codeId,
     registerCode:       doc.registerCode,
-    band:               doc.band,
-    bandLabel:          BAND_LABELS_EN[doc.band] ?? TUTOR_REGISTER_BAND_LABELS_BM[doc.band] ?? doc.band,
+    pinLabel:           TUTOR_PIN_LABEL,
     invitedEmail:       doc.invitedEmail ?? null,
     invitedAt:          doc.invitedAt ? doc.invitedAt.toISOString() : null,
     invitedStudentName: doc.invitedStudentName ?? null,
@@ -180,9 +172,6 @@ async function deliverTutorPinStudentEmail(
 ): Promise<{ registerCode: string; studentEmail: string; registerUrl: string }> {
   const registerCode = doc.registerCode;
   const studentEmail = normalizeEmail(input.studentEmail);
-  const bandLabel = BAND_LABELS_EN[doc.band]
-    ?? TUTOR_REGISTER_BAND_LABELS_BM[doc.band]
-    ?? doc.band;
   const registerUrl = buildTutorStudentRegisterUrl(registerCode, studentEmail);
 
   const mailPayload = {
@@ -191,7 +180,7 @@ async function deliverTutorPinStudentEmail(
     contactName:  input.contactName,
     agentEmail:   input.agentEmail,
     registerCode,
-    bandLabel,
+    bandLabel:    TUTOR_PIN_LABEL,
     registerUrl,
   };
 
@@ -296,8 +285,7 @@ export function serializeAvailablePin(doc: ITutorRegisterCode): TutorAgentAvaila
   return {
     codeId:             doc.codeId,
     registerCode:       doc.registerCode,
-    band:               doc.band,
-    bandLabel:          BAND_LABELS_EN[doc.band] ?? TUTOR_REGISTER_BAND_LABELS_BM[doc.band] ?? doc.band,
+    pinLabel:           TUTOR_PIN_LABEL,
     invitedEmail:       doc.invitedEmail ?? null,
     invitedAt:          doc.invitedAt ? doc.invitedAt.toISOString() : null,
     invitedStudentName: doc.invitedStudentName ?? null,

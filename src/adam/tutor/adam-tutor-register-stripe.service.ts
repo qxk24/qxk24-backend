@@ -19,10 +19,9 @@ import crypto from 'crypto';
 import { ENV } from '../../config/environments';
 import {
   assertStripeReady,
-  tutorStripePriceId,
   type StripeCheckoutResult,
 } from '../../subscriptions/stripe-gateway.service';
-import { stripeResourceId } from '../../subscriptions/stripe-currency';
+import { stripeResourceId, toStripeUnitAmount } from '../../subscriptions/stripe-currency';
 import {
   SubscriptionModel,
   SubscriptionStatus,
@@ -31,7 +30,7 @@ import {
   PaymentProvider,
   FOUNDER_SUBSCRIPTION_ID,
 } from '../../subscriptions/subscription.schema';
-import { normalizeTutorSubscriptionLevel, TIER_ACCESS } from '../../subscriptions/tier-access.config';
+import { TIER_ACCESS } from '../../subscriptions/tier-access.config';
 import { getTutorBandPricing, tutorRegisterRegion } from './adam-tutor-pricing.service';
 import { TutorEnrollmentModel, TutorEnrollmentStatus } from './adam-tutor-enrollment.schema';
 import { markTutorEnrollmentPaid } from './adam-tutor-enrollment.service';
@@ -93,10 +92,6 @@ async function resumeOpenRegisterCheckout(
   return null;
 }
 
-function tutorAgentStripePriceId(level: string): string {
-  return tutorStripePriceId(normalizeTutorSubscriptionLevel(level), 'agent');
-}
-
 function newMongoSubscriptionId(): string {
   return `sub_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
 }
@@ -118,23 +113,18 @@ export async function createTutorRegisterCheckoutSession(input: {
   const resumed = await resumeOpenRegisterCheckout(enrollment);
   if (resumed) return resumed;
 
-  const band = normalizeTutorSubscriptionLevel(enrollment.band);
-  const priceId = tutorAgentStripePriceId(band);
-  if (!priceId) {
-    const envKey = `STRIPE_PRICE_ID_TUTOR_${band.toUpperCase()}_AGENT_MONTHLY`;
-    throw new Error(
-      `Stripe harga Tutor belum dikonfigurasi (${envKey}). Hubungi pentadbir.`,
-    );
-  }
-
-  const pricing = await getTutorBandPricing(band, 'agent', tutorRegisterRegion());
+  const pricing = await getTutorBandPricing(null, 'agent', tutorRegisterRegion());
   const region = tutorRegisterRegion();
+  const unitAmount = toStripeUnitAmount(pricing.monthlyAmount, pricing.currency.toLowerCase());
+  if (unitAmount < 1) {
+    throw new Error('Invalid Tutor checkout amount.');
+  }
 
   const sub = await SubscriptionModel.create({
     userId:          input.userId,
     founderId:       FOUNDER_SUBSCRIPTION_ID,
     tier:            SubscriptionTier.TUTOR,
-    tutorLevel:      band,
+    tutorLevel:      null,
     status:          SubscriptionStatus.PENDING,
     billingCycle:    BillingCycle.MONTHLY,
     region,
@@ -143,14 +133,20 @@ export async function createTutorRegisterCheckoutSession(input: {
     provider:        PaymentProvider.STRIPE,
     access:          TIER_ACCESS[SubscriptionTier.TUTOR],
     isFounderFunded: false,
+    pricingChannel:  'agent',
+    tutorEnrollmentId: enrollment.enrollmentId,
   });
 
   const mongoId = sub._id?.toString() ?? newMongoSubscriptionId();
 
   const params: Record<string, string> = {
     mode:                       'subscription',
-    'line_items[0][price]':     priceId,
     'line_items[0][quantity]':  '1',
+    'line_items[0][price_data][currency]':                 pricing.currency.toLowerCase(),
+    'line_items[0][price_data][unit_amount]':              String(unitAmount),
+    'line_items[0][price_data][recurring][interval]':      'month',
+    'line_items[0][price_data][product_data][name]':         'ADAM Tutor',
+    'line_items[0][price_data][product_data][description]': 'Universal PIN — all levels · ADAM infers from your questions',
     success_url:                `${appUrl()}/adam/tutor/daftar?paid=1&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:                 `${appUrl()}/adam/tutor/daftar?cancelled=1`,
     client_reference_id:        mongoId,
@@ -160,13 +156,12 @@ export async function createTutorRegisterCheckoutSession(input: {
     'metadata[enrollmentId]':   enrollment.enrollmentId,
     'metadata[registerCode]':   enrollment.registerCode,
     'metadata[subscriptionId]': mongoId,
-    'metadata[tutorLevel]':     band,
+    'metadata[pricingChannel]': 'agent',
     'subscription_data[metadata][checkoutType]':   'tutor_register',
     'subscription_data[metadata][userId]':         input.userId,
     'subscription_data[metadata][enrollmentId]':   enrollment.enrollmentId,
     'subscription_data[metadata][registerCode]':   enrollment.registerCode,
     'subscription_data[metadata][subscriptionId]': mongoId,
-    'subscription_data[metadata][tutorLevel]':     band,
   };
 
   if (input.customerEmail) {
@@ -242,15 +237,14 @@ export async function simulateTutorRegisterPayment(userId: string): Promise<void
     throw new Error('Tiada PIN untuk disimulasikan.');
   }
 
-  const band = normalizeTutorSubscriptionLevel(enrollment.band);
-  const pricing = await getTutorBandPricing(band, 'agent', tutorRegisterRegion());
+  const pricing = await getTutorBandPricing(null, 'agent', tutorRegisterRegion());
   const region = tutorRegisterRegion();
 
   const sub = await SubscriptionModel.create({
     userId:          userId,
     founderId:       FOUNDER_SUBSCRIPTION_ID,
     tier:            SubscriptionTier.TUTOR,
-    tutorLevel:      band,
+    tutorLevel:      null,
     status:          SubscriptionStatus.ACTIVE,
     billingCycle:    BillingCycle.MONTHLY,
     region,
@@ -259,6 +253,8 @@ export async function simulateTutorRegisterPayment(userId: string): Promise<void
     provider:        PaymentProvider.MANUAL,
     access:          TIER_ACCESS[SubscriptionTier.TUTOR],
     isFounderFunded: false,
+    pricingChannel:  'agent',
+    tutorEnrollmentId: enrollment.enrollmentId,
     currentPeriodStart: new Date(),
     currentPeriodEnd:   (() => {
       const d = new Date();

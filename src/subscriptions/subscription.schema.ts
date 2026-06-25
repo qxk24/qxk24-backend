@@ -136,6 +136,9 @@ export enum SupportedRegion {
 /** ADAM Tutor — school level determines monthly MYR (Layer 1 pelajar lane). */
 export type TutorSubscriptionLevel = 'primary' | 'secondary' | 'university';
 
+/** Kod-daftar agent wholesale vs public retail monthly billing. */
+export type TutorSubscriptionPricingChannel = 'agent' | 'public';
+
 export enum PencarianStage {
   KNOW    = 'KNOW',
   CLOSER  = 'CLOSER',
@@ -209,6 +212,10 @@ export interface ISubscription extends Document {
   cancelledAt:        Date | null;
   cancelReason:       string | null;
   neverDelete:        boolean;
+  /** Tutor kod-daftar: agent USD 15.90 vs public USD 19. */
+  pricingChannel:     TutorSubscriptionPricingChannel | null;
+  agentPriceEndsAt:   Date | null;
+  tutorEnrollmentId:  string | null;
   createdAt:          Date;
   updatedAt:          Date;
 }
@@ -280,6 +287,9 @@ const SubscriptionSchema = new Schema<ISubscription>(
     cancelledAt:        { type: Date, default: null },
     cancelReason:       { type: String, default: null },
     neverDelete:        { type: Boolean, default: true },
+    pricingChannel:     { type: String, enum: ['agent', 'public'], default: null },
+    agentPriceEndsAt:   { type: Date, default: null },
+    tutorEnrollmentId:  { type: String, default: null, index: true },
   },
   { timestamps: true, collection: 'alamtologi_subscriptions' },
 );

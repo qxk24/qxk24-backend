@@ -339,7 +339,7 @@ ADAM TUTOR PROFILE (agent marketing demo — all bands):
   return `
 ADAM TUTOR PROFILE (this session):
 - Level: ${levelLabel}
-- Kategori dikunci: ${isAgentMarketingTutorScope(profile) ? 'demo agen (semua kategori)' : levelLabel}
+- Aras biasa (panduan, BUKAN kunci): ${isAgentMarketingTutorScope(profile) ? 'demo agen (semua aras)' : levelLabel} — boleh ajar lebih tinggi/rendah bila soalan memerlukan
 - Curriculum framework: ${curriculumLabel(cur)}
 ${countryLine ? `- ${countryLine}` : ''}
 ${localeLine ? `- ${localeLine}` : ''}

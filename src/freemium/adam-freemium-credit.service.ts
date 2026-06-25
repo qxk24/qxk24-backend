@@ -22,8 +22,13 @@ import { SupportedRegion } from '../subscriptions/subscription.schema';
 import { AdamCreditWalletModel } from './adam-freemium.schema';
 
 export const CREDIT_PACK_ID = 'standard';
+export const PREMIUM_PACK_10_ID = 'credits-10';
 export const PREMIUM_PACK_50_ID = 'credits-50';
+export const PREMIUM_PACK_200_ID = 'credits-200';
+
+/** @deprecated use PREMIUM_PACK_200_ID */
 export const PREMIUM_PACK_250_ID = 'credits-250';
+/** @deprecated use PREMIUM_PACK_200_ID */
 export const PREMIUM_PACK_1000_ID = 'credits-1000';
 
 /** @deprecated legacy ids */
@@ -74,32 +79,32 @@ function packExtraMessages(creditUsd: number): number {
   return Math.floor(creditUsd / cost);
 }
 
-/** Pro usage-credit bundles — Claude-style discounts (USD). */
+/** Pro usage-credit bundles — low entry ($10) with bundle discounts on larger packs (USD). */
 export function getPremiumCreditPacks(): CreditPackOffer[] {
   const packs = [
+    {
+      id:          PREMIUM_PACK_10_ID,
+      label:       '$10 usage credits',
+      creditValue: 10,
+      amount:      10,
+      currency:    'USD',
+      description: 'Starter top-up — used after your daily Pro allowance.',
+    },
     {
       id:          PREMIUM_PACK_50_ID,
       label:       '$50 usage credits',
       creditValue: 50,
-      amount:      45,
+      amount:      40,
       currency:    'USD',
-      description: 'Prepaid wallet credit — used after your daily Pro allowance (~10% bundle discount).',
+      description: 'Regular overflow — ~20% bundle value vs pay-as-you-go.',
     },
     {
-      id:          PREMIUM_PACK_250_ID,
-      label:       '$250 usage credits',
-      creditValue: 250,
-      amount:      200,
+      id:          PREMIUM_PACK_200_ID,
+      label:       '$200 usage credits',
+      creditValue: 200,
+      amount:      150,
       currency:    'USD',
-      description: 'Best for regular overflow — ~20% bundle discount.',
-    },
-    {
-      id:          PREMIUM_PACK_1000_ID,
-      label:       '$1,000 usage credits',
-      creditValue: 1000,
-      amount:      700,
-      currency:    'USD',
-      description: 'Heavy usage — ~30% bundle discount.',
+      description: 'Heavy usage — ~25% bundle value for power users.',
     },
   ];
 
@@ -148,13 +153,19 @@ export function getCreditPackOffer(): CreditPackOffer {
 }
 
 export function creditPackSize(): number {
-  return packExtraMessages(getPremiumCreditPacks()[0]?.creditValue ?? 50);
+  return packExtraMessages(getPremiumCreditPacks()[0]?.creditValue ?? 10);
+}
+
+function normalizeCreditPackId(packId: string): string {
+  if (packId === LEGACY_PREMIUM_PACK_50_ID) return PREMIUM_PACK_50_ID;
+  if (packId === LEGACY_PREMIUM_PACK_100_ID) return PREMIUM_PACK_200_ID;
+  if (packId === PREMIUM_PACK_250_ID || packId === 'premium-250') return PREMIUM_PACK_200_ID;
+  if (packId === PREMIUM_PACK_1000_ID || packId === 'premium-1000') return PREMIUM_PACK_200_ID;
+  return packId;
 }
 
 export function resolveCreditPack(packId: string): CreditPackOffer | null {
-  const normalized = packId === LEGACY_PREMIUM_PACK_50_ID ? PREMIUM_PACK_50_ID
-    : packId === LEGACY_PREMIUM_PACK_100_ID ? PREMIUM_PACK_250_ID
-    : packId;
+  const normalized = normalizeCreditPackId(packId);
   return getPremiumCreditPacks().find((p) => p.id === normalized) ?? null;
 }
 

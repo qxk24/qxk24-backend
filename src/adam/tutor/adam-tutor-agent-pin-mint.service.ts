@@ -28,11 +28,10 @@ export async function mintTutorAgentRegisterPinsForPackage(
   const agent = await getTutorAgentById(agentId);
   if (!agent) return 0;
   if (agent.packageStatus !== TutorAgentPackageStatus.ACTIVE) return 0;
-  if (!agent.band || agent.pinBalance <= 0) return 0;
+  if (agent.pinBalance <= 0) return 0;
 
   const count = agent.pinBalance;
   const codes = await generateTutorRegisterCodes({
-    band:      agent.band,
     count,
     agentId:   agent.agentId,
     createdBy,
@@ -46,7 +45,7 @@ export async function ensureAgentPackagePinsMinted(
   createdBy = 'portal:auto-mint',
 ): Promise<ITutorAgent> {
   if (agent.packageStatus !== TutorAgentPackageStatus.ACTIVE) return agent;
-  if (agent.pinBalance <= 0 || !agent.band) return agent;
+  if (agent.pinBalance <= 0) return agent;
 
   await mintTutorAgentRegisterPinsForPackage(agent.agentId, createdBy);
   const refreshed = await getTutorAgentById(agent.agentId);

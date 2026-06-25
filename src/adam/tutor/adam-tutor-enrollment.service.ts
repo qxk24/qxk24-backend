@@ -20,12 +20,12 @@ import { ADAMStudentAccountModel } from '../adam-student.schema';
 import { isTutorQaBypassUser } from '../adam-tutor-subscription.service';
 import { saveTutorProfile } from '../adam-tutor-profile.service';
 import {
-  TUTOR_REGISTER_BAND_LABELS_BM,
+  TUTOR_PIN_LABEL,
+  TUTOR_REGISTER_BAND_FALLBACK,
   TUTOR_REGISTER_PHASE_COUNTRY,
+  TUTOR_AGENT_LICENSE_MONTHS,
 } from './adam-tutor-register.constants';
-import {
-  getTutorBandPricing,
-} from './adam-tutor-pricing.service';
+import { getTutorBandPricing } from './adam-tutor-pricing.service';
 import {
   lockTutorRegisterCode,
   markTutorCodeRedeemed,
@@ -34,7 +34,6 @@ import {
 } from './adam-tutor-register-code.service';
 import { creditTutorAgentCommission } from './adam-tutor-agent-wallet.service';
 import { FOUNDER_USER_ID } from '../adam-student.types';
-import type { TutorSubscriptionLevel } from '../../subscriptions/subscription.schema';
 import type { GuardianRelationship } from './adam-tutor-parent-guardian.schema';
 import {
   TutorEnrollmentModel,
@@ -45,6 +44,10 @@ import {
   normalizeSubjectsTaken,
   upsertParentGuardian,
 } from './adam-tutor-parent.service';
+import {
+  stampEnrollmentAgentPriceWindow,
+} from './adam-tutor-pricing-renewal.service';
+import type { TutorPricingChannel } from './adam-tutor-pricing.types';
 
 export function newTutorEnrollmentId(): string {
   return `TUTOR-ENR-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
@@ -53,7 +56,8 @@ export function newTutorEnrollmentId(): string {
 export interface TutorEnrollmentPublic {
   enrollmentId:  string;
   status:        TutorEnrollmentStatus;
-  band:          TutorSubscriptionLevel;
+  pinLabel:      string;
+  /** @deprecated use pinLabel */
   bandLabel:     string;
   agentLabel:    string | null;
   registerCode:  string;
@@ -65,14 +69,16 @@ export interface TutorEnrollmentPublic {
   subjectsTaken: string[];
   paidAt:        string | null;
   completedAt:   string | null;
+  pricingChannel?: TutorPricingChannel;
+  agentPriceEndsAt?: string | null;
 }
 
 function toPublic(doc: ITutorEnrollment): TutorEnrollmentPublic {
   return {
     enrollmentId: doc.enrollmentId,
     status:       doc.status,
-    band:         doc.band,
-    bandLabel:    TUTOR_REGISTER_BAND_LABELS_BM[doc.band],
+    pinLabel:     TUTOR_PIN_LABEL,
+    bandLabel:    TUTOR_PIN_LABEL,
     agentLabel:   doc.agentLabel,
     registerCode: doc.registerCode,
     studentName:  doc.studentName,
@@ -83,6 +89,8 @@ function toPublic(doc: ITutorEnrollment): TutorEnrollmentPublic {
     subjectsTaken: doc.subjectsTaken ?? [],
     paidAt:       doc.paidAt?.toISOString() ?? null,
     completedAt:  doc.completedAt?.toISOString() ?? null,
+    pricingChannel: doc.pricingChannel ?? 'agent',
+    agentPriceEndsAt: doc.agentPriceEndsAt?.toISOString() ?? null,
   };
 }
 
@@ -125,7 +133,7 @@ export async function lockTutorEnrollmentCode(
 
   if (existing) {
     existing.registerCode = locked.registerCode;
-    existing.band = locked.band;
+    existing.band = null;
     existing.agentLabel = locked.agentLabel;
     existing.agentId = locked.agentId ?? null;
     existing.status = TutorEnrollmentStatus.CODE_LOCKED;
@@ -137,7 +145,7 @@ export async function lockTutorEnrollmentCode(
     enrollmentId: newTutorEnrollmentId(),
     userId,
     registerCode: locked.registerCode,
-    band:         locked.band,
+    band:         null,
     agentLabel:   locked.agentLabel,
     agentId:      locked.agentId ?? null,
     status:       TutorEnrollmentStatus.CODE_LOCKED,
@@ -147,7 +155,8 @@ export async function lockTutorEnrollmentCode(
 }
 
 export interface TutorCheckoutQuote {
-  band:           TutorSubscriptionLevel;
+  pinLabel:       string;
+  /** @deprecated use pinLabel */
   bandLabel:      string;
   /** Canonical default base (USD). */
   monthlyUsd:     number;
@@ -161,6 +170,9 @@ export interface TutorCheckoutQuote {
   rateFetchedAt?: string;
   agentLabel:     string | null;
   registerCode:   string;
+  pricingChannel: TutorPricingChannel;
+  agentPriceEndsAt: string | null;
+  monthlyPaymentsRemaining?: number;
 }
 
 export async function getTutorEnrollmentCheckoutQuote(
@@ -184,10 +196,18 @@ export async function getTutorEnrollmentCheckoutQuote(
   }
 
   return {
-    band:         enrollment.band,
-    bandLabel:    TUTOR_REGISTER_BAND_LABELS_BM[enrollment.band],
+    pinLabel:     TUTOR_PIN_LABEL,
+    bandLabel:    TUTOR_PIN_LABEL,
     ...(await (async () => {
-      const p = await getTutorBandPricing(enrollment.band);
+      const channel = enrollment.pricingChannel ?? 'agent';
+      const p = await getTutorBandPricing(
+        null,
+        channel === 'public' ? 'public' : 'agent',
+      );
+      const endsAt = enrollment.agentPriceEndsAt;
+      const monthsLeft = endsAt
+        ? Math.max(0, Math.ceil((endsAt.getTime() - Date.now()) / (30 * 24 * 60 * 60 * 1000)))
+        : TUTOR_AGENT_LICENSE_MONTHS;
       return {
         monthlyUsd:    p.monthlyUsd,
         monthlyAmount: p.monthlyAmount,
@@ -196,6 +216,9 @@ export async function getTutorEnrollmentCheckoutQuote(
         usdMyrRate:    p.usdMyrRate,
         rateSource:    p.rateSource,
         rateFetchedAt: p.rateFetchedAt,
+        pricingChannel: channel,
+        agentPriceEndsAt: endsAt?.toISOString() ?? null,
+        monthlyPaymentsRemaining: channel === 'agent' ? monthsLeft : undefined,
       };
     })()),
     agentLabel:   enrollment.agentLabel,
@@ -217,10 +240,17 @@ export async function markTutorEnrollmentPaid(input: {
 
   if (enrollment.status === TutorEnrollmentStatus.COMPLETE) return;
 
+  const paidAt = enrollment.paidAt ?? new Date();
+  const isFirstPayment = !enrollment.paidAt;
+
   enrollment.status = TutorEnrollmentStatus.PAID;
-  enrollment.paidAt = new Date();
+  enrollment.paidAt = paidAt;
   if (input.stripeSessionId) enrollment.stripeSessionId = input.stripeSessionId;
   if (input.subscriptionId) enrollment.subscriptionId = input.subscriptionId;
+
+  if (isFirstPayment) {
+    stampEnrollmentAgentPriceWindow(enrollment, paidAt);
+  }
 
   if (enrollment.studentName && enrollment.schoolName && enrollment.state) {
     enrollment.status = TutorEnrollmentStatus.COMPLETE;
@@ -228,6 +258,17 @@ export async function markTutorEnrollmentPaid(input: {
   }
 
   await enrollment.save();
+
+  if (input.subscriptionId) {
+    const { SubscriptionModel } = await import('../../subscriptions/subscription.schema');
+    await SubscriptionModel.findByIdAndUpdate(input.subscriptionId, {
+      $set: {
+        pricingChannel:    enrollment.pricingChannel,
+        agentPriceEndsAt:  enrollment.agentPriceEndsAt,
+        tutorEnrollmentId: enrollment.enrollmentId,
+      },
+    });
+  }
 
   await markTutorCodeRedeemed(enrollment.registerCode, input.userId);
 
@@ -307,7 +348,7 @@ export async function completeTutorEnrollmentProfile(
   const curriculum = input.curriculum?.trim() || 'kpm';
 
   await saveTutorProfile(userId, {
-    level:       enrollment.band,
+    level:       TUTOR_REGISTER_BAND_FALLBACK,
     curriculum:  curriculum as 'national' | 'kpm' | 'cambridge' | 'mixed' | 'international' | 'us' | 'uk' | 'other',
     language:    language as 'malay' | 'english' | 'arabic' | 'mandarin' | 'tamil' | 'indonesian' | 'spanish' | 'french' | 'other',
     yearLabel:   input.yearLabel?.trim() || undefined,

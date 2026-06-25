@@ -47,7 +47,13 @@ export interface ITutorAgent extends Document {
   pinBalance:         number;
   pinPurchasedTotal:  number;
   packagePaidAt:      Date | null;
+  /** Agent wholesale license expiry — 12 months per purchase/renewal. */
+  packageExpiresAt:   Date | null;
+  packageRenewedAt:   Date | null;
+  packageRenewalCount: number;
   packageStripeSessionId: string | null;
+  /** Stripe checkout session already fulfilled — webhook idempotency. */
+  packageLastFulfilledSessionId: string | null;
   commissionPercent:  number;
   walletBalanceMyr:   number;
   status:             TutorAgentStatus;
@@ -98,7 +104,11 @@ const TutorAgentSchema = new Schema<ITutorAgent>(
     pinBalance:        { type: Number, default: 0, min: 0 },
     pinPurchasedTotal: { type: Number, default: 0, min: 0 },
     packagePaidAt:     { type: Date, default: null },
+    packageExpiresAt:  { type: Date, default: null, index: true },
+    packageRenewedAt:  { type: Date, default: null },
+    packageRenewalCount: { type: Number, default: 0, min: 0 },
     packageStripeSessionId: { type: String, default: null, index: true },
+    packageLastFulfilledSessionId: { type: String, default: null, index: true },
     commissionPercent: { type: Number, default: 20, min: 0, max: 50 },
     walletBalanceMyr:  { type: Number, default: 0 },
     marketingStudentUserId: { type: String, default: null, index: true },

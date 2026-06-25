@@ -121,12 +121,13 @@ export function buildTutorBandPricing(
 }
 
 export async function getTutorBandPricing(
-  level: TutorSubscriptionLevel,
+  level: TutorSubscriptionLevel | null,
   channel: TutorPriceChannel = 'agent',
   region: SupportedRegion = tutorRegisterRegion(),
 ): Promise<TutorBandPricing> {
   const fx = region === SupportedRegion.MY ? await getUsdMyrRate() : null;
-  return buildTutorBandPricing(level, channel, region, fx);
+  const resolved = level ?? 'secondary';
+  return buildTutorBandPricing(resolved, channel, region, fx);
 }
 
 export async function listTutorRegisterPricing(

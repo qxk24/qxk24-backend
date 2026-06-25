@@ -107,53 +107,23 @@ async function stripeGet<T>(path: string): Promise<T> {
   return data;
 }
 
-export function tutorStripePriceId(level: TutorSubscriptionLevel, channel: 'public' | 'agent'): string {
-  const band = normalizeTutorSubscriptionLevel(level);
-  if (channel === 'public') {
-    const byLevel: Record<TutorSubscriptionLevel, string> = {
-      primary:    ENV.STRIPE_PRICE_ID_TUTOR_PRIMARY_PUBLIC_MONTHLY
-        || ENV.STRIPE_PRICE_ID_TUTOR_PRIMARY_MONTHLY,
-      secondary:  ENV.STRIPE_PRICE_ID_TUTOR_SECONDARY_PUBLIC_MONTHLY
-        || ENV.STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY
-        || ENV.STRIPE_PRICE_ID_TUTOR_MONTHLY,
-      university: ENV.STRIPE_PRICE_ID_TUTOR_UNIVERSITY_PUBLIC_MONTHLY
-        || ENV.STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY,
-    };
-    return byLevel[band] ?? '';
-  }
-
-  const byLevel: Record<TutorSubscriptionLevel, string> = {
-    primary:    ENV.STRIPE_PRICE_ID_TUTOR_PRIMARY_AGENT_MONTHLY
-      || ENV.STRIPE_PRICE_ID_TUTOR_PRIMARY_MONTHLY,
-    secondary:  ENV.STRIPE_PRICE_ID_TUTOR_SECONDARY_AGENT_MONTHLY
-      || ENV.STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY
-      || ENV.STRIPE_PRICE_ID_TUTOR_MONTHLY,
-    university: ENV.STRIPE_PRICE_ID_TUTOR_UNIVERSITY_AGENT_MONTHLY
-      || ENV.STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY,
-  };
-  return byLevel[band] ?? '';
+export function tutorStripePriceId(_level: TutorSubscriptionLevel, _channel: 'public' | 'agent'): string {
+  // Tutor student checkout uses dynamic price_data — no fixed Stripe price ID.
+  return '';
 }
 
-function tutorPublicStripePriceId(level: TutorSubscriptionLevel): string {
-  return tutorStripePriceId(level, 'public');
+function tutorPublicStripePriceId(_level: TutorSubscriptionLevel): string {
+  return '';
 }
 
 export function getStripePriceId(
   tier: SubscriptionTier,
   cycle: BillingCycle,
-  tutorLevel?: TutorSubscriptionLevel | string | null,
+  _tutorLevel?: TutorSubscriptionLevel | string | null,
 ): string {
-  if (tier === SubscriptionTier.TUTOR && cycle === BillingCycle.MONTHLY) {
-    return tutorPublicStripePriceId(normalizeTutorSubscriptionLevel(tutorLevel));
-  }
-
   const map: Partial<Record<string, string>> = {
-    [`${SubscriptionTier.PRO}_${BillingCycle.MONTHLY}`]:
-      ENV.STRIPE_PRICE_ID_PRO_MONTHLY || ENV.STRIPE_PRICE_ID_PELAJAR_MONTHLY,
-    [`${SubscriptionTier.PRO}_${BillingCycle.ANNUAL}`]:
-      ENV.STRIPE_PRICE_ID_PRO_ANNUAL || ENV.STRIPE_PRICE_ID_PELAJAR_ANNUAL,
-    [`${SubscriptionTier.PROFESIONAL}_${BillingCycle.MONTHLY}`]: ENV.STRIPE_PRICE_ID_PROFESIONAL_MONTHLY,
-    [`${SubscriptionTier.PROFESIONAL}_${BillingCycle.ANNUAL}`]:  ENV.STRIPE_PRICE_ID_PROFESIONAL_ANNUAL,
+    [`${SubscriptionTier.PRO}_${BillingCycle.MONTHLY}`]: ENV.STRIPE_PRICE_ID_PRO_MONTHLY,
+    [`${SubscriptionTier.PRO}_${BillingCycle.ANNUAL}`]:  ENV.STRIPE_PRICE_ID_PRO_ANNUAL,
   };
   return map[`${tier}_${cycle}`] ?? '';
 }
@@ -474,7 +444,7 @@ async function handleInvoicePayment(
   const periodStart = stripeSecondsToDate(invoice.period_start);
   const periodEnd = stripeSecondsToDate(invoice.period_end);
 
-  await SubscriptionModel.findOneAndUpdate(
+  const sub = await SubscriptionModel.findOneAndUpdate(
     { providerSubId: stripeSubId, provider: PaymentProvider.STRIPE },
     {
       $set: {
@@ -483,7 +453,22 @@ async function handleInvoicePayment(
         ...(periodEnd && { currentPeriodEnd: periodEnd }),
       },
     },
+    { new: true },
   );
+
+  if (sub?.tier === SubscriptionTier.TUTOR && status === SubscriptionStatus.ACTIVE) {
+    const { processTutorPricingForUser, sweepExpiredTutorAgentPricing } = await import(
+      '../adam/tutor/adam-tutor-pricing-renewal.service'
+    );
+    await processTutorPricingForUser(sub.userId).catch((err) => {
+      console.error('[TutorPricingRenewal] invoice hook failed:', err);
+    });
+    if (invoice.billing_reason === 'subscription_cycle') {
+      void sweepExpiredTutorAgentPricing(50).catch((err) => {
+        console.error('[TutorPricingRenewal] sweep failed:', err);
+      });
+    }
+  }
 }
 
 async function activateStripeSubscription(

@@ -124,7 +124,7 @@ export function buildParentReportCard(input: {
   studentName:       string;
   schoolName?:       string | null;
   yearLabel?:        string | null;
-  band:              TutorSubscriptionLevel;
+  band:              TutorSubscriptionLevel | null;
   subjectsTaken:     TutorSubjectId[];
   kind?:             ParentReportKind;
   now?:              Date;
@@ -136,7 +136,7 @@ export function buildParentReportCard(input: {
 
   const enrolled = input.subjectsTaken.length > 0
     ? input.subjectsTaken
-    : listSubjectsForBand(input.band)
+    : listSubjectsForBand(input.band ?? 'secondary')
       .filter((s) => s.core)
       .map((s) => s.id);
 

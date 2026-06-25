@@ -2,7 +2,7 @@
  * ============================================================
  * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
- * Module      : ADAM Tutor Level Scope (3 bands)
+ * Module      : ADAM Tutor Level Scope (soft baseline)
  * Platform    : Backend (TypeScript)
  * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
@@ -14,8 +14,10 @@
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
- * Three locked bands: primary (Darjah 6 max), secondary, university.
- * Students cannot reach content above their subscription category.
+ * Level is a SOFT baseline, not a lock. ADAM never refuses a
+ * question for being above/below the learner's usual level —
+ * it adapts depth and teaches from basics. The detected level
+ * is used for diagnostics (parent reports), not gating.
  */
 
 import { AGENT_MARKETING_LOCALE_NOTE } from '../tutor/adam-tutor-agent-marketing.constants';
@@ -83,7 +85,11 @@ export function detectQuestionEducationBand(message: string): AdamTutorLevel | n
   return null;
 }
 
-export function isQuestionBeyondStudentLevel(
+/**
+ * Diagnostic only — is this question above the learner's usual baseline?
+ * Used to TAG interactions for parent reports, never to refuse teaching.
+ */
+export function isQuestionAboveBaselineLevel(
   message: string,
   profile?: AdamTutorProfile | null,
 ): boolean {
@@ -115,46 +121,38 @@ export function isQuestionBeyondStudentLevel(
   return false;
 }
 
+/** @deprecated Renamed to isQuestionAboveBaselineLevel — kept for compatibility. */
+export const isQuestionBeyondStudentLevel = isQuestionAboveBaselineLevel;
+
 export function buildTutorLevelScopeLaw(profile?: AdamTutorProfile | null): string {
   if (!profile?.level || isAgentMarketingTutorScope(profile)) return '';
 
   const label = tutorLevelScopeLabel(profile.level, 'malay');
-  const ceiling = tutorLevelScopeCeiling(profile.level, 'malay');
-
-  const bandRules: Record<AdamTutorLevel, string> = {
-    primary: `
-ADAM TUTOR — SKOP KATEGORI (wajib — Sekolah Rendah sahaja):
-- Pelajar ini berdaftar **${label}** — langganan dikunci pada kategori ini.
-- SKOP MAKSIMUM: ${ceiling} (KSSR rendah / primary).
-- DILARANG: ajar atau jawab kandungan Tingkatan/Form, SPM/STPM, kalkulus, matriks, atau universiti/ijazah.
-- Jika soalan melebihi Darjah 6 → tolak dengan sopan; jangan beri langkah penyelesaian topik luar skop.
-- Cadangkan guru kelas atau naik taraf langganan ADAM Tutor Menengah/Universiti.`.trim(),
-    secondary: `
-ADAM TUTOR — SKOP KATEGORI (wajib — Sekolah Menengah sahaja):
-- Pelajar ini berdaftar **${label}** — langganan dikunci pada kategori ini.
-- SKOP MAKSIMUM: ${ceiling}.
-- DILARANG: ajar atau jawab kandungan ijazah, tesis, disertasi, atau kursus universiti.
-- Jika soalan peringkat universiti → tolak dengan sopan; jangan beri jawapan akademik tertiari.
-- Cadangkan pensyarah/naik taraf langganan ADAM Tutor Universiti.`.trim(),
-    university: `
-ADAM TUTOR — SKOP KATEGORI (Kolej & Universiti):
-- Pelajar ini berdaftar **${label}** — langganan dikunci pada kategori ini.
-- SKOP: ${ceiling}; boleh guna istilah dan kedalaman tertiari.
-- Boleh sentuh konsep menengah sebagai asas — tetapi fokus jawapan pada tahap kolej/universiti bila soalan memerlukan.`.trim(),
-  };
-
-  return bandRules[profile.level];
-}
-
-export function buildTutorLevelScopeRefusalLaw(profile: AdamTutorProfile): string {
-  const label = tutorLevelScopeLabel(profile.level, 'malay');
-  const ceiling = tutorLevelScopeCeiling(profile.level, 'malay');
 
   return `
-TURN TYPE — LUAR SKOP KATEGORI (jawab sahaja — jangan ajar kandungan):
-- Soalan ini melebihi kategori langganan pelajar (${label}).
-- SKOP pelajar ini: ${ceiling}.
-- Jawab SATU perenggan pendek: jelaskan dengan sopan bahawa ADAM Tutor untuk pelajar ini tidak meliputi topik ini.
-- DILARANG: langkah kerja, rumus lanjutan, atau fakta akademik topik luar skop.
-- Cadangkan naik taraf langganan ADAM Tutor atau rujuk guru/pensyarah sekolah/universiti.`.trim();
+ADAM TUTOR — ARAS BIASA PELAJAR (panduan lembut, BUKAN sekatan):
+- Pelajar ini biasanya belajar pada aras **${label}**. Guna ini sebagai titik mula nada, kelajuan, dan contoh.
+- JANGAN sekat atau tolak soalan kerana ia lebih tinggi atau lebih rendah daripada aras ini. Tiada topik dilarang.
+- Jika soalan melebihi aras biasa: tetap ajar — mulakan dari asas, perlahan-lahan, bina kefahaman langkah demi langkah.
+- Jika soalan lebih mudah: jawab ringkas dan jelas tanpa merendahkan.
+- Sesuaikan kedalaman pada setiap soalan. ADAM mengalir seperti air: sabar dengan kanak-kanak, jelas dengan pelajar, jujur dengan sarjana.`.trim();
 }
+
+/**
+ * Per-turn nudge when a question is above the learner's usual baseline.
+ * Teaches from basics — never refuses, never upsells.
+ */
+export function buildTutorAboveBaselineGuidanceLaw(profile: AdamTutorProfile): string {
+  const label = tutorLevelScopeLabel(profile.level, 'malay');
+
+  return `
+TURN TYPE — SOALAN MELEBIHI ARAS BIASA (ajar dari asas — JANGAN tolak):
+- Soalan ini nampak lebih tinggi daripada aras biasa pelajar (${label}).
+- Tetap bantu sepenuhnya: mulakan dari konsep asas, bina langkah demi langkah dengan sabar.
+- Guna contoh mudah dahulu sebelum istilah lanjutan; semak kefahaman sebelum teruskan.
+- JANGAN kata "luar skop", "tidak meliputi", atau "sila naik taraf langganan".
+- Ini peluang pembelajaran — ADAM tandakan dalam minda untuk laporan kemajuan, bukan sebab menolak.`.trim();
+}
+
+/** @deprecated Renamed to buildTutorAboveBaselineGuidanceLaw — no longer refuses. */
+export const buildTutorLevelScopeRefusalLaw = buildTutorAboveBaselineGuidanceLaw;
