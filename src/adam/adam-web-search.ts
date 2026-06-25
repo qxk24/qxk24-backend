@@ -14,6 +14,7 @@
 import { ENV } from '../config/environments';
 import { parseQuranAyahRefs } from '../quran/quran-ayah-parser';
 import { isUserEntityCorrectionMessage } from './adam-factual-grounding';
+import { isClassroomEnumerationAsk, isStudentFactualChallengeMessage } from './adam-student-factual-correction';
 import {
   isAdamLayer1WritingChatTurn,
   isAdamLifeWellbeingTurn,
@@ -68,6 +69,8 @@ export const FACTUAL_ADAM_WEB_SEARCH_GATE_REASONS = new Set([
   'technical_follow_up',
   'technical_precision',
   'entity_correction',
+  'student_factual_correction',
+  'classroom_enumeration',
   'verified_data_stat',
   'substantive_conventional',
   'factual_question',
@@ -196,8 +199,19 @@ export function buildVerifiedDataStatSearchSites(message: string): string[] | un
   return domains.length > 0 ? domains : undefined;
 }
 
+/** MOE/KPM site focus for syllabus enumeration and student factual correction. */
+export function buildSyllabusFactualSearchSites(message: string): string[] | undefined {
+  const body = stripLeadingAdamSalutation(message.trim());
+  if (isClassroomEnumerationAsk(body)) return ['moe.gov.my', 'gov.my'];
+  if (isStudentFactualChallengeMessage(body)) return ['moe.gov.my', 'gov.my'];
+  return undefined;
+}
+
 /** DashScope site focus for career factual asks — prefer official hosts by locale/topic. */
 export function buildFactualCareerSearchSites(message: string): string[] | undefined {
+  const syllabusSites = buildSyllabusFactualSearchSites(message);
+  if (syllabusSites) return syllabusSites;
+
   const body = stripLeadingAdamSalutation(message.trim());
   const careerAsk = messageAsksRoleAndSkills(body) || isAdamPracticalAdvisoryTurn(body);
   if (!careerAsk) return undefined;
@@ -294,8 +308,18 @@ export function getWebSearchGateReason(
   /** α word-problem arithmetic — no web search (3 epal + 4, jika ada 3 epal, …). */
   if (isAdamSimpleArithmeticTurn(text)) return null;
 
+  const recentAssistant = options?.recentAssistantMessages ?? [];
+
+  if (isStudentFactualChallengeMessage(text, recentAssistant)) {
+    return 'student_factual_correction';
+  }
+
+  if (isUserEntityCorrectionMessage(text)) return 'entity_correction';
+
   /** Stable syllabus + bare topic tokens — no NHS/Norway misroute (Fasa 1). */
   if (isAdamStableCurriculumSearchSkipTurn(text)) return null;
+
+  if (isClassroomEnumerationAsk(text)) return 'classroom_enumeration';
 
   const brainFirstSkip = !options?.userUmumChannelGate
     && !options?.usersFounderParity
@@ -327,6 +351,9 @@ export function getWebSearchGateReason(
     if (isAdamCurrentAffairsTurn(text)) return 'current_affairs';
     if (isVerifiedDataStatAsk(text)) return 'verified_data_stat';
     if (options?.technicalFollowUp) return 'technical_follow_up';
+    if (isStudentFactualChallengeMessage(text, options?.recentAssistantMessages ?? [])) {
+      return 'student_factual_correction';
+    }
     if (isUserEntityCorrectionMessage(text)) return 'entity_correction';
     if (isAdamTeachingDepthTurn(text)) return null;
     if (isTechnicalPrecisionQuestion(text)) return 'technical_precision';

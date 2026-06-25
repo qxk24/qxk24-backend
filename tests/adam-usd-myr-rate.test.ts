@@ -79,22 +79,22 @@ describe('adam-usd-myr-rate.service', () => {
 });
 
 describe('adam-tutor-pricing.service', () => {
-  it('canonical fees are USD per month by band', () => {
-    expect(tutorRegisterMonthlyUsd('primary')).toBe(13);
-    expect(tutorRegisterMonthlyUsd('secondary')).toBe(15);
-    expect(tutorRegisterMonthlyUsd('university')).toBe(17);
+  it('agent channel uses flat USD/month for all bands', () => {
+    expect(tutorRegisterMonthlyUsd('primary')).toBe(15.90);
+    expect(tutorRegisterMonthlyUsd('secondary')).toBe(15.90);
+    expect(tutorRegisterMonthlyUsd('university')).toBe(15.90);
   });
 
   it('converts USD to MYR using supplied live rate', () => {
-    expect(convertUsdToMyr(15, 4.312)).toBe(64.68);
-    const row = buildTutorBandPricing('secondary', {
+    expect(convertUsdToMyr(15.90, 4.312)).toBe(68.56);
+    const row = buildTutorBandPricing('secondary', 'agent', undefined, {
       rate:      4.312,
       source:    'live',
       fetchedAt: '2026-06-16T00:00:00.000Z',
       provider:  'frankfurter',
     });
-    expect(row.monthlyUsd).toBe(15);
-    expect(row.monthlyMyr).toBe(64.68);
+    expect(row.monthlyUsd).toBe(15.90);
+    expect(row.monthlyMyr).toBe(68.56);
     expect(row.rateSource).toBe('live');
   });
 });

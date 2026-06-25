@@ -167,7 +167,7 @@ export async function buildParentReportForStudent(
     throw new Error('Pendaftaran pelajar tidak dijumpai.');
   }
 
-  const subjectsTaken = enrollment.subjectsTaken ?? [];
+  const subjectsTaken = (enrollment.subjectsTaken ?? []).filter(isValidSubjectId);
 
   return buildParentReportCard({
     profile,

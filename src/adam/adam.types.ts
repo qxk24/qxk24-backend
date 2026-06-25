@@ -450,6 +450,8 @@ export type SSEEventType =
   | 'adam_search_done'
   | 'adam_search_unavailable'
   | 'adam_media_ready'
+  | 'adam_media_generating'
+  | 'adam_media_quota_blocked'
   | 'adam_judgment'
   | 'adam_complete'
   | 'adam_guru_sleep'

@@ -90,20 +90,29 @@ export async function attemptUnifiedAdamLogin(
   username: string,
   password: string,
 ): Promise<UnifiedLoginResult> {
-  const submitted = password.trim();
   const loginId = username.trim();
   const founderPassword = getFounderPassword();
 
-  if (!loginId && founderPassword && verifyFounderPassword(submitted, founderPassword)) {
-    const token = issueFounderToken();
-    return {
-      kind:   'founder',
-      token,
-      userId: FOUNDER_USER_ID,
-      name:   FOUNDER_DISPLAY_NAME,
-      role:   'founder',
-    };
+  if (!loginId && founderPassword) {
+    const withoutTrailingBreak = password.replace(/\r?\n+$/u, '');
+    const founderOk =
+      verifyFounderPassword(password, founderPassword)
+      || verifyFounderPassword(password.trim(), founderPassword)
+      || (withoutTrailingBreak !== password
+        && verifyFounderPassword(withoutTrailingBreak, founderPassword));
+    if (founderOk) {
+      const token = issueFounderToken();
+      return {
+        kind:   'founder',
+        token,
+        userId: FOUNDER_USER_ID,
+        name:   FOUNDER_DISPLAY_NAME,
+        role:   'founder',
+      };
+    }
   }
+
+  const submitted = password.trim();
 
   if (!loginId) {
     await authDelay(800);
@@ -117,7 +126,7 @@ export async function attemptUnifiedAdamLogin(
     return {
       kind:   'failure',
       error:  'Access denied.',
-      hint:   founderDeniedHint(submitted, founderPassword),
+      hint:   founderDeniedHint(password.trim(), founderPassword),
       status: 401,
     };
   }

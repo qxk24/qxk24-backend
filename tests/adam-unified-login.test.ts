@@ -36,6 +36,12 @@ describe('attemptUnifiedAdamLogin', () => {
     expect(result.token).toEqual(expect.any(String));
   });
 
+  it('accepts founder password pasted with trailing newline', async () => {
+    process.env.FOUNDER_PASSWORD = 'founder-secret-123';
+    const result = await attemptUnifiedAdamLogin('', 'founder-secret-123\n');
+    expect(result.kind).toBe('founder');
+  });
+
   it('does not return founder token when username is filled (student desk)', async () => {
     process.env.FOUNDER_PASSWORD = 'founder-secret-123';
     const result = await attemptUnifiedAdamLogin('unknown-student-xyz', 'founder-secret-123');

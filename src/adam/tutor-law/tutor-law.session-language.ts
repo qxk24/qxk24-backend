@@ -16,13 +16,15 @@
  */
 
 
-import { detectLanguage } from '../adam-language-mirror.service';
+import {
+  detectLanguage,
+  type SupportedLocale,
+} from '../adam-language-mirror.service';
 import { usersDisplayFirstName } from '../adam-users-constitution';
 import { getFastModel } from '../../config/llm-models';
 import { llmCompleteUserPrompt } from '../../llm/llm-client';
 import type { AdamTutorProfile } from './tutor-law.types';
 import {
-  inferTutorLanguageFromText,
   normalizeTutorLanguage,
   tutorLanguageInstruction,
   tutorTeacherTitle,
@@ -33,19 +35,221 @@ import {
   TUTOR_PLAIN_LANGUAGE_BLEED,
 } from './tutor-law.guard-patterns';
 
-/** Profile language wins; else infer from recent Cikgu replies in thread. */
+const ENGLISH_EXPLICIT_REQUEST =
+  /\b(?:(?:jawab|reply|answer|speak|talk|respond|guna|use|dalam|in|pakai)\s+(?:dalam\s+)?(?:bahasa\s+)?(?:inggeris|english|bi)\b|(?:boleh|bolehkah|can you|could you|please)\s+(?:jawab|reply|answer|speak|respond)\s+(?:dalam\s+)?(?:bahasa\s+)?(?:inggeris|english)\b|(?:in\s+)?english\s+please|english\s+only)\b/i;
+
+const MALAY_EXPLICIT_REQUEST =
+  /\b(?:(?:jawab|reply|answer|speak|guna|dalam|in|pakai)\s+(?:dalam\s+)?(?:bahasa\s+)?(?:melayu|malay|bm|malaysia)\b|(?:in\s+)?malay\s+please|bahasa\s+melayu\s+sahaja)\b/i;
+
+const ARABIC_EXPLICIT_REQUEST =
+  /\b(?:jawab|reply|answer|speak|in)\s+(?:dalam\s+)?(?:bahasa\s+)?(?:arab|arabic)\b/i;
+
+const MANDARIN_EXPLICIT_REQUEST =
+  /\b(?:jawab|reply|answer|speak|in)\s+(?:dalam\s+)?(?:bahasa\s+)?(?:mandarin|chinese|中文)\b/i;
+
+/** Student explicitly asks to switch classroom language — honour immediately. */
+export function detectTutorExplicitLanguageRequest(text: string): AdamTutorLanguage | null {
+  const sample = text.trim();
+  if (!sample) return null;
+  if (ENGLISH_EXPLICIT_REQUEST.test(sample)) return 'english';
+  if (MALAY_EXPLICIT_REQUEST.test(sample)) return 'malay';
+  if (ARABIC_EXPLICIT_REQUEST.test(sample)) return 'arabic';
+  if (MANDARIN_EXPLICIT_REQUEST.test(sample)) return 'mandarin';
+  return null;
+}
+
+function mirrorLocaleToTutorLanguage(locale: SupportedLocale): AdamTutorLanguage {
+  switch (locale) {
+    case 'ms':
+    case 'mixed-ms-en':
+      return 'malay';
+    case 'en':
+      return 'english';
+    case 'ar':
+      return 'arabic';
+    case 'zh':
+      return 'mandarin';
+    case 'id':
+      return 'indonesian';
+    case 'ta':
+      return 'tamil';
+    default:
+      return 'other';
+  }
+}
+
+/** Pure numbers, algebra tokens, or emoji — no reliable language cue. */
+export function isTutorMessageAmbiguousLanguage(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return true;
+  if (/^\d+$/.test(trimmed)) return true;
+  if (/^[\d+\-×÷=().,\sxyab]+$/i.test(trimmed) && trimmed.length <= 48) return true;
+  if (/^[\p{Emoji}\p{Emoji_Presentation}\s]+$/u.test(trimmed)) return true;
+  return false;
+}
+
+function isTutorShortStudentAnswer(text: string): boolean {
+  const trimmed = text.trim();
+  return trimmed.length > 0 && trimmed.length <= 56 && !detectTutorExplicitLanguageRequest(trimmed);
+}
+
+function inferTutorLanguageFromStudentText(
+  text: string,
+  recentUserText = '',
+): AdamTutorLanguage | null {
+  const sample = text.trim();
+  if (!sample || isTutorMessageAmbiguousLanguage(sample)) return null;
+
+  const detected = detectLanguage(sample, recentUserText);
+  if (detected.confidence >= 0.55) {
+    return mirrorLocaleToTutorLanguage(detected.detectedLocale);
+  }
+  if (scoreMalaySessionText(sample) >= 2) return 'malay';
+  if (/\bdan\b/i.test(sample) && scoreMalaySessionText(sample) >= 1) return 'malay';
+  if (MALAY_THREAD_ESTABLISHED.test(sample)) return 'malay';
+  return null;
+}
+
+/**
+ * Universal scholar — match the student's language each turn.
+ * Profile language is fallback only when the message has no language cue.
+ */
 export function resolveTutorSessionLanguage(
   profile?: AdamTutorProfile,
   recentAssistantMessages: string[] = [],
+  recentUserMessages: string[] = [],
+  userMessage?: string,
 ): AdamTutorLanguage {
+  const current = (userMessage ?? recentUserMessages.at(-1) ?? '').trim();
+
+  const explicit = detectTutorExplicitLanguageRequest(current);
+  if (explicit) return explicit;
+
+  const userSample = recentUserMessages.slice(-8).join('\n');
+  const threadLang = userSample.trim() && !isTutorMessageAmbiguousLanguage(userSample)
+    ? inferTutorLanguageFromStudentText(userSample)
+    : null;
+
+  if (current && isTutorShortStudentAnswer(current) && threadLang) {
+    return threadLang;
+  }
+
+  if (current && !isTutorMessageAmbiguousLanguage(current)) {
+    const fromCurrent = inferTutorLanguageFromStudentText(
+      current,
+      recentUserMessages.slice(-6).join('\n'),
+    );
+    if (fromCurrent) return fromCurrent;
+  }
+
+  if (threadLang) return threadLang;
+
+  if (isTutorMessageAmbiguousLanguage(current)) {
+    const assistantSample = recentAssistantMessages.slice(-4).join('\n');
+    const assistantLang = inferTutorLanguageFromStudentText(assistantSample);
+    if (assistantLang) return assistantLang;
+    if (scoreMalaySessionText(assistantSample) >= 3) return 'malay';
+    if (MALAY_THREAD_ESTABLISHED.test(assistantSample)) return 'malay';
+    if (MALAY_THREAD_ESTABLISHED.test(userSample)) return 'malay';
+  }
+
   if (profile?.language) {
     return normalizeTutorLanguage(profile.language);
   }
-  const threadSample = recentAssistantMessages.slice(-4).join('\n').slice(0, 2400);
-  if (threadSample.trim()) {
-    return inferTutorLanguageFromText(threadSample, profile);
-  }
   return 'english';
+}
+
+const MALAY_THREAD_ESTABLISHED =
+  /\b(?:salam|cikgu|terima kasih|mari kita|saya tunggu|ungkapan|kembangkan|kurungan|sebutan|langkah demi langkah|betul sekali|hukum taburan)\b/i;
+
+const MALAY_SESSION_WORD =
+  /\b(?:yang|dengan|untuk|adalah|tidak|soalan|cuba|tulis|jawapan|pelajar|bila|apakah|ialah|maka|betul|jika|langkah|akhirnya|cikgu|kamu|kita|kenapa|operasi|persamaan|tolak|tambah|salam|ungkapan|kembangkan|kurungan|sebutan|darab|bahagi|boleh|faham|terima kasih|mari|perlu|semua|dalam|hampir|satu|demi)\b/gi;
+
+function scoreMalaySessionText(text: string): number {
+  if (!text.trim()) return 0;
+  return text.slice(0, 2400).match(MALAY_SESSION_WORD)?.length ?? 0;
+}
+
+function tutorReplyHasClassroomMathContent(text: string): boolean {
+  return (
+    /\d+\s*[xyab]\b/i.test(text)
+    || /[×−]\s*\d/.test(text)
+    || /\b(?:expand|expanded|ungkapan|kurungan|brackets?|distributive)\b/i.test(text)
+    || /\(\s*\d+[a-z]/i.test(text)
+  );
+}
+
+/** Sync BM rewrite — keep algebra/markdown; strip English praise drift. */
+export function rewriteTutorEnglishDriftToMalay(
+  text: string,
+  profile?: AdamTutorProfile,
+  participantName?: string,
+): string {
+  const title = tutorTeacherTitle(normalizeTutorLanguage(profile?.language ?? 'malay'));
+  const first = participantName?.trim()
+    ? usersDisplayFirstName(participantName.trim())
+    : '';
+  const open = first ? `Bagus, ${first}!` : 'Bagus, Pelajar!';
+
+  let out = text
+    .replace(/^Well done,?\s*Pelajar!?/i, open)
+    .replace(/^Well done!?/i, open)
+    .replace(/\bWell done\b/gi, 'Bagus')
+    .replace(/\bYou've correctly expanded the expression\b/gi, 'Anda betul mengembangkan ungkapan')
+    .replace(/\bYou've written\b/gi, 'Anda tulis')
+    .replace(/\bYou've correctly\b/gi, 'Anda betul')
+    .replace(/\bLet's verify step by step together\b/gi, 'Mari kita semak langkah demi langkah')
+    .replace(/\bLet's verify step by step\b/gi, 'Mari kita semak langkah demi langkah')
+    .replace(/\bLet's check it together\b/gi, 'Mari kita periksa bersama')
+    .replace(/\bThis looks like the result of expanding\b/gi, 'Ini kelihatan seperti hasil pengembangan')
+    .replace(/\bThis matches the expansion of\b/gi, 'Ini sepadan dengan pengembangan')
+    .replace(/\bSo, putting them together\b/gi, 'Jadi, jika digabungkan')
+    .replace(/\bputting them together\b/gi, 'jika digabungkan')
+    .replace(/\bThat's the fully expanded\b/gi, 'Itu ungkapan yang dikembangkan sepenuhnya')
+    .replace(/\bThat's fully expanded\b/gi, 'Itu dikembangkan sepenuhnya')
+    .replace(/\bfully expanded\b/gi, 'dikembangkan sepenuhnya')
+    .replace(/\bno brackets left\b/gi, 'tiada kurungan lagi')
+    .replace(/\ball terms simplified\b/gi, 'setiap sebutan dipermudahkan')
+    .replace(/\bFirst term\b/gi, 'Sebutan pertama')
+    .replace(/\bSecond term\b/gi, 'Sebutan kedua')
+    .replace(/\bWould you like to try\b/gi, 'Mahu cuba')
+    .replace(/\bJust tell me\b/gi, 'Beritahu sahaja')
+    .replace(/\bI'll be right here\b/gi, 'Saya di sini')
+    .replace(/\bI'm right here\b/gi, 'Saya di sini')
+    .replace(/\bchecking, guiding\b/gi, 'memeriksa dan membimbing')
+    .replace(/\bPerfect\b/g, 'Sempurna')
+    .replace(/\bYou do the thinking\b/gi, 'Anda fikir')
+    .replace(/\bI hold the light\b/gi, 'saya bimbing')
+    .replace(/\bstep by step\b/gi, 'langkah demi langkah')
+    .replace(/\bKeep the negative sign\b/gi, 'Kekalkan tanda negatif')
+    .replace(/\bapplied the distributive law correctly\b/gi, 'menggunakan hukum taburan dengan betul');
+
+  out = fixTutorPelajarOpener(
+    out,
+    participantName,
+    profile
+      ? { ...profile, language: 'malay' }
+      : { level: 'primary', curriculum: 'national', language: 'malay' },
+  );
+
+  if (tutorReplyIsPredominantlyEnglish(out)) {
+    const mathLines = extractMathLines(out);
+    return `${open}
+
+Mari kita teruskan dalam Bahasa Melayu — struktur pengajaran sama, hanya bahasa diganti.
+
+${mathLines.length > 0 ? mathLines.join('\n') : out.slice(0, 700)}
+
+**${title}** tunggu langkah seterusnya anda.`;
+  }
+
+  return out.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function extractMathLines(text: string): string[] {
+  return text.split('\n').filter((line) =>
+    /[=×−]|\d+\s*[xyab]|^\s*→/.test(line),
+  ).slice(0, 12);
 }
 
 function tutorReplyHasEnglishPlaceValueTeaching(text: string): boolean {
@@ -136,7 +340,7 @@ export function tutorReplyIsPredominantlyEnglish(text: string): boolean {
 
   const lower = sample.toLowerCase();
   const englishHits = (lower.match(
-    /\b(?:good|well|correct|wrong|let|try|explain|step|answer|actually|remember|almost|great|nice|think|write|you|the|that|this|what|when|then|now|next|first|second|third)\b/g,
+    /\b(?:good|well|correct|wrong|let|try|explain|step|answer|actually|remember|almost|great|nice|think|write|you|the|that|this|what|when|then|now|next|first|second|third|done|verify|expand|expanded|brackets|putting|together|would|like|just|here|guide|check|celebrating)\b/g,
   ) ?? []).length;
   const malayHits = (lower.match(
     /\b(?:yang|dengan|untuk|adalah|tidak|soalan|jawapan|pelajar|betul|jika|langkah|cikgu|anda|kamu|kenapa|operasi|tambah|tolak|darab|bahagi|tempat|tulis|faham|terima kasih|bagus|hampir|mari|kita|satu|dua|tiga|empat|lima|enam|tujuh|lapan|sembilan|sepuluh)\b/g,
@@ -149,9 +353,17 @@ function tutorReplyViolatesMalaySession(
   text: string,
   profile?: AdamTutorProfile,
   recentAssistantMessages: string[] = [],
+  recentUserMessages: string[] = [],
+  userMessage?: string,
 ): boolean {
-  const lang = resolveTutorSessionLanguage(profile, recentAssistantMessages);
+  const lang = resolveTutorSessionLanguage(
+    profile,
+    recentAssistantMessages,
+    recentUserMessages,
+    userMessage,
+  );
   if (lang !== 'malay') return false;
+  if (detectTutorExplicitLanguageRequest(userMessage ?? '') === 'english') return false;
   if (tutorReplyHasEnglishMenuBleed(text)) return true;
   return tutorReplyIsPredominantlyEnglish(text);
 }
@@ -160,8 +372,16 @@ function tutorReplyViolatesSessionLanguage(
   text: string,
   profile?: AdamTutorProfile,
   recentAssistantMessages: string[] = [],
+  recentUserMessages: string[] = [],
+  userMessage?: string,
 ): boolean {
-  return tutorReplyViolatesMalaySession(text, profile, recentAssistantMessages);
+  return tutorReplyViolatesMalaySession(
+    text,
+    profile,
+    recentAssistantMessages,
+    recentUserMessages,
+    userMessage,
+  );
 }
 
 /** Malay recovery when model replies in English or offers Alamtologi menus. */
@@ -240,10 +460,25 @@ Output the rewritten reply only — no preamble.
 export async function repairTutorMalaySessionLanguage(
   text: string,
   profile?: AdamTutorProfile,
+  userMessage?: string,
+  recentUserMessages: string[] = [],
+  recentAssistantMessages: string[] = [],
 ): Promise<string> {
   if (!text?.trim()) return text;
-  if (normalizeTutorLanguage(profile?.language) !== 'malay') return text;
-  if (!tutorReplyViolatesMalaySession(text, profile)) return text;
+  const lang = resolveTutorSessionLanguage(
+    profile,
+    recentAssistantMessages,
+    recentUserMessages,
+    userMessage,
+  );
+  if (lang !== 'malay') return text;
+  if (!tutorReplyViolatesMalaySession(
+    text,
+    profile,
+    recentAssistantMessages,
+    recentUserMessages,
+    userMessage,
+  )) return text;
 
   try {
     const repaired = await llmCompleteUserPrompt(
@@ -275,13 +510,28 @@ export function enforceTutorSessionLanguage(
   userMessage?: string,
   participantName?: string,
   recentAssistantMessages: string[] = [],
+  recentUserMessages: string[] = [],
 ): string {
   const fixedOpener = fixTutorPelajarOpener(text, participantName, profile);
-  if (!tutorReplyViolatesSessionLanguage(fixedOpener, profile, recentAssistantMessages)) {
+  if (!tutorReplyViolatesSessionLanguage(
+    fixedOpener,
+    profile,
+    recentAssistantMessages,
+    recentUserMessages,
+    userMessage,
+  )) {
     return fixedOpener;
   }
-  if (tutorReplyHasEnglishMenuBleed(fixedOpener)) {
-    return buildTutorAmbiguousInputReply(userMessage ?? '', profile, participantName);
+  if (
+    tutorReplyHasEnglishMenuBleed(fixedOpener)
+    || tutorReplyIsPredominantlyEnglish(fixedOpener)
+  ) {
+    if (tutorReplyHasClassroomMathContent(fixedOpener)) {
+      return rewriteTutorEnglishDriftToMalay(fixedOpener, profile, participantName);
+    }
+    if (tutorReplyHasEnglishMenuBleed(fixedOpener)) {
+      return buildTutorAmbiguousInputReply(userMessage ?? '', profile, participantName);
+    }
   }
   if (tutorReplyHasEnglishPlaceValueTeaching(fixedOpener)) {
     return buildTutorMalayPlaceValueFromEnglish(
@@ -291,31 +541,44 @@ export function enforceTutorSessionLanguage(
       participantName,
     );
   }
+  if (tutorReplyHasClassroomMathContent(fixedOpener)) {
+    return rewriteTutorEnglishDriftToMalay(fixedOpener, profile, participantName);
+  }
   return buildTutorMalayFollowUpRecovery(userMessage ?? '', profile, participantName);
 }
 
-/** Tutor lane — profile language overrides ambiguous numeric/symbol input. */
+/** Tutor lane — universal scholar mirrors the student's language each turn. */
 export function buildTutorSessionLanguageLock(
   profile?: AdamTutorProfile,
   recentAssistantMessages: string[] = [],
+  recentUserMessages: string[] = [],
+  userMessage?: string,
 ): string {
-  const lang = resolveTutorSessionLanguage(profile, recentAssistantMessages);
-  const threadMalay = recentAssistantMessages.some((m) =>
-    /\b(?:cikgu|tempat|puluh|ratus|satuan|mari kita|saya tunggu|berapakah)\b/i.test(m),
+  const lang = resolveTutorSessionLanguage(
+    profile,
+    recentAssistantMessages,
+    recentUserMessages,
+    userMessage,
   );
-  const threadAnchor = threadMalay && lang === 'malay'
-    ? '- Thread already in Bahasa Melayu — NEVER switch to English when the student replies with a number, digit, or short symbol (e.g. "1", "12").\n'
+  const profileLang = normalizeTutorLanguage(profile?.language ?? 'english');
+  const ambiguousTurn = isTutorMessageAmbiguousLanguage(
+    (userMessage ?? recentUserMessages.at(-1) ?? '').trim(),
+  );
+  const threadAnchor = lang === 'malay'
+    ? `- When the student replies with numbers or algebra only (e.g. "12x", "12a dan -14b"), keep Bahasa Melayu — do not drift to English praise ("Well done", "Let's verify"). Use Bagus!, Betul sekali!, Mari kita semak…\n`
+    : '';
+  const fallbackLine = ambiguousTurn
+    ? `- This turn has no language cue (number/symbol only) — continue in **${lang}** (profile default: ${profileLang}).\n`
     : '';
   return `
-[TUTOR LANGUAGE LOCK — SESSION FIXED FOR ENTIRE CONVERSATION]
-Session profile language: ${lang} (FIXED — do not switch mid-session).
-${threadAnchor}${tutorLanguageInstruction(lang)}
-Every turn must use the session profile language — including when the student answers your question with a number, equation, symbol, or short phrase in another language.
-Do NOT mirror the student's reply language on follow-up turns. If you opened in Malay, keep explaining in Malay.
-If the student sends only a number, symbol, or emoji with no language cue, reply in the session profile language — NOT English by default.
+[TUTOR LANGUAGE — UNIVERSAL SCHOLAR]
+ADAM Tutor is a universal scholar. Reply in the language the student uses **this turn**.
+- Mirror the student's language — English, Malay, Arabic, Mandarin, Tamil, and other world languages.
+- If the student asks to switch language ("answer in English", "jawab dalam BM"), honour it immediately. **Never refuse** or say you cannot reply in their language.
+${fallbackLine}${threadAnchor}${tutorLanguageInstruction(lang)}
+When the student sends only a number, symbol, or emoji, continue in the language already established in this thread (or profile default above).
 Never offer Alamtologi, AMA, TAJU, QXK24, or founder frameworks as topic options.
-Never mix English option menus into a Malay session.
-[/TUTOR LANGUAGE LOCK]
+[/TUTOR LANGUAGE]
 `.trim();
 }
 
@@ -323,17 +586,34 @@ Never mix English option menus into a Malay session.
 export function buildTutorWebSearchPrompt(
   profile?: AdamTutorProfile,
   prefetched = false,
+  gateReason?: string | null,
+  userMessage?: string,
+  recentUserMessages: string[] = [],
+  recentAssistantMessages: string[] = [],
 ): string {
-  const langLine = tutorLanguageInstruction(normalizeTutorLanguage(profile?.language));
+  const lang = resolveTutorSessionLanguage(
+    profile,
+    recentAssistantMessages,
+    recentUserMessages,
+    userMessage,
+  );
+  const langLine = tutorLanguageInstruction(lang);
   const prefetchLine = prefetched
     ? 'Web search results may appear in [WEB SEARCH RESULTS] above — use only conventional facts from those hits.'
     : 'Web search may run for factual classroom topics only.';
+  const curriculumLine = gateReason === 'student_factual_correction'
+    ? 'Pelajar membetulkan fakta tadi — cari MOE/KPM/gov.my; terima pembetulan jika disokong kurikulum.'
+    : gateReason === 'classroom_enumeration'
+      ? 'Soalan senarai kurikulum — cari MOE/KPM/gov.my; jawab versi buku teks sekolah.'
+      : '';
   return `
 ADAM TUTOR — WEB SEARCH (silent — student does not see search UI):
 ${prefetchLine}
+${curriculumLine}
 - Conventional school/university subjects ONLY — no Alamtologi, AMA, TAJU, or founder frameworks.
 - ${langLine}
 - Weave verified facts in plain classroom language — no citation dump, no search narration.
+- NEVER invent "disahkan melalui carian" or reference IDs (e.g. 4,632) without a real search hit.
 - If search is empty, continue teaching conventionally — do not invent studies or URLs.
 `.trim();
 }

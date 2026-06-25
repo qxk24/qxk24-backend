@@ -197,7 +197,14 @@ export async function buildTurnPromptAndSearchGate(input: {
     viaVoice:             isTutorLane ? options.viaVoice === true : undefined,
     niagaProfile:         isNiagaLane ? options.niagaProfile : undefined,
     webSearchPrompt:      webSearchEnabledThisTurn && webSearchGateReason && isTutorLane
-      ? buildTutorWebSearchPrompt(tutorProfile, usersSearchFirst)
+      ? buildTutorWebSearchPrompt(
+        tutorProfile,
+        usersSearchFirst,
+        webSearchGateReason,
+        messageForAdam,
+        recentUserTurns,
+        recentAssistantTurns,
+      )
       : webSearchEnabledThisTurn && webSearchGateReason && founderTeachingSynthesis
         ? getAdamWebSearchPrompt(isFounder, {
           founderTeachingSynthesis: true,
@@ -255,7 +262,12 @@ export async function buildTurnPromptAndSearchGate(input: {
   }
 
   const languageLock = isTutorLane
-    ? buildTutorSessionLanguageLock(tutorProfile, recentAssistantTurns)
+    ? buildTutorSessionLanguageLock(
+      tutorProfile,
+      recentAssistantTurns,
+      recentUserTurns,
+      messageForAdam,
+    )
     : buildQwenLanguageLock({
       journalPhase: mode === 'JOURNAL_GEN' && isFounder ? 'draft' : undefined,
     });

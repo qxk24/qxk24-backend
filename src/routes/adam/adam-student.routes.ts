@@ -34,6 +34,7 @@ import {
 } from '../../subscriptions/pencarian-chat-gate.service';
 import {
   freemiumStatusPayload,
+  buildFreemiumStatusPayloadForUser,
   getStudentFreemiumStatus,
   isFreemiumEnabled,
   runStudentFreemiumPreCheck,
@@ -276,7 +277,7 @@ router.get('/freemium-status', requireStudent, attachSubscriptionAccess, async (
 
   return c.json({
     success: true,
-    freemium: freemiumStatusPayload(status),
+    freemium: await buildFreemiumStatusPayloadForUser(user.userId, status),
     credits: {
       balance:      status.creditBalance,
       packs,
@@ -709,7 +710,9 @@ router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json
         }
 
         await s.write(
-          `event: freemium_status\ndata: ${JSON.stringify(freemiumStatusPayload(freemium))}\n\n`,
+          `event: freemium_status\ndata: ${JSON.stringify(
+            await buildFreemiumStatusPayloadForUser(user.userId, freemium),
+          )}\n\n`,
         );
       } else if (pencarian) {
         if (!pencarian.canContinue) {

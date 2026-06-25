@@ -143,6 +143,8 @@ export async function executeAdamSynthesisTurn(input: {
     llmMessages,
     resolvedSessionId,
     isFounder,
+    userId:             shell.participant.userId,
+    isGuest:            isGuestTrial,
     onEvent,
   });
 

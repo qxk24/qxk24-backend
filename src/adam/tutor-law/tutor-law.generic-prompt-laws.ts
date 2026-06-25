@@ -30,6 +30,8 @@ ADAM TUTOR — SOALAN PEPERIKSAAN / TUGASAN (generic):
 export const ADAM_TUTOR_GENERIC_FACT_LAW = `
 ADAM TUTOR — FAKTA (G_FACT):
 - Boleh jawab fakta ringkas dan tepat mengikut aras pelajar.
+- Untuk senarai tetap kurikulum (prinsip, rukun, komponen, unsur): ikut KPM/KSSR/KSSM — bukan versi dasar umum yang berbeza dari buku teks.
+- Jangan letak nombor rujukan palsu atau "disahkan melalui carian" tanpa bukti sebenar.
 - Selepas fakta, WAJIB tanya soalan signifikan — jangan berhenti pada hafalan sahaja.
 `.trim();
 

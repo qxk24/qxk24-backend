@@ -116,3 +116,51 @@ export const AdamCreditWalletModel = mongoose.model<AdamCreditWalletDoc>(
   'AdamCreditWallet',
   CreditWalletSchema,
 );
+
+export interface AdamMediaQuotaDoc extends Document {
+  userId:           string;
+  monthKey:         string;
+  imagesUsed:       number;
+  videoSecondsUsed: number;
+}
+
+const MediaQuotaSchema = new Schema<AdamMediaQuotaDoc>({
+  userId:           { type: String, required: true, index: true },
+  monthKey:         { type: String, required: true, index: true },
+  imagesUsed:       { type: Number, required: true, default: 0, min: 0 },
+  videoSecondsUsed: { type: Number, required: true, default: 0, min: 0 },
+}, { timestamps: true });
+
+MediaQuotaSchema.index({ userId: 1, monthKey: 1 }, { unique: true });
+
+export interface AdamMediaReservationDoc extends Document {
+  reservationId: string;
+  userId:        string;
+  monthKey:      string;
+  kind:          'image' | 'video';
+  videoSeconds:  number;
+  usedIncluded:  boolean;
+  walletCents:   number;
+  status:        'held' | 'confirmed' | 'refunded';
+}
+
+const MediaReservationSchema = new Schema<AdamMediaReservationDoc>({
+  reservationId: { type: String, required: true, unique: true, index: true },
+  userId:        { type: String, required: true, index: true },
+  monthKey:      { type: String, required: true },
+  kind:          { type: String, required: true, enum: ['image', 'video'] },
+  videoSeconds:  { type: Number, required: true, default: 0, min: 0 },
+  usedIncluded:  { type: Boolean, required: true, default: true },
+  walletCents:   { type: Number, required: true, default: 0, min: 0 },
+  status:        { type: String, required: true, enum: ['held', 'confirmed', 'refunded'], default: 'held' },
+}, { timestamps: true });
+
+export const AdamMediaQuotaModel = mongoose.model<AdamMediaQuotaDoc>(
+  'AdamMediaQuota',
+  MediaQuotaSchema,
+);
+
+export const AdamMediaReservationModel = mongoose.model<AdamMediaReservationDoc>(
+  'AdamMediaReservation',
+  MediaReservationSchema,
+);

@@ -366,12 +366,14 @@ export function tutorMonthlyUsdByLevel(
 ): number {
   const band = normalizeTutorSubscriptionLevel(level);
   if (channel === 'agent') {
+    const flat = ENV.ADAM_TUTOR_AGENT_MONTHLY_USD;
     const byLevel: Record<TutorSubscriptionLevel, number> = {
       primary:    ENV.ADAM_TUTOR_PRIMARY_AGENT_MONTHLY_USD,
       secondary:  ENV.ADAM_TUTOR_SECONDARY_AGENT_MONTHLY_USD,
       university: ENV.ADAM_TUTOR_UNIVERSITY_AGENT_MONTHLY_USD,
     };
-    return byLevel[band];
+    const override = byLevel[band];
+    return override > 0 ? override : flat;
   }
 
   const byLevel: Record<TutorSubscriptionLevel, number> = {

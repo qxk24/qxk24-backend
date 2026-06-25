@@ -35,6 +35,15 @@ export {
   tutorTeacherTitle,
 } from './tutor-law/tutor-law.types';
 
+export type {
+  AdamTutorBehaviorMode,
+} from './tutor-law/tutor-law.behavior-mode';
+
+export {
+  buildTutorBehaviorModePrompt,
+  classifyTutorBehaviorMode,
+} from './tutor-law/tutor-law.behavior-mode';
+
 export {
   buildAdamTutorProfileBlock,
   buildAdamTutorTeacherIntroLaw,

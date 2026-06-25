@@ -19,6 +19,11 @@ import type { StreamingApi } from 'hono/utils/stream';
 import { SubscriptionTier, normalizeSubscriptionTier } from '../subscriptions/subscription.schema';
 import type { SubscriptionAccess } from '../subscriptions/subscription-access.service';
 import { ENV } from '../config/environments';
+import {
+  getMediaQuotaSnapshot,
+  mediaQuotaStatusPayload,
+  resolveUserMediaQuotaTier,
+} from '../adam/adam-media-quota.service';
 import { malaysiaDateKey } from './adam-freemium-date';
 import {
   guestLifetimeLimit,
@@ -410,7 +415,10 @@ export async function runStudentFreemiumPreCheck(
   };
 }
 
-export function freemiumStatusPayload(result: FreemiumCheckResult): Record<string, unknown> {
+export function freemiumStatusPayload(
+  result: FreemiumCheckResult,
+  mediaExtras?: Record<string, unknown>,
+): Record<string, unknown> {
   const isPro = result.mode === 'PRO' || result.mode === 'PROFESIONAL';
   const packs = isPro ? getPremiumCreditPacks() : [];
   const pack = packs[0];
@@ -439,7 +447,24 @@ export function freemiumStatusPayload(result: FreemiumCheckResult): Record<strin
     pacePeriod:         result.pacePeriod,
     windowHours:        result.windowHours,
     windowResetsAt:     result.windowResetsAt,
+    ...mediaExtras,
   };
+}
+
+export async function buildFreemiumStatusPayloadForUser(
+  userId: string,
+  result: FreemiumCheckResult,
+): Promise<Record<string, unknown>> {
+  if (!ENV.ADAM_MEDIA_GENERATION_ENABLED) {
+    return freemiumStatusPayload(result);
+  }
+  try {
+    const mediaTier = await resolveUserMediaQuotaTier({ userId });
+    const mediaSnap = await getMediaQuotaSnapshot({ userId, tier: mediaTier });
+    return freemiumStatusPayload(result, mediaQuotaStatusPayload(mediaSnap));
+  } catch {
+    return freemiumStatusPayload(result);
+  }
 }
 
 export async function streamFreemiumBlockedTurn(

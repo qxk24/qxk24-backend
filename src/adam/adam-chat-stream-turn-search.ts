@@ -29,6 +29,17 @@ import {
   isAdamMediaSearchTurn,
   runAdamMediaSearch,
 } from './adam-media-search';
+import { isAdamMediaGenerationTurn } from './adam-media-generation';
+import {
+  buildMediaQuotaBlockedContextBlock,
+  buildPrefetchedGeneratedMediaContextBlock,
+  runAdamMediaGeneration,
+} from './adam-media-generation.service';
+import {
+  getMediaQuotaSnapshot,
+  mediaQuotaStatusPayload,
+  resolveUserMediaQuotaTier,
+} from './adam-media-quota.service';
 import type { LlmMessage, LlmSearchResult } from '../llm/llm-types';
 import type { AdamMediaSearchHit } from './adam-media-search';
 import type { SSEEventType } from './adam.types';
@@ -55,6 +66,8 @@ export async function injectTurnSearchPrefetch(input: {
   llmMessages: LlmMessage[];
   resolvedSessionId: string;
   isFounder?: boolean;
+  userId?: string;
+  isGuest?: boolean;
   onEvent: (event: SSEEventType, data: string) => void;
 }): Promise<TurnSearchPrefetchResult> {
   const {
@@ -65,6 +78,8 @@ export async function injectTurnSearchPrefetch(input: {
     llmMessages,
     resolvedSessionId,
     isFounder = false,
+    userId,
+    isGuest = false,
     onEvent,
   } = input;
   let { systemPrompt } = input;
@@ -152,7 +167,53 @@ export async function injectTurnSearchPrefetch(input: {
   )}`;
 
   let mediaHits: AdamMediaSearchHit[] = [];
-  if (isAdamMediaSearchTurn(userMessage, isFounder)) {
+
+  if (isAdamMediaGenerationTurn(userMessage, isFounder) && userId) {
+    const mediaTier = await resolveUserMediaQuotaTier({
+      userId,
+      isFounder,
+      isGuest,
+    });
+    const gen = await runAdamMediaGeneration({
+      userMessage,
+      sessionId: resolvedSessionId,
+      userId,
+      tier:      mediaTier,
+      isFounder,
+      onEvent,
+    });
+
+    if (gen.quotaBlocked) {
+      const snap = gen.quotaSnapshot
+        ?? await getMediaQuotaSnapshot({ userId, tier: mediaTier });
+      onEvent(
+        'adam_media_quota_blocked',
+        JSON.stringify({
+          message:       gen.blockMessage,
+          registerGate:  gen.registerGate,
+          buyCreditGate: gen.buyCreditGate,
+          upgradeGate:   gen.upgradeGate,
+          ...mediaQuotaStatusPayload(snap),
+        }),
+      );
+      systemPrompt = `${systemPrompt}\n\n${buildMediaQuotaBlockedContextBlock(
+        gen.blockMessage ?? 'AI media limit reached.',
+      )}`;
+    } else if (gen.hits.length > 0) {
+      mediaHits = gen.hits;
+      systemPrompt = `${systemPrompt}\n\n${buildPrefetchedGeneratedMediaContextBlock(mediaHits)}`;
+      emitAdamMediaReadyEvent(onEvent, mediaHits);
+    } else if (gen.blockMessage) {
+      onEvent(
+        'adam_search_unavailable',
+        JSON.stringify({
+          sessionId: resolvedSessionId,
+          reason:    'media_generation_unconfigured',
+          message:   gen.blockMessage,
+        }),
+      );
+    }
+  } else if (isAdamMediaSearchTurn(userMessage, isFounder)) {
     mediaHits = await runAdamMediaSearch({
       userMessage,
       searchHits: prefetchedSearchResults,

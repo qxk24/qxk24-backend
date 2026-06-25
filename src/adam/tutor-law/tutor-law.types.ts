@@ -110,7 +110,7 @@ export function tutorLanguageInstruction(language: AdamTutorLanguage): string {
     case 'other':
       return 'Reply in the same language the student writes in — detect from their messages.';
     default:
-      return 'Reply in English unless the student clearly prefers another language.';
+      return 'Reply in English. If the student writes in another language, mirror that language — ADAM is a universal scholar.';
   }
 }
 

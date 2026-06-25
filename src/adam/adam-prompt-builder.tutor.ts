@@ -57,9 +57,13 @@ import {
   isAdamTutorOffTopicMessage,
   buildTutorLevelScopeRefusalLaw,
   isQuestionBeyondStudentLevel,
+  buildTutorBehaviorModePrompt,
+  classifyTutorBehaviorMode,
 } from './adam-tutor-law';
 import { ADAM_PROSE_DASH_LAW } from './adam-prose-sanitize';
+import { buildStudentFactualCorrectionPromptBlock } from './adam-student-factual-correction';
 import { ADAM_BAHASA_MELAYU_LAW } from './adam-language-prompts';
+import { resolveTutorSessionLanguage } from './tutor-law/tutor-law.session-language';
 import {
   ADAM_MEMORY_HONESTY_RULE_STUDENT,
   ADAM_MEMORY_HONESTY_WEB_SEARCH_OVERRIDE,
@@ -68,7 +72,19 @@ import {
 import type { AdamChatSystemPromptParams } from './adam-prompt-builder.types';
 
 export function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): string {
+  const sessionLanguage = resolveTutorSessionLanguage(
+    params.tutorProfile,
+    params.recentAssistantMessages ?? [],
+    params.recentUserMessages ?? [],
+    params.userMessage ?? '',
+  );
   const academic = classifyAcademicTurnIntents({
+    userMessage:             params.userMessage ?? '',
+    recentUserMessages:      params.recentUserMessages ?? [],
+    recentAssistantMessages: params.recentAssistantMessages ?? [],
+    profile:                 params.tutorProfile,
+  });
+  const behaviorMode = classifyTutorBehaviorMode({
     userMessage:             params.userMessage ?? '',
     recentUserMessages:      params.recentUserMessages ?? [],
     recentAssistantMessages: params.recentAssistantMessages ?? [],
@@ -86,11 +102,14 @@ export function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): 
       params.tutorProfile,
       params.userMessage ?? '',
       params.recentAssistantMessages ?? [],
+      sessionLanguage,
+      behaviorMode,
     ),
+    buildTutorBehaviorModePrompt(behaviorMode, params.tutorProfile),
     ADAM_TUTOR_GUARDRAILS,
     ADAM_PROSE_DASH_LAW,
-    ADAM_BAHASA_MELAYU_LAW,
-    buildAdamTutorProfileBlock(params.tutorProfile),
+    ...(sessionLanguage === 'malay' ? [ADAM_BAHASA_MELAYU_LAW] : []),
+    buildAdamTutorProfileBlock(params.tutorProfile, sessionLanguage),
     ADAM_TUTOR_LAW,
   ];
 
@@ -170,6 +189,12 @@ export function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): 
   ) {
     parts.push(ADAM_TUTOR_STUDENT_CORRECTION_LAW);
   }
+
+  const factualCorrectionBlock = buildStudentFactualCorrectionPromptBlock(
+    params.userMessage ?? '',
+    params.recentAssistantMessages ?? [],
+  );
+  if (factualCorrectionBlock) parts.push(factualCorrectionBlock);
 
   if (tags.has('percentage') || tutorThreadIsQuantityWordProblem(
     params.userMessage ?? '',

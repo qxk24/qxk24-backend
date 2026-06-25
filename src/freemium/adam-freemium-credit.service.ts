@@ -206,6 +206,30 @@ export async function consumeWalletForExtraMessage(
   return { ok: true, balanceCents: doc.balance };
 }
 
+/** Debit wallet for AI image/video generation overflow (cents). */
+export async function consumeWalletForMedia(
+  userId: string,
+  costCents: number,
+): Promise<{ ok: boolean; balanceCents: number }> {
+  if (costCents <= 0) {
+    const current = await getCreditBalanceCents(userId);
+    return { ok: true, balanceCents: current };
+  }
+
+  const doc = await AdamCreditWalletModel.findOneAndUpdate(
+    { userId, balance: { $gte: costCents } },
+    { $inc: { balance: -costCents } },
+    { new: true },
+  ).lean();
+
+  if (!doc) {
+    const current = await getCreditBalanceCents(userId);
+    return { ok: false, balanceCents: current };
+  }
+
+  return { ok: true, balanceCents: doc.balance };
+}
+
 /** @deprecated legacy rolling path — message-count wallet */
 export async function consumeOneCredit(userId: string): Promise<{ ok: boolean; balance: number }> {
   if (ENV.ADAM_CONSUMER_DAILY_PLAN) {

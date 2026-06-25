@@ -303,7 +303,7 @@ export async function completeTutorEnrollmentProfile(
   account.accountLane = 'pelajar';
   await account.save();
 
-  const language = input.language?.trim() || 'malay';
+  const language = input.language?.trim() || 'english';
   const curriculum = input.curriculum?.trim() || 'kpm';
 
   await saveTutorProfile(userId, {

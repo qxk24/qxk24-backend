@@ -106,6 +106,21 @@ If search shows the wrong name does not exist as a product, say so briefly, then
 Never invent parallel product histories (rebadging, factory, "original design") without search proof.
 `.trim();
 
+const STUDENT_FACTUAL_CORRECTION_DELTA = `
+The student is correcting a factual list, principle, or syllabus item from your prior reply.
+MANDATORY:
+- Accept the correction in one short sentence — no debate, no "actually you are wrong" tone.
+- Search MOE/KPM/gov.my curriculum sources — school textbook framing wins over general policy discourse.
+- If the student named the correct item, use their wording when search supports it.
+- Do NOT invent reference numbers or claim "disahkan melalui carian" without a real hit.
+`.trim();
+
+const STUDENT_CLASSROOM_ENUMERATION_DELTA = `
+Classroom enumeration question (principles, components, fixed syllabus lists).
+Search MOE/KPM/gov.my before answering — use the school curriculum version, not adult policy essays.
+State the list clearly; one brief significance question after — no fabricated citation IDs.
+`.trim();
+
 const FOUNDER_RESULTS_BASE = `
 HOW TO USE SEARCH RESULTS (founder turn):
 - Ground every empirical claim in search hits — numbers, study names, institutions, journal + year when hits provide them
@@ -125,7 +140,9 @@ export type StudentWebSearchVariant =
   | 'explanatory_science'
   | 'life_substantive'
   | 'technical_precision'
-  | 'entity_correction';
+  | 'entity_correction'
+  | 'student_factual_correction'
+  | 'classroom_enumeration';
 
 export type FounderWebSearchVariant =
   | 'default'
@@ -187,6 +204,22 @@ export function buildStudentWebSearchPrompt(
       return joinWebSearchSections(
         'YOUR WEB SEARCH (Users turn — ENTITY CORRECTION — search is MANDATORY this turn):',
         STUDENT_ENTITY_CORRECTION_DELTA,
+        ADAM_CITATION_HONESTY,
+      );
+    case 'student_factual_correction':
+      return joinWebSearchSections(
+        'YOUR WEB SEARCH (student — FACTUAL CORRECTION — search is MANDATORY this turn):',
+        STUDENT_FACTUAL_CORRECTION_DELTA,
+        ADAM_SEARCH_WHEN_TO,
+        STUDENT_SEARCH_NATURAL_BASE,
+        ADAM_CITATION_HONESTY,
+      );
+    case 'classroom_enumeration':
+      return joinWebSearchSections(
+        'YOUR WEB SEARCH (student — CLASSROOM ENUMERATION — search curriculum sources):',
+        STUDENT_CLASSROOM_ENUMERATION_DELTA,
+        ADAM_SEARCH_WHEN_TO,
+        STUDENT_SEARCH_NATURAL_BASE,
         ADAM_CITATION_HONESTY,
       );
     case 'agent_default':

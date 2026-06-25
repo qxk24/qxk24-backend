@@ -32,6 +32,7 @@ import {
   enforceTutorVerificationWorkingFirstGuard,
   appendTutorClosureCheckQuestion,
 } from './tutor-law.guards';
+import { enforceTutorStudentFactualCorrectionGuard } from '../adam-student-factual-correction';
 import {
   enforceTutorArithmeticClosureGuard,
 } from './tutor-law.arithmetic-closure';
@@ -92,6 +93,7 @@ import {
   pedagogyV2SkipsZeroAnswer,
 } from './tutor-law.pedagogy-v2-classifier';
 import { enforceQuranTranslationOnlyGuard } from './tutor-law.quran-translation';
+import { classifyTutorBehaviorMode } from './tutor-law.behavior-mode';
 
 /** Full tutor post-stream pipeline — intent-first, then topic guards. */
 export function enforceTutorReplyGuards(
@@ -153,6 +155,12 @@ export function enforceTutorReplyGuards(
     mathIntent:              intent,
     genericIntent,
   });
+  const behaviorMode = classifyTutorBehaviorMode({
+    userMessage:             msg,
+    recentUserMessages,
+    recentAssistantMessages,
+    profile,
+  });
 
   const openers = stripTutorUniversalOpeners(text);
   const introFixed = fixTutorBrokenMalayIntro(openers);
@@ -208,6 +216,12 @@ export function enforceTutorReplyGuards(
   }
 
   body = enforceTutorStudentCorrectionGuard(body, msg, recentUserMessages);
+
+  body = enforceTutorStudentFactualCorrectionGuard(
+    body,
+    msg,
+    recentAssistantMessages,
+  );
 
   if (tags.has('percentage') || tutorThreadIsQuantityWordProblem(msg, recentUserMessages, recentAssistantMessages)) {
     body = enforceTutorQuantityReplyGuard(body, msg, recentAssistantMessages);
@@ -268,6 +282,7 @@ export function enforceTutorReplyGuards(
     userMessage,
     participantName,
     recentAssistantMessages,
+    recentUserMessages,
   );
 
   const skipZeroAnswer = shouldSkipTutorZeroAnswerGuard(
@@ -280,6 +295,7 @@ export function enforceTutorReplyGuards(
 
   if (
     skipZeroAnswer
+    || behaviorMode === 'coaching'
     || tutorReplyHasCompleteWorkingSummary(out)
     || tutorReplyHasAlgebraFactoringExample(out)
   ) {

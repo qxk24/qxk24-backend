@@ -24,6 +24,7 @@ import type {
   AdamTutorLearningStyle,
   AdamTutorProfile,
 } from './tutor-law.types';
+import type { AdamTutorBehaviorMode } from './tutor-law.behavior-mode';
 import { normalizeTutorLearningStyle } from './tutor-law.types';
 import {
   buildTutorLevelScopeLaw,
@@ -90,8 +91,10 @@ export function buildAdamTutorTeacherIntroLaw(
   profile?: AdamTutorProfile,
   userMessage = '',
   recentAssistantMessages: string[] = [],
+  sessionLanguage?: AdamTutorLanguage,
+  behaviorMode: AdamTutorBehaviorMode = 'teaching',
 ): string {
-  const lang = normalizeTutorLanguage(profile?.language);
+  const lang = normalizeTutorLanguage(sessionLanguage ?? profile?.language);
   const title = tutorTeacherTitle(lang);
   const isGreeting = isAdamLightChatTurn(userMessage);
   const isFirstTurn = recentAssistantMessages.length === 0;
@@ -99,6 +102,7 @@ export function buildAdamTutorTeacherIntroLaw(
   const sessionStarted = recentAssistantMessages.some((m) =>
     tutorSessionIdentityEstablished(m, profile),
   );
+  const isCoaching = behaviorMode === 'coaching';
 
   const malayToneSamples = [
     'Hai Siti. Saya Cikgu ADAM — subjek apa hari ini?',
@@ -114,20 +118,22 @@ export function buildAdamTutorTeacherIntroLaw(
 
   const base = `
 ADAM TUTOR — NATURAL VOICE (hybrid A+B — intent, NOT a fixed script):
-- You are the student's ${title}. Say **${title} ADAM** when naming yourself — not "ADAM Tutor" alone.
-- Sound like a real ${lang === 'malay' ? 'Malaysian classroom teacher' : 'classroom teacher'}: warm, direct, short sentences.
-- CONTRACT (must be true over the session — do NOT preach it every turn):
-  (1) You guide step by step; (2) you do not hand finished homework answers; (3) the student tries first.
-- Show the contract through questions and blanks — not Terms & Conditions prose.
+- You are the learner/member's ${title}. Say **${title} ADAM** when naming yourself — not "ADAM Tutor" alone.
+- Sound like a real ${isCoaching ? 'practical coach' : (lang === 'malay' ? 'Malaysian classroom teacher' : 'classroom teacher')}: warm, direct, short sentences.
+- MODE CONTRACT (must be true over the session — do NOT preach it every turn):
+  ${isCoaching
+    ? '(1) Answer directly first; (2) coach with practical next steps; (3) do not use strict zero-answer refusal.'
+    : '(1) You guide step by step; (2) you do not hand finished homework answers; (3) the learner tries first.'}
+- Show the contract through the response shape — not Terms & Conditions prose.
 - UNIVERSAL: no Bismillah opener; return Waalaikumussalam only if the student greeted first.
-- Never kau/kamu/engkau — use the student's name or "anda".
-- ${tutorLanguageInstruction(lang)} — do not switch language on short or numeric replies.
+- Never kau/kamu/engkau — use the member's name or "anda".
+- ${tutorLanguageInstruction(lang)} — mirror the student's language; on short numeric replies keep the thread language unless they ask to switch.
 - Do NOT copy any example sentence verbatim — vary wording every session.
 - Tone samples (paraphrase freely — do NOT copy):
 ${lang === 'malay' ? malayToneSamples : englishToneSamples}
 `.trim();
 
-  if (demandsAnswer) {
+  if (demandsAnswer && !isCoaching) {
     return `${base}
 
 TURN TYPE — Tier 2 (student demands finished answer):
@@ -141,7 +147,7 @@ TURN TYPE — Tier 2 (student demands finished answer):
     return `${base}
 
 TURN TYPE — Tier 0 (greeting only):
-- ONE warm line + ask what subject or question they want help with.
+- ONE warm line + ask ${isCoaching ? 'what they want to work on' : 'what subject or question they want help with'}.
 - NO zero-answer policy speech, NO "saya tidak beri jawapan siap" on this turn.
 - Optional: mention ${title} ADAM once in passing — not a full introduction block.`.trim();
   }
@@ -150,15 +156,15 @@ TURN TYPE — Tier 0 (greeting only):
     return `${base}
 
 TURN TYPE — Tier 1 (first substantive question):
-- Jump into the problem — micro-teach immediately (show-don't-tell).
+- ${isCoaching ? 'Answer directly first, then coach the next practical step.' : 'Jump into the problem — micro-teach immediately (show-don\'t-tell).'}
 - Mention ${title} ADAM at most ONCE in the opening line if natural — or skip if the question is clear.
-- NO policy paragraph; let your first guiding question show how you teach.`.trim();
+- NO policy paragraph; let the response itself show the mode.`.trim();
   }
 
   return `${base}
 
-TURN TYPE — ongoing teaching:
-- No intro, no identity restatement, no policy speech — teach the next micro-step only.`.trim();
+TURN TYPE — ongoing ${isCoaching ? 'coaching' : 'teaching'}:
+- No intro, no identity restatement, no policy speech — ${isCoaching ? 'continue with concise advice and next action.' : 'teach the next micro-step only.'}`.trim();
 }
 
 /** Tutor lane — no Bismillah; name once on substantive turns. */
@@ -282,7 +288,10 @@ ADAM TUTOR — GAYA BELAJAR (VAK hint — lembut, bukan label tetap):
 `.trim();
 }
 
-export function buildAdamTutorProfileBlock(profile?: AdamTutorProfile): string {
+export function buildAdamTutorProfileBlock(
+  profile?: AdamTutorProfile,
+  sessionLanguage?: AdamTutorLanguage,
+): string {
   if (!profile) {
     return `
 ADAM TUTOR PROFILE (default):
@@ -300,7 +309,7 @@ ADAM TUTOR PROFILE (agent marketing demo — all bands):
 - Primary topics: very short sentences (~12 words). Secondary: plain language (~18 words). University: clear and formal.
 - Curriculum framework: ${curriculumLabel(normalizeTutorCurriculum(String(profile.curriculum)))}
 - Country: ${profile.countryCode ? (tutorCountryLabel(profile.countryCode) ?? profile.countryCode) : 'Malaysia (default examples OK)'}
-- LANGUAGE (mandatory): ${tutorLanguageInstruction(normalizeTutorLanguage(profile.language))}
+- LANGUAGE (this turn): ${tutorLanguageInstruction(normalizeTutorLanguage(sessionLanguage ?? profile.language))} — universal scholar; honour explicit language switch requests.
 - Adapt terminology, syllabus, and difficulty to each question — rendah, menengah, or universiti as the topic requires.
 `.trim();
   }
@@ -316,7 +325,7 @@ ADAM TUTOR PROFILE (agent marketing demo — all bands):
         : 'University / college';
 
   const cur = normalizeTutorCurriculum(String(profile.curriculum));
-  const lang = normalizeTutorLanguage(profile.language);
+  const lang = normalizeTutorLanguage(sessionLanguage ?? profile.language);
   const countryLine = profile.countryCode
     ? `Country: ${tutorCountryLabel(profile.countryCode) ?? profile.countryCode}`
     : '';
@@ -336,7 +345,7 @@ ${countryLine ? `- ${countryLine}` : ''}
 ${localeLine ? `- ${localeLine}` : ''}
 ${yearLine ? `- ${yearLine}` : ''}
 - Global tutor: align examples, terminology, and standards to the student's country and syllabus when known.
-- LANGUAGE (mandatory): ${tutorLanguageInstruction(lang)}
+- LANGUAGE (this turn): ${tutorLanguageInstruction(lang)} — universal scholar; honour explicit language switch requests.
 - Primary: ayat sangat pendek (~12 perkataan); secondary: bahasa mudah (~18); university: jelas dan formal tanpa metafora.
 ${scopeLaw ? `\n${scopeLaw}` : ''}${vakLaw ? `\n\n${vakLaw}` : ''}`.trim();
 }
