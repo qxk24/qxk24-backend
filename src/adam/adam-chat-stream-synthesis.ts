@@ -67,6 +67,7 @@ import { isAdamCurrentAffairsTurn, isFactualAdamWebSearchGateReason, isVerifiedD
 import {
   enforceTutorReplyGuards,
   isAdamTutorMode,
+  resolveTutorUniversityMeta,
   shouldApplyAcademicIntentRouting,
 } from './adam-tutor-law';
 import type { WorkspaceRecord } from './adam-workspace.service';
@@ -448,6 +449,20 @@ export async function executeAdamSynthesisTurn(input: {
         }));
       }
     }
+
+    if (isAdamTutorMode(mode) && shell.options.tutorProfile) {
+      const tutorMeta = resolveTutorUniversityMeta({
+        profile:                 shell.options.tutorProfile,
+        userMessage:             shell.userMessage,
+        recentUserMessages:      recentUserTurns,
+        recentAssistantMessages: recentAssistantTurns,
+      });
+      onEvent('adam_tutor_meta', JSON.stringify({
+        sessionId: resolvedSessionId,
+        ...tutorMeta,
+      }));
+    }
+
     fullResponse = sanitizeAdamProseDashBridges(fullResponse);
   }
 

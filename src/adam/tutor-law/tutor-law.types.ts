@@ -76,7 +76,7 @@ export function normalizeTutorLanguage(raw: unknown): AdamTutorLanguage {
   if (typeof raw === 'string' && (allowed as string[]).includes(raw)) {
     return raw as AdamTutorLanguage;
   }
-  return 'english';
+  return 'other';
 }
 
 /** Classroom title — Cikgu (Malay), Teacher (English), etc. */

@@ -445,6 +445,7 @@ export type SSEEventType =
   | 'adam_chunk'
   | 'adam_stream_idle'
   | 'adam_stream_done'
+  | 'adam_tutor_meta'
   | 'adam_repairing'
   | 'adam_searching'
   | 'adam_search_done'

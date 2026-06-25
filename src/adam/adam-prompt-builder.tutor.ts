@@ -59,6 +59,11 @@ import {
   isQuestionAboveBaselineLevel,
   buildTutorBehaviorModePrompt,
   classifyTutorBehaviorMode,
+  buildAdamUniversityStandardLaw,
+  buildUniversityArtifactPrompt,
+  buildUniversityOutcomeMapLaw,
+  classifyUniversityArtifact,
+  isAdamUniversityStandardActive,
 } from './adam-tutor-law';
 import { ADAM_PROSE_DASH_LAW } from './adam-prose-sanitize';
 import { buildStudentFactualCorrectionPromptBlock } from './adam-student-factual-correction';
@@ -84,7 +89,18 @@ export function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): 
     recentAssistantMessages: params.recentAssistantMessages ?? [],
     profile:                 params.tutorProfile,
   });
-  const behaviorMode = classifyTutorBehaviorMode({
+  const universityStandardActive = isAdamUniversityStandardActive(
+    params.tutorProfile,
+    params.userMessage ?? '',
+    params.recentUserMessages ?? [],
+    params.recentAssistantMessages ?? [],
+  );
+  const universityArtifact = classifyUniversityArtifact({
+    userMessage:             params.userMessage ?? '',
+    recentUserMessages:      params.recentUserMessages ?? [],
+    recentAssistantMessages: params.recentAssistantMessages ?? [],
+  });
+  const behaviorMode = universityStandardActive ? 'coaching' : classifyTutorBehaviorMode({
     userMessage:             params.userMessage ?? '',
     recentUserMessages:      params.recentUserMessages ?? [],
     recentAssistantMessages: params.recentAssistantMessages ?? [],
@@ -106,6 +122,13 @@ export function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): 
       behaviorMode,
     ),
     buildTutorBehaviorModePrompt(behaviorMode, params.tutorProfile),
+    ...(universityStandardActive
+      ? [
+        buildAdamUniversityStandardLaw(params.tutorProfile),
+        buildUniversityArtifactPrompt(universityArtifact),
+        buildUniversityOutcomeMapLaw(),
+      ]
+      : []),
     ADAM_TUTOR_GUARDRAILS,
     ADAM_PROSE_DASH_LAW,
     ...(sessionLanguage === 'malay' ? [ADAM_BAHASA_MELAYU_LAW] : []),

@@ -44,6 +44,38 @@ export {
   classifyTutorBehaviorMode,
 } from './tutor-law/tutor-law.behavior-mode';
 
+export type {
+  AdamUniversityArtifact,
+  UniversityArtifactInput,
+} from './tutor-law/tutor-law.university-mode';
+
+export {
+  classifyUniversityArtifact,
+  isAdamUniversityStandardActive,
+} from './tutor-law/tutor-law.university-mode';
+
+export {
+  buildAdamUniversityStandardLaw,
+  buildUniversityArtifactPrompt,
+  buildUniversityOutcomeMapLaw,
+} from './tutor-law/tutor-law.university-prompts';
+
+export type {
+  AdamTutorUniversityDisplayMode,
+  AdamTutorUniversityMeta,
+} from './tutor-law/tutor-law.university-meta';
+
+export {
+  resolveTutorUniversityMeta,
+} from './tutor-law/tutor-law.university-meta';
+
+export {
+  buildUniversityIntegrityRefusal,
+  enforceUniversityIntegrityGuard,
+  isUniversityFakeSourceRequest,
+  isUniversityGhostwritingRequest,
+} from './tutor-law/tutor-law.university-guards';
+
 export {
   buildAdamTutorProfileBlock,
   buildAdamTutorTeacherIntroLaw,

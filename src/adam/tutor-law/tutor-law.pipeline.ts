@@ -94,6 +94,8 @@ import {
 } from './tutor-law.pedagogy-v2-classifier';
 import { enforceQuranTranslationOnlyGuard } from './tutor-law.quran-translation';
 import { classifyTutorBehaviorMode } from './tutor-law.behavior-mode';
+import { isAdamUniversityStandardActive } from './tutor-law.university-mode';
+import { enforceUniversityIntegrityGuard } from './tutor-law.university-guards';
 
 /** Full tutor post-stream pipeline — intent-first, then topic guards. */
 export function enforceTutorReplyGuards(
@@ -161,6 +163,12 @@ export function enforceTutorReplyGuards(
     recentAssistantMessages,
     profile,
   });
+  const universityStandardActive = isAdamUniversityStandardActive(
+    profile,
+    msg,
+    recentUserMessages,
+    recentAssistantMessages,
+  );
 
   const openers = stripTutorUniversalOpeners(text);
   const introFixed = fixTutorBrokenMalayIntro(openers);
@@ -284,6 +292,10 @@ export function enforceTutorReplyGuards(
     recentAssistantMessages,
     recentUserMessages,
   );
+
+  if (universityStandardActive) {
+    return enforceUniversityIntegrityGuard(out, msg, profile);
+  }
 
   const skipZeroAnswer = shouldSkipTutorZeroAnswerGuard(
     out,
