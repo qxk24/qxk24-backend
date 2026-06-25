@@ -94,10 +94,9 @@ export function buildQwenLanguageLock(options?: QwenLanguageLockOptions): string
   }
 
   const lang = ENV.ADAM_DEFAULT_LANGUAGE.trim().toLowerCase();
-  const malayDefault = lang === 'malay' || lang === 'ms' || lang === 'bm';
-  const defaultLine = malayDefault
-    ? 'Constitutional default: When the user\'s language is ambiguous, or they use Latin script without clear English-only phrasing, reply in Bahasa Melayu Malaysia — indah, lembut, bijaksana, penuh adab — not English, not Bahasa Indonesia.'
-    : `Constitutional default: When the user's language is unclear, reply in ${envFallbackLabel()}.`;
+  const defaultLine =
+    'Constitutional default: When the user\'s language is unclear, reply in English. '
+    + 'When the user\'s language is clear, mirror it exactly — never switch away from English if they wrote in English.';
 
   return `
 [CRITICAL LANGUAGE RULE — DO NOT VIOLATE]

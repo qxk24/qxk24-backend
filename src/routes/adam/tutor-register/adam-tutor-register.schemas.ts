@@ -62,6 +62,7 @@ export const ParentSessionSchema = z.object({
 });
 
 export const AdminGenerateSchema = z.object({
+  band:       z.enum(['primary', 'secondary', 'university']),
   count:      z.number().int().min(1).max(30_000).optional(),
   agentId:    z.string().min(8).max(64).optional(),
   agentLabel: z.string().min(2).max(120).optional(),
@@ -86,6 +87,7 @@ const AdminCreateAgentSchema = z.object({
   postcode:            z.string().regex(/^\d{5}$/),
   city:                z.string().min(2).max(80),
   state:               z.enum(MALAYSIA_STATE_ENUM),
+  band:                z.enum(['primary', 'secondary', 'university']),
   packageTier:         z.enum(TUTOR_AGENT_PACKAGE_TIERS),
   commissionPercent:   z.number().min(0).max(50).optional(),
   notes:               z.string().max(500).optional(),
@@ -104,11 +106,13 @@ export const AgentSelfRegisterSchema = AdminCreateAgentSchema.omit({
 });
 
 export const AgentPackageRequestSchema = z.object({
+  band:     z.enum(['primary', 'secondary', 'university']).optional(),
   tier:     z.enum(TUTOR_AGENT_PACKAGE_TIERS),
   renewal:  z.boolean().optional(),
 });
 
 export const AdminActivatePackageSchema = z.object({
+  band:    z.enum(['primary', 'secondary', 'university']).optional(),
   tier:    z.enum(TUTOR_AGENT_PACKAGE_TIERS),
   renewal: z.boolean().optional(),
 });
@@ -140,6 +144,7 @@ export const AgentDemoChatSchema = z.object({
 );
 
 export const AdminListSchema = z.object({
+  band:   z.enum(['primary', 'secondary', 'university']).optional(),
   status: z.enum(['available', 'locked', 'redeemed', 'revoked']).optional(),
   limit:  z.coerce.number().int().min(1).max(500).optional(),
 });

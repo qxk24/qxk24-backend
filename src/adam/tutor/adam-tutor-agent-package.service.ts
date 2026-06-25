@@ -15,16 +15,19 @@
  * ============================================================
  */
 
+import type { TutorSubscriptionLevel } from '../../subscriptions/subscription.schema';
 import {
   TutorAgentPackageStatus,
   canUpgradeTutorAgentPackage,
   isTutorAgentPackageTier,
-  listTutorAgentPackages,
+  listTutorAgentPackageCatalog,
+  listTutorAgentPackagesForBand,
   quoteTutorAgentPackage,
   tutorAgentPackageTierRank,
   type TutorAgentPackageTier,
 } from './adam-tutor-agent-package.config';
 import { TutorAgentModel, type ITutorAgent } from './adam-tutor-agent.schema';
+import { TUTOR_REGISTER_BAND_LABELS_BM } from './adam-tutor-register.constants';
 import {
   computeAgentPackageExpiry,
   restoreAgentPricingAfterLicenseRenewal,
@@ -47,18 +50,39 @@ export function creditTutorAgentPackagePins(
   };
 }
 
+function resolvePackageBand(
+  agent: Pick<ITutorAgent, 'band'>,
+  inputBand?: TutorSubscriptionLevel | null,
+): TutorSubscriptionLevel {
+  const band = inputBand ?? agent.band;
+  if (!band) {
+    throw new Error('Pilih band sekolah (rendah / menengah / IPT) sebelum pakej.');
+  }
+  return band;
+}
+
 export async function requestTutorAgentPackage(
   agent: ITutorAgent,
-  input: { tier: TutorAgentPackageTier; renewal?: boolean },
+  input: {
+    band?:    TutorSubscriptionLevel;
+    tier:     TutorAgentPackageTier;
+    renewal?: boolean;
+  },
 ): Promise<ITutorAgent> {
   if (input.renewal) {
     if (agent.packageStatus !== TutorAgentPackageStatus.ACTIVE) {
       throw new Error('Beli lagi pakej hanya untuk akaun ejen aktif.');
     }
+    const band = resolvePackageBand(agent, input.band);
+    if (agent.band && input.band && agent.band !== input.band) {
+      throw new Error('Tidak boleh tukar band — hanya tier dalam band sama.');
+    }
     if (!canUpgradeTutorAgentPackage(agent.packageTier, input.tier)) {
       throw new Error('Tidak boleh turun tier — hanya kekal atau naik (upgrade).');
     }
-    agent.packageTier = input.tier;
+    const quote = quoteTutorAgentPackage(band, input.tier);
+    agent.band = quote.band;
+    agent.packageTier = quote.tier;
     await agent.save();
     return agent;
   }
@@ -67,7 +91,9 @@ export async function requestTutorAgentPackage(
     throw new Error('Pakej sudah aktif — gunakan Beli lagi untuk tambah PIN (bayaran penuh ikut tier).');
   }
 
-  const quote = quoteTutorAgentPackage(input.tier);
+  const band = resolvePackageBand(agent, input.band);
+  const quote = quoteTutorAgentPackage(band, input.tier);
+  agent.band = quote.band;
   agent.packageTier = quote.tier;
   agent.packageStatus = TutorAgentPackageStatus.PENDING;
   await agent.save();
@@ -77,10 +103,11 @@ export async function requestTutorAgentPackage(
 export async function activateTutorAgentPackage(
   agentId: string,
   input: {
-    tier:            TutorAgentPackageTier;
-    activatedBy:     string;
+    band?:            TutorSubscriptionLevel;
+    tier:             TutorAgentPackageTier;
+    activatedBy:      string;
     stripeSessionId?: string;
-    isRenewal?:      boolean;
+    isRenewal?:       boolean;
   },
 ): Promise<ITutorAgent> {
   if (!isTutorAgentPackageTier(input.tier)) {
@@ -104,8 +131,10 @@ export async function activateTutorAgentPackage(
     throw new Error('Agen package already active. Renew license or contact administrator.');
   }
 
-  const quote = quoteTutorAgentPackage(input.tier);
+  const band = resolvePackageBand(agent, input.band);
+  const quote = quoteTutorAgentPackage(band, input.tier);
   const paidAt = new Date();
+  agent.band = quote.band;
   agent.packageTier = quote.tier;
   agent.packageStatus = TutorAgentPackageStatus.ACTIVE;
   agent.pinBalance = quote.pinCount;
@@ -118,7 +147,8 @@ export async function activateTutorAgentPackage(
     agent.packageStripeSessionId = input.stripeSessionId;
     agent.packageLastFulfilledSessionId = input.stripeSessionId;
   }
-  const note = `Pakej ${quote.tierLabel} — RM${quote.totalMyr.toFixed(2)} (${quote.pinCount} PIN) · ${input.activatedBy}`;
+  const bandLabel = TUTOR_REGISTER_BAND_LABELS_BM[quote.band] ?? quote.band;
+  const note = `Pakej ${quote.tierLabel} ${bandLabel} — RM${quote.totalMyr.toFixed(2)} (${quote.pinCount} PIN) · ${input.activatedBy}`;
   agent.notes = agent.notes ? `${agent.notes}\n${note}` : note;
   await agent.save();
 
@@ -133,10 +163,11 @@ export async function activateTutorAgentPackage(
 export async function renewTutorAgentPackage(
   agentId: string,
   input: {
-    tier:            TutorAgentPackageTier;
-    activatedBy:     string;
+    band?:            TutorSubscriptionLevel;
+    tier:             TutorAgentPackageTier;
+    activatedBy:      string;
     stripeSessionId?: string;
-    isRenewal?:      boolean;
+    isRenewal?:       boolean;
   },
 ): Promise<ITutorAgent> {
   const agent = await TutorAgentModel.findOne({ agentId });
@@ -151,6 +182,11 @@ export async function renewTutorAgentPackage(
     throw new Error('Tier pakej tidak sah untuk pembaharuan.');
   }
 
+  const band = resolvePackageBand(agent, input.band);
+  if (agent.band && agent.band !== band) {
+    throw new Error('Tidak boleh tukar band semasa pembaharuan.');
+  }
+
   if (!canUpgradeTutorAgentPackage(agent.packageTier, tier)) {
     throw new Error('Tidak boleh turun tier — hanya kekal atau naik (upgrade).');
   }
@@ -161,12 +197,13 @@ export async function renewTutorAgentPackage(
   );
   const isSameTierRepurchase = !isUpgrade && agent.packageTier === tier;
 
-  const quote = quoteTutorAgentPackage(tier);
+  const quote = quoteTutorAgentPackage(band, tier);
   const now = new Date();
   const base = agent.packageExpiresAt && agent.packageExpiresAt > now
     ? agent.packageExpiresAt
     : now;
 
+  agent.band = quote.band;
   agent.packageTier = tier;
   agent.packageExpiresAt = computeAgentPackageExpiry(base);
   agent.packageRenewedAt = now;
@@ -179,12 +216,13 @@ export async function renewTutorAgentPackage(
     agent.packageLastFulfilledSessionId = input.stripeSessionId;
   }
 
+  const bandLabel = TUTOR_REGISTER_BAND_LABELS_BM[quote.band] ?? quote.band;
   const action = isUpgrade
     ? `Upgrade ke ${quote.tierLabel}`
     : isSameTierRepurchase
       ? `Beli lagi ${quote.tierLabel}`
       : `Pembaharuan ${quote.tierLabel}`;
-  const note = `${action} — RM${quote.totalMyr.toFixed(2)} (+${quote.pinCount} PIN · jumlah terkumpul ${agent.pinPurchasedTotal}) · ${input.activatedBy}`;
+  const note = `${action} ${bandLabel} — RM${quote.totalMyr.toFixed(2)} (+${quote.pinCount} PIN · jumlah terkumpul ${agent.pinPurchasedTotal}) · ${input.activatedBy}`;
   agent.notes = agent.notes ? `${agent.notes}\n${note}` : note;
   await agent.save();
 
@@ -236,7 +274,7 @@ export function serializeAgentPackage(agent: Pick<
   const band = agent.band ?? null;
   const tier = agent.packageTier ?? null;
   const packageStatus = agent.packageStatus ?? TutorAgentPackageStatus.LEGACY;
-  const quote = tier ? quoteTutorAgentPackage(tier) : null;
+  const quote = band && tier ? quoteTutorAgentPackage(band, tier) : null;
 
   return {
     band,
@@ -256,8 +294,12 @@ export function serializeAgentPackage(agent: Pick<
       })(),
     ),
     packageQuote:      quote,
-    catalog:           listTutorAgentPackages(),
+    catalog:           band ? listTutorAgentPackagesForBand(band) : listTutorAgentPackageCatalog(),
   };
 }
 
-export { listTutorAgentPackages, quoteTutorAgentPackage };
+export {
+  listTutorAgentPackageCatalog,
+  listTutorAgentPackagesForBand,
+  quoteTutorAgentPackage,
+};

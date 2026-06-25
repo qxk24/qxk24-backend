@@ -31,8 +31,11 @@ export async function mintTutorAgentRegisterPinsForPackage(
   if (agent.pinBalance <= 0) return 0;
 
   const count = agent.pinBalance;
+  if (!agent.band) return 0;
+
   const codes = await generateTutorRegisterCodes({
     count,
+    band:      agent.band,
     agentId:   agent.agentId,
     createdBy,
   });

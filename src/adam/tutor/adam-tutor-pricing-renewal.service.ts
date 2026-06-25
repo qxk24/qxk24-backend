@@ -14,8 +14,8 @@
  * belongs to no human. It flows like water to all.
  * ============================================================
  *
- * Agent PIN students: USD 15.90/mo for 12 months from first payment.
- * After window ends, extend only if agent license renewed; else → USD 19/mo public.
+ * Agent PIN students: band-priced USD/mo for 12 months from first payment.
+ * After window ends, extend only if agent license renewed; else → public band price.
  */
 
 import { ENV } from '../../config/environments';
@@ -27,6 +27,7 @@ import {
 } from '../../subscriptions/subscription.schema';
 import { toStripeUnitAmount } from '../../subscriptions/stripe-currency';
 import { tutorMonthlyUsdByLevel } from '../../subscriptions/tier-access.config';
+import type { TutorSubscriptionLevel } from '../../subscriptions/subscription.schema';
 import { TutorAgentModel } from './adam-tutor-agent.schema';
 import {
   TutorEnrollmentModel,
@@ -53,12 +54,16 @@ export function computeAgentPackageExpiry(from: Date = new Date()): Date {
   return addCalendarMonths(from, TUTOR_AGENT_LICENSE_MONTHS);
 }
 
-export function tutorPublicMonthlyUsd(): number {
-  return ENV.ADAM_PRO_MONTHLY_USD;
+export function tutorPublicMonthlyUsd(
+  level?: TutorSubscriptionLevel | string | null,
+): number {
+  return tutorMonthlyUsdByLevel(level, 'public');
 }
 
-export function tutorAgentMonthlyUsd(): number {
-  return tutorMonthlyUsdByLevel(null, 'agent');
+export function tutorAgentMonthlyUsd(
+  level?: TutorSubscriptionLevel | string | null,
+): number {
+  return tutorMonthlyUsdByLevel(level, 'agent');
 }
 
 export function isAgentLicenseActive(
@@ -173,7 +178,7 @@ async function switchEnrollmentToPublicPricing(
   enrollment: ITutorEnrollment,
 ): Promise<void> {
   const now = new Date();
-  const publicUsd = tutorPublicMonthlyUsd();
+  const publicUsd = tutorPublicMonthlyUsd(enrollment.band);
 
   enrollment.pricingChannel = 'public';
   enrollment.priceSwitchedAt = now;
@@ -197,7 +202,7 @@ async function switchEnrollmentToPublicPricing(
         sub.providerSubId,
         publicUsd,
         'ADAM Tutor',
-        'Public monthly — agent license expired · USD 19/month',
+        'Public monthly — agent license expired',
       );
     } catch (err) {
       console.error('[TutorPricingRenewal] Stripe public switch failed:', err);
@@ -220,7 +225,7 @@ async function restoreEnrollmentAgentPricing(
   const sub = await SubscriptionModel.findById(enrollment.subscriptionId);
   if (!sub || sub.tier !== SubscriptionTier.TUTOR) return;
 
-  const agentUsd = tutorAgentMonthlyUsd();
+  const agentUsd = tutorAgentMonthlyUsd(enrollment.band);
   await syncSubscriptionPricing(
     enrollment.subscriptionId,
     'agent',
@@ -234,7 +239,7 @@ async function restoreEnrollmentAgentPricing(
         sub.providerSubId,
         agentUsd,
         'ADAM Tutor',
-        'Agent channel — USD 15.90/month (license renewed)',
+        'Agent channel — license renewed',
       );
     } catch (err) {
       console.error('[TutorPricingRenewal] Stripe agent restore failed:', err);
@@ -271,7 +276,7 @@ export async function processEnrollmentPricingRenewal(
       await syncSubscriptionPricing(
         enrollment.subscriptionId,
         'agent',
-        tutorAgentMonthlyUsd(),
+        tutorAgentMonthlyUsd(enrollment.band),
         nextEnd,
       );
     }

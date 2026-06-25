@@ -269,19 +269,30 @@ export const ENV = {
   /** Flip to true when Stripe keys and price IDs are set in .env */
   STRIPE_ENABLED:           optional('STRIPE_ENABLED', 'false') === 'true',
 
-  // ── Stripe Price IDs — 3 product families only ────────────
-  // 1. Pro (monthly/annual)  2. Ejen PIN packages (4 tiers)  3. Token credits
-  // Tutor student checkout uses dynamic price_data (ADAM_TUTOR_AGENT_MONTHLY_USD).
+  // ── Stripe Price IDs ─────────────────────────────────────
+  // 1. Pro  2. Premium  3. Ejen PIN packages  4. Token credits
+  // Tutor student checkout uses band-specific price_data (public vs agent channel).
   //
   /** 1. ADAM Pro */
   STRIPE_PRICE_ID_PRO_MONTHLY:     optional('STRIPE_PRICE_ID_PRO_MONTHLY', ''),
   STRIPE_PRICE_ID_PRO_ANNUAL:      optional('STRIPE_PRICE_ID_PRO_ANNUAL', ''),
+  /** 2. ADAM Premium (checkout tier PROFESIONAL on consumer plan) */
+  STRIPE_PRICE_ID_PREMIUM_MONTHLY: optional('STRIPE_PRICE_ID_PREMIUM_MONTHLY', ''),
+  STRIPE_PRICE_ID_PREMIUM_ANNUAL:  optional('STRIPE_PRICE_ID_PREMIUM_ANNUAL', ''),
 
-  /** 2. Ejen — one-time MYR PIN packages (4 tiers, universal PIN) */
-  STRIPE_PRICE_ID_TUTOR_EJEN_SILVER:   optional('STRIPE_PRICE_ID_TUTOR_EJEN_SILVER', ''),
-  STRIPE_PRICE_ID_TUTOR_EJEN_GOLD:     optional('STRIPE_PRICE_ID_TUTOR_EJEN_GOLD', ''),
-  STRIPE_PRICE_ID_TUTOR_EJEN_DIAMOND:  optional('STRIPE_PRICE_ID_TUTOR_EJEN_DIAMOND', ''),
-  STRIPE_PRICE_ID_TUTOR_EJEN_PLATINUM: optional('STRIPE_PRICE_ID_TUTOR_EJEN_PLATINUM', ''),
+  /** 3. Ejen — one-time MYR PIN packages (3 school bands × 4 tiers) */
+  STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_SILVER:     optional('STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_SILVER', ''),
+  STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_GOLD:       optional('STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_GOLD', ''),
+  STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_DIAMOND:    optional('STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_DIAMOND', ''),
+  STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_PLATINUM:  optional('STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_PLATINUM', ''),
+  STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_SILVER:   optional('STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_SILVER', ''),
+  STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_GOLD:     optional('STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_GOLD', ''),
+  STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_DIAMOND:  optional('STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_DIAMOND', ''),
+  STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_PLATINUM: optional('STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_PLATINUM', ''),
+  STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_SILVER:  optional('STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_SILVER', ''),
+  STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_GOLD:    optional('STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_GOLD', ''),
+  STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_DIAMOND: optional('STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_DIAMOND', ''),
+  STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_PLATINUM: optional('STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_PLATINUM', ''),
   /** When false, Niaga chat works without paid sub after partner approval (lab / pre-Stripe). */
   ADAM_NIAGA_BILLING_REQUIRED: optional('ADAM_NIAGA_BILLING_REQUIRED', 'false') === 'true',
   /** When false, tutor chat works without paid sub (lab / pre-Stripe). Production: true when Stripe live. */
@@ -334,13 +345,21 @@ export const ENV = {
   ADAM_PRO_ANNUAL_USD:          optionalInt('ADAM_PRO_ANNUAL_USD', 200),
   ADAM_PREMIUM_MONTHLY_USD:     optionalInt('ADAM_PREMIUM_MONTHLY_USD', 75),
   ADAM_PREMIUM_ANNUAL_USD:      optionalInt('ADAM_PREMIUM_ANNUAL_USD', 800),
-  /** ADAM Tutor kod-daftar — flat USD/month (student checkout via universal PIN). */
-  ADAM_TUTOR_AGENT_MONTHLY_USD: optionalFloat('ADAM_TUTOR_AGENT_MONTHLY_USD', 15.90),
+  /** ADAM Tutor — public monthly USD by school band (pricing page / self-serve). */
+  ADAM_TUTOR_PUBLIC_PRIMARY_USD:    optionalFloat('ADAM_TUTOR_PUBLIC_PRIMARY_USD', 25),
+  ADAM_TUTOR_PUBLIC_SECONDARY_USD:  optionalFloat('ADAM_TUTOR_PUBLIC_SECONDARY_USD', 33),
+  ADAM_TUTOR_PUBLIC_UNIVERSITY_USD: optionalFloat('ADAM_TUTOR_PUBLIC_UNIVERSITY_USD', 45),
+  /** ADAM Tutor — agent/PIN channel monthly USD by school band (not shown on public pricing). */
+  ADAM_TUTOR_AGENT_PRIMARY_USD:     optionalFloat('ADAM_TUTOR_AGENT_PRIMARY_USD', 19),
+  ADAM_TUTOR_AGENT_SECONDARY_USD:   optionalFloat('ADAM_TUTOR_AGENT_SECONDARY_USD', 23),
+  ADAM_TUTOR_AGENT_UNIVERSITY_USD:  optionalFloat('ADAM_TUTOR_AGENT_UNIVERSITY_USD', 29),
+  /** @deprecated Use ADAM_TUTOR_AGENT_SECONDARY_USD */
+  ADAM_TUTOR_AGENT_MONTHLY_USD: optionalFloat('ADAM_TUTOR_AGENT_MONTHLY_USD', 23),
   /** USD → MYR display rate for closed Tutor channel (Malaysia) */
   ADAM_USD_MYR_RATE: optionalFloat('ADAM_USD_MYR_RATE', 0),
   /** Cache TTL for live USD/MYR fetch (ms). Default 15 min. */
   ADAM_USD_MYR_CACHE_MS: optionalInt('ADAM_USD_MYR_CACHE_MS', 900_000),
-  /** Pro usage-credit top-up packs — one-time USD. */
+  /** 4. Token credits — one-time USD top-up packs */
   STRIPE_PRICE_ID_CREDITS_10:   optional('STRIPE_PRICE_ID_CREDITS_10', ''),
   STRIPE_PRICE_ID_CREDITS_50:   optional('STRIPE_PRICE_ID_CREDITS_50', ''),
   STRIPE_PRICE_ID_CREDITS_200:  optional('STRIPE_PRICE_ID_CREDITS_200', ''),

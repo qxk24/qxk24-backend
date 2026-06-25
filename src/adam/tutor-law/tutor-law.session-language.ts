@@ -21,8 +21,6 @@ import {
   type SupportedLocale,
 } from '../adam-language-mirror.service';
 import { usersDisplayFirstName } from '../adam-users-constitution';
-import { getFastModel } from '../../config/llm-models';
-import { llmCompleteUserPrompt } from '../../llm/llm-client';
 import type { AdamTutorProfile } from './tutor-law.types';
 import {
   normalizeTutorLanguage,
@@ -104,9 +102,6 @@ function inferTutorLanguageFromStudentText(
   if (detected.confidence >= 0.55) {
     return mirrorLocaleToTutorLanguage(detected.detectedLocale);
   }
-  if (scoreMalaySessionText(sample) >= 2) return 'malay';
-  if (/\bdan\b/i.test(sample) && scoreMalaySessionText(sample) >= 1) return 'malay';
-  if (MALAY_THREAD_ESTABLISHED.test(sample)) return 'malay';
   return null;
 }
 
@@ -148,9 +143,6 @@ export function resolveTutorSessionLanguage(
     const assistantSample = recentAssistantMessages.slice(-4).join('\n');
     const assistantLang = inferTutorLanguageFromStudentText(assistantSample);
     if (assistantLang) return assistantLang;
-    if (scoreMalaySessionText(assistantSample) >= 3) return 'malay';
-    if (MALAY_THREAD_ESTABLISHED.test(assistantSample)) return 'malay';
-    if (MALAY_THREAD_ESTABLISHED.test(userSample)) return 'malay';
   }
 
   if (profile?.language) {
@@ -447,104 +439,25 @@ Tulis digit atau operasi untuk langkah itu di baris:
 Kemudian terangkan dalam **satu ayat** kenapa operasi itu betul. **${title}** tunggu — anda fikir; saya bimbing.`;
 }
 
-const TUTOR_MALAY_REPAIR_SYSTEM = `
-You rewrite ADAM Tutor (Cikgu) classroom replies into Bahasa Melayu Malaysia —
-indah, lembut, bijaksana, penuh adab; jelas untuk pelajar; bukan drift Indonesia.
-Preserve markdown tables, monospace blocks, bold, and structure exactly.
-Keep one micro-step teaching — never reveal final answers the student must find.
-Malaysian vocabulary only — not Indonesian.
-Output the rewritten reply only — no preamble.
-`.trim();
-
-/** Post-stream — rewrite English tutor drift back to BM while keeping teaching structure. */
 export async function repairTutorMalaySessionLanguage(
   text: string,
-  profile?: AdamTutorProfile,
-  userMessage?: string,
-  recentUserMessages: string[] = [],
-  recentAssistantMessages: string[] = [],
+  _profile?: AdamTutorProfile,
+  _userMessage?: string,
+  _recentUserMessages: string[] = [],
+  _recentAssistantMessages: string[] = [],
 ): Promise<string> {
-  if (!text?.trim()) return text;
-  const lang = resolveTutorSessionLanguage(
-    profile,
-    recentAssistantMessages,
-    recentUserMessages,
-    userMessage,
-  );
-  if (lang !== 'malay') return text;
-  if (!tutorReplyViolatesMalaySession(
-    text,
-    profile,
-    recentAssistantMessages,
-    recentUserMessages,
-    userMessage,
-  )) return text;
-
-  try {
-    const repaired = await llmCompleteUserPrompt(
-      TUTOR_MALAY_REPAIR_SYSTEM,
-      `Rewrite this Cikgu ADAM teaching reply entirely in Bahasa Melayu Malaysia. Keep tables and layout.\n\n${text}`,
-      getFastModel(),
-      Math.min(4096, Math.max(1200, Math.ceil(text.length * 1.2))),
-    );
-    const trimmed = repaired.trim();
-    if (
-      trimmed.length >= text.length * 0.35
-      && !tutorReplyIsPredominantlyEnglish(trimmed)
-    ) {
-      console.log('[adam:tutor-language] repaired English drift to BM', {
-        charsBefore: text.length,
-        charsAfter:  trimmed.length,
-      });
-      return trimmed;
-    }
-  } catch (err) {
-    console.warn('[adam:tutor-language] BM repair failed', err);
-  }
   return text;
 }
 
 export function enforceTutorSessionLanguage(
   text: string,
   profile?: AdamTutorProfile,
-  userMessage?: string,
+  _userMessage?: string,
   participantName?: string,
-  recentAssistantMessages: string[] = [],
-  recentUserMessages: string[] = [],
+  _recentAssistantMessages: string[] = [],
+  _recentUserMessages: string[] = [],
 ): string {
-  const fixedOpener = fixTutorPelajarOpener(text, participantName, profile);
-  if (!tutorReplyViolatesSessionLanguage(
-    fixedOpener,
-    profile,
-    recentAssistantMessages,
-    recentUserMessages,
-    userMessage,
-  )) {
-    return fixedOpener;
-  }
-  if (
-    tutorReplyHasEnglishMenuBleed(fixedOpener)
-    || tutorReplyIsPredominantlyEnglish(fixedOpener)
-  ) {
-    if (tutorReplyHasClassroomMathContent(fixedOpener)) {
-      return rewriteTutorEnglishDriftToMalay(fixedOpener, profile, participantName);
-    }
-    if (tutorReplyHasEnglishMenuBleed(fixedOpener)) {
-      return buildTutorAmbiguousInputReply(userMessage ?? '', profile, participantName);
-    }
-  }
-  if (tutorReplyHasEnglishPlaceValueTeaching(fixedOpener)) {
-    return buildTutorMalayPlaceValueFromEnglish(
-      fixedOpener,
-      userMessage ?? '',
-      profile,
-      participantName,
-    );
-  }
-  if (tutorReplyHasClassroomMathContent(fixedOpener)) {
-    return rewriteTutorEnglishDriftToMalay(fixedOpener, profile, participantName);
-  }
-  return buildTutorMalayFollowUpRecovery(userMessage ?? '', profile, participantName);
+  return fixTutorPelajarOpener(text, participantName, profile);
 }
 
 /** Tutor lane — universal scholar mirrors the student's language each turn. */
@@ -564,9 +477,6 @@ export function buildTutorSessionLanguageLock(
   const ambiguousTurn = isTutorMessageAmbiguousLanguage(
     (userMessage ?? recentUserMessages.at(-1) ?? '').trim(),
   );
-  const threadAnchor = lang === 'malay'
-    ? `- When the student replies with numbers or algebra only (e.g. "12x", "12a dan -14b"), keep Bahasa Melayu — do not drift to English praise ("Well done", "Let's verify"). Use Bagus!, Betul sekali!, Mari kita semak…\n`
-    : '';
   const fallbackLine = ambiguousTurn
     ? `- This turn has no language cue (number/symbol only) — continue in **${lang}** (profile default: ${profileLang}).\n`
     : '';
@@ -575,7 +485,7 @@ export function buildTutorSessionLanguageLock(
 ADAM Tutor is a universal scholar. Reply in the language the student uses **this turn**.
 - Mirror the student's language — English, Malay, Arabic, Mandarin, Tamil, and other world languages.
 - If the student asks to switch language ("answer in English", "jawab dalam BM"), honour it immediately. **Never refuse** or say you cannot reply in their language.
-${fallbackLine}${threadAnchor}${tutorLanguageInstruction(lang)}
+${fallbackLine}${tutorLanguageInstruction(lang)}
 When the student sends only a number, symbol, or emoji, continue in the language already established in this thread (or profile default above).
 Never offer Alamtologi, AMA, TAJU, QXK24, or founder frameworks as topic options.
 [/TUTOR LANGUAGE]

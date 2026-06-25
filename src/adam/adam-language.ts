@@ -22,12 +22,10 @@ export { inferSpeakerLanguageLabel } from './adam-language-guard';
 
 /** System-prompt block — Alamtologi is universal; ADAM meets every human in their tongue. */
 export function getAdamLanguageDirective(): string {
-  const fallback = envFallbackLabel();
-
   return [
     'UNIVERSAL LANGUAGE (Alamtologi is universal — knowledge flows like water to all):',
     'Reply in the same language the speaker uses this turn. If they mix languages, mirror their mix naturally.',
-    `If their language is unclear, default to ${fallback}${fallback.includes('Malaysia') ? ' (Malaysia — not Indonesian drift)' : ''}.`,
+    'If their language is unclear, default to English.',
     'Never refuse, dismiss, or mock someone because of language, accent, or grammar.',
     'Preserve Quranic Arabic (Rasm Uthmani), constitutional terms (MAKMUR, ISLAH, WAQF, AIDIL, MASA, TENAGA, AIR, API, BUMI, CAHAYA, RUANG), and sacred names.',
     'Words like hikmah, MASA, TENAGA, IZWA, CAHAYA may stay untranslated when they carry constitutional weight in any tongue.',

@@ -41,6 +41,7 @@ import {
 } from '../../../adam/tutor/adam-tutor-agent-credentials-email.service';
 import { provisionTutorTestAgent } from '../../../adam/tutor/adam-tutor-test-agent.service';
 import { sendTutorRegisterPinToStudent } from '../../../adam/tutor/adam-tutor-agent-pin-invite.service';
+import { TUTOR_REGISTER_BAND_LABELS_BM } from '../../../adam/tutor/adam-tutor-register.constants';
 import {
   AdminActivatePackageSchema,
   AdminGenerateSchema,
@@ -71,6 +72,7 @@ router.get('/admin/codes', requireFounderOrPlatformAdmin, async (c) => {
   const parsed = AdminListSchema.safeParse(query);
   const filters = parsed.success
     ? {
+        band:   parsed.data.band,
         status: parsed.data.status as TutorRegisterCodeStatus | undefined,
         limit:  parsed.data.limit,
       }
@@ -91,6 +93,7 @@ router.post('/admin/codes/generate', requireFounderOrPlatformAdmin, zValidator('
     const body = c.req.valid('json');
     const founder = getTokenUser(c)!;
     const codes = await generateTutorRegisterCodes({
+      band:       body.band,
       count:      body.count ?? 1,
       agentId:    body.agentId,
       agentLabel: body.agentLabel,
@@ -106,7 +109,9 @@ router.post('/admin/codes/generate', requireFounderOrPlatformAdmin, zValidator('
         codes: codes.map((doc) => ({
           codeId:       doc.codeId,
           registerCode: doc.registerCode,
-          pinLabel:     'Semua aras',
+          band:         doc.band,
+          bandLabel:    doc.band ? TUTOR_REGISTER_BAND_LABELS_BM[doc.band] : null,
+          pinLabel:     doc.band ? TUTOR_REGISTER_BAND_LABELS_BM[doc.band] : null,
           agentId:      doc.agentId,
           agentLabel:   doc.agentLabel,
           status:       doc.status,
@@ -188,6 +193,7 @@ router.post(
       const agentId = c.req.param('agentId');
       const body = c.req.valid('json');
       const agent = await activateTutorAgentPackage(agentId, {
+        band:        body.band,
         tier:        body.tier,
         activatedBy: founder.userId,
         isRenewal:   body.renewal === true,

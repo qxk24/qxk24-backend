@@ -24,7 +24,7 @@ import {
   TutorEnrollmentModel,
   TutorEnrollmentStatus,
 } from './adam-tutor-enrollment.schema';
-import { TUTOR_PIN_LABEL, TUTOR_REGISTER_BAND_LABELS_BM, tutorBandLabel } from './adam-tutor-register.constants';
+import { TUTOR_REGISTER_BAND_LABELS_BM, tutorBandLabel } from './adam-tutor-register.constants';
 import { listAgentWalletLedger, sumAgentCommission } from './adam-tutor-agent-wallet.service';
 import {
   TutorAgentPackageStatus,
@@ -307,7 +307,7 @@ export interface TutorAgentStudentRow {
   state:         string | null;
   band:          string | null;
   bandLabel:     string;
-  /** @deprecated use bandLabel — always universal PIN */
+  /** @deprecated use bandLabel */
   pinLabel:      string;
   registerCode:  string;
   status:        string;
@@ -334,8 +334,8 @@ export async function listTutorAgentStudents(
     schoolName:   doc.schoolName,
     state:        doc.state,
     band:         doc.band,
-    bandLabel:    TUTOR_PIN_LABEL,
-    pinLabel:     TUTOR_PIN_LABEL,
+    bandLabel:    tutorBandLabel(doc.band),
+    pinLabel:     tutorBandLabel(doc.band),
     registerCode: doc.registerCode,
     status:       doc.status,
     paidAt:       doc.paidAt?.toISOString() ?? null,

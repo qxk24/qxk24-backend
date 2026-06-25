@@ -20,6 +20,7 @@
  */
 
 import {
+  TUTOR_AGENT_PACKAGE_BANDS,
   TUTOR_AGENT_PACKAGE_TIERS,
   quoteTutorAgentPackage,
   tutorAgentPackageStripeEnvKey,
@@ -80,19 +81,23 @@ function buildCatalog(): PriceExpectation[] {
 
   pushEnvFee(catalog, 'ADAM Pro', 'Pro monthly', 'STRIPE_PRICE_ID_PRO_MONTHLY', ENV.ADAM_PRO_MONTHLY_USD, 'usd', 'month', true);
   pushEnvFee(catalog, 'ADAM Pro', 'Pro annual', 'STRIPE_PRICE_ID_PRO_ANNUAL', ENV.ADAM_PRO_ANNUAL_USD, 'usd', 'year', true);
+  pushEnvFee(catalog, 'ADAM Premium', 'Premium monthly', 'STRIPE_PRICE_ID_PREMIUM_MONTHLY', ENV.ADAM_PREMIUM_MONTHLY_USD, 'usd', 'month', true);
+  pushEnvFee(catalog, 'ADAM Premium', 'Premium annual', 'STRIPE_PRICE_ID_PREMIUM_ANNUAL', ENV.ADAM_PREMIUM_ANNUAL_USD, 'usd', 'year', true);
 
-  for (const tier of TUTOR_AGENT_PACKAGE_TIERS) {
-    const quote = quoteTutorAgentPackage(tier);
-    const envKey = tutorAgentPackageStripeEnvKey(tier);
-    catalog.push({
-      group:    'ADAM Ejen',
-      label:    `${tier} (${quote.pinCount} PIN)`,
-      envKey,
-      amount:   quote.totalMyr,
-      currency: 'myr',
-      interval: 'one_time',
-      required: true,
-    });
+  for (const band of TUTOR_AGENT_PACKAGE_BANDS) {
+    for (const tier of TUTOR_AGENT_PACKAGE_TIERS) {
+      const quote = quoteTutorAgentPackage(band, tier);
+      const envKey = tutorAgentPackageStripeEnvKey(band, tier);
+      catalog.push({
+        group:    'ADAM Ejen',
+        label:    `${band} · ${tier} (${quote.pinCount} PIN)`,
+        envKey,
+        amount:   quote.totalMyr,
+        currency: 'myr',
+        interval: 'one_time',
+        required: true,
+      });
+    }
   }
 
   pushEnvFee(catalog, 'ADAM Token', 'Token $10', 'STRIPE_PRICE_ID_CREDITS_10', 10, 'usd', 'one_time', false);

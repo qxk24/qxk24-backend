@@ -206,22 +206,32 @@ export type { IEnterpriseTier, RegionalAmount } from './tier-access-enterprise.c
 
 // ─── ADAM Tutor — USD by school level (monthly only, all subjects per band) ─
 
-/** Public self-serve vs agent/kod-daftar channel — same package, different fee. */
+/** Public self-serve vs agent/kod-daftar channel — band-priced monthly USD. */
 export type TutorPriceChannel = 'public' | 'agent';
 
 export function tutorMonthlyUsdByLevel(
-  _level?: TutorSubscriptionLevel | string | null,
+  level?: TutorSubscriptionLevel | string | null,
   channel: TutorPriceChannel = 'public',
 ): number {
+  const band = normalizeTutorSubscriptionLevel(level ?? undefined);
+
   if (channel === 'agent') {
-    return ENV.ADAM_TUTOR_AGENT_MONTHLY_USD;
+    switch (band) {
+      case 'primary':    return ENV.ADAM_TUTOR_AGENT_PRIMARY_USD;
+      case 'university': return ENV.ADAM_TUTOR_AGENT_UNIVERSITY_USD;
+      default:           return ENV.ADAM_TUTOR_AGENT_SECONDARY_USD;
+    }
   }
 
-  return ENV.ADAM_PRO_MONTHLY_USD;
+  switch (band) {
+    case 'primary':    return ENV.ADAM_TUTOR_PUBLIC_PRIMARY_USD;
+    case 'university': return ENV.ADAM_TUTOR_PUBLIC_UNIVERSITY_USD;
+    default:           return ENV.ADAM_TUTOR_PUBLIC_SECONDARY_USD;
+  }
 }
 
-/** @deprecated Use ADAM_TUTOR_AGENT_MONTHLY_USD */
-export const TUTOR_MONTHLY_MYR = ENV.ADAM_TUTOR_AGENT_MONTHLY_USD;
+/** @deprecated Use band-specific ADAM_TUTOR_AGENT_*_USD env keys */
+export const TUTOR_MONTHLY_MYR = ENV.ADAM_TUTOR_AGENT_SECONDARY_USD;
 
 export const TUTOR_LEVEL_LABELS: Record<TutorSubscriptionLevel, string> = {
   primary:    'Primary School',

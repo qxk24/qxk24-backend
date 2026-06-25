@@ -20,8 +20,8 @@ import { ADAMStudentAccountModel } from '../adam-student.schema';
 import { isTutorQaBypassUser } from '../adam-tutor-subscription.service';
 import { saveTutorProfile } from '../adam-tutor-profile.service';
 import {
-  TUTOR_PIN_LABEL,
   TUTOR_REGISTER_BAND_FALLBACK,
+  TUTOR_REGISTER_BAND_LABELS_BM,
   TUTOR_REGISTER_PHASE_COUNTRY,
   TUTOR_AGENT_LICENSE_MONTHS,
 } from './adam-tutor-register.constants';
@@ -74,11 +74,14 @@ export interface TutorEnrollmentPublic {
 }
 
 function toPublic(doc: ITutorEnrollment): TutorEnrollmentPublic {
+  const bandLabel = doc.band
+    ? TUTOR_REGISTER_BAND_LABELS_BM[doc.band]
+    : TUTOR_REGISTER_BAND_LABELS_BM[TUTOR_REGISTER_BAND_FALLBACK];
   return {
     enrollmentId: doc.enrollmentId,
     status:       doc.status,
-    pinLabel:     TUTOR_PIN_LABEL,
-    bandLabel:    TUTOR_PIN_LABEL,
+    pinLabel:     bandLabel,
+    bandLabel,
     agentLabel:   doc.agentLabel,
     registerCode: doc.registerCode,
     studentName:  doc.studentName,
@@ -133,7 +136,7 @@ export async function lockTutorEnrollmentCode(
 
   if (existing) {
     existing.registerCode = locked.registerCode;
-    existing.band = null;
+    existing.band = locked.band ?? TUTOR_REGISTER_BAND_FALLBACK;
     existing.agentLabel = locked.agentLabel;
     existing.agentId = locked.agentId ?? null;
     existing.status = TutorEnrollmentStatus.CODE_LOCKED;
@@ -145,7 +148,7 @@ export async function lockTutorEnrollmentCode(
     enrollmentId: newTutorEnrollmentId(),
     userId,
     registerCode: locked.registerCode,
-    band:         null,
+    band:         locked.band ?? TUTOR_REGISTER_BAND_FALLBACK,
     agentLabel:   locked.agentLabel,
     agentId:      locked.agentId ?? null,
     status:       TutorEnrollmentStatus.CODE_LOCKED,
@@ -160,6 +163,8 @@ export interface TutorCheckoutQuote {
   bandLabel:      string;
   /** Canonical default base (USD). */
   monthlyUsd:     number;
+  /** Public list price for same band — shown on PIN checkout only, not /pricing. */
+  publicMonthlyUsd: number;
   /** Regional fee in country currency. */
   monthlyAmount:  number;
   currency:       string;
@@ -196,20 +201,27 @@ export async function getTutorEnrollmentCheckoutQuote(
   }
 
   return {
-    pinLabel:     TUTOR_PIN_LABEL,
-    bandLabel:    TUTOR_PIN_LABEL,
+    pinLabel:     enrollment.band
+      ? TUTOR_REGISTER_BAND_LABELS_BM[enrollment.band]
+      : TUTOR_REGISTER_BAND_LABELS_BM[TUTOR_REGISTER_BAND_FALLBACK],
+    bandLabel:    enrollment.band
+      ? TUTOR_REGISTER_BAND_LABELS_BM[enrollment.band]
+      : TUTOR_REGISTER_BAND_LABELS_BM[TUTOR_REGISTER_BAND_FALLBACK],
     ...(await (async () => {
+      const band = enrollment.band ?? TUTOR_REGISTER_BAND_FALLBACK;
       const channel = enrollment.pricingChannel ?? 'agent';
       const p = await getTutorBandPricing(
-        null,
+        band,
         channel === 'public' ? 'public' : 'agent',
       );
+      const publicP = await getTutorBandPricing(band, 'public');
       const endsAt = enrollment.agentPriceEndsAt;
       const monthsLeft = endsAt
         ? Math.max(0, Math.ceil((endsAt.getTime() - Date.now()) / (30 * 24 * 60 * 60 * 1000)))
         : TUTOR_AGENT_LICENSE_MONTHS;
       return {
         monthlyUsd:    p.monthlyUsd,
+        publicMonthlyUsd: publicP.monthlyUsd,
         monthlyAmount: p.monthlyAmount,
         currency:      p.currency,
         monthlyMyr:    p.monthlyMyr,
@@ -347,8 +359,10 @@ export async function completeTutorEnrollmentProfile(
   const language = input.language?.trim() || 'english';
   const curriculum = input.curriculum?.trim() || 'kpm';
 
+  const tutorLevel = enrollment.band ?? TUTOR_REGISTER_BAND_FALLBACK;
+
   await saveTutorProfile(userId, {
-    level:       TUTOR_REGISTER_BAND_FALLBACK,
+    level:       tutorLevel,
     curriculum:  curriculum as 'national' | 'kpm' | 'cambridge' | 'mixed' | 'international' | 'us' | 'uk' | 'other',
     language:    language as 'malay' | 'english' | 'arabic' | 'mandarin' | 'tamil' | 'indonesian' | 'spanish' | 'french' | 'other',
     yearLabel:   input.yearLabel?.trim() || undefined,

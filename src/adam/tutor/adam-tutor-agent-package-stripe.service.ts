@@ -20,6 +20,7 @@ import {
   assertStripeReady,
   type StripeCheckoutResult,
 } from '../../subscriptions/stripe-gateway.service';
+import { normalizeTutorSubscriptionLevel } from '../../subscriptions/tier-access.config';
 import {
   assertTutorAgentPackageStripePriceIds,
   isTutorAgentPackageTier,
@@ -34,6 +35,7 @@ import {
   requestTutorAgentPackage,
 } from './adam-tutor-agent-package.service';
 import { TutorAgentModel, type ITutorAgent } from './adam-tutor-agent.schema';
+import { TUTOR_REGISTER_BAND_LABELS_BM } from './adam-tutor-register.constants';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
 const CHECKOUT_TYPE = 'tutor_agent_package';
@@ -80,10 +82,11 @@ function myrUnitAmount(totalMyr: number): number {
 }
 
 function buildLineItem(
+  band: ReturnType<typeof normalizeTutorSubscriptionLevel>,
   tier: TutorAgentPackageTier,
   quote: ReturnType<typeof quoteTutorAgentPackage>,
 ): Record<string, string> {
-  const priceId = tutorAgentPackageStripePriceId(tier);
+  const priceId = tutorAgentPackageStripePriceId(band, tier);
   if (priceId) {
     return {
       'line_items[0][price]':    priceId,
@@ -92,13 +95,13 @@ function buildLineItem(
   }
 
   if (ENV.NODE_ENV === 'production' || ENV.STRIPE_ENABLED) {
-    const envKey = tutorAgentPackageStripeEnvKey(tier);
+    const envKey = tutorAgentPackageStripeEnvKey(band, tier);
     throw new Error(
       `Stripe Price ID pakej ejen belum dikonfigurasi (${envKey}). Cipta Price di Stripe Dashboard — lihat docs/STRIPE_ADAM_TUTOR_PRICES.md`,
     );
   }
 
-  const productName = `ADAM Tutor Agen — ${quote.tierLabel}`;
+  const productName = `ADAM Tutor Agen — ${quote.tierLabel} (${TUTOR_REGISTER_BAND_LABELS_BM[band]})`;
   const description = `${quote.pinCount} PIN · RM${quote.pricePerPinMyr.toFixed(2)}/PIN · 1 PIN = 1 akaun`;
 
   return {
@@ -119,20 +122,21 @@ export async function createTutorAgentPackageCheckoutSession(
     assertTutorAgentPackageStripePriceIds();
   }
 
-  if (!agent.packageTier) {
-    throw new Error('Pilih pakej (tier) sebelum bayar.');
+  if (!agent.band || !agent.packageTier) {
+    throw new Error('Pilih pakej (band sekolah + tier) sebelum bayar.');
   }
 
   const isRenewal = paths?.renewal === true
     || agent.packageStatus === 'active';
 
+  const band = normalizeTutorSubscriptionLevel(agent.band);
   const tier = agent.packageTier;
   if (!isTutorAgentPackageTier(tier)) {
     throw new Error('Tier pakej tidak sah.');
   }
 
-  const quote = quoteTutorAgentPackage(tier);
-  const lineItem = buildLineItem(tier, quote);
+  const quote = quoteTutorAgentPackage(band, tier);
+  const lineItem = buildLineItem(band, tier, quote);
 
   const successPath = paths?.successPath ?? '/adam/tutor/agen?paid=1&session_id={CHECKOUT_SESSION_ID}';
   const cancelPath = paths?.cancelPath ?? '/adam/tutor/agen?cancelled=1';
@@ -149,6 +153,7 @@ export async function createTutorAgentPackageCheckoutSession(
     'metadata[checkoutType]':   CHECKOUT_TYPE,
     'metadata[agentId]':        agent.agentId,
     'metadata[agentCode]':      agent.agentCode,
+    'metadata[band]':           band,
     'metadata[tier]':             tier,
     'metadata[pinCount]':       String(quote.pinCount),
     'metadata[totalMyr]':       String(quote.totalMyr),
@@ -182,9 +187,10 @@ export async function activateTutorAgentPackageFromStripeCheckout(
 
   const agentId = meta.agentId?.trim();
   const tier = meta.tier?.trim();
+  const band = meta.band?.trim();
   const sessionId = String(session.id ?? '');
 
-  if (!agentId || !tier || !sessionId || !isTutorAgentPackageTier(tier)) {
+  if (!agentId || !tier || !band || !sessionId || !isTutorAgentPackageTier(tier)) {
     return false;
   }
 
@@ -204,6 +210,7 @@ export async function activateTutorAgentPackageFromStripeCheckout(
   }
 
   await activateTutorAgentPackage(agentId, {
+    band:            normalizeTutorSubscriptionLevel(band),
     tier:            tier as TutorAgentPackageTier,
     activatedBy:     `stripe:${sessionId}`,
     stripeSessionId: sessionId,
@@ -232,10 +239,11 @@ export async function syncTutorAgentPackageFromSession(
 /** Dev / QA — activate package without Stripe when billing not wired. */
 export async function simulateTutorAgentPackagePayment(
   agent: ITutorAgent,
-  input: { tier: TutorAgentPackageTier },
+  input: { band: ReturnType<typeof normalizeTutorSubscriptionLevel>; tier: TutorAgentPackageTier },
 ): Promise<ITutorAgent> {
-  await requestTutorAgentPackage(agent, { tier: input.tier });
+  await requestTutorAgentPackage(agent, { band: input.band, tier: input.tier });
   return activateTutorAgentPackage(agent.agentId, {
+    band:        input.band,
     tier:        input.tier,
     activatedBy: 'simulate:dev',
   });

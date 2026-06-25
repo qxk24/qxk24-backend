@@ -143,6 +143,7 @@ export async function ensureQaTestAgentPinsMinted(
 
   await generateTutorRegisterCodes({
     count:     agent.pinBalance,
+    band:      agent.band,
     agentId:   agent.agentId,
     notes:     'QA test agent — auto-generated PINs',
     createdBy,
@@ -210,6 +211,7 @@ export async function provisionTutorTestAgent(input: {
 
   if (agent.packageStatus !== TutorAgentPackageStatus.ACTIVE) {
     agent = await activateTutorAgentPackage(agent.agentId, {
+      band:        DEFAULT_BAND,
       tier:        DEFAULT_TIER,
       activatedBy: input.activatedBy,
     });

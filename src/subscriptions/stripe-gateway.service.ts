@@ -122,8 +122,10 @@ export function getStripePriceId(
   _tutorLevel?: TutorSubscriptionLevel | string | null,
 ): string {
   const map: Partial<Record<string, string>> = {
-    [`${SubscriptionTier.PRO}_${BillingCycle.MONTHLY}`]: ENV.STRIPE_PRICE_ID_PRO_MONTHLY,
-    [`${SubscriptionTier.PRO}_${BillingCycle.ANNUAL}`]:  ENV.STRIPE_PRICE_ID_PRO_ANNUAL,
+    [`${SubscriptionTier.PRO}_${BillingCycle.MONTHLY}`]:         ENV.STRIPE_PRICE_ID_PRO_MONTHLY,
+    [`${SubscriptionTier.PRO}_${BillingCycle.ANNUAL}`]:          ENV.STRIPE_PRICE_ID_PRO_ANNUAL,
+    [`${SubscriptionTier.PROFESIONAL}_${BillingCycle.MONTHLY}`]: ENV.STRIPE_PRICE_ID_PREMIUM_MONTHLY,
+    [`${SubscriptionTier.PROFESIONAL}_${BillingCycle.ANNUAL}`]:  ENV.STRIPE_PRICE_ID_PREMIUM_ANNUAL,
   };
   return map[`${tier}_${cycle}`] ?? '';
 }

@@ -32,8 +32,9 @@ export const TUTOR_REGISTER_BAND_PREFIX: Record<TutorSubscriptionLevel, string> 
   university: 'UNIV',
 };
 
-/** Universal PIN — one category for all learners; ADAM infers level from questions. */
+/** @deprecated Legacy PINs without band — new codes use RENDAH / MENENGAH / UNIV prefix. */
 export const TUTOR_PIN_LABEL = 'Semua aras';
+/** @deprecated Legacy PINs without band prefix. */
 export const TUTOR_PIN_PREFIX = 'UMUM';
 
 /** Agent license + student agent-price window length (months). */

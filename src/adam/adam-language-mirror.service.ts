@@ -59,8 +59,7 @@ const MALAY_PARTICLE_RE =
 function configuredDefaultLocale(): SupportedLocale {
   const lang = ENV.ADAM_DEFAULT_LANGUAGE.trim().toLowerCase();
   if (lang === 'malay' || lang === 'ms' || lang === 'bm') return 'ms';
-  if (lang === 'english' || lang === 'en') return 'en';
-  return 'ms';
+  return 'en';
 }
 
 function malayReplyInstruction(): string {
@@ -195,13 +194,13 @@ export function detectLanguage(message: string, recentUserText = ''): LanguageMi
   }
 
   const defaultLocale = configuredDefaultLocale();
-  if (defaultLocale === 'ms') {
+  if (defaultLocale === 'ms' && malayTotal > 0) {
     return {
       detectedLocale:   'ms',
       confidence:       0.80,
       isMixed:          false,
       dominantScript:   'latin',
-      replyInstruction: `${malayReplyInstruction()} (Constitutional default: Bahasa Melayu when the turn is ambiguous.)`,
+      replyInstruction: malayReplyInstruction(),
     };
   }
 

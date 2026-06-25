@@ -14,31 +14,37 @@
 
 import { describe, expect, it } from '@jest/globals';
 import {
-  listTutorAgentPackages,
+  listTutorAgentPackageCatalog,
+  listTutorAgentPackagesForBand,
   quoteTutorAgentPackage,
 } from '../src/adam/tutor/adam-tutor-agent-package.config';
 
-describe('tutor agent package pricing (band-independent)', () => {
-  it('quotes one flat schedule across 4 tiers', () => {
-    expect(quoteTutorAgentPackage('silver')).toMatchObject({
-      pinCount: 100, pricePerPinMyr: 2.0, totalMyr: 200,
-    });
-    expect(quoteTutorAgentPackage('gold')).toMatchObject({
-      pinCount: 500, pricePerPinMyr: 1.8, totalMyr: 900,
-    });
-    expect(quoteTutorAgentPackage('diamond')).toMatchObject({
-      pinCount: 1000, pricePerPinMyr: 1.6, totalMyr: 1600,
-    });
-    expect(quoteTutorAgentPackage('platinum')).toMatchObject({
-      pinCount: 1500, pricePerPinMyr: 1.4, totalMyr: 2100,
-    });
-  });
+const BAND_TOTALS = {
+  primary:    { silver: 200, gold: 900, diamond: 1600, platinum: 2100 },
+  secondary:  { silver: 300, gold: 1400, diamond: 2600, platinum: 3600 },
+  university: { silver: 400, gold: 1900, diamond: 3600, platinum: 5100 },
+} as const;
 
-  it('quotes carry no band dimension', () => {
-    expect(quoteTutorAgentPackage('silver')).not.toHaveProperty('band');
-  });
+describe('tutor agent package pricing (band-based)', () => {
+  for (const band of ['primary', 'secondary', 'university'] as const) {
+    describe(band, () => {
+      for (const [tier, totalMyr] of Object.entries(BAND_TOTALS[band])) {
+        it(`${tier} = RM${totalMyr}`, () => {
+          expect(quoteTutorAgentPackage(band, tier as keyof typeof BAND_TOTALS.primary)).toMatchObject({
+            band,
+            totalMyr,
+          });
+        });
+      }
 
-  it('returns exactly four tiers', () => {
-    expect(listTutorAgentPackages()).toHaveLength(4);
+      it('returns four tiers per band', () => {
+        expect(listTutorAgentPackagesForBand(band)).toHaveLength(4);
+      });
+    });
+  }
+
+  it('catalog has 3 bands', () => {
+    const catalog = listTutorAgentPackageCatalog();
+    expect(Object.keys(catalog)).toEqual(['primary', 'secondary', 'university']);
   });
 });

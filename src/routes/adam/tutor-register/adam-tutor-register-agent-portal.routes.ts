@@ -42,7 +42,7 @@ import {
 } from '../../../adam/tutor/adam-tutor-agent.service';
 import { getTutorAgent, requireTutorAgent } from '../../../adam/tutor/adam-tutor-agent-auth.middleware';
 import {
-  listTutorAgentPackages,
+  listTutorAgentPackageCatalog,
   type TutorAgentPackageTier,
 } from '../../../adam/tutor/adam-tutor-agent-package.config';
 import {
@@ -105,7 +105,7 @@ router.get('/agent/portal/packages', requireTutorAgent, async (c) => {
     success: true,
     kernel:  'ALAMTOLOGI',
     data:    {
-      catalog: listTutorAgentPackages(),
+      catalog: listTutorAgentPackageCatalog(),
       agent:   serializeAgentPackage(agent),
     },
     timestamp: new Date().toISOString(),
@@ -122,7 +122,8 @@ router.post(
       const agent = getTutorAgent(c)!;
       const body = c.req.valid('json');
       const updated = await requestTutorAgentPackage(agent, {
-        tier: body.tier,
+        band:    body.band,
+        tier:    body.tier,
         renewal: body.renewal,
       });
       const quote = serializeAgentPackage(updated).packageQuote;
@@ -149,16 +150,17 @@ router.post('/agent/portal/package/checkout', requireTutorAgent, async (c) => {
     const agent = getTutorAgent(c)!;
     const stripe = getStripeGatewayStatus();
 
-    if (!agent.packageTier) {
+    if (!agent.band || !agent.packageTier) {
       return c.json({
         success: false,
-        error:   'Pilih pakej (tier) dahulu.',
+        error:   'Pilih pakej (band sekolah + tier) dahulu.',
         kernel:  'ALAMTOLOGI',
       }, 400);
     }
 
     if (!stripe.configured && ENV.NODE_ENV !== 'production') {
       const updated = await simulateTutorAgentPackagePayment(agent, {
+        band: agent.band,
         tier: agent.packageTier as TutorAgentPackageTier,
       });
       const overview = await getTutorAgentPortalOverview(updated);

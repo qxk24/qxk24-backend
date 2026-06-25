@@ -32,6 +32,8 @@ import {
 } from '../../subscriptions/subscription.schema';
 import { TIER_ACCESS } from '../../subscriptions/tier-access.config';
 import { getTutorBandPricing, tutorRegisterRegion } from './adam-tutor-pricing.service';
+import { TUTOR_REGISTER_BAND_FALLBACK, TUTOR_REGISTER_BAND_LABELS_BM } from './adam-tutor-register.constants';
+import type { TutorPricingChannel } from './adam-tutor-pricing.types';
 import { TutorEnrollmentModel, TutorEnrollmentStatus } from './adam-tutor-enrollment.schema';
 import { markTutorEnrollmentPaid } from './adam-tutor-enrollment.service';
 import { ADAMStudentAccountModel } from '../adam-student.schema';
@@ -113,7 +115,10 @@ export async function createTutorRegisterCheckoutSession(input: {
   const resumed = await resumeOpenRegisterCheckout(enrollment);
   if (resumed) return resumed;
 
-  const pricing = await getTutorBandPricing(null, 'agent', tutorRegisterRegion());
+  const channel: TutorPricingChannel = enrollment.pricingChannel ?? 'agent';
+  const band = enrollment.band ?? TUTOR_REGISTER_BAND_FALLBACK;
+  const bandLabel = TUTOR_REGISTER_BAND_LABELS_BM[band];
+  const pricing = await getTutorBandPricing(band, channel, tutorRegisterRegion());
   const region = tutorRegisterRegion();
   const unitAmount = toStripeUnitAmount(pricing.monthlyAmount, pricing.currency.toLowerCase());
   if (unitAmount < 1) {
@@ -124,7 +129,7 @@ export async function createTutorRegisterCheckoutSession(input: {
     userId:          input.userId,
     founderId:       FOUNDER_SUBSCRIPTION_ID,
     tier:            SubscriptionTier.TUTOR,
-    tutorLevel:      null,
+    tutorLevel:      band,
     status:          SubscriptionStatus.PENDING,
     billingCycle:    BillingCycle.MONTHLY,
     region,
@@ -133,7 +138,7 @@ export async function createTutorRegisterCheckoutSession(input: {
     provider:        PaymentProvider.STRIPE,
     access:          TIER_ACCESS[SubscriptionTier.TUTOR],
     isFounderFunded: false,
-    pricingChannel:  'agent',
+    pricingChannel:  channel,
     tutorEnrollmentId: enrollment.enrollmentId,
   });
 
@@ -146,7 +151,7 @@ export async function createTutorRegisterCheckoutSession(input: {
     'line_items[0][price_data][unit_amount]':              String(unitAmount),
     'line_items[0][price_data][recurring][interval]':      'month',
     'line_items[0][price_data][product_data][name]':         'ADAM Tutor',
-    'line_items[0][price_data][product_data][description]': 'Universal PIN — all levels · ADAM infers from your questions',
+    'line_items[0][price_data][product_data][description]': `ADAM Tutor — ${bandLabel} · all subjects · monthly`,
     success_url:                `${appUrl()}/adam/tutor/daftar?paid=1&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:                 `${appUrl()}/adam/tutor/daftar?cancelled=1`,
     client_reference_id:        mongoId,
@@ -156,7 +161,8 @@ export async function createTutorRegisterCheckoutSession(input: {
     'metadata[enrollmentId]':   enrollment.enrollmentId,
     'metadata[registerCode]':   enrollment.registerCode,
     'metadata[subscriptionId]': mongoId,
-    'metadata[pricingChannel]': 'agent',
+    'metadata[pricingChannel]': channel,
+    'metadata[band]':           band,
     'subscription_data[metadata][checkoutType]':   'tutor_register',
     'subscription_data[metadata][userId]':         input.userId,
     'subscription_data[metadata][enrollmentId]':   enrollment.enrollmentId,
@@ -237,14 +243,16 @@ export async function simulateTutorRegisterPayment(userId: string): Promise<void
     throw new Error('Tiada PIN untuk disimulasikan.');
   }
 
-  const pricing = await getTutorBandPricing(null, 'agent', tutorRegisterRegion());
+  const channel: TutorPricingChannel = enrollment.pricingChannel ?? 'agent';
+  const band = enrollment.band ?? TUTOR_REGISTER_BAND_FALLBACK;
+  const pricing = await getTutorBandPricing(band, channel, tutorRegisterRegion());
   const region = tutorRegisterRegion();
 
   const sub = await SubscriptionModel.create({
     userId:          userId,
     founderId:       FOUNDER_SUBSCRIPTION_ID,
     tier:            SubscriptionTier.TUTOR,
-    tutorLevel:      null,
+    tutorLevel:      band,
     status:          SubscriptionStatus.ACTIVE,
     billingCycle:    BillingCycle.MONTHLY,
     region,
@@ -253,7 +261,7 @@ export async function simulateTutorRegisterPayment(userId: string): Promise<void
     provider:        PaymentProvider.MANUAL,
     access:          TIER_ACCESS[SubscriptionTier.TUTOR],
     isFounderFunded: false,
-    pricingChannel:  'agent',
+    pricingChannel:  channel,
     tutorEnrollmentId: enrollment.enrollmentId,
     currentPeriodStart: new Date(),
     currentPeriodEnd:   (() => {

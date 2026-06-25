@@ -16,9 +16,10 @@
  */
 
 import crypto from 'crypto';
+import type { TutorSubscriptionLevel } from '../../subscriptions/subscription.schema';
 import {
-  TUTOR_PIN_LABEL,
-  TUTOR_PIN_PREFIX,
+  TUTOR_REGISTER_BAND_LABELS_BM,
+  TUTOR_REGISTER_BAND_PREFIX,
 } from './adam-tutor-register.constants';
 import {
   TutorRegisterCodeModel,
@@ -44,6 +45,7 @@ function randomCodeSuffix(): string {
 }
 
 export async function allocateTutorRegisterCode(
+  band: TutorSubscriptionLevel,
   preferred?: string | null,
 ): Promise<string> {
   const trimmed = preferred ? normalizeRegisterCode(preferred) : '';
@@ -53,7 +55,7 @@ export async function allocateTutorRegisterCode(
     return trimmed;
   }
 
-  const prefix = `TUTOR-${TUTOR_PIN_PREFIX}`;
+  const prefix = `TUTOR-${TUTOR_REGISTER_BAND_PREFIX[band]}`;
   for (let i = 0; i < 200; i += 1) {
     const code = `${prefix}-${randomCodeSuffix()}`;
     const taken = await TutorRegisterCodeModel.exists({ registerCode: code });
@@ -65,9 +67,10 @@ export async function allocateTutorRegisterCode(
 
 export interface TutorCodeValidation {
   valid:       boolean;
-  pinLabel?:   string;
-  /** @deprecated use pinLabel */
+  band?:       TutorSubscriptionLevel;
   bandLabel?:  string;
+  /** @deprecated use bandLabel */
+  pinLabel?:   string;
   agentLabel?: string | null;
   error?:      string;
 }
@@ -91,10 +94,15 @@ export async function validateTutorRegisterCode(raw: string): Promise<TutorCodeV
     return { valid: false, error: 'PIN ini sudah digunakan. 1 PIN = 1 akaun · tidak boleh dikongsi.' };
   }
 
+  if (!doc.band) {
+    return { valid: false, error: 'PIN legacy tanpa band — hubungi pentadbir.' };
+  }
+
   return {
     valid:      true,
-    pinLabel:   TUTOR_PIN_LABEL,
-    bandLabel:  TUTOR_PIN_LABEL,
+    band:       doc.band,
+    bandLabel:  TUTOR_REGISTER_BAND_LABELS_BM[doc.band],
+    pinLabel:   TUTOR_REGISTER_BAND_LABELS_BM[doc.band],
     agentLabel: doc.agentLabel,
   };
 }
@@ -108,6 +116,7 @@ export async function getTutorRegisterCode(
 }
 
 export async function generateTutorRegisterCodes(input: {
+  band:        TutorSubscriptionLevel;
   count:       number;
   agentId?:    string;
   agentLabel?: string;
@@ -127,18 +136,27 @@ export async function generateTutorRegisterCodes(input: {
     agentLabel = agent.orgName;
 
     if (agentPackageEnforced(agent)) {
+      if (!agent.band) {
+        throw new Error('Agen has not selected a school band (primary/secondary/university).');
+      }
+      if (agent.band !== input.band) {
+        throw new Error(
+          `Band ${TUTOR_REGISTER_BAND_LABELS_BM[input.band]} does not match agen package (${TUTOR_REGISTER_BAND_LABELS_BM[agent.band]}).`,
+        );
+      }
       await consumeTutorAgentPins(agentId, count);
     }
   }
 
   for (let i = 0; i < count; i += 1) {
     const registerCode = await allocateTutorRegisterCode(
+      input.band,
       i === 0 ? input.preferred : null,
     );
     const doc = await TutorRegisterCodeModel.create({
       codeId:       newTutorRegisterCodeId(),
       registerCode,
-      band:         null,
+      band:         input.band,
       agentId,
       agentLabel,
       status:       TutorRegisterCodeStatus.AVAILABLE,
@@ -152,10 +170,12 @@ export async function generateTutorRegisterCodes(input: {
 }
 
 export async function listTutorRegisterCodes(filters?: {
+  band?:   TutorSubscriptionLevel;
   status?: TutorRegisterCodeStatus;
   limit?:  number;
 }) {
   const query: Record<string, unknown> = {};
+  if (filters?.band) query.band = filters.band;
   if (filters?.status) query.status = filters.status;
 
   return TutorRegisterCodeModel.find(query)
@@ -189,7 +209,7 @@ export async function lockTutorRegisterCode(
 ): Promise<ITutorRegisterCode> {
   const code = normalizeRegisterCode(registerCode);
   const validation = await validateTutorRegisterCode(code);
-  if (!validation.valid) {
+  if (!validation.valid || !validation.band) {
     throw new Error(validation.error ?? 'PIN tidak sah.');
   }
 

@@ -42,11 +42,15 @@ describe('adam-tutor-pricing-renewal helpers', () => {
     expect(isAgentLicenseActive(null)).toBe(false);
   });
 
-  it('agent vs public monthly USD differ', () => {
-    expect(tutorAgentMonthlyUsd()).toBe(15.9);
-    expect(tutorPublicMonthlyUsd()).toBe(19);
-    expect(tutorMonthlyUsdByLevel(null, 'agent')).toBe(15.9);
-    expect(tutorMonthlyUsdByLevel(null, 'public')).toBe(19);
+  it('agent vs public monthly USD differ by band (poster schedule)', () => {
+    expect(tutorAgentMonthlyUsd('primary')).toBe(19);
+    expect(tutorAgentMonthlyUsd('secondary')).toBe(23);
+    expect(tutorAgentMonthlyUsd('university')).toBe(29);
+    expect(tutorPublicMonthlyUsd('primary')).toBe(25);
+    expect(tutorPublicMonthlyUsd('secondary')).toBe(33);
+    expect(tutorPublicMonthlyUsd('university')).toBe(45);
+    expect(tutorMonthlyUsdByLevel('primary', 'agent')).toBe(19);
+    expect(tutorMonthlyUsdByLevel('secondary', 'public')).toBe(33);
   });
 });
 
