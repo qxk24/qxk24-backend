@@ -297,6 +297,15 @@ export function collectInstitutionCandidateUrlsFromEvidence(
   return out;
 }
 
+/**
+ * Acronym-probe guards — a pasted document (not a concise stat question) can carry
+ * dozens of uppercase tokens that explode the host × path × TLD ladder into tens of
+ * thousands of URLs and stall the turn on slow sequential fetches. Cap aggressively.
+ */
+const ACRONYM_PROBE_MAX_MESSAGE_CHARS = 2_000;
+const ACRONYM_PROBE_MAX_ACRONYMS = 3;
+const ACRONYM_PROBE_MAX_URLS = 24;
+
 /** Common academic TLD patterns — probe ladder from message acronym, not entity tables. */
 const ACADEMIC_INSTITUTION_PROBE_TLDS = [
   'edu.my',
@@ -342,8 +351,13 @@ function extractCampusSubdomainsFromMessage(userMessage: string): string[] {
  * bangi.{slug}.edu.my/sejarah-{slug}-copy/ holds published enrollment stats.
  */
 export function buildAcronymInstitutionProbeUrls(userMessage: string): string[] {
+  // Pasted documents are not institution stat questions — skip to avoid URL explosion.
+  if (stripLeadingAdamSalutation(userMessage.trim()).length > ACRONYM_PROBE_MAX_MESSAGE_CHARS) {
+    return [];
+  }
   const acronyms = extractInstitutionAliasesFromMessage(userMessage)
-    .filter((token) => /^[A-Z]{2,12}$/.test(token));
+    .filter((token) => /^[A-Z]{2,12}$/.test(token))
+    .slice(0, ACRONYM_PROBE_MAX_ACRONYMS);
   const campusHints = extractCampusSubdomainsFromMessage(userMessage);
   const urls: string[] = [];
 
@@ -367,7 +381,7 @@ export function buildAcronymInstitutionProbeUrls(userMessage: string): string[] 
       }
     }
   }
-  return uniqueStrings(urls);
+  return uniqueStrings(urls).slice(0, ACRONYM_PROBE_MAX_URLS);
 }
 
 /**

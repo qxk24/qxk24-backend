@@ -84,9 +84,13 @@ export function isFactualAdamWebSearchGateReason(reason: string | null): boolean
 const VERIFIED_DATA_STAT_ASK =
   /\b(?:jumlah|bilangan|berapa\s+(?:ramai\s+)?(?:orang|pelajar|murid|siswa|kakitangan|staff)|statistik|statistic|enrollment|maklumat\s+(?:jumlah|rasmi)|official\s+(?:figure|number|data)|data\s+(?:rasmi|terkini)|total\s+students?)\b/i;
 
+/** A concise stat question is short; a pasted document is not a verified-data-stat ask. */
+const VERIFIED_DATA_STAT_MAX_CHARS = 2_000;
+
 export function isVerifiedDataStatAsk(message: string): boolean {
   const body = stripLeadingAdamSalutation(message.trim());
   if (isAdamSimpleArithmeticTurn(body)) return false;
+  if (body.length > VERIFIED_DATA_STAT_MAX_CHARS) return false;
   return VERIFIED_DATA_STAT_ASK.test(body);
 }
 
