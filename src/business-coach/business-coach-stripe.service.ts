@@ -169,7 +169,7 @@ async function resumeOpenCheckout(
   return null;
 }
 
-export async function createBusinessCoachPinCheckoutSession(input: {
+export async function createBusinessCoachEnrollmentCheckoutSession(input: {
   userId:         string;
   customerEmail?: string;
 }): Promise<StripeCheckoutResult & { enrollmentId: string }> {
@@ -177,16 +177,16 @@ export async function createBusinessCoachPinCheckoutSession(input: {
 
   const enrollment = await BusinessCoachEnrollmentModel.findOne({ userId: input.userId });
   if (!enrollment) {
-    throw new Error('Enter your ADAM Business Coach PIN first.');
+    throw new Error('Start ADAM Business Coach registration first.');
   }
   if (enrollment.status !== BusinessCoachEnrollmentStatus.PROFILE_SAVED) {
-    throw new Error('PIN registration is not ready for payment.');
+    throw new Error('Complete your business profile before payment.');
   }
 
   const resumed = await resumeOpenCheckout(enrollment.stripeSessionId, enrollment.enrollmentId);
   if (resumed) return resumed;
 
-  const channel = 'pin' as const;
+  const channel = enrollment.pricingChannel === 'public' ? 'public' : 'pin';
   const pricing = getBusinessCoachPricing(channel);
   const lineItem = buildBusinessCoachLineItem(channel, pricing);
 
@@ -241,6 +241,9 @@ export async function createBusinessCoachPinCheckoutSession(input: {
     enrollmentId: enrollment.enrollmentId,
   };
 }
+
+/** @deprecated Use createBusinessCoachEnrollmentCheckoutSession */
+export const createBusinessCoachPinCheckoutSession = createBusinessCoachEnrollmentCheckoutSession;
 
 export async function activateBusinessCoachFromStripeCheckout(
   session: Record<string, unknown>,

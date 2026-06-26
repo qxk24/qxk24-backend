@@ -38,9 +38,10 @@ import {
   getBusinessCoachEnrollmentForUser,
   loadBusinessCoachProfile,
   lockBusinessCoachEnrollmentPin,
+  startBusinessCoachPublicEnrollment,
 } from '../../business-coach/business-coach-enrollment.service';
 import {
-  createBusinessCoachPinCheckoutSession,
+  createBusinessCoachEnrollmentCheckoutSession,
   syncBusinessCoachPaymentFromSession,
 } from '../../business-coach/business-coach-stripe.service';
 import {
@@ -154,6 +155,25 @@ router.get('/register/me', requireAdamUser, async (c) => {
   });
 });
 
+// POST /api/adam/business-coach/register/public/start — auth (USD35 public checkout)
+router.post('/register/public/start', requireAdamUser, async (c) => {
+  try {
+    const enrollment = await startBusinessCoachPublicEnrollment(userId(c));
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { enrollment },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    return c.json({
+      success: false,
+      error:   (err as Error).message,
+      kernel:  'ALAMTOLOGI',
+    }, 400);
+  }
+});
+
 // POST /api/adam/business-coach/register/code/lock — auth
 router.post('/register/code/lock', requireAdamUser, zValidator('json', PinLockSchema), async (c) => {
   try {
@@ -214,12 +234,12 @@ router.get('/register/quote', requireAdamUser, async (c) => {
   }
 });
 
-// POST /api/adam/business-coach/register/checkout — auth (PIN USD23)
+// POST /api/adam/business-coach/register/checkout — auth (public USD35 or PIN USD23)
 router.post('/register/checkout', requireAdamUser, async (c) => {
   try {
     const user = getTokenUser(c)!;
     const { resolveStudentEmail } = await import('../../adam/tutor/adam-tutor-register-stripe.service');
-    const result = await createBusinessCoachPinCheckoutSession({
+    const result = await createBusinessCoachEnrollmentCheckoutSession({
       userId:        user.userId,
       customerEmail: await resolveStudentEmail(user.userId),
     });

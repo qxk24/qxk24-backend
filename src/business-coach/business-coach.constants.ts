@@ -18,3 +18,5 @@
 export const BUSINESS_COACH_SKU_MONTHLY = 'business_coach.monthly';
 export const BUSINESS_COACH_CHECKOUT_TYPE = 'business_coach_register';
 export const BUSINESS_COACH_PIN_PREFIX = 'BCOACH';
+/** Sentinel register code for public checkout (no PIN). */
+export const BUSINESS_COACH_PUBLIC_REGISTER_CODE = 'BC-PUBLIC';

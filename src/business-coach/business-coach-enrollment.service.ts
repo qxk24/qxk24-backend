@@ -28,6 +28,9 @@ import {
   type IBusinessCoachEnrollment,
 } from './business-coach-enrollment.schema';
 import type { AdamNiagaBusinessProfile } from '../adam/adam-niaga-law';
+import {
+  BUSINESS_COACH_PUBLIC_REGISTER_CODE,
+} from './business-coach.constants';
 
 export function newBusinessCoachEnrollmentId(): string {
   return `BC-ENR-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
@@ -67,6 +70,39 @@ export async function getBusinessCoachEnrollmentForUser(
   const doc = await BusinessCoachEnrollmentModel.findOne({ userId }).lean();
   if (!doc) return null;
   return toPublic(doc as unknown as IBusinessCoachEnrollment);
+}
+
+export async function startBusinessCoachPublicEnrollment(
+  userId: string,
+): Promise<BusinessCoachEnrollmentPublic> {
+  if (userId === FOUNDER_USER_ID) {
+    throw new Error('Register with a user account — not the admin account.');
+  }
+
+  const existing = await BusinessCoachEnrollmentModel.findOne({ userId });
+  if (existing) {
+    if (existing.status === BusinessCoachEnrollmentStatus.COMPLETE) {
+      throw new Error('Your ADAM Business Coach registration is already complete.');
+    }
+    if (existing.pricingChannel !== 'public') {
+      throw new Error('You already started PIN registration. Continue with your PIN or use a new account for public checkout.');
+    }
+    if (existing.status === BusinessCoachEnrollmentStatus.CODE_LOCKED) {
+      return toPublic(existing);
+    }
+    return toPublic(existing);
+  }
+
+  const doc = await BusinessCoachEnrollmentModel.create({
+    enrollmentId:     newBusinessCoachEnrollmentId(),
+    userId,
+    registerCode:     BUSINESS_COACH_PUBLIC_REGISTER_CODE,
+    distributorLabel: null,
+    status:           BusinessCoachEnrollmentStatus.CODE_LOCKED,
+    pricingChannel:   'public',
+  });
+
+  return toPublic(doc);
 }
 
 export async function lockBusinessCoachEnrollmentPin(
@@ -115,7 +151,7 @@ export async function completeBusinessCoachEnrollmentProfile(
 ): Promise<BusinessCoachEnrollmentPublic> {
   const enrollment = await BusinessCoachEnrollmentModel.findOne({ userId });
   if (!enrollment) {
-    throw new Error('Enter your ADAM Business Coach PIN first.');
+    throw new Error('Start ADAM Business Coach registration first.');
   }
 
   if (
@@ -143,23 +179,24 @@ export async function getBusinessCoachEnrollmentCheckoutQuote(
   userId: string,
 ): Promise<{
   enrollmentId: string;
-  channel:      'pin';
+  channel:      'public' | 'pin';
   monthly:      number;
   currency:     string;
   label:        string;
 }> {
   const enrollment = await BusinessCoachEnrollmentModel.findOne({ userId });
   if (!enrollment) {
-    throw new Error('Enter your ADAM Business Coach PIN first.');
+    throw new Error('Start ADAM Business Coach registration first.');
   }
   if (enrollment.status !== BusinessCoachEnrollmentStatus.PROFILE_SAVED) {
     throw new Error('Complete your business profile before checkout.');
   }
 
-  const pricing = getBusinessCoachPricing('pin');
+  const channel = enrollment.pricingChannel === 'public' ? 'public' : 'pin';
+  const pricing = getBusinessCoachPricing(channel);
   return {
     enrollmentId: enrollment.enrollmentId,
-    channel:      'pin',
+    channel,
     monthly:      pricing.monthly,
     currency:     pricing.currency,
     label:        pricing.label,
@@ -195,14 +232,19 @@ export async function markBusinessCoachEnrollmentPaid(input: {
     const { SubscriptionModel } = await import('../subscriptions/subscription.schema');
     await SubscriptionModel.findByIdAndUpdate(input.subscriptionId, {
       $set: {
-        businessCoachChannel:      'pin',
+        businessCoachChannel:      enrollment.pricingChannel ?? 'pin',
         businessCoachEnrollmentId: enrollment.enrollmentId,
       },
     });
   }
 
-  const { markBusinessCoachPinRedeemed } = await import('./business-coach-pin.service');
-  await markBusinessCoachPinRedeemed(enrollment.registerCode, input.userId);
+  if (
+    enrollment.pricingChannel === 'pin'
+    && enrollment.registerCode !== BUSINESS_COACH_PUBLIC_REGISTER_CODE
+  ) {
+    const { markBusinessCoachPinRedeemed } = await import('./business-coach-pin.service');
+    await markBusinessCoachPinRedeemed(enrollment.registerCode, input.userId);
+  }
 }
 
 export async function loadBusinessCoachProfile(
