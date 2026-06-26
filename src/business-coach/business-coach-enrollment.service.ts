@@ -31,36 +31,44 @@ import type { AdamNiagaBusinessProfile } from '../adam/adam-niaga-law';
 import {
   BUSINESS_COACH_PUBLIC_REGISTER_CODE,
 } from './business-coach.constants';
+import {
+  type BusinessCoachProfessionalDomain,
+  isBusinessCoachProfessionalDomain,
+} from './business-coach-domains';
 
 export function newBusinessCoachEnrollmentId(): string {
   return `BC-ENR-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
 }
 
 export interface BusinessCoachEnrollmentPublic {
-  enrollmentId:     string;
-  status:           BusinessCoachEnrollmentStatus;
-  registerCode:     string;
-  distributorLabel: string | null;
-  businessName:     string | null;
-  country:          string | null;
-  businessFocus:    string | null;
-  pricingChannel:   'public' | 'pin';
-  paidAt:           string | null;
-  completedAt:      string | null;
+  enrollmentId:       string;
+  status:             BusinessCoachEnrollmentStatus;
+  registerCode:       string;
+  distributorLabel:   string | null;
+  businessName:       string | null;
+  country:            string | null;
+  businessFocus:      string | null;
+  professionalDomain: BusinessCoachProfessionalDomain | null;
+  domainProfile:      Record<string, unknown> | null;
+  pricingChannel:     'public' | 'pin';
+  paidAt:             string | null;
+  completedAt:        string | null;
 }
 
 function toPublic(doc: IBusinessCoachEnrollment): BusinessCoachEnrollmentPublic {
   return {
-    enrollmentId:     doc.enrollmentId,
-    status:           doc.status,
-    registerCode:     doc.registerCode,
-    distributorLabel: doc.distributorLabel,
-    businessName:     doc.businessName,
-    country:          doc.country,
-    businessFocus:    doc.businessFocus,
-    pricingChannel:   doc.pricingChannel ?? 'pin',
-    paidAt:           doc.paidAt?.toISOString() ?? null,
-    completedAt:      doc.completedAt?.toISOString() ?? null,
+    enrollmentId:       doc.enrollmentId,
+    status:             doc.status,
+    registerCode:       doc.registerCode,
+    distributorLabel:   doc.distributorLabel,
+    businessName:       doc.businessName,
+    country:            doc.country,
+    businessFocus:      doc.businessFocus,
+    professionalDomain: doc.professionalDomain,
+    domainProfile:      doc.domainProfile,
+    pricingChannel:     doc.pricingChannel ?? 'pin',
+    paidAt:             doc.paidAt?.toISOString() ?? null,
+    completedAt:        doc.completedAt?.toISOString() ?? null,
   };
 }
 
@@ -141,14 +149,60 @@ export async function lockBusinessCoachEnrollmentPin(
   return toPublic(doc);
 }
 
+export async function setBusinessCoachProfessionalDomain(
+  userId: string,
+  professionalDomain: BusinessCoachProfessionalDomain,
+): Promise<BusinessCoachEnrollmentPublic> {
+  if (!isBusinessCoachProfessionalDomain(professionalDomain)) {
+    throw new Error('Choose a valid professional domain.');
+  }
+
+  const enrollment = await BusinessCoachEnrollmentModel.findOne({ userId });
+  if (!enrollment) {
+    throw new Error('Start ADAM Business Coach registration first.');
+  }
+
+  if (
+    enrollment.status !== BusinessCoachEnrollmentStatus.CODE_LOCKED
+    && enrollment.status !== BusinessCoachEnrollmentStatus.PROFILE_SAVED
+  ) {
+    throw new Error('Enrollment is not ready for domain selection.');
+  }
+
+  enrollment.professionalDomain = professionalDomain;
+  await enrollment.save();
+  return toPublic(enrollment);
+}
+
 export async function completeBusinessCoachEnrollmentProfile(
   userId: string,
   input: {
-    businessName:  string;
-    country:       string;
-    businessFocus?: string;
+    professionalDomain: BusinessCoachProfessionalDomain;
+    businessName?:      string;
+    country:            string;
+    businessFocus?:     string;
+    domainProfile?:     Record<string, unknown>;
   },
 ): Promise<BusinessCoachEnrollmentPublic> {
+  if (!isBusinessCoachProfessionalDomain(input.professionalDomain)) {
+    throw new Error('Choose a valid professional domain.');
+  }
+
+  const country = input.country.trim();
+  if (!country) {
+    throw new Error('Country is required.');
+  }
+
+  const displayName = input.businessName?.trim()
+    ?? (input.domainProfile?.organizationName as string | undefined)?.trim()
+    ?? (input.domainProfile?.entityName as string | undefined)?.trim()
+    ?? (input.domainProfile?.displayName as string | undefined)?.trim()
+    ?? null;
+
+  if (!displayName) {
+    throw new Error('A display name is required for your domain profile.');
+  }
+
   const enrollment = await BusinessCoachEnrollmentModel.findOne({ userId });
   if (!enrollment) {
     throw new Error('Start ADAM Business Coach registration first.');
@@ -161,9 +215,12 @@ export async function completeBusinessCoachEnrollmentProfile(
     throw new Error('Enrollment is not ready for profile update.');
   }
 
-  enrollment.businessName = input.businessName.trim();
-  enrollment.country = input.country.trim();
+  enrollment.professionalDomain = input.professionalDomain;
+  enrollment.country = country;
+  enrollment.domainProfile = input.domainProfile ?? null;
+  enrollment.businessName = displayName;
   enrollment.businessFocus = input.businessFocus?.trim() || null;
+
   enrollment.status = BusinessCoachEnrollmentStatus.PROFILE_SAVED;
 
   if (enrollment.paidAt) {
@@ -189,7 +246,10 @@ export async function getBusinessCoachEnrollmentCheckoutQuote(
     throw new Error('Start ADAM Business Coach registration first.');
   }
   if (enrollment.status !== BusinessCoachEnrollmentStatus.PROFILE_SAVED) {
-    throw new Error('Complete your business profile before checkout.');
+    throw new Error('Complete your domain profile before checkout.');
+  }
+  if (!enrollment.professionalDomain) {
+    throw new Error('Choose your professional domain before checkout.');
   }
 
   const channel = enrollment.pricingChannel === 'public' ? 'public' : 'pin';
@@ -221,7 +281,7 @@ export async function markBusinessCoachEnrollmentPaid(input: {
   if (input.stripeSessionId) enrollment.stripeSessionId = input.stripeSessionId;
   if (input.subscriptionId) enrollment.subscriptionId = input.subscriptionId;
 
-  if (enrollment.businessName && enrollment.country) {
+  if (enrollment.businessName && enrollment.country && enrollment.professionalDomain) {
     enrollment.status = BusinessCoachEnrollmentStatus.COMPLETE;
     enrollment.completedAt = new Date();
   }
@@ -245,6 +305,21 @@ export async function markBusinessCoachEnrollmentPaid(input: {
     const { markBusinessCoachPinRedeemed } = await import('./business-coach-pin.service');
     await markBusinessCoachPinRedeemed(enrollment.registerCode, input.userId);
   }
+}
+
+export async function loadBusinessCoachDomainContext(
+  userId: string,
+): Promise<{
+  professionalDomain: BusinessCoachProfessionalDomain;
+  domainProfile:      Record<string, unknown> | null;
+} | null> {
+  const enrollment = await BusinessCoachEnrollmentModel.findOne({ userId }).lean();
+  if (!enrollment?.professionalDomain) return null;
+  if (!isBusinessCoachProfessionalDomain(enrollment.professionalDomain)) return null;
+  return {
+    professionalDomain: enrollment.professionalDomain,
+    domainProfile:      enrollment.domainProfile ?? null,
+  };
 }
 
 export async function loadBusinessCoachProfile(

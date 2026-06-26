@@ -40,6 +40,11 @@ export interface StreamADAMChatOptions {
   responseMs?:        number;
   /** ADAM Niaga lane — trader business profile */
   niagaProfile?:      import('./adam-niaga-law').AdamNiagaBusinessProfile;
+  /** ADAM Business Coach — professional domain lock */
+  businessCoachDomain?: {
+    professionalDomain: import('../business-coach/business-coach-domains').BusinessCoachProfessionalDomain;
+    domainProfile?:     Record<string, unknown> | null;
+  };
   /** R&D Industry — project context for RESEARCH mode */
   rdIndustryContext?: {
     projectId:      string;

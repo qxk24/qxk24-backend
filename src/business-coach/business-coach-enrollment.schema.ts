@@ -17,6 +17,10 @@
 
 import mongoose, { Document, Schema } from 'mongoose';
 import type { BusinessCoachPricingChannel } from '../subscriptions/subscription.schema';
+import {
+  BUSINESS_COACH_PROFESSIONAL_DOMAINS,
+  type BusinessCoachProfessionalDomain,
+} from './business-coach-domains';
 
 export enum BusinessCoachEnrollmentStatus {
   CODE_LOCKED   = 'code_locked',
@@ -34,10 +38,12 @@ export interface IBusinessCoachEnrollment extends Document {
   pricingChannel:  BusinessCoachPricingChannel;
   stripeSessionId: string | null;
   subscriptionId:  string | null;
-  businessName:    string | null;
-  country:         string | null;
-  businessFocus:   string | null;
-  paidAt:          Date | null;
+  businessName:        string | null;
+  country:             string | null;
+  businessFocus:       string | null;
+  professionalDomain:  BusinessCoachProfessionalDomain | null;
+  domainProfile:       Record<string, unknown> | null;
+  paidAt:              Date | null;
   completedAt:     Date | null;
   createdAt:       Date;
   updatedAt:       Date;
@@ -58,10 +64,12 @@ const BusinessCoachEnrollmentSchema = new Schema<IBusinessCoachEnrollment>(
     pricingChannel:   { type: String, enum: ['public', 'pin'], default: 'pin' },
     stripeSessionId:  { type: String, default: null },
     subscriptionId:   { type: String, default: null },
-    businessName:     { type: String, default: null },
-    country:          { type: String, default: null },
-    businessFocus:    { type: String, default: null },
-    paidAt:           { type: Date, default: null },
+    businessName:        { type: String, default: null },
+    country:             { type: String, default: null },
+    businessFocus:       { type: String, default: null },
+    professionalDomain:  { type: String, default: null },
+    domainProfile:       { type: Schema.Types.Mixed, default: null },
+    paidAt:              { type: Date, default: null },
     completedAt:      { type: Date, default: null },
   },
   { timestamps: true, collection: 'adam_business_coach_enrollments' },

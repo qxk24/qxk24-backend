@@ -31,12 +31,13 @@ import {
 } from './business-coach-enrollment.schema';
 
 export interface BusinessCoachSubscriptionAccess {
-  canChat:          boolean;
-  active:           boolean;
-  status:           string;
-  channel:          'public' | 'pin' | null;
-  businessName:     string | null;
-  registerUrl?:     string;
+  canChat:            boolean;
+  active:             boolean;
+  status:             string;
+  channel:            'public' | 'pin' | null;
+  businessName:       string | null;
+  professionalDomain: import('./business-coach-domains').BusinessCoachProfessionalDomain | null;
+  registerUrl?:       string;
   checkoutUrl?:     string;
   chatUrl?:         string;
   publicMonthlyUsd?: number;
@@ -61,11 +62,12 @@ export async function resolveBusinessCoachSubscriptionAccess(
 
   if (isFounderPayload(user)) {
     return {
-      canChat:          true,
-      active:           true,
-      status:           'FOUNDER',
-      channel:          null,
-      businessName:     null,
+      canChat:            true,
+      active:             true,
+      status:             'FOUNDER',
+      channel:            null,
+      businessName:       null,
+      professionalDomain: null,
       publicMonthlyUsd: publicPricing.monthly,
       pinMonthlyUsd:    pinPricing.monthly,
       chatUrl:          `${appBase()}/adam/business-coach/chat`,
@@ -86,11 +88,12 @@ export async function resolveBusinessCoachSubscriptionAccess(
     }).lean();
 
     return {
-      canChat:          true,
-      active:           true,
-      status:           'ACTIVE',
-      channel:          activeSub.businessCoachChannel ?? 'public',
-      businessName:     enrollment?.businessName ?? null,
+      canChat:            true,
+      active:             true,
+      status:             'ACTIVE',
+      channel:            activeSub.businessCoachChannel ?? 'public',
+      businessName:       enrollment?.businessName ?? null,
+      professionalDomain: enrollment?.professionalDomain ?? null,
       publicMonthlyUsd: publicPricing.monthly,
       pinMonthlyUsd:    pinPricing.monthly,
       chatUrl:          `${appBase()}/adam/business-coach/chat`,
@@ -107,10 +110,11 @@ export async function resolveBusinessCoachSubscriptionAccess(
 
     return {
       canChat,
-      active:           canChat,
-      status:           enrollment.status,
-      channel:          enrollment.pricingChannel ?? 'pin',
-      businessName:     enrollment.businessName,
+      active:             canChat,
+      status:             enrollment.status,
+      channel:            enrollment.pricingChannel ?? 'pin',
+      businessName:       enrollment.businessName,
+      professionalDomain: enrollment.professionalDomain ?? null,
       registerUrl:      `${appBase()}/adam/business-coach/daftar`,
       checkoutUrl:      `${appBase()}/adam/business-coach/daftar`,
       publicMonthlyUsd: publicPricing.monthly,
@@ -122,11 +126,12 @@ export async function resolveBusinessCoachSubscriptionAccess(
   }
 
   return {
-    canChat:          false,
-    active:           false,
-    status:           'NONE',
-    channel:          null,
-    businessName:     null,
+    canChat:            false,
+    active:             false,
+    status:             'NONE',
+    channel:            null,
+    businessName:       null,
+    professionalDomain: null,
     registerUrl:      `${appBase()}/adam/business-coach/daftar`,
     checkoutUrl:      `${appBase()}/subscription/checkout?tier=BUSINESS_COACH&billingCycle=MONTHLY`,
     publicMonthlyUsd: publicPricing.monthly,

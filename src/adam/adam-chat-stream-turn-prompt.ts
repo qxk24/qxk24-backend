@@ -239,6 +239,15 @@ export async function buildTurnPromptAndSearchGate(input: {
       technicalDocId: ctx.technicalDocId,
     })}`;
   }
+  if (isNiagaLane && options.businessCoachDomain) {
+    const { buildBusinessCoachDomainPromptBlock } = await import(
+      '../business-coach/business-coach-domain-guards'
+    );
+    systemPrompt = `${systemPrompt}\n\n${buildBusinessCoachDomainPromptBlock({
+      domain:        options.businessCoachDomain.professionalDomain,
+      domainProfile: options.businessCoachDomain.domainProfile,
+    })}`;
+  }
   if (testerSystemPrefix) {
     systemPrompt = `${testerSystemPrefix}\n\n${systemPrompt}`;
   }

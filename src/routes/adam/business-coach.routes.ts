@@ -36,10 +36,13 @@ import {
   completeBusinessCoachEnrollmentProfile,
   getBusinessCoachEnrollmentCheckoutQuote,
   getBusinessCoachEnrollmentForUser,
+  loadBusinessCoachDomainContext,
   loadBusinessCoachProfile,
   lockBusinessCoachEnrollmentPin,
+  setBusinessCoachProfessionalDomain,
   startBusinessCoachPublicEnrollment,
 } from '../../business-coach/business-coach-enrollment.service';
+import { BUSINESS_COACH_PROFESSIONAL_DOMAINS } from '../../business-coach/business-coach-domains';
 import {
   createBusinessCoachEnrollmentCheckoutSession,
   syncBusinessCoachPaymentFromSession,
@@ -62,9 +65,15 @@ const PinLockSchema = z.object({
 });
 
 const ProfileSchema = z.object({
-  businessName:  z.string().min(2).max(200),
-  country:       z.string().min(2).max(120),
-  businessFocus: z.string().max(500).optional(),
+  professionalDomain: z.enum(BUSINESS_COACH_PROFESSIONAL_DOMAINS),
+  businessName:       z.string().min(2).max(200).optional(),
+  country:            z.string().min(2).max(120),
+  businessFocus:      z.string().max(500).optional(),
+  domainProfile:      z.record(z.unknown()).optional(),
+});
+
+const DomainSchema = z.object({
+  professionalDomain: z.enum(BUSINESS_COACH_PROFESSIONAL_DOMAINS),
 });
 
 const GeneratePinsSchema = z.object({
@@ -196,6 +205,28 @@ router.post('/register/code/lock', requireAdamUser, zValidator('json', PinLockSc
   }
 });
 
+// POST /api/adam/business-coach/register/domain — auth
+router.post('/register/domain', requireAdamUser, zValidator('json', DomainSchema), async (c) => {
+  try {
+    const enrollment = await setBusinessCoachProfessionalDomain(
+      userId(c),
+      c.req.valid('json').professionalDomain,
+    );
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { enrollment },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    return c.json({
+      success: false,
+      error:   (err as Error).message,
+      kernel:  'ALAMTOLOGI',
+    }, 400);
+  }
+});
+
 // POST /api/adam/business-coach/register/profile — auth
 router.post('/register/profile', requireAdamUser, zValidator('json', ProfileSchema), async (c) => {
   try {
@@ -284,6 +315,7 @@ router.post('/chat', requireBusinessCoachSubscription, zValidator('json', ChatSc
 
   const message = body.message?.trim() ?? '';
   const niagaProfile = await loadBusinessCoachProfile(user.userId);
+  const domainContext = await loadBusinessCoachDomainContext(user.userId);
 
   c.header('Content-Type', 'text/event-stream');
   c.header('Cache-Control', 'no-cache');
@@ -304,7 +336,8 @@ router.post('/chat', requireBusinessCoachSubscription, zValidator('json', ChatSc
             role:        user.role === 'guru' ? 'guru' : 'student',
             sessionType: 'niaga',
           },
-          { answerStyle: body.answerStyle, niagaProfile: niagaProfile ?? undefined },
+          { answerStyle: body.answerStyle, niagaProfile: niagaProfile ?? undefined,
+            businessCoachDomain: domainContext ?? undefined },
         ),
       );
     } catch (err: unknown) {
