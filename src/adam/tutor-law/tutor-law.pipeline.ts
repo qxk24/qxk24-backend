@@ -54,7 +54,10 @@ import {
   tutorReplyHasAlgebraFactoringExample,
   tutorThreadIsQuadraticContext,
 } from './tutor-law.algebra-routing';
-import { enforceTutorSessionLanguage } from './tutor-law.session-language';
+import {
+  enforceTutorSessionLanguage,
+  normalizeTutorHeadingLanguage,
+} from './tutor-law.session-language';
 import {
   buildTutorMathTurnContext,
   classifyTutorMathIntent,
@@ -291,6 +294,13 @@ export function enforceTutorReplyGuards(
     participantName,
     recentAssistantMessages,
     recentUserMessages,
+  );
+  out = normalizeTutorHeadingLanguage(
+    out,
+    profile,
+    recentAssistantMessages,
+    recentUserMessages,
+    userMessage,
   );
 
   if (universityStandardActive) {

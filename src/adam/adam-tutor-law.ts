@@ -397,10 +397,12 @@ export {
 
 export {
   buildTutorAmbiguousInputReply,
+  buildTutorClosingLanguageReminder,
   buildTutorMalayFollowUpRecovery,
   buildTutorMalayPlaceValueFromEnglish,
   buildTutorSessionLanguageLock,
   buildTutorWebSearchPrompt,
+  normalizeTutorHeadingLanguage,
   enforceTutorSessionLanguage,
   repairTutorMalaySessionLanguage,
   resolveTutorSessionLanguage,

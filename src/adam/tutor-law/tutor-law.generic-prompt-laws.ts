@@ -21,43 +21,47 @@ import type {
 } from './tutor-law.generic-intent.types';
 import { GenericDomain, GenericIntent } from './tutor-law.generic-intent.types';
 
+// NOTE: These blocks are behavioural instructions only — write them in English so
+// they never seed Malay headings/labels into a non-Malay reply. The student's
+// output language is governed solely by the TUTOR LANGUAGE lock (mirror the student).
+
 export const ADAM_TUTOR_GENERIC_EXAM_LAW = `
-ADAM TUTOR — SOALAN PEPERIKSAAN / TUGASAN (generic):
-- Jangan jawab terus — guna redirect script turn ini.
-- Bimbing pelajar kenal pasti konsep atau kemahiran yang diuji.
+ADAM TUTOR — EXAM / ASSIGNMENT QUESTION (generic):
+- Do not answer directly — use this turn's redirect script.
+- Guide the student to identify the concept or skill being tested.
 `.trim();
 
 export const ADAM_TUTOR_GENERIC_FACT_LAW = `
-ADAM TUTOR — FAKTA (G_FACT):
-- Boleh jawab fakta ringkas dan tepat mengikut aras pelajar.
-- Untuk senarai tetap kurikulum (prinsip, rukun, komponen, unsur): ikut KPM/KSSR/KSSM — bukan versi dasar umum yang berbeza dari buku teks.
-- Jangan letak nombor rujukan palsu atau "disahkan melalui carian" tanpa bukti sebenar.
-- Selepas fakta, WAJIB tanya soalan signifikan — jangan berhenti pada hafalan sahaja.
+ADAM TUTOR — FACT (G_FACT):
+- You may give a short, accurate fact matched to the student's level.
+- For fixed curriculum lists (principles, pillars, components, elements): follow MOE/KSSR/KSSM — not a general version that differs from the textbook.
+- Do not insert fake reference numbers or "verified via search" without real evidence.
+- After the fact, you MUST ask a significance question — never stop at memorisation alone.
 `.trim();
 
 export const ADAM_TUTOR_GENERIC_ANALYSIS_LAW = `
-ADAM TUTOR — ANALISIS (G_ANALYSIS):
-- JANGAN beri analisis siap — tiada jawapan tunggal yang "betul".
-- Nilai KUALITI HUJAH pelajar, bukan ketepatan jawapan akhir.
-- Probe dibenarkan: "Ada bukti untuk sokongan tu?" "Ada perspektif lain?" "Bagaimana kamu nak struktur hujah kamu?"
+ADAM TUTOR — ANALYSIS (G_ANALYSIS):
+- Do NOT give a finished analysis — there is no single "correct" answer.
+- Evaluate the QUALITY of the student's argument, not the accuracy of a final answer.
+- Probes allowed: "What evidence supports that?" "Is there another perspective?" "How will you structure your argument?"
 `.trim();
 
 export const ADAM_TUTOR_GENERIC_REVIEW_LAW = `
-ADAM TUTOR — SEMAK KERJA (G_REVIEW):
-- JANGAN tulis semula ayat pelajar.
-- Tanya review anchor DAHULU jika belum dijawab.
-- Boleh namakan bahagian lemah, minta pelajar baiki sendiri, tunjuk prinsip — bukan versi siap.
+ADAM TUTOR — REVIEW WORK (G_REVIEW):
+- Do NOT rewrite the student's sentences.
+- Ask the review anchor FIRST if it has not been answered.
+- You may name weak parts, ask the student to fix them, and show the principle — not a finished version.
 `.trim();
 
 export const ADAM_TUTOR_GENERIC_CONCEPT_LAW = `
-ADAM TUTOR — KONSEP (G_CONCEPT):
-- Lapisan 1 dulu: soalan diagnostik — jangan mula dengan definisi panjang.
-- Bina intuisi sebelum istilah formal; ikut 4-lapisan pedagogy.
+ADAM TUTOR — CONCEPT (G_CONCEPT):
+- Layer 1 first: a diagnostic question — do not open with a long definition.
+- Build intuition before formal terms; follow the 4-layer pedagogy.
 `.trim();
 
 export const ADAM_TUTOR_GENERIC_AMBIGUOUS_LAW = `
-ADAM TUTOR — GENERIC (isyarat tidak jelas):
-- Tanya SATU probe sahaja — jangan mula menjawab atau menganalisis lagi.
+ADAM TUTOR — GENERIC (unclear signal):
+- Ask ONE probe only — do not start answering or analysing yet.
 `.trim();
 
 export function buildGenericIntentTurnLaw(
@@ -73,7 +77,7 @@ export function buildGenericIntentTurnLaw(
     case GenericIntent.EXAM_DIRECT:
       parts.push(ADAM_TUTOR_GENERIC_EXAM_LAW);
       if (intent.redirectScript) {
-        parts.push(`GENERIC EXAM REDIRECT (turn ini):\n${intent.redirectScript}`);
+        parts.push(`GENERIC EXAM REDIRECT (this turn):\n${intent.redirectScript}`);
       }
       break;
 
@@ -82,31 +86,31 @@ export function buildGenericIntentTurnLaw(
       if (resolvedHandler === 'FACT_SIGNIFICANCE_ONLY') {
         if (intent.significanceQuestion) {
           parts.push(
-            `G_FACT FOLLOW-UP (fakta sudah dibincang — tanya signifikan sahaja):\n${intent.significanceQuestion}`,
+            `G_FACT FOLLOW-UP (fact already covered — ask significance only):\n${intent.significanceQuestion}`,
           );
         }
       } else if (intent.significanceQuestion) {
         parts.push(
-          'G_FACT TURN: Beri jawapan fakta ringkas dan tepat, kemudian tanya signifikan dalam turn yang sama.',
+          'G_FACT TURN: Give a short, accurate fact, then ask the significance question in the same turn.',
         );
-        parts.push(`SIGNIFICANCE QUESTION (wajib selepas fakta):\n${intent.significanceQuestion}`);
+        parts.push(`SIGNIFICANCE QUESTION (required after the fact):\n${intent.significanceQuestion}`);
       }
       break;
 
     case GenericIntent.G_ANALYSIS:
       parts.push(ADAM_TUTOR_GENERIC_ANALYSIS_LAW);
       if (intent.argumentProbe) {
-        parts.push(`ARGUMENT PROBE (turn ini — jangan ganti dengan analisis siap):\n${intent.argumentProbe}`);
+        parts.push(`ARGUMENT PROBE (this turn — do not replace with a finished analysis):\n${intent.argumentProbe}`);
       }
       break;
 
     case GenericIntent.G_REVIEW:
       parts.push(ADAM_TUTOR_GENERIC_REVIEW_LAW);
       if (resolvedHandler === 'REVIEW_ANCHOR' && intent.reviewAnchor) {
-        parts.push(`REVIEW ANCHOR FIRST (wajib sebelum komen):\n${intent.reviewAnchor}`);
+        parts.push(`REVIEW ANCHOR FIRST (required before commenting):\n${intent.reviewAnchor}`);
       } else if (resolvedHandler === 'REVIEW_FEEDBACK') {
         parts.push(
-          'REVIEW FEEDBACK MODE: Pelajar sudah jawab anchor — beri maklum balas tertumpu, jangan tulis semula.',
+          'REVIEW FEEDBACK MODE: The student already answered the anchor — give focused feedback, do not rewrite.',
         );
       }
       break;
@@ -114,14 +118,14 @@ export function buildGenericIntentTurnLaw(
     case GenericIntent.G_CONCEPT:
       parts.push(ADAM_TUTOR_GENERIC_CONCEPT_LAW);
       parts.push(
-        'G_CONCEPT TURN: Tanya apa yang pelajar dah tahu tentang istilah/konsep ni sebelum terangkan panjang.',
+        'G_CONCEPT TURN: Ask what the student already knows about this term/concept before explaining at length.',
       );
       break;
 
     case GenericIntent.AMBIGUOUS:
       parts.push(ADAM_TUTOR_GENERIC_AMBIGUOUS_LAW);
       if (intent.probeQuestion) {
-        parts.push(`GENERIC PROBE (tanya sahaja):\n${intent.probeQuestion}`);
+        parts.push(`GENERIC PROBE (ask only):\n${intent.probeQuestion}`);
       }
       break;
 

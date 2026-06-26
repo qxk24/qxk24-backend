@@ -52,6 +52,7 @@ import {
 import type { AdamBrainRiverTurn } from './adam-brain-river';
 import { handleAdamTurnRelays } from './adam-chat-stream-post-relay';
 import { recordTutorLearningTurn } from './adam-tutor-learning-profile.service';
+import { normalizeTutorHeadingLanguage } from './adam-tutor-law';
 
 export { persistInteractiveJournalDraft } from './adam-chat-stream-journal-persist';
 
@@ -163,6 +164,22 @@ export async function finishAdamChatTurn(input: {
     finalResponse,
   });
   finalResponse = relayResult.finalResponse;
+
+  // Final-output language guard. A downstream rewrite/repair pass can re-emit
+  // structural scaffold headings (Definisi / Langkah / Contoh / Kesimpulan) in
+  // Malay even when the learner asked in English (or vice-versa). The streamed
+  // body passes through enforceTutorReplyGuards, but this finalResponse is what
+  // adam_complete + saveMessage actually use, so we re-normalize headings here
+  // to the resolved session language. Founder turns are left untouched.
+  if (!shell.isFounder && finalResponse?.trim()) {
+    finalResponse = normalizeTutorHeadingLanguage(
+      finalResponse,
+      shell.options.tutorProfile,
+      input.turnBrainMeta?.recentAssistantMessages ?? [],
+      input.turnBrainMeta?.recentUserMessages ?? [],
+      shell.userMessage,
+    );
+  }
 
   const rawForGreeting = input.turnBrainMeta?.rawModelStream?.trim() ?? '';
   const usersGreetingRepairApplied = input.usersGreetingRepairApplied === true

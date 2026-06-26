@@ -485,10 +485,147 @@ export function buildTutorSessionLanguageLock(
 ADAM Tutor is a universal scholar. Reply in the language the student uses **this turn**.
 - Mirror the student's language — English, Malay, Arabic, Mandarin, Tamil, and other world languages.
 - If the student asks to switch language ("answer in English", "jawab dalam BM"), honour it immediately. **Never refuse** or say you cannot reply in their language.
+- ONE language only — write the ENTIRE reply in the student's language. This includes every section heading, markdown header, bullet label, numbered step title, and table header. NEVER write headings or labels in Malay when the body is English (or vice versa). No bilingual or mixed-language replies.
+- The instruction blocks below may be written in another language for your guidance only — they describe behaviour, NOT your output language. Do not copy their wording or their language into your reply.
 ${fallbackLine}${tutorLanguageInstruction(lang)}
 When the student sends only a number, symbol, or emoji, continue in the language already established in this thread (or profile default above).
 Never offer Alamtologi, AMA, TAJU, QXK24, or founder frameworks as topic options.
 [/TUTOR LANGUAGE]
+`.trim();
+}
+
+/**
+ * Post-stream safety net: the model frequently emits Malay scaffold headings
+ * ("Definisi", "Langkah / fakta utama", "Contoh", "Kesimpulan") even inside an
+ * English reply. Prompt rules alone do not fully stop this drift, so we rewrite
+ * known scaffold heading lines into the resolved reply language. We only touch
+ * markdown heading lines (#…) and standalone bold lines — never body prose — to
+ * avoid corrupting legitimate sentences.
+ */
+const TUTOR_HEADING_MS_TO_EN: ReadonlyArray<[RegExp, string]> = [
+  [/\blangkah(?:-langkah)?\s*\/\s*fakta\s+utama\b/gi, 'Steps'],
+  [/\bfakta\s+utama\b/gi, 'Key facts'],
+  [/\bkaedah\s+penyelesaian\b/gi, 'Solution method'],
+  [/\bnota\s+penting\b/gi, 'Important notes'],
+  [/\bcatatan\s+penting\b/gi, 'Important notes'],
+  [/\bdefinisi\b/gi, 'Definition'],
+  [/\bpengenalan\b/gi, 'Introduction'],
+  [/\blangkah(?:-langkah)?\b/gi, 'Steps'],
+  [/\bcontoh-contoh\b/gi, 'Examples'],
+  [/\bcontoh\b/gi, 'Example'],
+  [/\bkesimpulan\b/gi, 'Summary'],
+  [/\bringkasan\b/gi, 'Summary'],
+  [/\bpenyelesaian\b/gi, 'Solution'],
+  [/\bjawapan\b/gi, 'Answer'],
+  [/\bpetua\b/gi, 'Tips'],
+  [/\bnota\b/gi, 'Note'],
+  [/\brumus(?:an)?\b/gi, 'Formula'],
+];
+
+const TUTOR_HEADING_EN_TO_MS: ReadonlyArray<[RegExp, string]> = [
+  [/\bkey\s+facts\b/gi, 'Fakta utama'],
+  [/\bsolution\s+method\b/gi, 'Kaedah penyelesaian'],
+  [/\bimportant\s+notes?\b/gi, 'Nota penting'],
+  [/\bintroduction\b/gi, 'Pengenalan'],
+  [/\bdefinitions?\b/gi, 'Definisi'],
+  [/\bsteps?\b/gi, 'Langkah'],
+  [/\bexamples?\b/gi, 'Contoh'],
+  [/\bsummary\b/gi, 'Kesimpulan'],
+  [/\bconclusion\b/gi, 'Kesimpulan'],
+  [/\bsolutions?\b/gi, 'Penyelesaian'],
+  [/\banswers?\b/gi, 'Jawapan'],
+  [/\btips?\b/gi, 'Petua'],
+];
+
+function rewriteTutorHeadingText(
+  text: string,
+  toMalay: boolean,
+): string {
+  let t = text;
+  if (!toMalay) {
+    // Drop Malay filler the model appends to headings (e.g. "Definisi, topik ini").
+    t = t.replace(/,?\s*(?:untuk\s+|bagi\s+)?topik\s+ini\b/gi, '');
+  }
+  const map = toMalay ? TUTOR_HEADING_EN_TO_MS : TUTOR_HEADING_MS_TO_EN;
+  for (const [re, replacement] of map) {
+    t = t.replace(re, replacement);
+  }
+  return t.replace(/\s{2,}/g, ' ').replace(/\s+([,.:;])/g, '$1').trim();
+}
+
+/** Rewrite scaffold heading lines into the resolved reply language. */
+export function normalizeTutorHeadingLanguage(
+  text: string,
+  profile?: AdamTutorProfile,
+  recentAssistantMessages: string[] = [],
+  recentUserMessages: string[] = [],
+  userMessage?: string,
+): string {
+  if (!text.trim()) return text;
+  const lang = resolveTutorSessionLanguage(
+    profile,
+    recentAssistantMessages,
+    recentUserMessages,
+    userMessage,
+  );
+  // Only English and Malay scaffold maps are defined; skip other languages.
+  if (lang !== 'english' && lang !== 'malay') return text;
+  const toMalay = lang === 'malay';
+
+  return text
+    .split('\n')
+    .map((line) => {
+      const heading = line.match(/^(\s{0,3}#{1,6}\s+)(.+?)(\s*)$/);
+      if (heading) {
+        return `${heading[1]}${rewriteTutorHeadingText(heading[2], toMalay)}`;
+      }
+      const bold = line.match(/^(\s*)\*\*(.+?)\*\*(\s*:?\s*)$/);
+      if (bold) {
+        return `${bold[1]}**${rewriteTutorHeadingText(bold[2], toMalay)}**${bold[3]}`;
+      }
+      return line;
+    })
+    .join('\n');
+}
+
+/**
+ * Final, high-recency language enforcement appended at the END of the tutor
+ * system prompt. The long teaching laws above contain Malay examples/labels
+ * that bias the model into mixed-language headings — this closing block (last
+ * thing the model reads) hard-locks the entire reply to the student's language.
+ */
+export function buildTutorClosingLanguageReminder(
+  profile?: AdamTutorProfile,
+  recentAssistantMessages: string[] = [],
+  recentUserMessages: string[] = [],
+  userMessage?: string,
+): string {
+  const lang = resolveTutorSessionLanguage(
+    profile,
+    recentAssistantMessages,
+    recentUserMessages,
+    userMessage,
+  );
+  const langName: Record<AdamTutorLanguage, string> = {
+    english:    'English',
+    malay:      'Bahasa Melayu (Malaysia)',
+    arabic:     'Arabic',
+    mandarin:   'Mandarin Chinese',
+    tamil:      'Tamil',
+    indonesian: 'Bahasa Indonesia',
+    spanish:    'Spanish',
+    french:     'French',
+    other:      "the student's language",
+  };
+  const target = langName[lang] ?? "the student's language";
+  return `
+[FINAL OUTPUT LANGUAGE LOCK — HIGHEST PRIORITY, READ LAST]
+Write your ENTIRE reply in ${target} only.
+This applies to EVERY part: section headings (###), bold labels, bullet labels, numbered-step titles, table headers, and the closing question.
+The teaching instructions above may quote Malay or English words — those are guidance, NOT your output. Do NOT copy a heading like "Definisi", "Langkah", "Contoh", or "Kesimpulan" unless your reply language is Malay.
+If the student wrote in English, every heading must be English (e.g. "Definition", "Steps", "Example", "Summary").
+Never produce a bilingual or mixed-language reply.
+[/FINAL OUTPUT LANGUAGE LOCK]
 `.trim();
 }
 

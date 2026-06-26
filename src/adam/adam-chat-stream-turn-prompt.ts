@@ -25,6 +25,7 @@ import { extractRecentUserTurns, extractRecentAssistantTurns, resolveTechnicalPr
 import { shouldUsersUseSearchFirstFlow } from './adam-search-first';
 import { buildQwenLanguageLock } from './adam-language-guard';
 import {
+  buildTutorClosingLanguageReminder,
   buildTutorSessionLanguageLock,
   buildTutorWebSearchPrompt,
 } from './adam-tutor-law';
@@ -272,6 +273,16 @@ export async function buildTurnPromptAndSearchGate(input: {
       journalPhase: mode === 'JOURNAL_GEN' && isFounder ? 'draft' : undefined,
     });
   systemPrompt = `${languageLock}\n\n${systemPrompt}`;
+
+  if (isTutorLane) {
+    const closingLanguageReminder = buildTutorClosingLanguageReminder(
+      tutorProfile,
+      recentAssistantTurns,
+      recentUserTurns,
+      messageForAdam,
+    );
+    systemPrompt = `${systemPrompt}\n\n${closingLanguageReminder}`;
+  }
 
   return {
     systemPrompt,
