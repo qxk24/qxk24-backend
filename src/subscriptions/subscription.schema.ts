@@ -28,6 +28,8 @@ export enum SubscriptionTier {
   TESTER      = 'TESTER',
   /** Closed MLM channel — not on public pricing */
   TUTOR       = 'TUTOR',
+  /** Global ADAM Business Coach — USD public / PIN channels */
+  BUSINESS_COACH = 'BUSINESS_COACH',
 }
 
 /** Legacy Mongo value — was misnamed “Pelajar”; maps to Pro for everyone */
@@ -57,6 +59,9 @@ export function resolveCheckoutTier(
     return SubscriptionTier.PRO;
   }
   if (t === 'PREMIUM') return SubscriptionTier.PROFESIONAL;
+  if (t === 'BUSINESS_COACH' || t === 'BUSINESS-COACH') {
+    return SubscriptionTier.BUSINESS_COACH;
+  }
   if (t === 'BASIC' || t === LEGACY_SUBSCRIPTION_TIER_PENCARIAN) {
     return SubscriptionTier.BASIC;
   }
@@ -139,6 +144,9 @@ export type TutorSubscriptionLevel = 'primary' | 'secondary' | 'university';
 /** Kod-daftar agent wholesale vs public retail monthly billing. */
 export type TutorSubscriptionPricingChannel = 'agent' | 'public';
 
+/** ADAM Business Coach — public USD35 vs PIN USD23 monthly billing. */
+export type BusinessCoachPricingChannel = 'public' | 'pin';
+
 export enum PencarianStage {
   KNOW    = 'KNOW',
   CLOSER  = 'CLOSER',
@@ -216,6 +224,9 @@ export interface ISubscription extends Document {
   pricingChannel:     TutorSubscriptionPricingChannel | null;
   agentPriceEndsAt:   Date | null;
   tutorEnrollmentId:  string | null;
+  /** Business Coach — public vs PIN channel when tier is BUSINESS_COACH. */
+  businessCoachChannel:    BusinessCoachPricingChannel | null;
+  businessCoachEnrollmentId: string | null;
   createdAt:          Date;
   updatedAt:          Date;
 }
@@ -290,6 +301,8 @@ const SubscriptionSchema = new Schema<ISubscription>(
     pricingChannel:     { type: String, enum: ['agent', 'public'], default: null },
     agentPriceEndsAt:   { type: Date, default: null },
     tutorEnrollmentId:  { type: String, default: null, index: true },
+    businessCoachChannel:      { type: String, enum: ['public', 'pin'], default: null },
+    businessCoachEnrollmentId: { type: String, default: null, index: true },
   },
   { timestamps: true, collection: 'alamtologi_subscriptions' },
 );

@@ -128,6 +128,22 @@ export const TIER_ACCESS: Record<SubscriptionTier, ITierAccess> = {
     supportLevel:       'email',
     maxUsers:           1,
   },
+
+  [SubscriptionTier.BUSINESS_COACH]: {
+    memoryLevel:        'basic',
+    episodicRecords:    true,
+    relationalArc:      false,
+    continuityBridge:   true,
+    presenceLayer:      true,
+    unresolvedHoldings: true,
+    apiAccess:          false,
+    apiCallsPerMonth:   0,
+    publishingRights:   false,
+    customWorkspace:    false,
+    whiteLabel:         false,
+    supportLevel:       'email',
+    maxUsers:           1,
+  },
 };
 
 // ─── Pelajar PPP Pricing ─────────────────────────────────────────────────────
@@ -398,4 +414,27 @@ export function getProviderForRegion(_region: SupportedRegion): PaymentProvider 
 export function getExtensionFee(region: SupportedRegion): { amount: number; currency: string } {
   const pricing = getPelajarPricing(region);
   return { amount: pricing.extensionFee, currency: pricing.currency };
+}
+
+export interface IBusinessCoachPricing {
+  channel:  'public' | 'pin';
+  monthly:  number;
+  currency: string;
+  label:    string;
+}
+
+export function getBusinessCoachPricing(
+  channel: 'public' | 'pin' = 'public',
+): IBusinessCoachPricing {
+  const monthly = channel === 'pin'
+    ? ENV.ADAM_BUSINESS_COACH_PIN_MONTHLY_USD
+    : ENV.ADAM_BUSINESS_COACH_PUBLIC_MONTHLY_USD;
+  return {
+    channel,
+    monthly,
+    currency: 'USD',
+    label:    channel === 'pin'
+      ? 'ADAM Business Coach — PIN'
+      : 'ADAM Business Coach — Public',
+  };
 }

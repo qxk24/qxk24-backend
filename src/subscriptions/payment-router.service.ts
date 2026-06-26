@@ -32,6 +32,7 @@ import {
   getTutorPricing,
   getConsumerProPricing,
   getConsumerPremiumPricing,
+  getBusinessCoachPricing,
   normalizeTutorSubscriptionLevel,
 } from './tier-access.config';
 import type { TutorSubscriptionLevel } from './subscription.schema';
@@ -98,6 +99,8 @@ export async function routeSubscriptionCreation(
       return createProfesionalSubscription(input, region, provider, myrRate);
     case SubscriptionTier.TUTOR:
       return createTutorSubscription(input, region, provider);
+    case SubscriptionTier.BUSINESS_COACH:
+      return createBusinessCoachSubscription(input, region, provider);
     case SubscriptionTier.ENTERPRISE:
       return createEnterprisePendingSubscription(input, region);
     default:
@@ -203,6 +206,44 @@ async function createTutorSubscription(
     provider,
     access:          TIER_ACCESS[SubscriptionTier.TUTOR],
     isFounderFunded: false,
+  });
+
+  const checkoutUrl = await createProviderCheckout(sub, amount, pricing.currency, provider);
+
+  return {
+    subscriptionId: sub._id.toString(),
+    checkoutUrl,
+    provider,
+    currency: pricing.currency,
+    amount,
+  };
+}
+
+async function createBusinessCoachSubscription(
+  input:    CreateSubscriptionInput,
+  region:   SupportedRegion,
+  provider: PaymentProvider,
+): Promise<SubscriptionCreationResult> {
+  if (input.billingCycle !== BillingCycle.MONTHLY) {
+    throw new Error('ADAM Business Coach is monthly billing only.');
+  }
+
+  const pricing = getBusinessCoachPricing('public');
+  const amount = pricing.monthly;
+
+  const sub = await saveSubscription({
+    userId:                    input.userId,
+    founderId:                 FOUNDER_SUBSCRIPTION_ID,
+    tier:                      SubscriptionTier.BUSINESS_COACH,
+    status:                    SubscriptionStatus.PENDING,
+    billingCycle:              BillingCycle.MONTHLY,
+    region,
+    currency:                  pricing.currency,
+    amountPerCycle:            amount,
+    provider,
+    access:                    TIER_ACCESS[SubscriptionTier.BUSINESS_COACH],
+    isFounderFunded:           false,
+    businessCoachChannel:      'public',
   });
 
   const checkoutUrl = await createProviderCheckout(sub, amount, pricing.currency, provider);

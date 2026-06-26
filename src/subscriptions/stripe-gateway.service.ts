@@ -126,6 +126,7 @@ export function getStripePriceId(
     [`${SubscriptionTier.PRO}_${BillingCycle.ANNUAL}`]:          ENV.STRIPE_PRICE_ID_PRO_ANNUAL,
     [`${SubscriptionTier.PROFESIONAL}_${BillingCycle.MONTHLY}`]: ENV.STRIPE_PRICE_ID_PREMIUM_MONTHLY,
     [`${SubscriptionTier.PROFESIONAL}_${BillingCycle.ANNUAL}`]:  ENV.STRIPE_PRICE_ID_PREMIUM_ANNUAL,
+    [`${SubscriptionTier.BUSINESS_COACH}_${BillingCycle.MONTHLY}`]: ENV.STRIPE_PRICE_ID_BUSINESS_COACH_PUBLIC_MONTHLY,
   };
   return map[`${tier}_${cycle}`] ?? '';
 }
@@ -142,6 +143,8 @@ function tierCheckoutLabel(tier: SubscriptionTier): string {
       return isConsumerDailyPlan() ? 'ADAM Premium' : 'ADAM Profesional + Consultant';
     case SubscriptionTier.TUTOR:
       return 'ADAM Tutor';
+    case SubscriptionTier.BUSINESS_COACH:
+      return 'ADAM Business Coach';
     default:
       return 'ADAM Subscription';
   }
@@ -172,6 +175,9 @@ function buildRegionalLineItemParams(sub: ISubscription): Record<string, string>
   } else if (sub.tier === SubscriptionTier.PROFESIONAL) {
     const monthly = sub.amountPerCycle ?? 0;
     description = `ADAM Consultant (all fields) + full memory & API — RM ${monthly.toFixed(2)}/month`;
+  } else if (sub.tier === SubscriptionTier.BUSINESS_COACH) {
+    const monthly = sub.amountPerCycle ?? 0;
+    description = `ADAM Business Coach — universal business advisor — USD ${monthly.toFixed(2)}/month`;
   }
 
   return {
@@ -251,12 +257,30 @@ export async function createStripeCheckoutSession(
     ...(sub.tier === SubscriptionTier.TUTOR && sub.tutorLevel
       ? { 'metadata[tutorLevel]': sub.tutorLevel }
       : {}),
+    ...(sub.tier === SubscriptionTier.BUSINESS_COACH
+      ? {
+        'metadata[checkoutType]':            'business_coach_register',
+        'metadata[alamtologi_checkout_type]': 'subscription',
+        'metadata[alamtologi_tier]':         SubscriptionTier.BUSINESS_COACH,
+        'metadata[alamtologi_sku]':          'business_coach.monthly',
+        'metadata[alamtologi_channel]':      sub.businessCoachChannel ?? 'public',
+        'metadata[businessCoachChannel]':    sub.businessCoachChannel ?? 'public',
+        'subscription_data[metadata][checkoutType]':           'business_coach_register',
+        'subscription_data[metadata][alamtologi_checkout_type]': 'subscription',
+        'subscription_data[metadata][alamtologi_tier]':        SubscriptionTier.BUSINESS_COACH,
+        'subscription_data[metadata][alamtologi_sku]':         'business_coach.monthly',
+        'subscription_data[metadata][alamtologi_channel]':     sub.businessCoachChannel ?? 'public',
+        'subscription_data[metadata][businessCoachChannel]':   sub.businessCoachChannel ?? 'public',
+      }
+      : {}),
     'subscription_data[metadata][subscriptionId]': mongoId,
     'subscription_data[metadata][userId]':         sub.userId,
     'subscription_data[metadata][region]':         sub.region ?? '',
     success_url:                          sub.tier === SubscriptionTier.TUTOR
       ? `${appUrl()}/subscription/success?session_id={CHECKOUT_SESSION_ID}&product=tutor`
-      : `${appUrl()}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+      : sub.tier === SubscriptionTier.BUSINESS_COACH
+        ? `${appUrl()}/adam/business-coach/chat?paid=1&session_id={CHECKOUT_SESSION_ID}`
+        : `${appUrl()}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:                           `${appUrl()}/subscription/cancelled`,
     client_reference_id:                  mongoId,
     billing_address_collection:           'auto',
@@ -363,6 +387,11 @@ async function handleCheckoutCompleted(session: Record<string, unknown>): Promis
   if (meta?.checkoutType === 'tutor_agent_package') {
     const { activateTutorAgentPackageFromStripeCheckout } = await import('../adam/tutor/adam-tutor-agent-package-stripe.service');
     await activateTutorAgentPackageFromStripeCheckout(session);
+    return;
+  }
+  if (meta?.checkoutType === 'business_coach_register') {
+    const { activateBusinessCoachFromStripeCheckout } = await import('../business-coach/business-coach-stripe.service');
+    await activateBusinessCoachFromStripeCheckout(session);
     return;
   }
   if (meta?.checkoutType === 'adam_credits') {

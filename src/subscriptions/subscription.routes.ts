@@ -34,6 +34,7 @@ import {
   listTutorLevelPricing,
   getConsumerProPricing,
   getConsumerPremiumPricing,
+  getBusinessCoachPricing,
   consumerTierSavingsNote,
   ENTERPRISE_PRICING,
   TIER_ACCESS,
@@ -111,6 +112,7 @@ router.get('/pricing', async (c) => {
   }
 
   const tutorTier = buildTutorPricingTier(paymentWired, region, myrRate);
+  const businessCoachTier = buildBusinessCoachPricingTier(paymentWired);
 
   const consumerPro = consumerPlan ? getConsumerProPricing(region, myrRate) : null;
   const consumerPremium = consumerPlan ? getConsumerPremiumPricing(region, myrRate) : null;
@@ -189,6 +191,7 @@ router.get('/pricing', async (c) => {
         rollingWindowHours: rollingWindowHours(),
       },
       tutor: tutorTier,
+      businessCoach: businessCoachTier,
     } : {
       basic: {
         label:         'Basic',
@@ -245,9 +248,37 @@ router.get('/pricing', async (c) => {
         description: 'Organisational memory, white-label, and private deployment.',
       },
       tutor: tutorTier,
+      businessCoach: businessCoachTier,
     },
   });
 });
+
+function buildBusinessCoachPricingTier(paymentWired: boolean) {
+  const pub = getBusinessCoachPricing('public');
+  const pin = getBusinessCoachPricing('pin');
+  return {
+    label:         'ADAM Business Coach',
+    monthlyAmount: pub.monthly,
+    pinMonthlyAmount: pin.monthly,
+    annualAmount:  0,
+    currency:      pub.currency,
+    description:   'Universal business coach — public checkout or via ADAM Business Coach PIN.',
+    monthlyOnly:   true,
+    comingSoon:    !paymentWired,
+    channels: {
+      public: {
+        label:         pub.label,
+        monthlyAmount: pub.monthly,
+        currency:      pub.currency,
+      },
+      pin: {
+        label:         pin.label,
+        monthlyAmount: pin.monthly,
+        currency:      pin.currency,
+      },
+    },
+  };
+}
 
 function buildTutorPricingTier(
   paymentWired: boolean,
@@ -297,6 +328,12 @@ router.post('/create', requireAdamUser, async (c) => {
     return c.json({
       error: 'Pro is not open for new subscriptions on this deployment.',
     }, 403);
+  }
+
+  if (tier === SubscriptionTier.BUSINESS_COACH && body.billingCycle !== BillingCycle.MONTHLY) {
+    return c.json({
+      error: 'ADAM Business Coach is monthly billing only.',
+    }, 400);
   }
 
   const stripe = getStripeGatewayStatus();

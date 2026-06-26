@@ -279,6 +279,9 @@ export const ENV = {
   /** 2. ADAM Premium (checkout tier PROFESIONAL on consumer plan) */
   STRIPE_PRICE_ID_PREMIUM_MONTHLY: optional('STRIPE_PRICE_ID_PREMIUM_MONTHLY', ''),
   STRIPE_PRICE_ID_PREMIUM_ANNUAL:  optional('STRIPE_PRICE_ID_PREMIUM_ANNUAL', ''),
+  /** ADAM Business Coach — USD35/month public · USD23/month PIN */
+  STRIPE_PRICE_ID_BUSINESS_COACH_PUBLIC_MONTHLY: optional('STRIPE_PRICE_ID_BUSINESS_COACH_PUBLIC_MONTHLY', ''),
+  STRIPE_PRICE_ID_BUSINESS_COACH_PIN_MONTHLY:    optional('STRIPE_PRICE_ID_BUSINESS_COACH_PIN_MONTHLY', ''),
 
   /** 3. Ejen — one-time MYR PIN packages (3 school bands × 4 tiers) */
   STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_SILVER:     optional('STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_SILVER', ''),
@@ -355,6 +358,10 @@ export const ENV = {
   ADAM_TUTOR_AGENT_UNIVERSITY_USD:  optionalFloat('ADAM_TUTOR_AGENT_UNIVERSITY_USD', 29),
   /** @deprecated Use ADAM_TUTOR_AGENT_SECONDARY_USD */
   ADAM_TUTOR_AGENT_MONTHLY_USD: optionalFloat('ADAM_TUTOR_AGENT_MONTHLY_USD', 23),
+  /** ADAM Business Coach — public monthly USD (global). */
+  ADAM_BUSINESS_COACH_PUBLIC_MONTHLY_USD: optionalFloat('ADAM_BUSINESS_COACH_PUBLIC_MONTHLY_USD', 35),
+  /** ADAM Business Coach — PIN channel monthly USD (global). */
+  ADAM_BUSINESS_COACH_PIN_MONTHLY_USD: optionalFloat('ADAM_BUSINESS_COACH_PIN_MONTHLY_USD', 23),
   /** USD → MYR display rate for closed Tutor channel (Malaysia) */
   ADAM_USD_MYR_RATE: optionalFloat('ADAM_USD_MYR_RATE', 0),
   /** Cache TTL for live USD/MYR fetch (ms). Default 15 min. */

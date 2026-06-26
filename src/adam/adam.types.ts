@@ -149,7 +149,7 @@ export type ADAMChatMode =
   | 'JOURNAL_GEN'
   | 'BUILDER'
   | 'TUTOR'
-  /** ADAM Niaga — Malaysia SME daily business advisor */
+  /** ADAM Niaga — universal business coach (Niaga product lane) */
   | 'NIAGA'
   /** R&D Eksklusif — Industry research partner (paid subscription) */
   | 'RESEARCH';
