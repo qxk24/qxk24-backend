@@ -95,7 +95,6 @@ import {
   getAccountLane,
 } from '../../adam/adam-student-registry.service';
 import {
-  guardPelajarLane,
   guardUmumLane,
 } from '../../adam/adam-account-lane-guard';
 import {
@@ -893,11 +892,9 @@ router.get('/group/history', requireStudent, async (c) => {
   return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
 });
 
-// ─── ADAM Tutor (conventional academics — separate lane) ───────
+// ─── ADAM Tutor (conventional academics — all students: umum + pelajar) ───────
 
 router.get('/tutor/profile', requireStudent, async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const profile = await getTutorProfile(user.userId);
   return c.json({
@@ -908,8 +905,6 @@ router.get('/tutor/profile', requireStudent, async (c) => {
 });
 
 router.put('/tutor/profile', requireStudent, zValidator('json', TutorProfileSchema), async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const body = c.req.valid('json');
   const profile = await saveTutorProfile(user.userId, body);
@@ -921,8 +916,6 @@ router.put('/tutor/profile', requireStudent, zValidator('json', TutorProfileSche
 });
 
 router.get('/tutor/subscription', requireStudent, async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const tutorLevel = c.req.query('tutorLevel')?.trim() || undefined;
   const access = await resolveTutorSubscriptionAccess(user.userId, tutorLevel);
@@ -935,8 +928,6 @@ router.get('/tutor/subscription', requireStudent, async (c) => {
 });
 
 router.get('/tutor/session', requireStudent, requireTutorSubscription, async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const preferred = c.req.query('sessionId')?.trim();
   let sessionId: string;
@@ -960,8 +951,6 @@ router.get('/tutor/session', requireStudent, requireTutorSubscription, async (c)
 });
 
 router.get('/tutor/chat/sessions', requireStudent, requireTutorSubscription, async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const rawLimit = parseInt(c.req.query('limit') ?? '30', 10);
   const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 30;
@@ -1001,8 +990,6 @@ router.delete('/tutor/chat/sessions/:sessionId', requireStudent, requireTutorSub
 });
 
 router.post('/tutor/chat/sessions', requireStudent, requireTutorSubscription, async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const sessionId = await createNewChatSession(user.userId, 'tutor');
   return c.json({
@@ -1014,8 +1001,6 @@ router.post('/tutor/chat/sessions', requireStudent, requireTutorSubscription, as
 });
 
 router.get('/tutor/chat/history/:sessionId', requireStudent, requireTutorSubscription, async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const sessionId = c.req.param('sessionId') ?? '';
   const allowed = await assertStudentOwnsSession(user.userId, sessionId);
@@ -1032,8 +1017,6 @@ router.get('/tutor/chat/history/:sessionId', requireStudent, requireTutorSubscri
 
 // DELETE /api/adam/student/tutor/chat/history/:sessionId — clear tutor chat
 router.delete('/tutor/chat/history/:sessionId', requireStudent, requireTutorSubscription, async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const sessionId = c.req.param('sessionId') ?? '';
   if (!sessionId) {
@@ -1058,8 +1041,6 @@ router.delete('/tutor/chat/history/:sessionId', requireStudent, requireTutorSubs
 });
 
 router.post('/tutor/chat', requireStudent, requireTutorSubscription, zValidator('json', TutorChatSchema), async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const body = c.req.valid('json');
 
