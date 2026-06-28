@@ -59,11 +59,14 @@ export function buildPrefetchedSearchContextBlock(
     return [
       '[WEB SEARCH — NO USABLE HITS]',
       ADAM_EQ_NO_FACT_HOLD,
-      'Prefetch search ran but returned zero hits with verifiable figures for this question.',
+      'Prefetch search ran but returned zero usable hits for this question.',
+      'This is an absence of retrieved evidence, NOT evidence that the user claim is false.',
+      'If the user supplied a news URL or asserted a death/current-affairs claim, do NOT deny the event/person status from zero hits or a single 404.',
       'Reply in TWO short sentences maximum:',
-      '1) State that web search completed but no verified figure appeared in hits.',
-      '2) Ask the student to paste an official URL or narrow the query (campus, session, year).',
+      '1) State that this turn could not verify the claim from retrieved hits.',
+      '2) Ask the student to paste another reliable source, headline, or date so ADAM can verify it.',
       'FORBIDDEN: naming specific portals, ministries, or parent organisations not in search hits.',
+      'FORBIDDEN: saying a person is alive, an article never existed, or an event did not happen solely because search returned no usable hits or one URL returned 404.',
       'FORBIDDEN: step-by-step guides, "Adakah QA ingin saya bantu", offers to search later, or listing where data "usually" lives.',
       'FORBIDDEN: "konteks semasa", long catalogues of possible sources, academic year ranges as filler.',
     ].join('\n');
@@ -113,6 +116,7 @@ export function buildPrefetchedSearchContextBlock(
     'Titles, URLs, and snippets — do not invent numbers, dates, names, citations, or parent organisations beyond this list.',
     'Office-holder / news: whoever holds the office TODAY per hits — not training-memory predecessors.',
     'Statistics / specs: cite figures that appear in extracted facts or hit snippets — not model memory alone.',
+    'News/current affairs/death claims: if hits are missing, inaccessible, contradictory, or only show a 404 page, say the claim is not verified by the retrieved hits; never convert missing/404 search evidence into a denial that the event happened.',
     ...lines,
   ].join('\n');
 }

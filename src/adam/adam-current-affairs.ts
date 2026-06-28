@@ -15,6 +15,7 @@
  * ============================================================
  */
 
+import type { LlmSearchResult } from '../llm/llm-types';
 import { isAdamCurrentAffairsTurn } from './adam-web-search';
 
 export { isAdamCurrentAffairsTurn };
@@ -33,11 +34,101 @@ CURRENT AFFAIRS TURN (office-holders, elections, news):
 
 /** Sharpen prefetch query — training data on presidents is often stale. */
 export function buildCurrentAffairsPrefetchPrompt(userMessage: string): string {
+  const query = buildCurrentAffairsSearchDisplayQuery(userMessage);
   return [
-    'MANDATORY WEB SEARCH — current office-holder as of today.',
-    'Find who holds the office NOW in the latest term. Ignore outdated training-data names.',
+    'MANDATORY WEB SEARCH — current office-holder / live news / death claim as of today.',
+    `Primary search query: ${query}`,
+    'For death/obituary claims, search the named person plus "meninggal", "wafat", "death", "died", and major Malaysian news sources.',
+    'If a pasted URL is 404 or inaccessible, treat that as a fetch/access problem for that URL only. Search alternate reliable sources before concluding.',
+    'Never infer that a person is alive or that a news event did not happen merely because one URL returns 404 or the first search has no usable hits.',
+    'Find who holds the office NOW in the latest term, or whether the news/death claim is corroborated by retrieved sources. Ignore outdated training-data names.',
     `Student question: ${userMessage.trim()}`,
   ].join('\n');
+}
+
+export function buildCurrentAffairsSearchDisplayQuery(userMessage: string): string {
+  const raw = userMessage.trim();
+  const expanded = raw.replace(/https?:\/\/[^\s)]+/gi, (url) => {
+    try {
+      const parsed = new URL(url);
+      return parsed.pathname
+        .split(/[\/\-_]+/)
+        .filter((part) => part && !/^\d+$/.test(part))
+        .join(' ');
+    } catch {
+      return url;
+    }
+  });
+  const cleaned = expanded
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\b(?:https?|www|com|my|html|php|berita|malaysia)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return (cleaned || raw).slice(0, 120);
+}
+
+const DEATH_CLAIM =
+  /\b(?:meninggal|wafat|kematian|death|died|dead|passed away|obituary)\b/i;
+
+const SEARCH_MISS_FALSE_NEGATIVE =
+  /\b(?:tidak\s+(?:wujud|menemui|menjumpai|memaparkan|ada|terdapat|menyebut|mengesahkan)|belum\s+(?:menemui|mengesahkan)|tiada\s+(?:sebarang\s+)?(?:siaran|berita|artikel|laporan|pengumuman|sumber)|no\s+(?:usable|verified|evidence|article|report|announcement)|not\s+found|page\s+not\s+found|404)\b/i;
+
+function hasCurrentAffairsEvidence(
+  hits: LlmSearchResult[] = [],
+  extractedFacts = '',
+): boolean {
+  if (extractedFacts.trim()) return true;
+  return hits.some((hit) => {
+    const blob = `${hit.title ?? ''} ${hit.snippet ?? ''}`.trim();
+    return blob.length >= 40 && !/\b(?:404|page\s+not\s+found|not\s+found)\b/i.test(blob);
+  });
+}
+
+function safeCurrentAffairsAbstention(userMessage: string): string {
+  const topic = buildCurrentAffairsSearchDisplayQuery(userMessage);
+  const subject = topic ? `tentang **${topic}**` : 'tentang perkara ini';
+  return [
+    `Carian web pada giliran ini belum cukup untuk mengesahkan dakwaan ${subject} melalui hasil yang diperoleh.`,
+    'Jika satu pautan memulangkan 404 atau tidak boleh dibuka, itu hanya bermaksud pautan tersebut tidak dapat dicapai sekarang — bukan bukti bahawa berita itu palsu atau peristiwa itu tidak berlaku.',
+    'Sila kongsi satu lagi sumber dipercayai, tajuk berita, atau tarikh pengumuman; saya akan semak semula tanpa menafikan fakta yang belum benar-benar disahkan.',
+  ].join('\n\n');
+}
+
+/**
+ * Deterministic safety rail for live news/death turns.
+ * LLMs often turn "search miss / 404" into a false denial ("the article never
+ * existed", "no death announcement"). That is epistemically unsafe: absence of
+ * retrieved evidence is not evidence of absence.
+ */
+export function repairUnsupportedCurrentAffairsDenial(input: {
+  output: string;
+  userMessage: string;
+  searchUsed: boolean;
+  searchDroppedByFilter?: boolean;
+  searchResults?: LlmSearchResult[];
+  extractedFacts?: string;
+}): string {
+  const userMessage = input.userMessage.trim();
+  if (!userMessage || !isAdamCurrentAffairsTurn(userMessage)) return input.output;
+  if (!DEATH_CLAIM.test(userMessage)) return input.output;
+  if (!SEARCH_MISS_FALSE_NEGATIVE.test(input.output)) return input.output;
+
+  const evidencePresent = hasCurrentAffairsEvidence(
+    input.searchResults ?? [],
+    input.extractedFacts ?? '',
+  );
+
+  // If we have evidence and the model still says "not found", keep the guard
+  // conservative: only block when the wording rests on missing/404 evidence.
+  if (evidencePresent && !/\b(?:404|page\s+not\s+found|not\s+found|tidak\s+wujud)\b/i.test(input.output)) {
+    return input.output;
+  }
+
+  if (!input.searchUsed || input.searchDroppedByFilter || !evidencePresent || SEARCH_MISS_FALSE_NEGATIVE.test(input.output)) {
+    return safeCurrentAffairsAbstention(userMessage);
+  }
+
+  return input.output;
 }
 
 const INDONESIA_PRESIDENT_ASK =

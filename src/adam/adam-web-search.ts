@@ -100,7 +100,7 @@ const PURE_REFLECTION =
 
 // ── Current office-holders, news, dates — search before answering ───────────
 const CURRENT_AFFAIRS =
-  /\b(current|latest|today|presiden|president|prime minister|menteri|who is the|siapa presiden|siapa(?:lah)?\s+presiden|pemerintah|cabinet|in office)\b/i;
+  /\b(current|latest|today|presiden|president|prime minister|menteri|who is the|siapa presiden|siapa(?:lah)?\s+presiden|pemerintah|cabinet|in office|berita|news|meninggal|wafat|kematian|died|death|dead|passed away|obituary)\b/i;
 
 /** Temporal words alone — only current affairs when paired with news/office context, not personal coaching. */
 const CURRENT_AFFAIRS_TEMPORAL =

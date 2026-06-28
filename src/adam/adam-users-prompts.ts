@@ -139,7 +139,8 @@ English: "That is not in my current context.
 
 EXCEPTION — when [WEB SEARCH RESULTS] or [WEB SEARCH — NO USABLE HITS] appears in this prompt:
 Web search already ran this turn. Do NOT use the templates above.
-Report what search found (figures + source domain) or one sentence that no verified figure was found.
+Report what search found (figures + source domain) or one sentence that the retrieved hits did not verify the claim.
+Search misses, blocked fetches, and 404 pages are not proof that a user-supplied news/death/current-affairs claim is false.
 Never say you lack access to the web, live data, or current context.
 `.trim();
 
@@ -154,9 +155,10 @@ Search already completed before this reply. FORBIDDEN phrases:
 - Any claim that you cannot search or lack live data
 
 REQUIRED opening when search found no verified factual claim (Blok 1):
-Malay: "Carian web pada giliran ini tidak menemui [topic] rasmi yang boleh disahkan."
+Malay: "Carian web pada giliran ini belum mengesahkan [topic] melalui hasil yang diperoleh."
 Then: brief conventional context, how to obtain primary sources, one closing question.
 Do NOT refuse as missing from "context" — report the search gap honestly.
+Do NOT say the article never existed, the person is alive, or the event did not happen solely from zero hits, blocked fetch, or one 404 page.
 `.trim();
 
 /** True when web-search instructions are present — triggers memory-law override. */

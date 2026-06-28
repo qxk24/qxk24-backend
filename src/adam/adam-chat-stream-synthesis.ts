@@ -64,6 +64,7 @@ import { finalizeUsersTechnicalDisplay } from './adam-users-stream-repair';
 import { isAdamMediaSearchTurn } from './adam-media-search';
 import { outputHasAdamChatMedia } from './adam-media-guard';
 import { isAdamCurrentAffairsTurn, isFactualAdamWebSearchGateReason, isVerifiedDataStatAsk } from './adam-web-search';
+import { repairUnsupportedCurrentAffairsDenial } from './adam-current-affairs';
 import {
   enforceTutorReplyGuards,
   isAdamTutorMode,
@@ -448,6 +449,25 @@ export async function executeAdamSynthesisTurn(input: {
           tutorGuardRepair: true,
         }));
       }
+    }
+
+    const currentAffairsSafe = repairUnsupportedCurrentAffairsDenial({
+      output:                fullResponse,
+      userMessage,
+      searchUsed:            webSearchUsedThisTurn || searchBundle.prefetchedSearchUsed,
+      searchDroppedByFilter: searchBundle.prefetchedSearchDropped,
+      searchResults:         searchBundle.prefetchedSearchResults,
+      extractedFacts:        searchBundle.extractedFacts,
+    });
+    if (currentAffairsSafe !== fullResponse) {
+      fullResponse = currentAffairsSafe;
+      sanitizedRepairApplied = true;
+      onEvent('adam_stream_done', JSON.stringify({
+        sessionId: resolvedSessionId,
+        replace:   true,
+        response:  fullResponse,
+        currentAffairsFactGuard: true,
+      }));
     }
 
     if (isAdamTutorMode(mode) && shell.options.tutorProfile) {

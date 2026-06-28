@@ -27,6 +27,7 @@ import {
 } from './adam-search-continuation';
 import {
   buildCurrentAffairsPrefetchPrompt,
+  buildCurrentAffairsSearchDisplayQuery,
   isAdamCurrentAffairsTurn,
 } from './adam-current-affairs';
 import {
@@ -168,6 +169,9 @@ export function buildAdamSearchDisplayQuery(
   }
   if (isAdamMarketPricingTurn(body)) {
     return buildMarketPricingSearchDisplayQuery(userMessage);
+  }
+  if (isAdamCurrentAffairsTurn(body)) {
+    return buildCurrentAffairsSearchDisplayQuery(body);
   }
   if (messageAsksRoleAndSkills(body)) {
     return buildFactualZeroHitSearchDisplayQuery(body);
