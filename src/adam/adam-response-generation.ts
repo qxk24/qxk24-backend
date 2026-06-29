@@ -22,6 +22,7 @@ import type { SessionType } from './adam-student.types';
 import { usersExplicitlyRequestsQuran } from './adam-users-prompts';
 import { isTechnicalPrecisionQuestion, userAskedForStructuredSpecification } from './adam-universal-voice';
 import { isAdamCurrentAffairsTurn } from './adam-web-search';
+import { userOpenedWithIslamicSalam } from './adam-salam-reply-guard';
 
 /** Short factual or capability question — answer directly, no philosophy essay. */
 const SIMPLE_FACTUAL_ASK =
@@ -636,7 +637,7 @@ export function buildStudentGreetingFallback(
   userName?: string,
 ): string {
   const t = userMessage.trim();
-  if (/assalamu|salam|waalaikum/i.test(t)) {
+  if (userOpenedWithIslamicSalam(t)) {
     return 'Waalaikumussalam. Salam sejahtera — apa yang ingin dikongsi hari ini?';
   }
   if (/terima\s+kasih|thank|syukran|thanks/i.test(t)) {

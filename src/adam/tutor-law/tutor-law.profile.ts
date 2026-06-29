@@ -17,6 +17,7 @@
 
 import type { ADAMChatMode } from '../adam.types';
 import { isAdamLightChatTurn } from '../adam-response-generation';
+import { userOpenedWithIslamicSalam } from '../adam-salam-reply-guard';
 import { usersDisplayFirstName } from '../adam-users-constitution';
 import type {
   AdamTutorCurriculum,
@@ -195,7 +196,7 @@ export function buildTutorGreetingFallback(
   const name = userName?.trim();
   const first = name ? usersDisplayFirstName(name) : '';
 
-  if (/assalamu|salam\s*alaikum/i.test(t) && !/waalaikum/i.test(t)) {
+  if (userOpenedWithIslamicSalam(t)) {
     const greet = 'Waalaikumussalam.';
     const follow = lang === 'malay'
       ? `Saya ${title} ADAM. Apa subjek atau soalan hari ini?`

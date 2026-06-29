@@ -58,6 +58,7 @@ import { isVisualDrawCollapsedRepair } from './adam-visual-draw-guard';
 import { dedupeUsersHaiGreeting, isUsersGreetingOnlyRepair } from './adam-users-constitution';
 import { isAdamProseCraftTurn, isProseCraftSurfaceRepair } from './adam-prose-craft';
 import type { StreamRepairResult } from './adam-chat-stream-llm';
+import { ensureIslamicSalamReply } from './adam-salam-reply-guard';
 
 export async function repairUsersStreamOutput(input: {
   shell: AdamChatTurnShell;
@@ -263,6 +264,8 @@ export async function repairUsersStreamOutput(input: {
       });
     }
   }
+
+  fullResponse = ensureIslamicSalamReply(fullResponse, userMessage, participant.userName);
 
   return {
     fullResponse,
