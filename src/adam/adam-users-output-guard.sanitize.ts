@@ -125,6 +125,7 @@ import {
   stripFrameworkBillboards,
 } from './adam-users-output-guard.framework';
 import { filterUsersSanitizeParagraphs } from './adam-users-output-guard.sanitize-paragraphs';
+import { collapseReflectiveOptionMenuClose } from './adam-reflective-close-guard';
 
 /** Sync hygiene only — ADAM voice must not be gutted post-stream. */
 export function sanitizeUsersOutputSync(
@@ -518,5 +519,6 @@ export function sanitizeUsersOutputSync(
   polished = repairParliamentComponentsOutput(userMessage, polished, stashed);
   polished = repairLifeWellbeingGuttedOutput(userMessage, polished, stashed);
   polished = repairDomainTeachingGuttedOutput(userMessage, polished, stashed, recentUserMessages);
+  polished = collapseReflectiveOptionMenuClose(polished);
   return polished;
 }
