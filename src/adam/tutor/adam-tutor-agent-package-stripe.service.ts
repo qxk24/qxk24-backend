@@ -41,7 +41,7 @@ const STRIPE_API = 'https://api.stripe.com/v1';
 const CHECKOUT_TYPE = 'tutor_agent_package';
 
 function appUrl(): string {
-  return (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
+  return (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://qxk24.com').replace(/\/$/, '');
 }
 
 function stripeHeaders(): Record<string, string> {

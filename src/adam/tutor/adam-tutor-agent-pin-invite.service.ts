@@ -27,7 +27,7 @@ import {
 import { tutorBandLabel } from './adam-tutor-register.constants';
 
 function appUrl(): string {
-  return (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
+  return (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://qxk24.com').replace(/\/$/, '');
 }
 
 function normalizeRegisterCode(raw: string): string {

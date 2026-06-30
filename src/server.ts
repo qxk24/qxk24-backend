@@ -122,7 +122,7 @@ async function bootstrap(): Promise<void> {
       console.log(`║  Port    : ${ENV.PORT}                              ║`);
       console.log(`║  Upload  : ${ENV.UPLOAD_MAX_FILE_MB}MB max body              ║`);
       console.log(`║  Env     : ${ENV.NODE_ENV}                   ║`);
-      console.log('║  Domain  : api.alamtologi.com                    ║');
+      console.log('║  Domain  : api.qxk24.com                         ║');
       console.log('╚══════════════════════════════════════════════╝');
       console.log('');
     });

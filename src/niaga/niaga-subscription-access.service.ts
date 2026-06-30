@@ -36,17 +36,17 @@ export interface NiagaSubscriptionAccess {
 }
 
 function niagaUpgradeUrl(): string {
-  const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
+  const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://qxk24.com').replace(/\/$/, '');
   return `${base}/niaga/daftar`;
 }
 
 function niagaRegisterUrl(): string {
-  const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
+  const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://qxk24.com').replace(/\/$/, '');
   return `${base}/niaga/daftar`;
 }
 
 function niagaChatUrl(): string {
-  const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
+  const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://qxk24.com').replace(/\/$/, '');
   return `${base}/niaga/chat`;
 }
 

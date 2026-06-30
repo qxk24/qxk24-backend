@@ -82,7 +82,7 @@ export async function attachSubscriptionAccess(
 }
 
 export function subscriptionUpgradeUrl(): string {
-  const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
+  const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://qxk24.com').replace(/\/$/, '');
   return `${base}/plans`;
 }
 

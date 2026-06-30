@@ -79,7 +79,7 @@ export function registerRoutes(app: Hono): void {
       stack:       ENV.QXK24_STACK,
       llmProvider: ENV.LLM_PROVIDER,
       timestamp:   new Date().toISOString(),
-      domain:      'api.alamtologi.com',
+      domain:      'api.qxk24.com',
       ama: isAmaBrainV2Enabled()
         ? {
             tamatOass:       isAmaTamatOassEnabled(),

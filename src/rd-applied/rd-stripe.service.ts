@@ -39,7 +39,7 @@ import { RdSubscriptionModel } from './rd-subscription.schema';
 const STRIPE_API = 'https://api.stripe.com/v1';
 
 function appUrl(): string {
-  return (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
+  return (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://qxk24.com').replace(/\/$/, '');
 }
 
 function stripeHeaders(): Record<string, string> {

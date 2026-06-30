@@ -90,7 +90,7 @@ Temporary password: ${password}
 Tester question limit: ${limit} questions
 
 How to start:
-1) Open https://alamtologi.com/adam/chat (or tap ADAM in the menu)
+1) Open https://qxk24.com/adam/chat (or tap ADAM in the menu)
 2) Sign in with your Login ID + password
 3) Choose your language (ADAM will greet you automatically)
 4) Send your first question (each question counts toward your limit)

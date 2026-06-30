@@ -60,7 +60,7 @@ Admin: ADAM Tutor admin → PIN & agents → QA test agen
   console.log(`Agen Code    : ${result.agentCode}`);
   console.log(`Portal Token : ${result.portalToken}`);
   console.log('');
-  console.log('Login URL    : https://www.alamtologi.com/adam/tutor/agen');
+  console.log('Login URL    : https://www.qxk24.com/adam/tutor/agen');
   if (result.credentialsEmailSent) {
     console.log(`\nCredentials also emailed to ${result.email}.`);
   } else {

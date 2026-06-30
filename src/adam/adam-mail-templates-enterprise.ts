@@ -212,7 +212,7 @@ export function buildEnterpriseWelcomeHtml(data: EnterpriseWelcomeData): string 
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td style="padding-right:8px;">
-                  <a href="https://alamtologi.com/adam/enterprise/onboarding" style="display:block;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;padding:14px 20px;border-radius:12px;text-align:center;letter-spacing:0.3px;">Start Onboarding →</a>
+                  <a href="https://qxk24.com/adam/enterprise/onboarding" style="display:block;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;padding:14px 20px;border-radius:12px;text-align:center;letter-spacing:0.3px;">Start Onboarding →</a>
                 </td>
                 <td style="padding-left:8px;">
                   <a href="mailto:${architectEmail}" style="display:block;background-color:#f0fdfa;border:2px solid #0d9488;color:#0d9488;text-decoration:none;font-size:14px;font-weight:800;padding:12px 20px;border-radius:12px;text-align:center;letter-spacing:0.3px;">Email Your Architect</a>
@@ -242,9 +242,9 @@ export function buildEnterpriseWelcomeHtml(data: EnterpriseWelcomeData): string 
           <td style="padding:20px 44px 28px;text-align:center;border-top:1px solid #f1f5f9;">
             <p style="margin:0 0 8px;font-size:12px;color:#94a3b8;line-height:1.7;">
               Alamtologi &nbsp;·&nbsp; Kuala Lumpur, Malaysia<br/>
-              <a href="https://alamtologi.com/account" style="color:#94a3b8;text-decoration:underline;">Manage subscription</a>
+              <a href="https://qxk24.com/account" style="color:#94a3b8;text-decoration:underline;">Manage subscription</a>
               &nbsp;·&nbsp;
-              <a href="https://alamtologi.com/privacy" style="color:#94a3b8;text-decoration:underline;">Privacy</a>
+              <a href="https://qxk24.com/privacy" style="color:#94a3b8;text-decoration:underline;">Privacy</a>
               &nbsp;·&nbsp;
               <a href="mailto:enterprise@alamtologi.com" style="color:#94a3b8;text-decoration:underline;">Support</a>
             </p>

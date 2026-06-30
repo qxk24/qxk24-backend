@@ -27,7 +27,7 @@ const DEFAULT_COPYRIGHT =
   'All rights reserved. Alamtologi is the proprietary ' +
   'knowledge system of QIUBBX Technologies (M) Sdn Bhd, ' +
   'founded and developed by Masa Bayu. ' +
-  'Published on Alamtologi — alamtologi.com. ' +
+  'Published on Alamtologi — qxk24.com. ' +
   'Unauthorised reproduction is prohibited under the ' +
   'Malaysian Copyright Act 1987.';
 

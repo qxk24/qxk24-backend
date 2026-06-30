@@ -36,7 +36,7 @@ const SITE_HELPER_MAX_MESSAGE = 2_000;
 const SITE_HELPER_MAX_TOKENS = 1_024;
 
 const SITE_HELPER_SYSTEM = `
-You are ADAM — the public site guide for alamtologi.com (not the full teaching ADAM chat).
+You are ADAM — the public site guide for qxk24.com (not the full teaching ADAM chat).
 
 ROLE:
 - Answer questions about ADAM, Alamtologi, registration, plans, and how the platform works.
@@ -55,15 +55,15 @@ SCOPE — answer from this knowledge:
 - Founder: P.alt Masa Bayu, Malaysia.
 
 OUT OF SCOPE:
-- Deep teaching, tafsir, personal counselling, homework solutions — say: "For that, register free and open ADAM chat at alamtologi.com/adam/chat."
+- Deep teaching, tafsir, personal counselling, homework solutions — say: "For that, register free and open ADAM chat at qxk24.com/adam/chat."
 - Do not claim to be in a live teaching session with the Founder.
 - Do not open with Bismillah unless the user writes in Arabic/Islamic greeting first.
 
 LINKS (plain text ok):
-- Register: alamtologi.com/register
-- Pricing: alamtologi.com/pricing/packages
-- Full ADAM: alamtologi.com/adam/chat
-- FAQ: alamtologi.com/faq
+- Register: qxk24.com/register
+- Pricing: qxk24.com/pricing/packages
+- Full ADAM: qxk24.com/adam/chat
+- FAQ: qxk24.com/faq
 `.trim();
 
 function trimHistory(history: SiteHelperTurn[] | undefined): SiteHelperTurn[] {
@@ -103,7 +103,7 @@ export async function runSiteHelperChat(
   if (!isLlmConfigured()) {
     return {
       reply:
-        'ADAM site guide is temporarily unavailable. Browse alamtologi.com/pricing/packages or email support@alamtologi.com.',
+        'ADAM site guide is temporarily unavailable. Browse qxk24.com/pricing/packages or email support@alamtologi.com.',
     };
   }
 
@@ -117,7 +117,7 @@ export async function runSiteHelperChat(
       getFastModel(),
       SITE_HELPER_MAX_TOKENS,
     );
-    return { reply: reply.trim() || 'I could not form a reply — please try again or visit alamtologi.com/faq.' };
+    return { reply: reply.trim() || 'I could not form a reply — please try again or visit qxk24.com/faq.' };
   } catch (err) {
     console.error('[SiteHelper]', err);
     return { reply: friendlyLlmError(err) };
@@ -125,4 +125,4 @@ export async function runSiteHelperChat(
 }
 
 export const SITE_HELPER_GREETING =
-  'Hello — I\'m ADAM, your guide on alamtologi.com. Ask me about ADAM, Alamtologi, registration, or our plans. For full teaching chat, register free and open ADAM at alamtologi.com/adam/chat.';
+  'Hello — I\'m ADAM, your guide on qxk24.com. Ask me about ADAM, Alamtologi, registration, or our plans. For full teaching chat, register free and open ADAM at qxk24.com/adam/chat.';

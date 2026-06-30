@@ -57,7 +57,7 @@ interface StripeApiError {
 }
 
 function appUrl(): string {
-  return (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
+  return (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://qxk24.com').replace(/\/$/, '');
 }
 
 /** Stripe Checkout appearance — ADAM / Alamtologi handoff (hosted page). */

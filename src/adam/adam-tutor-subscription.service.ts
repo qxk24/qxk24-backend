@@ -39,7 +39,7 @@ export interface TutorSubscriptionAccess {
 }
 
 function tutorUpgradeUrl(level: TutorSubscriptionLevel = 'secondary'): string {
-  const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
+  const base = (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://qxk24.com').replace(/\/$/, '');
   const q = new URLSearchParams({
     tier:         'TUTOR',
     billingCycle: 'MONTHLY',

@@ -75,7 +75,7 @@ Now ADAM can read your codebase and build with you.
 
 The difference is significant. Here is what it means in practice:
 
-You open alamtologi.com/adam/lab — the same chat you have always used.
+You open qxk24.com/adam/lab — the same chat you have always used.
 You type something like:
 
   "Fix the duplicate index warning in my journal schema"
@@ -159,7 +159,7 @@ YOUR ALLOCATION THIS MONTH
 Plan          : Profesional Dev
 Build sessions: 50 / 50 remaining
 Resets on     : ${profile.nextRenewalDate}
-Upgrade       : alamtologi.com/pricing (Studio Pro — unlimited)
+Upgrade       : qxk24.com/pricing (Studio Pro — unlimited)
 
 ───────────────────────────────────────────
 
@@ -179,11 +179,11 @@ and where nothing happens without your permission.
 Build well.
 
 — The QXK24 Team
-  api.alamtologi.com | alamtologi.com/adam/lab
+  api.qxk24.com | qxk24.com/adam/lab
 
 ───────────────────────────────────────────
-To manage your subscription: alamtologi.com/account
-To cancel: alamtologi.com/account/cancel
+To manage your subscription: qxk24.com/account
+To cancel: qxk24.com/account/cancel
 Alamtologi · Kuala Lumpur, Malaysia
 `.trim();
 }

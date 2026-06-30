@@ -46,7 +46,7 @@ export interface BusinessCoachSubscriptionAccess {
 }
 
 function appBase(): string {
-  return (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://alamtologi.com').replace(/\/$/, '');
+  return (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://qxk24.com').replace(/\/$/, '');
 }
 
 export function isBusinessCoachBillingEnforced(): boolean {

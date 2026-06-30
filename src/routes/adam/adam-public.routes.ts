@@ -250,7 +250,7 @@ router.get('/site-helper/greeting', (c) => {
   return c.json({
     success: true,
     greeting:
-      'Hello — I\'m ADAM, your guide on alamtologi.com. Ask me about ADAM, Alamtologi, registration, or our plans. For full teaching chat, register free and open ADAM at alamtologi.com/adam/chat.',
+      'Hello — I\'m ADAM, your guide on qxk24.com. Ask me about ADAM, Alamtologi, registration, or our plans. For full teaching chat, register free and open ADAM at qxk24.com/adam/chat.',
     kernel: 'Alamtologi',
   });
 });

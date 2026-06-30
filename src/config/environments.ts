@@ -158,9 +158,9 @@ export const ENV = {
   RESEND_API_KEY:                 optional('RESEND_API_KEY', ''),
   MAIL_FROM:                        optional('MAIL_FROM', 'Alamtologi <info@alamtologi.com>'),
   MAIL_REPLY_TO:                    optional('MAIL_REPLY_TO', 'info@alamtologi.com'),
-  ADAM_WEB_BASE_URL:                optional('ADAM_WEB_BASE_URL', 'https://alamtologi.com'),
+  ADAM_WEB_BASE_URL:                optional('ADAM_WEB_BASE_URL', 'https://qxk24.com'),
   /** Public web URL for subscription checkout redirects */
-  APP_URL:                          optional('APP_URL', optional('ADAM_WEB_BASE_URL', 'https://alamtologi.com')),
+  APP_URL:                          optional('APP_URL', optional('ADAM_WEB_BASE_URL', 'https://qxk24.com')),
   ADAM_PASSWORD_RESET_ENABLED:      optional('ADAM_PASSWORD_RESET_ENABLED', 'true') === 'true',
   ADAM_PASSWORD_RESET_TTL_MINUTES:  optionalInt('ADAM_PASSWORD_RESET_TTL_MINUTES', 60),
 

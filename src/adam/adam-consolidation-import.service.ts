@@ -56,7 +56,7 @@ function assertProductionStack(): void {
   if (ENV.QXK24_STACK === 'lab') {
     throw new Error(
       'Lab → production import runs on the production API only. ' +
-      'Call POST /api/adam/students/import-lab-memory on api.alamtologi.com (not /lab).',
+      'Call POST /api/adam/students/import-lab-memory on api.qxk24.com (not /lab).',
     );
   }
 }

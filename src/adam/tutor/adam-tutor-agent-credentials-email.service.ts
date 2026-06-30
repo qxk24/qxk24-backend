@@ -21,7 +21,7 @@ import type { ITutorAgent } from './adam-tutor-agent.schema';
 import { newTutorAgentPortalToken } from './adam-tutor-agent.service';
 
 function appUrl(): string {
-  return (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://www.alamtologi.com').replace(/\/$/, '');
+  return (ENV.APP_URL || ENV.ADAM_WEB_BASE_URL || 'https://www.qxk24.com').replace(/\/$/, '');
 }
 
 function agentPortalUrl(): string {

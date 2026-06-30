@@ -92,8 +92,8 @@ async function main(): Promise<void> {
     name:    admin.name,
     role:    admin.role,
     modules: admin.modules,
-    login:   'https://alamtologi.com/admin/login',
-    hub:     'https://alamtologi.com/admin',
+    login:   'https://qxk24.com/admin/login',
+    hub:     'https://qxk24.com/admin',
   }, null, 2));
   console.log('');
   console.log('Next: pm2 restart alm-backend --update-env  (reloads student login cache on VPS)');
