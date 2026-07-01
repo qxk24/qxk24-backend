@@ -27,10 +27,9 @@ import {
   type ITutorRegisterCode,
 } from './adam-tutor-register-code.schema';
 import { getTutorAgentById } from './adam-tutor-agent.service';
-import {
-  agentPackageEnforced,
-  consumeTutorAgentPins,
-} from './adam-tutor-agent-package.service';
+import { agentPackageEnforced, consumeTutorAgentPins } from './adam-tutor-agent-package.service';
+import { isCharityTutorAgent } from './adam-tutor-charity-agent.config';
+import { consumeCharityAgentPins } from './adam-tutor-charity-agent.service';
 
 export function newTutorRegisterCodeId(): string {
   return `TUTOR-CODE-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
@@ -136,15 +135,19 @@ export async function generateTutorRegisterCodes(input: {
     agentLabel = agent.orgName;
 
     if (agentPackageEnforced(agent)) {
-      if (!agent.band) {
-        throw new Error('Agen has not selected a school band (primary/secondary/university).');
+      if (isCharityTutorAgent(agent)) {
+        await consumeCharityAgentPins(agent, input.band, count);
+      } else {
+        if (!agent.band) {
+          throw new Error('Agen has not selected a school band (primary/secondary/university).');
+        }
+        if (agent.band !== input.band) {
+          throw new Error(
+            `Band ${TUTOR_REGISTER_BAND_LABELS_BM[input.band]} does not match agen package (${TUTOR_REGISTER_BAND_LABELS_BM[agent.band]}).`,
+          );
+        }
+        await consumeTutorAgentPins(agentId, count);
       }
-      if (agent.band !== input.band) {
-        throw new Error(
-          `Band ${TUTOR_REGISTER_BAND_LABELS_BM[input.band]} does not match agen package (${TUTOR_REGISTER_BAND_LABELS_BM[agent.band]}).`,
-        );
-      }
-      await consumeTutorAgentPins(agentId, count);
     }
   }
 

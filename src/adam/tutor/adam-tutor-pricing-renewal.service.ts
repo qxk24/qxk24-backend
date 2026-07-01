@@ -34,6 +34,7 @@ import {
   type ITutorEnrollment,
 } from './adam-tutor-enrollment.schema';
 import { TUTOR_AGENT_LICENSE_MONTHS } from './adam-tutor-register.constants';
+import { TUTOR_CHARITY_AGENT_PROGRAM } from './adam-tutor-charity-agent.config';
 import type { TutorPricingChannel } from './adam-tutor-pricing.types';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
@@ -93,6 +94,23 @@ export function stampEnrollmentAgentPriceWindow(
 
   enrollment.agentPriceStartedAt = paidAt;
   enrollment.agentPriceEndsAt = computeAgentPriceWindowEnd(paidAt);
+  enrollment.priceSwitchAt = enrollment.agentPriceEndsAt;
+  enrollment.pricingChannel = 'agent';
+  enrollment.priceSwitchedAt = null;
+}
+
+/** Charity student-agent referrals — 3-month agent channel per PIN. */
+export function stampEnrollmentCharityPriceWindow(
+  enrollment: ITutorEnrollment,
+  paidAt: Date,
+): void {
+  if (enrollment.agentPriceStartedAt) return;
+
+  enrollment.agentPriceStartedAt = paidAt;
+  enrollment.agentPriceEndsAt = addCalendarMonths(
+    paidAt,
+    TUTOR_CHARITY_AGENT_PROGRAM.REFERRAL_MONTHS,
+  );
   enrollment.priceSwitchAt = enrollment.agentPriceEndsAt;
   enrollment.pricingChannel = 'agent';
   enrollment.priceSwitchedAt = null;

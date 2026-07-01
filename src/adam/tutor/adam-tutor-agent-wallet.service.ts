@@ -16,6 +16,10 @@ import {
   TutorAgentLedgerType,
   TutorAgentWalletLedgerModel,
 } from './adam-tutor-agent-wallet.schema';
+import {
+  isCharityTutorAgent,
+  TUTOR_CHARITY_AGENT_PROGRAM,
+} from './adam-tutor-charity-agent.config';
 import { getTutorBandPricing } from './adam-tutor-pricing.service';
 import type { TutorSubscriptionLevel } from '../../subscriptions/subscription.schema';
 
@@ -42,9 +46,20 @@ export async function creditTutorAgentCommission(input: {
   const agent = await TutorAgentModel.findOne({ agentId: input.agentId });
   if (!agent || agent.status !== 'active') return null;
 
-  const pricing = await getTutorBandPricing(null, 'agent');
-  const pct = Math.min(Math.max(agent.commissionPercent, 0), 50);
-  const commissionMyr = Math.round(pricing.monthlyMyr * (pct / 100) * 100) / 100;
+  let commissionMyr: number;
+  let note: string;
+
+  if (isCharityTutorAgent(agent)) {
+    commissionMyr = TUTOR_CHARITY_AGENT_PROGRAM.EARN_PER_PIN_MYR;
+    note = `Charity agent · RM ${commissionMyr} per PIN · ${input.registerCode}`;
+  } else {
+    const pricing = await getTutorBandPricing(null, 'agent');
+    const pct = Math.min(Math.max(agent.commissionPercent, 0), 50);
+    commissionMyr = Math.round(pricing.monthlyMyr * (pct / 100) * 100) / 100;
+    if (commissionMyr <= 0) return null;
+    note = `Komisen ${pct}% · ${pricing.bandLabel}`;
+  }
+
   if (commissionMyr <= 0) return null;
 
   const balanceAfter = Math.round((agent.walletBalanceMyr + commissionMyr) * 100) / 100;
@@ -58,7 +73,7 @@ export async function creditTutorAgentCommission(input: {
     enrollmentId: input.enrollmentId,
     userId:       input.userId,
     registerCode: input.registerCode,
-    note:         `Komisen ${pct}% · ${pricing.bandLabel}`,
+    note,
   });
 
   agent.walletBalanceMyr = balanceAfter;

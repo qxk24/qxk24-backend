@@ -19,6 +19,7 @@ import { TutorAgentPackageStatus } from './adam-tutor-agent-package.config';
 import { getTutorAgentById } from './adam-tutor-agent.service';
 import type { ITutorAgent } from './adam-tutor-agent.schema';
 import { generateTutorRegisterCodes } from './adam-tutor-register-code.service';
+import { isCharityTutorAgent } from './adam-tutor-charity-agent.config';
 
 /** Mint all remaining package PIN credits as register codes (idempotent when balance is 0). */
 export async function mintTutorAgentRegisterPinsForPackage(
@@ -47,6 +48,10 @@ export async function ensureAgentPackagePinsMinted(
   agent: ITutorAgent,
   createdBy = 'portal:auto-mint',
 ): Promise<ITutorAgent> {
+  if (isCharityTutorAgent(agent)) {
+    const { ensureCharityAgentPinsReady } = await import('./adam-tutor-charity-agent.service');
+    return ensureCharityAgentPinsReady(agent, createdBy);
+  }
   if (agent.packageStatus !== TutorAgentPackageStatus.ACTIVE) return agent;
   if (agent.pinBalance <= 0) return agent;
 

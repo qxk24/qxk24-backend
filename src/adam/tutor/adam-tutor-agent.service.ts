@@ -39,6 +39,8 @@ import {
   type TutorAgentMarketingStudentPublic,
 } from './adam-tutor-agent-marketing.service';
 import { agentDemoChatUserId } from './adam-tutor-agent-demo-chat.service';
+import { isCharityTutorAgent } from './adam-tutor-charity-agent.config';
+import type { TutorAgentProgramKind } from './adam-tutor-charity-agent.config';
 import { TutorAgentWalletLedgerModel } from './adam-tutor-agent-wallet.schema';
 import { ADAMFounderSessionModel } from '../adam.schema';
 import type { TutorSubscriptionLevel } from '../../subscriptions/subscription.schema';
@@ -230,6 +232,11 @@ export interface TutorAgentPortalOverview {
   packageRenewalCount: number;
   licenseActive:      boolean;
   packageQuote:       ReturnType<typeof serializeAgentPackage>['packageQuote'];
+  agentProgram:       TutorAgentProgramKind;
+  pinBalanceSchool:     number;
+  pinBalanceUniversity: number;
+  universityName:       string | null;
+  matricNumber:         string | null;
 }
 
 export async function getTutorAgentPortalOverview(
@@ -283,7 +290,9 @@ export async function getTutorAgentPortalOverview(
     packageTier:        agent.packageTier,
     packageTierLabel:   serializeAgentPackage(agent).packageTierLabel,
     packageStatus:      agent.packageStatus,
-    pinBalance:         agent.pinBalance,
+    pinBalance:         isCharityTutorAgent(agent)
+      ? (agent.pinBalanceSchool ?? 0) + (agent.pinBalanceUniversity ?? 0)
+      : agent.pinBalance,
     pinPurchasedTotal:  agent.pinPurchasedTotal,
     packagePaidAt:      agent.packagePaidAt?.toISOString() ?? null,
     packageExpiresAt:   agent.packageExpiresAt?.toISOString() ?? null,
@@ -291,11 +300,19 @@ export async function getTutorAgentPortalOverview(
     packageRenewalCount: agent.packageRenewalCount ?? 0,
     licenseActive:      Boolean(
       (() => {
+        if (isCharityTutorAgent(agent)) {
+          return Boolean(agent.studentVerifiedAt);
+        }
         const exp = resolveAgentLicenseExpiry(agent);
         return exp && exp > new Date();
       })(),
     ),
     packageQuote:       serializeAgentPackage(agent).packageQuote,
+    agentProgram:       agent.agentProgram ?? 'commercial',
+    pinBalanceSchool:   agent.pinBalanceSchool ?? 0,
+    pinBalanceUniversity: agent.pinBalanceUniversity ?? 0,
+    universityName:     agent.universityName ?? null,
+    matricNumber:       agent.matricNumber ?? null,
   };
 }
 

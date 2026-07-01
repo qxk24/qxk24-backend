@@ -16,6 +16,7 @@ import {
   TutorAgentPackageStatus,
   type TutorAgentPackageTier,
 } from './adam-tutor-agent-package.config';
+import type { TutorAgentProgramKind } from './adam-tutor-charity-agent.config';
 
 export enum TutorAgentStatus {
   ACTIVE    = 'active',
@@ -59,6 +60,14 @@ export interface ITutorAgent extends Document {
   status:             TutorAgentStatus;
   /** Lowercase student login id — same as agentId, for marketing demo account. */
   marketingStudentUserId: string | null;
+  /** commercial (default) | student_charity — free dual PIN pools for verified students. */
+  agentProgram:           TutorAgentProgramKind;
+  pinBalanceSchool:       number;
+  pinBalanceUniversity:   number;
+  studentVerifiedAt:      Date | null;
+  universityName:         string | null;
+  matricNumber:           string | null;
+  charityApplicationId:   string | null;
   createdBy:          string;
   notes:              string | null;
   createdAt:          Date;
@@ -112,6 +121,18 @@ const TutorAgentSchema = new Schema<ITutorAgent>(
     commissionPercent: { type: Number, default: 20, min: 0, max: 50 },
     walletBalanceMyr:  { type: Number, default: 0 },
     marketingStudentUserId: { type: String, default: null, index: true },
+    agentProgram:      {
+      type:    String,
+      enum:    ['commercial', 'student_charity'],
+      default: 'commercial',
+      index:   true,
+    },
+    pinBalanceSchool:     { type: Number, default: 0, min: 0 },
+    pinBalanceUniversity: { type: Number, default: 0, min: 0 },
+    studentVerifiedAt:    { type: Date, default: null },
+    universityName:       { type: String, default: null },
+    matricNumber:         { type: String, default: null },
+    charityApplicationId: { type: String, default: null, index: true },
     status:            {
       type:    String,
       enum:    Object.values(TutorAgentStatus),

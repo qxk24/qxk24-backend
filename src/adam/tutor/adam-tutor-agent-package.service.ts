@@ -34,7 +34,10 @@ import {
   resolveAgentLicenseExpiry,
 } from './adam-tutor-pricing-renewal.service';
 
-export function agentPackageEnforced(agent: Pick<ITutorAgent, 'packageStatus'>): boolean {
+export function agentPackageEnforced(agent: Pick<ITutorAgent, 'packageStatus' | 'agentProgram'>): boolean {
+  if (agent.agentProgram === 'student_charity') {
+    return agent.packageStatus === TutorAgentPackageStatus.ACTIVE;
+  }
   return agent.packageStatus === TutorAgentPackageStatus.ACTIVE
     || agent.packageStatus === TutorAgentPackageStatus.PENDING;
 }

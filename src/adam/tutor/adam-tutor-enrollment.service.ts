@@ -46,7 +46,10 @@ import {
 } from './adam-tutor-parent.service';
 import {
   stampEnrollmentAgentPriceWindow,
+  stampEnrollmentCharityPriceWindow,
 } from './adam-tutor-pricing-renewal.service';
+import { getTutorAgentById } from './adam-tutor-agent.service';
+import { isCharityTutorAgent } from './adam-tutor-charity-agent.config';
 import type { TutorPricingChannel } from './adam-tutor-pricing.types';
 
 export function newTutorEnrollmentId(): string {
@@ -261,7 +264,16 @@ export async function markTutorEnrollmentPaid(input: {
   if (input.subscriptionId) enrollment.subscriptionId = input.subscriptionId;
 
   if (isFirstPayment) {
-    stampEnrollmentAgentPriceWindow(enrollment, paidAt);
+    if (enrollment.agentId) {
+      const agent = await getTutorAgentById(enrollment.agentId);
+      if (agent && isCharityTutorAgent(agent)) {
+        stampEnrollmentCharityPriceWindow(enrollment, paidAt);
+      } else {
+        stampEnrollmentAgentPriceWindow(enrollment, paidAt);
+      }
+    } else {
+      stampEnrollmentAgentPriceWindow(enrollment, paidAt);
+    }
   }
 
   if (enrollment.studentName && enrollment.schoolName && enrollment.state) {
