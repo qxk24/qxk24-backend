@@ -1,125 +1,78 @@
-# Stripe — ADAM Tutor prices (Layer 1)
+# Stripe — ADAM Tutor prices (production)
 
-Create **6 Prices** in [Stripe Dashboard](https://dashboard.stripe.com/products) — dual channel (public + agent/kod-daftar) **student monthly USD**.
-
-| Band | Public (USD/mo) | Agent / kod (USD/mo) | Public `.env` | Agent `.env` |
-|------|-----------------|----------------------|---------------|--------------|
-| Primary School | **$25** | **$19** | `STRIPE_PRICE_ID_TUTOR_PRIMARY_PUBLIC_MONTHLY` | `STRIPE_PRICE_ID_TUTOR_PRIMARY_AGENT_MONTHLY` |
-| Secondary School | **$33** | **$23** | `STRIPE_PRICE_ID_TUTOR_SECONDARY_PUBLIC_MONTHLY` | `STRIPE_PRICE_ID_TUTOR_SECONDARY_AGENT_MONTHLY` |
-| College & University | **$45** | **$29** | `STRIPE_PRICE_ID_TUTOR_UNIVERSITY_PUBLIC_MONTHLY` | `STRIPE_PRICE_ID_TUTOR_UNIVERSITY_AGENT_MONTHLY` |
-
-Legacy single-price keys (fallback for **agent** until `*_AGENT_*` set):
-
-- `STRIPE_PRICE_ID_TUTOR_PRIMARY_MONTHLY`
-- `STRIPE_PRICE_ID_TUTOR_SECONDARY_MONTHLY` · `STRIPE_PRICE_ID_TUTOR_MONTHLY`
-- `STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY`
-
-**Stripe metadata (Product or Price):**
-
-```text
-alamtologi_checkout_type=subscription
-alamtologi_tier=TUTOR
-alamtologi_sku=tutor.monthly
-```
+Last aligned: **School | University** USD monthly · **RM200** wholesale 100 PIN (Jul 2026).
 
 ---
 
-## Agent wholesale packages — **12 Prices (MYR one-time)**
+## Copy-paste — production `alm-backend/.env`
 
-Ejen **mesti bayar pakej** bila aktif (Silver / Gold / Diamond / Platinum).  
-Checkout: `mode=payment` · currency **MYR** · webhook `checkoutType=tutor_agent_package`.
-
-### Cara cipta di Stripe (ulang 12 kali)
-
-1. [Products → Add product](https://dashboard.stripe.com/products)
-2. **Pricing model:** One time  
-3. **Currency:** MYR  
-4. **Amount:** ikut jadual di bawah  
-5. Salin **Price ID** (`price_…`) ke `.env` key yang sepadan  
-6. **Metadata** (Product atau Price):
-
-```text
-alamtologi_checkout_type=tutor_agent_package
-alamtologi_band=primary|secondary|university
-alamtologi_tier=silver|gold|diamond|platinum
-```
-
-### Jadual 12 harga (wajib tepat)
-
-| Product name (cadangan) | MYR | `.env` key |
-|-------------------------|-----|------------|
-| ADAM Tutor Ejen · Rendah · Silver | **200.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_SILVER` |
-| ADAM Tutor Ejen · Rendah · Gold | **900.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_GOLD` |
-| ADAM Tutor Ejen · Rendah · Diamond | **1,600.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_DIAMOND` |
-| ADAM Tutor Ejen · Rendah · Platinum | **2,100.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_PLATINUM` |
-| ADAM Tutor Ejen · Menengah · Silver | **300.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_SILVER` |
-| ADAM Tutor Ejen · Menengah · Gold | **1,400.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_GOLD` |
-| ADAM Tutor Ejen · Menengah · Diamond | **2,600.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_DIAMOND` |
-| ADAM Tutor Ejen · Menengah · Platinum | **3,600.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_PLATINUM` |
-| ADAM Tutor Ejen · IPT · Silver | **400.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_SILVER` |
-| ADAM Tutor Ejen · IPT · Gold | **1,900.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_GOLD` |
-| ADAM Tutor Ejen · IPT · Diamond | **3,600.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_DIAMOND` |
-| ADAM Tutor Ejen · IPT · Platinum | **5,100.00** | `STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_PLATINUM` |
-
-**PIN count** (untuk description, bukan harga Stripe): Silver 100 · Gold 500 · Diamond 1,000 · Platinum 1,500.
-
-### `.env` — 12 Price IDs
+Create **6 Stripe Prices** in [Dashboard → Products](https://dashboard.stripe.com/products) (**Live** mode):
 
 ```bash
-STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_SILVER=price_xxx
-STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_GOLD=price_xxx
-STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_DIAMOND=price_xxx
-STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_PLATINUM=price_xxx
-STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_SILVER=price_xxx
-STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_GOLD=price_xxx
-STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_DIAMOND=price_xxx
-STRIPE_PRICE_ID_TUTOR_EJEN_SECONDARY_PLATINUM=price_xxx
-STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_SILVER=price_xxx
-STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_GOLD=price_xxx
-STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_DIAMOND=price_xxx
-STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_PLATINUM=price_xxx
-```
+# ── Tutor student monthly (recurring USD) ──
+STRIPE_PRICE_ID_TUTOR_PUBLIC_SCHOOL_MONTHLY=price_...       # $19.00 USD / month
+STRIPE_PRICE_ID_TUTOR_PUBLIC_UNIVERSITY_MONTHLY=price_...   # $25.00 USD / month
+STRIPE_PRICE_ID_TUTOR_AGENT_SCHOOL_MONTHLY=price_...        # $17.00 USD / month
+STRIPE_PRICE_ID_TUTOR_AGENT_UNIVERSITY_MONTHLY=price_...    # $19.00 USD / month
 
-Portal ejen: `/adam/tutor/ejen` → **Pakej & PIN** → **Bayar — Stripe**.  
-Webhook endpoint: `https://api.alamtologi.com/api/subscriptions/webhooks/stripe` · event **`checkout.session.completed`**.
+# ── Commercial agent wholesale (one-time MYR · 100 PIN · RM200 each) ──
+STRIPE_PRICE_ID_TUTOR_AGENT_WHOLESALE_SCHOOL=price_...      # RM 200.00 · School
+STRIPE_PRICE_ID_TUTOR_AGENT_WHOLESALE_UNIVERSITY=price_...   # RM 200.00 · University
 
----
+# ── Display amounts (monthly USD must match Stripe Prices above) ──
+ADAM_TUTOR_PUBLIC_SCHOOL_USD=19
+ADAM_TUTOR_PUBLIC_UNIVERSITY_USD=25
+ADAM_TUTOR_AGENT_SCHOOL_USD=17
+ADAM_TUTOR_AGENT_UNIVERSITY_USD=19
 
-## Production `.env` (student + ejen)
-
-```bash
 STRIPE_ENABLED=true
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_PUBLISHABLE_KEY=pk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-APP_URL=https://www.alamtologi.com
-
-# Student public self-serve (when opened)
-STRIPE_PRICE_ID_TUTOR_PRIMARY_PUBLIC_MONTHLY=price_xxx
-STRIPE_PRICE_ID_TUTOR_SECONDARY_PUBLIC_MONTHLY=price_xxx
-STRIPE_PRICE_ID_TUTOR_UNIVERSITY_PUBLIC_MONTHLY=price_xxx
-
-# Student agent / kod-daftar checkout
-STRIPE_PRICE_ID_TUTOR_PRIMARY_AGENT_MONTHLY=price_xxx
-STRIPE_PRICE_ID_TUTOR_SECONDARY_AGENT_MONTHLY=price_xxx
-STRIPE_PRICE_ID_TUTOR_UNIVERSITY_AGENT_MONTHLY=price_xxx
-
-# … plus 12 STRIPE_PRICE_ID_TUTOR_EJEN_* above
-
-ADAM_TUTOR_PRIMARY_PUBLIC_MONTHLY_USD=25
-ADAM_TUTOR_SECONDARY_PUBLIC_MONTHLY_USD=33
-ADAM_TUTOR_UNIVERSITY_PUBLIC_MONTHLY_USD=45
-ADAM_TUTOR_PRIMARY_AGENT_MONTHLY_USD=19
-ADAM_TUTOR_SECONDARY_AGENT_MONTHLY_USD=23
-ADAM_TUTOR_UNIVERSITY_AGENT_MONTHLY_USD=29
-
 ADAM_TUTOR_BILLING_REQUIRED=true
 ```
 
-See also: [STRIPE_ENV_CHECKLIST.md](./STRIPE_ENV_CHECKLIST.md) · [STRIPE_ADAM_PROFESIONAL_PRICES.md](./STRIPE_ADAM_PROFESIONAL_PRICES.md)
+**Legacy fallback:** if `STRIPE_PRICE_ID_TUTOR_AGENT_WHOLESALE_*` are empty, backend still reads old `STRIPE_PRICE_ID_TUTOR_EJEN_*_SILVER` keys (must also be **RM200** if you use them).
 
-## Test flow
+---
 
-1. **Ejen:** `/adam/tutor/ejen` → pilih pakej → Stripe test card `4242 4242 4242 4242` → PIN aktif  
-2. **Pelajar:** kod-daftar → checkout USD monthly  
-3. Pre-Stripe soak: `ADAM_TUTOR_BILLING_REQUIRED=false` · dev tanpa 12 IDs guna `price_data` fallback
+## 1. Student monthly subscriptions
+
+| Who pays | Band | Amount | Env key |
+|----------|------|--------|---------|
+| Public | School | **$19/mo** | `STRIPE_PRICE_ID_TUTOR_PUBLIC_SCHOOL_MONTHLY` |
+| Public | University | **$25/mo** | `STRIPE_PRICE_ID_TUTOR_PUBLIC_UNIVERSITY_MONTHLY` |
+| Agent PIN | School | **$17/mo** | `STRIPE_PRICE_ID_TUTOR_AGENT_SCHOOL_MONTHLY` |
+| Agent PIN | University | **$19/mo** | `STRIPE_PRICE_ID_TUTOR_AGENT_UNIVERSITY_MONTHLY` |
+
+Primary and secondary both use the **School** price.
+
+---
+
+## 2. Commercial agent wholesale (100 PIN)
+
+| Band | Amount | Env key |
+|------|--------|---------|
+| **School** | **RM 200** (100 PIN) | `STRIPE_PRICE_ID_TUTOR_AGENT_WHOLESALE_SCHOOL` |
+| **University** | **RM 200** (100 PIN) | `STRIPE_PRICE_ID_TUTOR_AGENT_WHOLESALE_UNIVERSITY` |
+
+Same price both bands — separate Stripe products optional (for reporting only).
+
+```bash
+stripe prices create --live --currency=myr --unit-amount=20000 \
+  -d "product_data[name]=ADAM Tutor Agent · School · 100 PIN"
+
+stripe prices create --live --currency=myr --unit-amount=20000 \
+  -d "product_data[name]=ADAM Tutor Agent · University · 100 PIN"
+```
+
+Charity agents: no wholesale Stripe checkout.
+
+---
+
+## 3. Deploy
+
+```bash
+ssh -p 2222 root@<your-vps>
+nano /var/www/alamtologi/alm-backend/.env
+cd /var/www/alamtologi/alm-backend && pm2 reload ecosystem.config.js --update-env
+```
+
+Smoke test: `/pricing` shows **$19/$25** and **RM200** wholesale; agent checkout shows **RM200**.

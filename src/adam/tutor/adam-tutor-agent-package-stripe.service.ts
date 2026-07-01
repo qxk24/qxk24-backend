@@ -24,8 +24,9 @@ import { normalizeTutorSubscriptionLevel } from '../../subscriptions/tier-access
 import {
   assertTutorAgentPackageStripePriceIds,
   isTutorAgentPackageTier,
+  normalizeWholesalePackTier,
   quoteTutorAgentPackage,
-  TUTOR_AGENT_PACKAGE_TIER_LABELS,
+  TUTOR_AGENT_WHOLESALE_PACK_LABEL,
   tutorAgentPackageStripeEnvKey,
   tutorAgentPackageStripePriceId,
   type TutorAgentPackageTier,
@@ -101,7 +102,7 @@ function buildLineItem(
     );
   }
 
-  const productName = `ADAM Tutor Agen — ${quote.tierLabel} (${TUTOR_REGISTER_BAND_LABELS_BM[band]})`;
+  const productName = `ADAM Tutor Agen — ${TUTOR_AGENT_WHOLESALE_PACK_LABEL} (${TUTOR_REGISTER_BAND_LABELS_BM[band]})`;
   const description = `${quote.pinCount} PIN · RM${quote.pricePerPinMyr.toFixed(2)}/PIN · 1 PIN = 1 akaun`;
 
   return {
@@ -123,20 +124,20 @@ export async function createTutorAgentPackageCheckoutSession(
   }
 
   if (!agent.band || !agent.packageTier) {
-    throw new Error('Pilih pakej (band sekolah + tier) sebelum bayar.');
+    throw new Error('Pilih pakej borong (School / University) sebelum bayar.');
   }
 
   const isRenewal = paths?.renewal === true
     || agent.packageStatus === 'active';
 
   const band = normalizeTutorSubscriptionLevel(agent.band);
-  const tier = agent.packageTier;
-  if (!isTutorAgentPackageTier(tier)) {
-    throw new Error('Tier pakej tidak sah.');
+  const pack = normalizeWholesalePackTier(agent.packageTier);
+  if (!isTutorAgentPackageTier(pack)) {
+    throw new Error('Pakej borong tidak sah.');
   }
 
-  const quote = quoteTutorAgentPackage(band, tier);
-  const lineItem = buildLineItem(band, tier, quote);
+  const quote = quoteTutorAgentPackage(band, pack);
+  const lineItem = buildLineItem(band, pack, quote);
 
   const successPath = paths?.successPath ?? '/adam/tutor/agen?paid=1&session_id={CHECKOUT_SESSION_ID}';
   const cancelPath = paths?.cancelPath ?? '/adam/tutor/agen?cancelled=1';
@@ -154,7 +155,8 @@ export async function createTutorAgentPackageCheckoutSession(
     'metadata[agentId]':        agent.agentId,
     'metadata[agentCode]':      agent.agentCode,
     'metadata[band]':           band,
-    'metadata[tier]':             tier,
+    'metadata[pack]':           pack,
+    'metadata[tier]':             pack,
     'metadata[pinCount]':       String(quote.pinCount),
     'metadata[totalMyr]':       String(quote.totalMyr),
     'metadata[isRenewal]':      isRenewal ? 'true' : 'false',
@@ -186,7 +188,7 @@ export async function activateTutorAgentPackageFromStripeCheckout(
   if (paymentStatus !== 'paid') return false;
 
   const agentId = meta.agentId?.trim();
-  const tier = meta.tier?.trim();
+  const tier = meta.tier?.trim() || meta.pack?.trim();
   const band = meta.band?.trim();
   const sessionId = String(session.id ?? '');
 
@@ -239,14 +241,11 @@ export async function syncTutorAgentPackageFromSession(
 /** Dev / QA — activate package without Stripe when billing not wired. */
 export async function simulateTutorAgentPackagePayment(
   agent: ITutorAgent,
-  input: { band: ReturnType<typeof normalizeTutorSubscriptionLevel>; tier: TutorAgentPackageTier },
+  input: { band: ReturnType<typeof normalizeTutorSubscriptionLevel> },
 ): Promise<ITutorAgent> {
-  await requestTutorAgentPackage(agent, { band: input.band, tier: input.tier });
+  await requestTutorAgentPackage(agent, { band: input.band });
   return activateTutorAgentPackage(agent.agentId, {
     band:        input.band,
-    tier:        input.tier,
     activatedBy: 'simulate:dev',
   });
 }
-
-export { TUTOR_AGENT_PACKAGE_TIER_LABELS };

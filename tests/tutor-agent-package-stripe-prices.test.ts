@@ -15,17 +15,17 @@
 import { describe, expect, it } from '@jest/globals';
 import {
   listMissingTutorAgentPackageStripePriceIds,
-  tutorAgentPackageStripeEnvKey,
+  tutorAgentWholesaleStripeEnvKey,
 } from '../src/adam/tutor/adam-tutor-agent-package.config';
 
-describe('tutor agent package stripe env keys (band-based)', () => {
-  it('maps 12 band × tier keys', () => {
-    expect(tutorAgentPackageStripeEnvKey('primary', 'silver')).toBe(
-      'STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_SILVER',
+describe('tutor agent wholesale stripe env keys (school / university)', () => {
+  it('maps school and university wholesale keys only', () => {
+    expect(tutorAgentWholesaleStripeEnvKey('secondary')).toBe(
+      'STRIPE_PRICE_ID_TUTOR_AGENT_WHOLESALE_SCHOOL',
     );
-    expect(tutorAgentPackageStripeEnvKey('university', 'platinum')).toBe(
-      'STRIPE_PRICE_ID_TUTOR_EJEN_UNIVERSITY_PLATINUM',
+    expect(tutorAgentWholesaleStripeEnvKey('university')).toBe(
+      'STRIPE_PRICE_ID_TUTOR_AGENT_WHOLESALE_UNIVERSITY',
     );
-    expect(listMissingTutorAgentPackageStripePriceIds()).toHaveLength(12);
+    expect(listMissingTutorAgentPackageStripePriceIds()).toHaveLength(2);
   });
 });

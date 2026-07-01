@@ -19,31 +19,27 @@ import {
   quoteTutorAgentPackage,
 } from '../src/adam/tutor/adam-tutor-agent-package.config';
 
-const expected: Record<string, Record<string, number>> = {
-  primary:    { silver: 200, gold: 900, diamond: 1600, platinum: 2100 },
-  secondary:  { silver: 300, gold: 1400, diamond: 2600, platinum: 3600 },
-  university: { silver: 400, gold: 1900, diamond: 3600, platinum: 5100 },
-};
+const expectedWholesaleMyr = 200;
 
 describe('tutor agent package MYR totals (Stripe ejen — band-based)', () => {
   for (const band of TUTOR_AGENT_PACKAGE_BANDS) {
     for (const tier of TUTOR_AGENT_PACKAGE_TIERS) {
-      it(`${band} ${tier} = RM${expected[band][tier]}`, () => {
+      it(`${band} ${tier} = RM${expectedWholesaleMyr}`, () => {
         const quote = quoteTutorAgentPackage(band, tier);
-        expect(quote.totalMyr).toBe(expected[band][tier]);
+        expect(quote.totalMyr).toBe(expectedWholesaleMyr);
       });
     }
   }
 });
 
-describe('ADAM Tutor student USD fee (env defaults — poster schedule)', () => {
+describe('ADAM Tutor student USD fee (env defaults)', () => {
   it('band-priced public and agent channels', async () => {
     const { ENV } = await import('../src/config/environments');
     const { tutorMonthlyUsdByLevel } = await import('../src/subscriptions/tier-access.config');
-    expect(ENV.ADAM_TUTOR_PUBLIC_PRIMARY_USD).toBe(25);
-    expect(ENV.ADAM_TUTOR_AGENT_SECONDARY_USD).toBe(23);
-    expect(tutorMonthlyUsdByLevel('university', 'public')).toBe(45);
-    expect(tutorMonthlyUsdByLevel('primary', 'agent')).toBe(19);
+    expect(ENV.ADAM_TUTOR_PUBLIC_SCHOOL_USD).toBe(19);
+    expect(ENV.ADAM_TUTOR_AGENT_SCHOOL_USD).toBe(17);
+    expect(tutorMonthlyUsdByLevel('university', 'public')).toBe(25);
+    expect(tutorMonthlyUsdByLevel('primary', 'agent')).toBe(17);
   });
 });
 

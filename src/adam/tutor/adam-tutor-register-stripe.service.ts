@@ -32,6 +32,7 @@ import {
 } from '../../subscriptions/subscription.schema';
 import { TIER_ACCESS } from '../../subscriptions/tier-access.config';
 import { getTutorBandPricing, tutorRegisterRegion } from './adam-tutor-pricing.service';
+import { tutorStripePriceId } from './adam-tutor-stripe-prices.config';
 import { TUTOR_REGISTER_BAND_FALLBACK, TUTOR_REGISTER_BAND_LABELS_BM } from './adam-tutor-register.constants';
 import type { TutorPricingChannel } from './adam-tutor-pricing.types';
 import { TutorEnrollmentModel, TutorEnrollmentStatus } from './adam-tutor-enrollment.schema';
@@ -144,14 +145,25 @@ export async function createTutorRegisterCheckoutSession(input: {
 
   const mongoId = sub._id?.toString() ?? newMongoSubscriptionId();
 
+  const stripePriceId = tutorStripePriceId(band, channel);
+  const useFixedPriceId = Boolean(stripePriceId) && pricing.currency.toUpperCase() === 'USD';
+  const lineItem: Record<string, string> = useFixedPriceId
+    ? {
+      'line_items[0][price]':    stripePriceId,
+      'line_items[0][quantity]': '1',
+    }
+    : {
+      'line_items[0][quantity]':  '1',
+      'line_items[0][price_data][currency]':                 pricing.currency.toLowerCase(),
+      'line_items[0][price_data][unit_amount]':              String(unitAmount),
+      'line_items[0][price_data][recurring][interval]':      'month',
+      'line_items[0][price_data][product_data][name]':         'ADAM Tutor',
+      'line_items[0][price_data][product_data][description]': `ADAM Tutor — ${bandLabel} · all subjects · monthly`,
+    };
+
   const params: Record<string, string> = {
     mode:                       'subscription',
-    'line_items[0][quantity]':  '1',
-    'line_items[0][price_data][currency]':                 pricing.currency.toLowerCase(),
-    'line_items[0][price_data][unit_amount]':              String(unitAmount),
-    'line_items[0][price_data][recurring][interval]':      'month',
-    'line_items[0][price_data][product_data][name]':         'ADAM Tutor',
-    'line_items[0][price_data][product_data][description]': `ADAM Tutor — ${bandLabel} · all subjects · monthly`,
+    ...lineItem,
     success_url:                `${appUrl()}/adam/tutor/daftar?paid=1&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:                 `${appUrl()}/adam/tutor/daftar?cancelled=1`,
     client_reference_id:        mongoId,

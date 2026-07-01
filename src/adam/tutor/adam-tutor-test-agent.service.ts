@@ -43,7 +43,7 @@ export const TUTOR_TEST_AGENT_EMAIL = 'tutor-ejen-test@alamtologi.com';
 export const QA_TEST_AGENT_NOTE_PREFIX = 'QA test agent —';
 
 const DEFAULT_BAND: TutorSubscriptionLevel = 'secondary';
-const DEFAULT_TIER: TutorAgentPackageTier = 'silver';
+const DEFAULT_TIER: TutorAgentPackageTier = 'wholesale';
 
 export interface TutorTestAgentProvisionResult {
   agentId:               string;

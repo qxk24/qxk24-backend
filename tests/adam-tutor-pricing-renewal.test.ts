@@ -16,8 +16,8 @@ import {
 import { TUTOR_AGENT_LICENSE_MONTHS } from '../src/adam/tutor/adam-tutor-register.constants';
 import { tutorMonthlyUsdByLevel } from '../src/subscriptions/tier-access.config';
 import {
-  canUpgradeTutorAgentPackage,
-  tutorAgentPackageTierRank,
+  canPurchaseWholesalePack,
+  isActiveWholesalePack,
 } from '../src/adam/tutor/adam-tutor-agent-package.config';
 
 describe('adam-tutor-pricing-renewal helpers', () => {
@@ -42,38 +42,29 @@ describe('adam-tutor-pricing-renewal helpers', () => {
     expect(isAgentLicenseActive(null)).toBe(false);
   });
 
-  it('agent vs public monthly USD differ by band (poster schedule)', () => {
-    expect(tutorAgentMonthlyUsd('primary')).toBe(19);
-    expect(tutorAgentMonthlyUsd('secondary')).toBe(23);
-    expect(tutorAgentMonthlyUsd('university')).toBe(29);
-    expect(tutorPublicMonthlyUsd('primary')).toBe(25);
-    expect(tutorPublicMonthlyUsd('secondary')).toBe(33);
-    expect(tutorPublicMonthlyUsd('university')).toBe(45);
-    expect(tutorMonthlyUsdByLevel('primary', 'agent')).toBe(19);
-    expect(tutorMonthlyUsdByLevel('secondary', 'public')).toBe(33);
+  it('agent vs public monthly USD by school / university band', () => {
+    expect(tutorAgentMonthlyUsd('primary')).toBe(17);
+    expect(tutorAgentMonthlyUsd('secondary')).toBe(17);
+    expect(tutorAgentMonthlyUsd('university')).toBe(19);
+    expect(tutorPublicMonthlyUsd('primary')).toBe(19);
+    expect(tutorPublicMonthlyUsd('secondary')).toBe(19);
+    expect(tutorPublicMonthlyUsd('university')).toBe(25);
+    expect(tutorMonthlyUsdByLevel('secondary', 'agent')).toBe(17);
+    expect(tutorMonthlyUsdByLevel('university', 'public')).toBe(25);
   });
 });
 
-describe('agent package tier upgrade rules', () => {
-  it('ranks silver < gold < diamond < platinum', () => {
-    expect(tutorAgentPackageTierRank('silver')).toBe(0);
-    expect(tutorAgentPackageTierRank('gold')).toBe(1);
-    expect(tutorAgentPackageTierRank('diamond')).toBe(2);
-    expect(tutorAgentPackageTierRank('platinum')).toBe(3);
+describe('agent wholesale pack rules', () => {
+  it('only flat 100 PIN wholesale is active', () => {
+    expect(isActiveWholesalePack('wholesale')).toBe(true);
+    expect(isActiveWholesalePack('silver')).toBe(true);
+    expect(isActiveWholesalePack('gold')).toBe(false);
   });
 
-  it('allows same tier or upgrade, blocks downgrade', () => {
-    expect(canUpgradeTutorAgentPackage('silver', 'silver')).toBe(true);
-    expect(canUpgradeTutorAgentPackage('silver', 'gold')).toBe(true);
-    expect(canUpgradeTutorAgentPackage('silver', 'platinum')).toBe(true);
-    expect(canUpgradeTutorAgentPackage('gold', 'diamond')).toBe(true);
-    expect(canUpgradeTutorAgentPackage('platinum', 'diamond')).toBe(false);
-    expect(canUpgradeTutorAgentPackage('gold', 'silver')).toBe(false);
-    expect(canUpgradeTutorAgentPackage('diamond', 'gold')).toBe(false);
-  });
-
-  it('first purchase has no current tier — any tier allowed', () => {
-    expect(canUpgradeTutorAgentPackage(null, 'silver')).toBe(true);
-    expect(canUpgradeTutorAgentPackage(null, 'platinum')).toBe(true);
+  it('legacy gold agents cannot buy new wholesale until migrated', () => {
+    expect(canPurchaseWholesalePack(null)).toBe(true);
+    expect(canPurchaseWholesalePack('wholesale')).toBe(true);
+    expect(canPurchaseWholesalePack('silver')).toBe(true);
+    expect(canPurchaseWholesalePack('gold')).toBe(false);
   });
 });

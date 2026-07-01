@@ -19,29 +19,28 @@ import {
   quoteTutorAgentPackage,
 } from '../src/adam/tutor/adam-tutor-agent-package.config';
 
-const BAND_TOTALS = {
-  primary:    { silver: 200, gold: 900, diamond: 1600, platinum: 2100 },
-  secondary:  { silver: 300, gold: 1400, diamond: 2600, platinum: 3600 },
-  university: { silver: 400, gold: 1900, diamond: 3600, platinum: 5100 },
-} as const;
-
-describe('tutor agent package pricing (band-based)', () => {
-  for (const band of ['primary', 'secondary', 'university'] as const) {
-    describe(band, () => {
-      for (const [tier, totalMyr] of Object.entries(BAND_TOTALS[band])) {
-        it(`${tier} = RM${totalMyr}`, () => {
-          expect(quoteTutorAgentPackage(band, tier as keyof typeof BAND_TOTALS.primary)).toMatchObject({
-            band,
-            totalMyr,
-          });
-        });
-      }
-
-      it('returns four tiers per band', () => {
-        expect(listTutorAgentPackagesForBand(band)).toHaveLength(4);
+describe('tutor agent wholesale pricing (school / university)', () => {
+  it('school bands quote RM 200 · 100 PIN', () => {
+    for (const band of ['primary', 'secondary'] as const) {
+      const quote = quoteTutorAgentPackage(band);
+      expect(quote).toMatchObject({
+        band:     'secondary',
+        totalMyr: 200,
+        pinCount: 100,
       });
+      expect(listTutorAgentPackagesForBand(band)).toHaveLength(1);
+    }
+  });
+
+  it('university quotes RM 200 · 100 PIN', () => {
+    const quote = quoteTutorAgentPackage('university');
+    expect(quote).toMatchObject({
+      band:     'university',
+      totalMyr: 200,
+      pinCount: 100,
     });
-  }
+    expect(listTutorAgentPackagesForBand('university')).toHaveLength(1);
+  });
 
   it('catalog has 3 bands', () => {
     const catalog = listTutorAgentPackageCatalog();

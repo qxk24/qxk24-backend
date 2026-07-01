@@ -133,8 +133,8 @@ router.post(
         kernel:  'ALAMTOLOGI',
         data:    { agent: serializeAgentPackage(updated), quote },
         message: renewing
-          ? `Beli lagi ${quote?.tierLabel ?? body.tier} — RM${quote?.totalMyr.toFixed(2) ?? '?'} (bayaran penuh · +PIN terkumpul).`
-          : `Pakej ${quote?.tierLabel ?? body.tier} dipilih — RM${quote?.totalMyr.toFixed(2) ?? '?'}. Teruskan bayaran Stripe.`,
+          ? `Beli lagi ${quote?.packLabel ?? '100 PIN pack'} — RM${quote?.totalMyr.toFixed(2) ?? '?'} (bayaran penuh · +PIN terkumpul).`
+          : `Pakej ${quote?.packLabel ?? '100 PIN pack'} dipilih — RM${quote?.totalMyr.toFixed(2) ?? '?'}. Teruskan bayaran Stripe.`,
         timestamp: new Date().toISOString(),
       });
     } catch (err: unknown) {
@@ -153,7 +153,7 @@ router.post('/agent/portal/package/checkout', requireTutorAgent, async (c) => {
     if (!agent.band || !agent.packageTier) {
       return c.json({
         success: false,
-        error:   'Pilih pakej (band sekolah + tier) dahulu.',
+        error:   'Pilih pakej borong (School / University) dahulu.',
         kernel:  'ALAMTOLOGI',
       }, 400);
     }
@@ -161,7 +161,6 @@ router.post('/agent/portal/package/checkout', requireTutorAgent, async (c) => {
     if (!stripe.configured && ENV.NODE_ENV !== 'production') {
       const updated = await simulateTutorAgentPackagePayment(agent, {
         band: agent.band,
-        tier: agent.packageTier as TutorAgentPackageTier,
       });
       const overview = await getTutorAgentPortalOverview(updated);
       return c.json({

@@ -101,7 +101,7 @@ const TutorAgentSchema = new Schema<ITutorAgent>(
     },
     packageTier:       {
       type: String,
-      enum: ['silver', 'gold', 'diamond', 'platinum', null],
+      enum: ['wholesale', 'silver', 'gold', 'diamond', 'platinum', null],
       default: null,
     },
     packageStatus:     {

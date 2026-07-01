@@ -33,6 +33,9 @@ import {
   TUTOR_LEVEL_LABELS,
   normalizeTutorSubscriptionLevel,
 } from './tier-access.config';
+import {
+  tutorStripePriceId as resolveTutorStripePriceId,
+} from '../adam/tutor/adam-tutor-stripe-prices.config';
 import { notifySubscriptionActivated } from './subscription-welcome-mail.service';
 import { ENV } from '../config/environments';
 import { isConsumerDailyPlan } from '../freemium/adam-freemium-consumer.service';
@@ -107,13 +110,11 @@ async function stripeGet<T>(path: string): Promise<T> {
   return data;
 }
 
-export function tutorStripePriceId(_level: TutorSubscriptionLevel, _channel: 'public' | 'agent'): string {
-  // Tutor student checkout uses dynamic price_data — no fixed Stripe price ID.
-  return '';
-}
-
-function tutorPublicStripePriceId(_level: TutorSubscriptionLevel): string {
-  return '';
+export function tutorStripePriceId(
+  level: TutorSubscriptionLevel,
+  channel: 'public' | 'agent' = 'public',
+): string {
+  return resolveTutorStripePriceId(level, channel);
 }
 
 export function getStripePriceId(
@@ -132,6 +133,13 @@ export function getStripePriceId(
 }
 
 function resolveStripePriceId(sub: ISubscription): string {
+  if (sub.tier === SubscriptionTier.TUTOR && sub.billingCycle === BillingCycle.MONTHLY) {
+    const channel = sub.pricingChannel === 'agent' ? 'agent' : 'public';
+    return tutorStripePriceId(
+      normalizeTutorSubscriptionLevel(sub.tutorLevel),
+      channel,
+    );
+  }
   return getStripePriceId(sub.tier, sub.billingCycle, sub.tutorLevel);
 }
 

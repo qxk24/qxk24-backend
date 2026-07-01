@@ -8,50 +8,42 @@
  * Founder     : Masa Bayu
  * Created     : 2026-06-19
  * ============================================================
- * CONSTITUTIONAL DECLARATION:
- * This module operates under the Alamtologi Constitutional
- * Framework. All actions are governed by QXK24. Knowledge
- * belongs to no human. It flows like water to all.
- * ============================================================
  */
 
 /// <reference types="jest" />
 
 import { describe, expect, it } from '@jest/globals';
-import {
-  quoteTutorAgentPackage,
-  type TutorAgentPackageTier,
-} from '../src/adam/tutor/adam-tutor-agent-package.config';
+import { quoteTutorAgentPackage } from '../src/adam/tutor/adam-tutor-agent-package.config';
 import { creditTutorAgentPackagePins } from '../src/adam/tutor/adam-tutor-agent-package.service';
 
-const OFFICIAL_PRIMARY: Record<TutorAgentPackageTier, { pinCount: number; totalMyr: number }> = {
-  silver:   { pinCount: 100, totalMyr: 200 },
-  gold:     { pinCount: 500, totalMyr: 900 },
-  diamond:  { pinCount: 1_000, totalMyr: 1_600 },
-  platinum: { pinCount: 1_500, totalMyr: 2_100 },
-};
+describe('quoteTutorAgentPackage — flat 100 PIN wholesale', () => {
+  it('school bands (primary / secondary) → RM 200', () => {
+    for (const band of ['primary', 'secondary'] as const) {
+      const quote = quoteTutorAgentPackage(band);
+      expect(quote.pinCount).toBe(100);
+      expect(quote.totalMyr).toBe(200);
+      expect(quote.packLabel).toBe('100 PIN pack');
+      expect(quote.band).toBe('secondary');
+    }
+  });
 
-describe('quoteTutorAgentPackage — jadual rasmi pakej ejen (primary)', () => {
-  for (const tier of ['silver', 'gold', 'diamond', 'platinum'] as const) {
-    it(`${tier}`, () => {
-      const expected = OFFICIAL_PRIMARY[tier];
-      const quote = quoteTutorAgentPackage('primary', tier);
-      expect(quote.pinCount).toBe(expected.pinCount);
-      expect(quote.totalMyr).toBe(expected.totalMyr);
-      expect(quote.band).toBe('primary');
-    });
-  }
+  it('university band → RM 200', () => {
+    const quote = quoteTutorAgentPackage('university');
+    expect(quote.pinCount).toBe(100);
+    expect(quote.totalMyr).toBe(200);
+    expect(quote.band).toBe('university');
+  });
 });
 
 describe('creditTutorAgentPackagePins — accumulate repurchases', () => {
-  it('adds PIN credits on each same-tier purchase', () => {
-    const silver = quoteTutorAgentPackage('primary', 'silver');
+  it('adds PIN credits on each wholesale repurchase', () => {
+    const pack = quoteTutorAgentPackage('secondary');
     let balance = 0;
     let purchased = 0;
 
     const first = creditTutorAgentPackagePins(
       { pinBalance: balance, pinPurchasedTotal: purchased },
-      silver.pinCount,
+      pack.pinCount,
     );
     balance = first.pinBalance;
     purchased = first.pinPurchasedTotal;
@@ -60,7 +52,7 @@ describe('creditTutorAgentPackagePins — accumulate repurchases', () => {
 
     const second = creditTutorAgentPackagePins(
       { pinBalance: balance, pinPurchasedTotal: purchased },
-      silver.pinCount,
+      pack.pinCount,
     );
     expect(second.pinBalance).toBe(200);
     expect(second.pinPurchasedTotal).toBe(200);

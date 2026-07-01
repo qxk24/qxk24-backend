@@ -18,12 +18,15 @@
 import type { TutorSubscriptionLevel } from '../../subscriptions/subscription.schema';
 import {
   TutorAgentPackageStatus,
-  canUpgradeTutorAgentPackage,
+  canPurchaseWholesalePack,
+  isActiveWholesalePack,
   isTutorAgentPackageTier,
   listTutorAgentPackageCatalog,
   listTutorAgentPackagesForBand,
+  normalizeWholesalePackTier,
+  packageTierDisplayLabel,
   quoteTutorAgentPackage,
-  tutorAgentPackageTierRank,
+  TUTOR_AGENT_WHOLESALE_PACK,
   type TutorAgentPackageTier,
 } from './adam-tutor-agent-package.config';
 import { TutorAgentModel, type ITutorAgent } from './adam-tutor-agent.schema';
@@ -42,7 +45,7 @@ export function agentPackageEnforced(agent: Pick<ITutorAgent, 'packageStatus' | 
     || agent.packageStatus === TutorAgentPackageStatus.PENDING;
 }
 
-/** Credit PINs after a paid package purchase (same tier repurchase or upgrade). */
+/** Credit PINs after a paid wholesale pack purchase. */
 export function creditTutorAgentPackagePins(
   agent: Pick<ITutorAgent, 'pinBalance' | 'pinPurchasedTotal'>,
   pinCount: number,
@@ -59,45 +62,57 @@ function resolvePackageBand(
 ): TutorSubscriptionLevel {
   const band = inputBand ?? agent.band;
   if (!band) {
-    throw new Error('Pilih band sekolah (rendah / menengah / IPT) sebelum pakej.');
+    throw new Error('Pilih band sekolah atau universiti sebelum pakej.');
   }
   return band;
+}
+
+function resolveWholesaleTier(
+  tier?: TutorAgentPackageTier | string | null,
+): TutorAgentPackageTier {
+  const pack = normalizeWholesalePackTier(tier);
+  if (!isActiveWholesalePack(pack)) {
+    throw new Error('Hanya pakej borong 100 PIN (School / University) boleh dibeli.');
+  }
+  return TUTOR_AGENT_WHOLESALE_PACK;
 }
 
 export async function requestTutorAgentPackage(
   agent: ITutorAgent,
   input: {
     band?:    TutorSubscriptionLevel;
-    tier:     TutorAgentPackageTier;
+    tier?:    TutorAgentPackageTier | string | null;
     renewal?: boolean;
   },
 ): Promise<ITutorAgent> {
+  const pack = resolveWholesaleTier(input.tier);
+
   if (input.renewal) {
     if (agent.packageStatus !== TutorAgentPackageStatus.ACTIVE) {
       throw new Error('Beli lagi pakej hanya untuk akaun ejen aktif.');
     }
     const band = resolvePackageBand(agent, input.band);
     if (agent.band && input.band && agent.band !== input.band) {
-      throw new Error('Tidak boleh tukar band — hanya tier dalam band sama.');
+      throw new Error('Tidak boleh tukar band — pilih School atau University yang sama.');
     }
-    if (!canUpgradeTutorAgentPackage(agent.packageTier, input.tier)) {
-      throw new Error('Tidak boleh turun tier — hanya kekal atau naik (upgrade).');
+    if (!canPurchaseWholesalePack(agent.packageTier)) {
+      throw new Error('Pakej lama tidak lagi dijual — hanya borong 100 PIN School / University.');
     }
-    const quote = quoteTutorAgentPackage(band, input.tier);
+    const quote = quoteTutorAgentPackage(band, pack);
     agent.band = quote.band;
-    agent.packageTier = quote.tier;
+    agent.packageTier = TUTOR_AGENT_WHOLESALE_PACK;
     await agent.save();
     return agent;
   }
 
   if (agent.packageStatus === TutorAgentPackageStatus.ACTIVE) {
-    throw new Error('Pakej sudah aktif — gunakan Beli lagi untuk tambah PIN (bayaran penuh ikut tier).');
+    throw new Error('Pakej sudah aktif — gunakan Beli lagi untuk tambah PIN (bayaran penuh ikut pakej 100 PIN).');
   }
 
   const band = resolvePackageBand(agent, input.band);
-  const quote = quoteTutorAgentPackage(band, input.tier);
+  const quote = quoteTutorAgentPackage(band, pack);
   agent.band = quote.band;
-  agent.packageTier = quote.tier;
+  agent.packageTier = TUTOR_AGENT_WHOLESALE_PACK;
   agent.packageStatus = TutorAgentPackageStatus.PENDING;
   await agent.save();
   return agent;
@@ -107,15 +122,13 @@ export async function activateTutorAgentPackage(
   agentId: string,
   input: {
     band?:            TutorSubscriptionLevel;
-    tier:             TutorAgentPackageTier;
+    tier?:            TutorAgentPackageTier | string | null;
     activatedBy:      string;
     stripeSessionId?: string;
     isRenewal?:       boolean;
   },
 ): Promise<ITutorAgent> {
-  if (!isTutorAgentPackageTier(input.tier)) {
-    throw new Error('Tier pakej tidak sah.');
-  }
+  const pack = resolveWholesaleTier(input.tier);
 
   const agent = await TutorAgentModel.findOne({ agentId });
   if (!agent) throw new Error('Agen not found.');
@@ -135,10 +148,10 @@ export async function activateTutorAgentPackage(
   }
 
   const band = resolvePackageBand(agent, input.band);
-  const quote = quoteTutorAgentPackage(band, input.tier);
+  const quote = quoteTutorAgentPackage(band, pack);
   const paidAt = new Date();
   agent.band = quote.band;
-  agent.packageTier = quote.tier;
+  agent.packageTier = TUTOR_AGENT_WHOLESALE_PACK;
   agent.packageStatus = TutorAgentPackageStatus.ACTIVE;
   agent.pinBalance = quote.pinCount;
   agent.pinPurchasedTotal = quote.pinCount;
@@ -151,7 +164,7 @@ export async function activateTutorAgentPackage(
     agent.packageLastFulfilledSessionId = input.stripeSessionId;
   }
   const bandLabel = TUTOR_REGISTER_BAND_LABELS_BM[quote.band] ?? quote.band;
-  const note = `Pakej ${quote.tierLabel} ${bandLabel} — RM${quote.totalMyr.toFixed(2)} (${quote.pinCount} PIN) · ${input.activatedBy}`;
+  const note = `Pakej ${quote.packLabel} ${bandLabel} — RM${quote.totalMyr.toFixed(2)} (${quote.pinCount} PIN) · ${input.activatedBy}`;
   agent.notes = agent.notes ? `${agent.notes}\n${note}` : note;
   await agent.save();
 
@@ -162,12 +175,12 @@ export async function activateTutorAgentPackage(
   return refreshed ?? agent;
 }
 
-/** Repurchase / upgrade — full tier price; PIN credits accumulate (no purchase cap). */
+/** Repurchase wholesale pack — full price; PIN credits accumulate. */
 export async function renewTutorAgentPackage(
   agentId: string,
   input: {
     band?:            TutorSubscriptionLevel;
-    tier:             TutorAgentPackageTier;
+    tier?:            TutorAgentPackageTier | string | null;
     activatedBy:      string;
     stripeSessionId?: string;
     isRenewal?:       boolean;
@@ -180,34 +193,25 @@ export async function renewTutorAgentPackage(
     throw new Error('Aktifkan pakej dahulu sebelum pembaharuan lesen.');
   }
 
-  const tier = input.tier ?? agent.packageTier;
-  if (!tier || !isTutorAgentPackageTier(tier)) {
-    throw new Error('Tier pakej tidak sah untuk pembaharuan.');
-  }
+  const pack = resolveWholesaleTier(input.tier ?? agent.packageTier);
 
   const band = resolvePackageBand(agent, input.band);
   if (agent.band && agent.band !== band) {
     throw new Error('Tidak boleh tukar band semasa pembaharuan.');
   }
 
-  if (!canUpgradeTutorAgentPackage(agent.packageTier, tier)) {
-    throw new Error('Tidak boleh turun tier — hanya kekal atau naik (upgrade).');
+  if (!canPurchaseWholesalePack(agent.packageTier)) {
+    throw new Error('Pakej lama tidak lagi dijual — hanya borong 100 PIN School / University.');
   }
 
-  const isUpgrade = Boolean(
-    agent.packageTier
-    && tutorAgentPackageTierRank(tier) > tutorAgentPackageTierRank(agent.packageTier),
-  );
-  const isSameTierRepurchase = !isUpgrade && agent.packageTier === tier;
-
-  const quote = quoteTutorAgentPackage(band, tier);
+  const quote = quoteTutorAgentPackage(band, pack);
   const now = new Date();
   const base = agent.packageExpiresAt && agent.packageExpiresAt > now
     ? agent.packageExpiresAt
     : now;
 
   agent.band = quote.band;
-  agent.packageTier = tier;
+  agent.packageTier = TUTOR_AGENT_WHOLESALE_PACK;
   agent.packageExpiresAt = computeAgentPackageExpiry(base);
   agent.packageRenewedAt = now;
   agent.packageRenewalCount = (agent.packageRenewalCount ?? 0) + 1;
@@ -220,12 +224,7 @@ export async function renewTutorAgentPackage(
   }
 
   const bandLabel = TUTOR_REGISTER_BAND_LABELS_BM[quote.band] ?? quote.band;
-  const action = isUpgrade
-    ? `Upgrade ke ${quote.tierLabel}`
-    : isSameTierRepurchase
-      ? `Beli lagi ${quote.tierLabel}`
-      : `Pembaharuan ${quote.tierLabel}`;
-  const note = `${action} ${bandLabel} — RM${quote.totalMyr.toFixed(2)} (+${quote.pinCount} PIN · jumlah terkumpul ${agent.pinPurchasedTotal}) · ${input.activatedBy}`;
+  const note = `Beli lagi ${quote.packLabel} ${bandLabel} — RM${quote.totalMyr.toFixed(2)} (+${quote.pinCount} PIN · jumlah terkumpul ${agent.pinPurchasedTotal}) · ${input.activatedBy}`;
   agent.notes = agent.notes ? `${agent.notes}\n${note}` : note;
   await agent.save();
 
@@ -248,7 +247,7 @@ export async function consumeTutorAgentPins(
   if (!agentPackageEnforced(agent)) return agent;
 
   if (agent.packageStatus !== TutorAgentPackageStatus.ACTIVE) {
-    throw new Error('Agen package not activated yet. Pay for Silver/Gold/Diamond/Platinum first.');
+    throw new Error('Agen package not activated yet. Pay for a 100 PIN wholesale pack first.');
   }
 
   if (agent.pinBalance < count) {
@@ -282,7 +281,7 @@ export function serializeAgentPackage(agent: Pick<
   return {
     band,
     packageTier:       tier,
-    packageTierLabel:  tier ? quote?.tierLabel ?? tier : null,
+    packageTierLabel:  packageTierDisplayLabel(tier),
     packageStatus,
     pinBalance:        agent.pinBalance ?? 0,
     pinPurchasedTotal: agent.pinPurchasedTotal ?? 0,

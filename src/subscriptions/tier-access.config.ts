@@ -230,24 +230,20 @@ export function tutorMonthlyUsdByLevel(
   channel: TutorPriceChannel = 'public',
 ): number {
   const band = normalizeTutorSubscriptionLevel(level ?? undefined);
+  const isSchool = band === 'primary' || band === 'secondary';
 
   if (channel === 'agent') {
-    switch (band) {
-      case 'primary':    return ENV.ADAM_TUTOR_AGENT_PRIMARY_USD;
-      case 'university': return ENV.ADAM_TUTOR_AGENT_UNIVERSITY_USD;
-      default:           return ENV.ADAM_TUTOR_AGENT_SECONDARY_USD;
-    }
+    if (band === 'university') return ENV.ADAM_TUTOR_AGENT_UNIVERSITY_USD;
+    return ENV.ADAM_TUTOR_AGENT_SCHOOL_USD;
   }
 
-  switch (band) {
-    case 'primary':    return ENV.ADAM_TUTOR_PUBLIC_PRIMARY_USD;
-    case 'university': return ENV.ADAM_TUTOR_PUBLIC_UNIVERSITY_USD;
-    default:           return ENV.ADAM_TUTOR_PUBLIC_SECONDARY_USD;
-  }
+  if (band === 'university') return ENV.ADAM_TUTOR_PUBLIC_UNIVERSITY_USD;
+  if (isSchool) return ENV.ADAM_TUTOR_PUBLIC_SCHOOL_USD;
+  return ENV.ADAM_TUTOR_PUBLIC_SCHOOL_USD;
 }
 
-/** @deprecated Use band-specific ADAM_TUTOR_AGENT_*_USD env keys */
-export const TUTOR_MONTHLY_MYR = ENV.ADAM_TUTOR_AGENT_SECONDARY_USD;
+/** @deprecated Use ADAM_TUTOR_AGENT_SCHOOL_USD */
+export const TUTOR_MONTHLY_MYR = ENV.ADAM_TUTOR_AGENT_SCHOOL_USD;
 
 export const TUTOR_LEVEL_LABELS: Record<TutorSubscriptionLevel, string> = {
   primary:    'Primary School',

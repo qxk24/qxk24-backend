@@ -270,8 +270,8 @@ export const ENV = {
   STRIPE_ENABLED:           optional('STRIPE_ENABLED', 'false') === 'true',
 
   // ── Stripe Price IDs ─────────────────────────────────────
-  // 1. Pro  2. Premium  3. Ejen PIN packages  4. Token credits
-  // Tutor student checkout uses band-specific price_data (public vs agent channel).
+  // 1. Pro  2. Premium  3. Tutor monthly  4. Ejen PIN packages  5. Token credits
+  // Tutor student checkout uses fixed STRIPE_PRICE_ID_TUTOR_* when set (USD); else price_data fallback.
   //
   /** 1. ADAM Pro */
   STRIPE_PRICE_ID_PRO_MONTHLY:     optional('STRIPE_PRICE_ID_PRO_MONTHLY', ''),
@@ -283,7 +283,16 @@ export const ENV = {
   STRIPE_PRICE_ID_BUSINESS_COACH_PUBLIC_MONTHLY: optional('STRIPE_PRICE_ID_BUSINESS_COACH_PUBLIC_MONTHLY', ''),
   STRIPE_PRICE_ID_BUSINESS_COACH_PIN_MONTHLY:    optional('STRIPE_PRICE_ID_BUSINESS_COACH_PIN_MONTHLY', ''),
 
-  /** 3. Ejen — one-time MYR PIN packages (3 school bands × 4 tiers) */
+  /** ADAM Tutor — student monthly subscriptions (recurring USD — create in Stripe Live). */
+  STRIPE_PRICE_ID_TUTOR_PUBLIC_SCHOOL_MONTHLY:     optional('STRIPE_PRICE_ID_TUTOR_PUBLIC_SCHOOL_MONTHLY', ''),
+  STRIPE_PRICE_ID_TUTOR_PUBLIC_UNIVERSITY_MONTHLY: optional('STRIPE_PRICE_ID_TUTOR_PUBLIC_UNIVERSITY_MONTHLY', ''),
+  STRIPE_PRICE_ID_TUTOR_AGENT_SCHOOL_MONTHLY:     optional('STRIPE_PRICE_ID_TUTOR_AGENT_SCHOOL_MONTHLY', ''),
+  STRIPE_PRICE_ID_TUTOR_AGENT_UNIVERSITY_MONTHLY: optional('STRIPE_PRICE_ID_TUTOR_AGENT_UNIVERSITY_MONTHLY', ''),
+
+  /** ADAM Tutor — commercial agent wholesale (one-time MYR · 100 PIN). */
+  STRIPE_PRICE_ID_TUTOR_AGENT_WHOLESALE_SCHOOL:     optional('STRIPE_PRICE_ID_TUTOR_AGENT_WHOLESALE_SCHOOL', ''),
+  STRIPE_PRICE_ID_TUTOR_AGENT_WHOLESALE_UNIVERSITY: optional('STRIPE_PRICE_ID_TUTOR_AGENT_WHOLESALE_UNIVERSITY', ''),
+  /** @deprecated Use STRIPE_PRICE_ID_TUTOR_AGENT_WHOLESALE_* — kept for existing VPS .env */
   STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_SILVER:     optional('STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_SILVER', ''),
   STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_GOLD:       optional('STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_GOLD', ''),
   STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_DIAMOND:    optional('STRIPE_PRICE_ID_TUTOR_EJEN_PRIMARY_DIAMOND', ''),
@@ -349,15 +358,21 @@ export const ENV = {
   ADAM_PREMIUM_MONTHLY_USD:     optionalInt('ADAM_PREMIUM_MONTHLY_USD', 75),
   ADAM_PREMIUM_ANNUAL_USD:      optionalInt('ADAM_PREMIUM_ANNUAL_USD', 800),
   /** ADAM Tutor — public monthly USD by school band (pricing page / self-serve). */
-  ADAM_TUTOR_PUBLIC_PRIMARY_USD:    optionalFloat('ADAM_TUTOR_PUBLIC_PRIMARY_USD', 25),
-  ADAM_TUTOR_PUBLIC_SECONDARY_USD:  optionalFloat('ADAM_TUTOR_PUBLIC_SECONDARY_USD', 33),
-  ADAM_TUTOR_PUBLIC_UNIVERSITY_USD: optionalFloat('ADAM_TUTOR_PUBLIC_UNIVERSITY_USD', 45),
-  /** ADAM Tutor — agent/PIN channel monthly USD by school band (not shown on public pricing). */
-  ADAM_TUTOR_AGENT_PRIMARY_USD:     optionalFloat('ADAM_TUTOR_AGENT_PRIMARY_USD', 19),
-  ADAM_TUTOR_AGENT_SECONDARY_USD:   optionalFloat('ADAM_TUTOR_AGENT_SECONDARY_USD', 23),
-  ADAM_TUTOR_AGENT_UNIVERSITY_USD:  optionalFloat('ADAM_TUTOR_AGENT_UNIVERSITY_USD', 29),
-  /** @deprecated Use ADAM_TUTOR_AGENT_SECONDARY_USD */
-  ADAM_TUTOR_AGENT_MONTHLY_USD: optionalFloat('ADAM_TUTOR_AGENT_MONTHLY_USD', 23),
+  ADAM_TUTOR_PUBLIC_SCHOOL_USD:     optionalFloat('ADAM_TUTOR_PUBLIC_SCHOOL_USD', 19),
+  ADAM_TUTOR_PUBLIC_UNIVERSITY_USD: optionalFloat('ADAM_TUTOR_PUBLIC_UNIVERSITY_USD', 25),
+  /** @deprecated Use ADAM_TUTOR_PUBLIC_SCHOOL_USD */
+  ADAM_TUTOR_PUBLIC_PRIMARY_USD:    optionalFloat('ADAM_TUTOR_PUBLIC_PRIMARY_USD', 19),
+  /** @deprecated Use ADAM_TUTOR_PUBLIC_SCHOOL_USD */
+  ADAM_TUTOR_PUBLIC_SECONDARY_USD:  optionalFloat('ADAM_TUTOR_PUBLIC_SECONDARY_USD', 19),
+  /** ADAM Tutor — agent/PIN channel monthly USD by billing band. */
+  ADAM_TUTOR_AGENT_SCHOOL_USD:      optionalFloat('ADAM_TUTOR_AGENT_SCHOOL_USD', 17),
+  ADAM_TUTOR_AGENT_UNIVERSITY_USD:  optionalFloat('ADAM_TUTOR_AGENT_UNIVERSITY_USD', 19),
+  /** @deprecated Use ADAM_TUTOR_AGENT_SCHOOL_USD */
+  ADAM_TUTOR_AGENT_PRIMARY_USD:     optionalFloat('ADAM_TUTOR_AGENT_PRIMARY_USD', 17),
+  /** @deprecated Use ADAM_TUTOR_AGENT_SCHOOL_USD */
+  ADAM_TUTOR_AGENT_SECONDARY_USD:   optionalFloat('ADAM_TUTOR_AGENT_SECONDARY_USD', 17),
+  /** @deprecated Use ADAM_TUTOR_AGENT_SCHOOL_USD */
+  ADAM_TUTOR_AGENT_MONTHLY_USD: optionalFloat('ADAM_TUTOR_AGENT_MONTHLY_USD', 17),
   /** ADAM Business Coach — public monthly USD (global). */
   ADAM_BUSINESS_COACH_PUBLIC_MONTHLY_USD: optionalFloat('ADAM_BUSINESS_COACH_PUBLIC_MONTHLY_USD', 35),
   /** ADAM Business Coach — PIN channel monthly USD (global). */

@@ -21,9 +21,8 @@
 
 import {
   TUTOR_AGENT_PACKAGE_BANDS,
-  TUTOR_AGENT_PACKAGE_TIERS,
   quoteTutorAgentPackage,
-  tutorAgentPackageStripeEnvKey,
+  tutorAgentWholesaleStripeEnvKey,
 } from '../adam/tutor/adam-tutor-agent-package.config';
 import { ENV } from '../config/environments';
 import { toStripeUnitAmount } from '../subscriptions/stripe-currency';
@@ -85,19 +84,17 @@ function buildCatalog(): PriceExpectation[] {
   pushEnvFee(catalog, 'ADAM Premium', 'Premium annual', 'STRIPE_PRICE_ID_PREMIUM_ANNUAL', ENV.ADAM_PREMIUM_ANNUAL_USD, 'usd', 'year', true);
 
   for (const band of TUTOR_AGENT_PACKAGE_BANDS) {
-    for (const tier of TUTOR_AGENT_PACKAGE_TIERS) {
-      const quote = quoteTutorAgentPackage(band, tier);
-      const envKey = tutorAgentPackageStripeEnvKey(band, tier);
-      catalog.push({
-        group:    'ADAM Ejen',
-        label:    `${band} · ${tier} (${quote.pinCount} PIN)`,
-        envKey,
-        amount:   quote.totalMyr,
-        currency: 'myr',
-        interval: 'one_time',
-        required: true,
-      });
-    }
+    const quote = quoteTutorAgentPackage(band);
+    const envKey = tutorAgentWholesaleStripeEnvKey(band);
+    catalog.push({
+      group:    'ADAM Ejen',
+      label:    `${band} · 100 PIN wholesale`,
+      envKey,
+      amount:   quote.totalMyr,
+      currency: 'myr',
+      interval: 'one_time',
+      required: true,
+    });
   }
 
   pushEnvFee(catalog, 'ADAM Token', 'Token $10', 'STRIPE_PRICE_ID_CREDITS_10', 10, 'usd', 'one_time', false);
