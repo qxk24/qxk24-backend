@@ -58,7 +58,6 @@ router.post('/agent/register', zValidator('json', AgentSelfRegisterSchema), asyn
     if (!stripe.configured && ENV.NODE_ENV !== 'production') {
       const updated = await simulateTutorAgentPackagePayment(agent, {
         band: body.band,
-        tier: body.packageTier,
       });
       const mail = await sendTutorAgentPortalCredentialsEmail(updated);
       return c.json({
