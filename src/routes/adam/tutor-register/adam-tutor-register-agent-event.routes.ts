@@ -31,6 +31,7 @@ import {
 } from '../../../adam/tutor/adam-tutor-agent-prospect.service';
 import { TutorAgentProspectInterest } from '../../../adam/tutor/adam-tutor-agent-prospect.schema';
 import {
+  checkTutorAgentEventViewerEligibility,
   createTutorAgentEvent,
   getAgentRsvpForEvent,
   getFeaturedTutorAgentEvent,
@@ -38,6 +39,9 @@ import {
   listAdminTutorAgentEvents,
   listPublishedTutorAgentEvents,
   listTutorAgentEventRsvps,
+  clearTutorAgentEventLivekitRoom,
+  deleteTutorAgentEvent,
+  setTutorAgentEventLivekitRoom,
   setTutorAgentEventRsvpAttended,
   submitTutorAgentEventRsvp,
   updateTutorAgentEvent,
@@ -370,6 +374,125 @@ router.patch(
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not update RSVP.';
+      return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+    }
+  },
+);
+
+const ViewerEligibilitySchema = z.object({
+  email: z.string().email().max(200),
+});
+
+const LiveRoomSchema = z.object({
+  roomName: z.string().min(3).max(64),
+});
+
+// POST /api/adam/tutor/agent/events/:eventId/live/viewer-eligibility
+router.post(
+  '/agent/events/:eventId/live/viewer-eligibility',
+  zValidator('json', ViewerEligibilitySchema),
+  async (c) => {
+    try {
+      const eventId = eventIdParam(c);
+      const body = c.req.valid('json');
+      const result = await checkTutorAgentEventViewerEligibility(eventId, body.email);
+      return c.json({
+        success: true,
+        kernel:  'ALAMTOLOGI',
+        data:    result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not verify access.';
+      return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+    }
+  },
+);
+
+// PATCH /api/adam/tutor/admin/events/:eventId/live-room
+router.patch(
+  '/admin/events/:eventId/live-room',
+  requireFounderOrPlatformAdmin,
+  zValidator('json', LiveRoomSchema),
+  async (c) => {
+    try {
+      const eventId = eventIdParam(c);
+      const body = c.req.valid('json');
+      const event = await setTutorAgentEventLivekitRoom(eventId, body.roomName);
+      return c.json({
+        success: true,
+        kernel:  'ALAMTOLOGI',
+        data:    { event },
+        message: 'Live room linked to briefing.',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not link live room.';
+      return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+    }
+  },
+);
+
+// DELETE /api/adam/tutor/admin/events/:eventId/live-room — stop live (clear room link)
+router.delete(
+  '/admin/events/:eventId/live-room',
+  requireFounderOrPlatformAdmin,
+  async (c) => {
+    try {
+      const eventId = eventIdParam(c);
+      const event = await clearTutorAgentEventLivekitRoom(eventId);
+      return c.json({
+        success: true,
+        kernel:  'ALAMTOLOGI',
+        data:    { event },
+        message: 'Live room stopped.',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not stop live room.';
+      return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+    }
+  },
+);
+
+// POST /api/adam/tutor/admin/events/:eventId/live-room/stop — preferred stop (some proxies block DELETE)
+router.post(
+  '/admin/events/:eventId/live-room/stop',
+  requireFounderOrPlatformAdmin,
+  async (c) => {
+    try {
+      const eventId = eventIdParam(c);
+      const event = await clearTutorAgentEventLivekitRoom(eventId);
+      return c.json({
+        success: true,
+        kernel:  'ALAMTOLOGI',
+        data:    { event },
+        message: 'Live room stopped.',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not stop live room.';
+      return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+    }
+  },
+);
+
+// POST /api/adam/tutor/admin/events/:eventId/remove — delete briefing (RSVPs included)
+router.post(
+  '/admin/events/:eventId/remove',
+  requireFounderOrPlatformAdmin,
+  async (c) => {
+    try {
+      const eventId = eventIdParam(c);
+      await deleteTutorAgentEvent(eventId);
+      return c.json({
+        success: true,
+        kernel:  'ALAMTOLOGI',
+        message: 'Briefing removed.',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not remove briefing.';
       return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
     }
   },

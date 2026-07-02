@@ -47,7 +47,8 @@ export interface SerializedTutorAgentEvent {
   timezone:      string;
   locationType:  TutorAgentEventLocationType;
   locationLabel: string | null;
-  meetingUrl:    string | null;
+  meetingUrl:       string | null;
+  livekitRoomName:  string | null;
   capacity:      number | null;
   status:        TutorAgentEventStatus;
   isFeatured:    boolean;
@@ -100,6 +101,7 @@ export interface UpdateTutorAgentEventInput {
   locationType?:  TutorAgentEventLocationType;
   locationLabel?: string | null;
   meetingUrl?:    string | null;
+  livekitRoomName?: string | null;
   capacity?:      number | null;
   status?:        TutorAgentEventStatus;
   isFeatured?:    boolean;
@@ -148,7 +150,11 @@ async function serializeEvent(
     timezone:      doc.timezone,
     locationType:  doc.locationType,
     locationLabel: doc.locationLabel,
-    meetingUrl:    doc.status === TutorAgentEventStatus.PUBLISHED ? doc.meetingUrl : null,
+    meetingUrl:       doc.status === TutorAgentEventStatus.PUBLISHED ? doc.meetingUrl : null,
+    livekitRoomName:  doc.status === TutorAgentEventStatus.PUBLISHED
+      && doc.locationType === TutorAgentEventLocationType.ONLINE
+      ? doc.livekitRoomName
+      : null,
     capacity:      doc.capacity,
     status:        doc.status,
     isFeatured:    doc.isFeatured,
@@ -286,6 +292,9 @@ export async function updateTutorAgentEvent(
   if (input.locationType !== undefined) event.locationType = input.locationType;
   if (input.locationLabel !== undefined) event.locationLabel = input.locationLabel?.trim() || null;
   if (input.meetingUrl !== undefined) event.meetingUrl = input.meetingUrl?.trim() || null;
+  if (input.livekitRoomName !== undefined) {
+    event.livekitRoomName = input.livekitRoomName?.trim() || null;
+  }
   if (input.capacity !== undefined) event.capacity = input.capacity;
 
   if (input.status === TutorAgentEventStatus.PUBLISHED && event.status !== TutorAgentEventStatus.PUBLISHED) {
@@ -409,4 +418,112 @@ export async function getAgentRsvpForEvent(
     $or: [{ agentId: agent.agentId }, { email: agent.email.toLowerCase() }],
   }).sort({ respondedAt: -1 });
   return row ? serializeRsvp(row) : null;
+}
+
+/** Deterministic LiveKit room slug for a briefing (matches Next.js provision). */
+export function tutorAgentEventLiveKitRoomName(eventId: string): string {
+  const slug = eventId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 48);
+  return `adam_briefing_${slug}`;
+}
+
+const LIVE_JOIN_EARLY_MS = 15 * 60 * 1000;
+
+export function isTutorAgentEventLiveJoinWindow(event: ITutorAgentEvent): boolean {
+  const now = Date.now();
+  const openAt = event.startsAt.getTime() - LIVE_JOIN_EARLY_MS;
+  return now >= openAt && now <= event.endsAt.getTime();
+}
+
+export async function checkTutorAgentEventViewerEligibility(
+  eventId: string,
+  email: string,
+): Promise<{
+  allowed:      boolean;
+  reason:       'ok' | 'no_rsvp' | 'declined' | 'not_published' | 'not_online' | 'no_room' | 'not_in_window';
+  displayName:  string | null;
+  roomName:     string | null;
+  otherBriefingTitle?: string | null;
+}> {
+  const event = await requireEvent(eventId);
+  if (event.status !== TutorAgentEventStatus.PUBLISHED) {
+    throw new Error('This briefing is not open.');
+  }
+  if (event.locationType !== TutorAgentEventLocationType.ONLINE) {
+    return { allowed: false, reason: 'not_online', displayName: null, roomName: null };
+  }
+  if (!event.livekitRoomName?.trim()) {
+    return { allowed: false, reason: 'no_room', displayName: null, roomName: null };
+  }
+  if (!isTutorAgentEventLiveJoinWindow(event)) {
+    return { allowed: false, reason: 'not_in_window', displayName: null, roomName: null };
+  }
+
+  const emailNorm = email.trim().toLowerCase();
+  if (!emailNorm.includes('@')) {
+    throw new Error('A valid email is required.');
+  }
+
+  const rsvp = await TutorAgentEventRsvpModel.findOne({ eventId, email: emailNorm });
+  if (!rsvp) {
+    const otherRsvp = await TutorAgentEventRsvpModel.findOne({
+      email: emailNorm,
+      eventId: { $ne: eventId },
+      status: { $ne: TutorAgentEventRsvpStatus.DECLINED },
+    }).sort({ respondedAt: -1 });
+    let otherBriefingTitle: string | null = null;
+    if (otherRsvp) {
+      const otherEvent = await TutorAgentEventModel.findOne({ eventId: otherRsvp.eventId }).select('title');
+      otherBriefingTitle = otherEvent?.title ?? null;
+    }
+    return {
+      allowed: false,
+      reason: 'no_rsvp',
+      displayName: null,
+      roomName: null,
+      otherBriefingTitle,
+    };
+  }
+  if (rsvp.status === TutorAgentEventRsvpStatus.DECLINED) {
+    return { allowed: false, reason: 'declined', displayName: null, roomName: null };
+  }
+
+  return {
+    allowed:     true,
+    reason:      'ok',
+    displayName: rsvp.contactName,
+    roomName:    event.livekitRoomName,
+  };
+}
+
+export async function setTutorAgentEventLivekitRoom(
+  eventId: string,
+  roomName: string,
+): Promise<SerializedTutorAgentEvent> {
+  const event = await requireEvent(eventId);
+  if (event.status !== TutorAgentEventStatus.PUBLISHED) {
+    throw new Error('Publish the briefing before enabling live video.');
+  }
+  if (event.locationType !== TutorAgentEventLocationType.ONLINE) {
+    throw new Error('Live video is only for online briefings.');
+  }
+  event.livekitRoomName = roomName.trim();
+  await event.save();
+  return serializeEvent(event, true);
+}
+
+export async function clearTutorAgentEventLivekitRoom(
+  eventId: string,
+): Promise<SerializedTutorAgentEvent> {
+  const event = await requireEvent(eventId);
+  event.livekitRoomName = null;
+  await event.save();
+  return serializeEvent(event, true);
+}
+
+export async function deleteTutorAgentEvent(eventId: string): Promise<void> {
+  const event = await requireEvent(eventId);
+  event.livekitRoomName = null;
+  await event.save();
+  await TutorAgentEventRsvpModel.deleteMany({ eventId });
+  await TutorAgentEventModel.deleteOne({ eventId: event.eventId });
 }

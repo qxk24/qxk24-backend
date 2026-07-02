@@ -37,7 +37,9 @@ export interface ITutorAgentEvent extends Document {
   timezone:      string;
   locationType:  TutorAgentEventLocationType;
   locationLabel: string | null;
-  meetingUrl:    string | null;
+  meetingUrl:       string | null;
+  /** LiveKit room name — provisioned from Next.js for online briefings. */
+  livekitRoomName:  string | null;
   capacity:      number | null;
   status:        TutorAgentEventStatus;
   isFeatured:    boolean;
@@ -62,7 +64,8 @@ const TutorAgentEventSchema = new Schema<ITutorAgentEvent>(
       default: TutorAgentEventLocationType.ONLINE,
     },
     locationLabel: { type: String, default: null },
-    meetingUrl:    { type: String, default: null },
+    meetingUrl:       { type: String, default: null },
+    livekitRoomName:  { type: String, default: null, index: true },
     capacity:      { type: Number, default: null, min: 1 },
     status:        {
       type:    String,
