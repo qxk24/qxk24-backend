@@ -20,6 +20,7 @@ import studentRoutes from './tutor-register/adam-tutor-register-student.routes';
 import adminRoutes from './tutor-register/adam-tutor-register-admin.routes';
 import agentPortalRoutes from './tutor-register/adam-tutor-register-agent-portal.routes';
 import charityRoutes from './tutor-register/adam-tutor-register-charity.routes';
+import agentEventRoutes from './tutor-register/adam-tutor-register-agent-event.routes';
 
 const router = new Hono();
 
@@ -28,5 +29,6 @@ router.route('/', studentRoutes);
 router.route('/', adminRoutes);
 router.route('/', agentPortalRoutes);
 router.route('/', charityRoutes);
+router.route('/', agentEventRoutes);
 
 export default router;
