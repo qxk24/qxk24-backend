@@ -26,6 +26,11 @@ import {
 import { TutorAgentEventLocationType, TutorAgentEventStatus } from '../../../adam/tutor/adam-tutor-agent-event.schema';
 import { TutorAgentEventRsvpStatus } from '../../../adam/tutor/adam-tutor-agent-event-rsvp.schema';
 import {
+  submitTutorAgentProspectLead,
+  listAdminTutorAgentProspectLeads,
+} from '../../../adam/tutor/adam-tutor-agent-prospect.service';
+import { TutorAgentProspectInterest } from '../../../adam/tutor/adam-tutor-agent-prospect.schema';
+import {
   createTutorAgentEvent,
   getAgentRsvpForEvent,
   getFeaturedTutorAgentEvent,
@@ -83,6 +88,59 @@ const RsvpSubmitSchema = z.object({
 
 const AttendedSchema = z.object({
   attended: z.boolean(),
+});
+
+const ProspectLeadSchema = z.object({
+  contactName:  z.string().min(2).max(120),
+  email:        z.string().email().max(200),
+  phone:        z.string().max(40).optional().nullable(),
+  organisation: z.string().max(200).optional().nullable(),
+  state:        z.string().min(2).max(80),
+  interest:     z.enum([
+    TutorAgentProspectInterest.EXPLORING,
+    TutorAgentProspectInterest.COMMERCIAL,
+    TutorAgentProspectInterest.STUDENT_CHARITY,
+  ]),
+  notes:        z.string().max(2000).optional().nullable(),
+});
+
+// POST /api/adam/tutor/agent/prospects — register interest before briefing is published
+router.post(
+  '/agent/prospects',
+  zValidator('json', ProspectLeadSchema),
+  async (c) => {
+    try {
+      const body = c.req.valid('json');
+      const lead = await submitTutorAgentProspectLead({
+        ...body,
+        phone:        body.phone || undefined,
+        organisation: body.organisation || undefined,
+        notes:        body.notes || undefined,
+      });
+      return c.json({
+        success: true,
+        kernel:  'ALAMTOLOGI',
+        data:    { lead },
+        message: 'Registration saved. We will email you when the next briefing date is confirmed.',
+        timestamp: new Date().toISOString(),
+      }, 201);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not save registration.';
+      return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+    }
+  },
+);
+
+// GET /api/adam/tutor/admin/prospects
+router.get('/admin/prospects', requireFounderOrPlatformAdmin, async (c) => {
+  const leads = await listAdminTutorAgentProspectLeads();
+  return c.json({
+    success: true,
+    kernel:  'ALAMTOLOGI',
+    data:    { leads },
+    count:   leads.length,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // GET /api/adam/tutor/agent/events — public upcoming published briefings
