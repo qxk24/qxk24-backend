@@ -159,6 +159,22 @@ export function resolveBrainRiverBranchPolicy(
     };
   }
 
+  if (channel.family === 'coaching') {
+    return {
+      studentStreamlined:       false,
+      needContinuityBridge:     !isGuestTrial,
+      needFounderTamat:         false,
+      needTesterPrefix:         true,
+      bufferStreamUntilRepair:  shouldBufferAdamStreamUntilRepair(
+        userMessage,
+        knowledgeMode,
+        isFounder,
+      ),
+      oceanSink:                isGuestTrial ? 'guest-ephemeral' : 'student-transform',
+      usersTechnicalFinalize:   false,
+    };
+  }
+
   if (channel.family === 'niaga') {
     return {
       studentStreamlined:       false,

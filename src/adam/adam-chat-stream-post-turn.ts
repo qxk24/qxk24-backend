@@ -171,7 +171,10 @@ export async function finishAdamChatTurn(input: {
   // body passes through enforceTutorReplyGuards, but this finalResponse is what
   // adam_complete + saveMessage actually use, so we re-normalize headings here
   // to the resolved session language. Founder turns are left untouched.
-  if (!shell.isFounder && finalResponse?.trim()) {
+  // Tutor / Coaching — streamed body is canonical; no post-stream scaffold swap.
+  if (input.preserveStreamBody && input.turnBrainMeta?.rawModelStream?.trim()) {
+    finalResponse = input.turnBrainMeta.rawModelStream.trim();
+  } else if (!shell.isFounder && finalResponse?.trim()) {
     finalResponse = normalizeTutorHeadingLanguage(
       finalResponse,
       shell.options.tutorProfile,

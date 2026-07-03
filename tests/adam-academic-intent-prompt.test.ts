@@ -22,9 +22,10 @@ import { ScienceIntent } from '../src/adam/tutor-law/tutor-law.science-intent.ty
 import { classifyAcademicTurnIntents } from '../src/adam/tutor-law/tutor-law.academic-intent-prompt';
 
 describe('academic intent — general + tutor shared routing', () => {
-  it('shouldApplyAcademicIntentRouting: general yes, niaga no', () => {
+  it('shouldApplyAcademicIntentRouting: general yes, niaga and coaching no', () => {
     expect(shouldApplyAcademicIntentRouting('QUESTIONING')).toBe(true);
     expect(shouldApplyAcademicIntentRouting('TUTOR')).toBe(true);
+    expect(shouldApplyAcademicIntentRouting('COACHING')).toBe(false);
     expect(shouldApplyAcademicIntentRouting('NIAGA')).toBe(false);
     expect(shouldApplyAcademicIntentRouting('JOURNAL_GEN')).toBe(false);
     expect(shouldApplyAcademicIntentRouting('TEACHING', { founderTeachingLearnerTurn: true }))

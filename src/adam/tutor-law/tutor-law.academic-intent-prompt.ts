@@ -19,6 +19,7 @@
  */
 
 import type { ADAMChatMode } from '../adam.types';
+import { isAdamCoachingMode } from '../adam-coaching-law';
 import { isAdamNiagaMode } from '../adam-niaga-law';
 import type { AdamTutorProfile } from './tutor-law.types';
 import {
@@ -92,6 +93,7 @@ export function shouldApplyAcademicIntentRouting(
   opts?: { founderTeachingLearnerTurn?: boolean },
 ): boolean {
   if (isAdamNiagaMode(mode)) return false;
+  if (isAdamCoachingMode(mode)) return false;
   if (mode === 'JOURNAL_GEN') return false;
   if (opts?.founderTeachingLearnerTurn) return false;
   return true;

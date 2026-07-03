@@ -45,6 +45,7 @@ import {
   clampTechnicalMarkdownBold,
 } from './adam-users-output-law';
 import { isAdamTutorMode, buildTutorGreetingFallback, repairTutorMalaySessionLanguage } from './adam-tutor-law';
+import { isAdamCoachingMode } from './adam-coaching-law';
 import { repairTechnicalDiagramOutput } from './adam-technical-diagram-guard';
 import {
   repairTechnicalKonvensionalDisplayStructure,
@@ -106,14 +107,16 @@ export async function repairUsersStreamOutput(input: {
 
   let fullResponse = await repairEastAsianScriptLeak(rawModelStream, userMessage);
 
-  if (isAdamTutorMode(mode)) {
+  if (isAdamTutorMode(mode) || isAdamCoachingMode(mode)) {
     if (!fullResponse?.trim() && isAdamLightChatTurn(userMessage)) {
-      fullResponse = buildTutorGreetingFallback(
-        userMessage,
-        participant.userName,
-        shell.options.tutorProfile,
-      );
-    } else if (fullResponse?.trim()) {
+      fullResponse = isAdamTutorMode(mode)
+        ? buildTutorGreetingFallback(
+          userMessage,
+          participant.userName,
+          shell.options.tutorProfile,
+        )
+        : buildStudentGreetingFallback(userMessage, participant.userName);
+    } else if (fullResponse?.trim() && isAdamTutorMode(mode)) {
       const tutorLangStarted = Date.now();
       fullResponse = await repairTutorMalaySessionLanguage(
         fullResponse,
