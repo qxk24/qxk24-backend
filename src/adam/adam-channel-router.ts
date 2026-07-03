@@ -27,6 +27,7 @@ import type { ADAMChatMode } from './adam.types';
 import type { FounderTeachingFlags } from './adam-chat-stream-turn-context';
 import { isAdamNiagaMode } from './adam-niaga-law';
 import { isAdamTutorMode } from './adam-tutor-law';
+import { isAdamCoachingMode } from './adam-coaching-law';
 import {
   isAdamLightChatTurn,
   isAdamPracticalAdvisoryTurn,
@@ -37,7 +38,7 @@ import {
 } from './adam-response-generation';
 import { isAdamUsersChannelTurn } from './adam-users-channel';
 
-export type AdamChannelFamily = 'founder' | 'users' | 'tutor' | 'niaga';
+export type AdamChannelFamily = 'founder' | 'users' | 'tutor' | 'coaching' | 'niaga';
 
 export type FounderChannelId =
   | 'founder-journal'
@@ -52,7 +53,7 @@ export type UsersChannelId =
   | 'users-practical'
   | 'users-general';
 
-export type AdamChannelId = FounderChannelId | UsersChannelId | 'tutor' | 'niaga';
+export type AdamChannelId = FounderChannelId | UsersChannelId | 'tutor' | 'coaching' | 'niaga';
 
 export interface AdamResolvedChannel {
   family: AdamChannelFamily;
@@ -82,6 +83,9 @@ export function resolveAdamChannel(input: {
 
   if (isAdamTutorMode(mode)) {
     return { family: 'tutor', channelId: 'tutor' };
+  }
+  if (isAdamCoachingMode(mode)) {
+    return { family: 'coaching', channelId: 'coaching' };
   }
   if (isAdamNiagaMode(mode)) {
     return { family: 'niaga', channelId: 'niaga' };

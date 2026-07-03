@@ -131,6 +131,7 @@ import {
 } from './adam-prompt-builder.constants';
 import { appendExplainBackPedagogy } from './adam-prompt-builder.pedagogy';
 import { buildAdamTutorSystemPrompt } from './adam-prompt-builder.tutor';
+import { isAdamCoachingMode, buildAdamCoachingSystemPrompt } from './adam-coaching-law';
 import { appendAdamUsersConsumerTurnParts } from './adam-prompt-builder.chat-users';
 
 export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): string {
@@ -144,6 +145,16 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
 
   if (isAdamTutorMode(params.mode) && !params.isFounder) {
     return buildAdamTutorSystemPrompt(params);
+  }
+
+  if (isAdamCoachingMode(params.mode) && !params.isFounder) {
+    const lang = params.tutorProfile?.language;
+    const preferMalay = lang === 'malay' || lang === 'indonesian';
+    return buildAdamCoachingSystemPrompt({
+      participantName: params.participantName,
+      userMessage:     params.userMessage,
+      preferMalay,
+    });
   }
 
   const voice = resolveEffectiveAnswerStyle(params.mode, params.answerStyle);

@@ -149,6 +149,8 @@ export type ADAMChatMode =
   | 'JOURNAL_GEN'
   | 'BUILDER'
   | 'TUTOR'
+  /** ADAM Coaching — general life/work coach (separate domain from Tutor) */
+  | 'COACHING'
   /** ADAM Niaga — universal business coach (Niaga product lane) */
   | 'NIAGA'
   /** R&D Eksklusif — Industry research partner (paid subscription) */

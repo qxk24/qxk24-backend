@@ -33,6 +33,8 @@ const ACADEMIC_CONTEXT =
 const ACADEMIC_TASK =
   /\b(?:solve|factorise|factorize|differentiate|integrate|calculate|simplify|prove|show\s+working|mark\s+scheme|essay|lab\s+report|formula|equation|algebra|geometry|trigonometry|pecahan|perpuluhan|persamaan|faktor|kembangan|terbitan|kamiran|kira|jawapan\s+akhir|jalan\s+kerja|skema|soalan\s+\d+)\b/i;
 
+export { ACADEMIC_CONTEXT, ACADEMIC_TASK };
+
 const GENERAL_PRACTICAL_CONTEXT =
   /\b(?:work|job|career|business|startup|marketing|sales|client|customer|proposal|meeting|manager|team|budget|pricing|conversion|product|strategy|legal|contract|parenting|relationship|marriage|health|fitness|diet|travel|finance|tax|investment|adult|practical|kerja|kerjaya|bisnes|niaga|pelanggan|cadangan|mesyuarat|pasukan|bajet|harga|strategi|produk|undang-undang|kontrak|keibubapaan|hubungan|kesihatan|dewasa|praktikal)\b/i;
 

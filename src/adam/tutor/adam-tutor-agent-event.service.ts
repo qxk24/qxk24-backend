@@ -524,6 +524,6 @@ export async function deleteTutorAgentEvent(eventId: string): Promise<void> {
   const event = await requireEvent(eventId);
   event.livekitRoomName = null;
   await event.save();
-  await TutorAgentEventRsvpModel.deleteMany({ eventId });
+  await TutorAgentEventRsvpModel.deleteMany({ eventId: event.eventId });
   await TutorAgentEventModel.deleteOne({ eventId: event.eventId });
 }

@@ -12,6 +12,7 @@
 
 import { ENV } from '../config/environments';
 import { isQaUnlimitedAccount } from '../qa/qa-unlimited-account.service';
+import { resolveSubscriptionAccess } from '../subscriptions/subscription-access.service';
 import {
   SubscriptionModel,
   SubscriptionStatus,
@@ -31,6 +32,8 @@ export interface TutorSubscriptionAccess {
   status:       string;
   tier:         SubscriptionTier.TUTOR | 'NONE';
   tutorLevel?:  TutorSubscriptionLevel;
+  /** Basic daily quota — same allowance as ADAM Learn when billing is enforced */
+  freemium?:    boolean;
   message?:     string;
   upgradeUrl?:  string;
   code?:        'TUTOR_SUBSCRIPTION_REQUIRED' | 'TUTOR_SUBSCRIPTION_EXPIRED';
@@ -108,6 +111,22 @@ export async function resolveTutorSubscriptionAccess(
   const levelLabel = TUTOR_LEVEL_LABELS[checkoutLevel];
 
   if (!tutorSub) {
+    if (ENV.ADAM_FREEMIUM_ENABLED) {
+      const learnAccess = await resolveSubscriptionAccess(userId);
+      if (learnAccess.canChat) {
+        return {
+          canChat:       true,
+          active:        false,
+          status:        learnAccess.status,
+          tier:          'NONE',
+          tutorLevel:    checkoutLevel,
+          freemium:      true,
+          monthlyAmount: checkoutPricing.monthly,
+          currency:      checkoutPricing.currency,
+        };
+      }
+    }
+
     return {
       canChat:     false,
       active:      false,

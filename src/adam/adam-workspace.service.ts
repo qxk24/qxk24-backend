@@ -224,7 +224,7 @@ export async function assertStudentOwnsSession(
   const sess = await ADAMFounderSessionModel.findOne({
     sessionId,
     founderId: userId,
-    sessionType: { $in: ['student', 'tutor'] },
+    sessionType: { $in: ['student', 'tutor', 'coaching', 'niaga'] },
   }).lean();
 
   return Boolean(sess);

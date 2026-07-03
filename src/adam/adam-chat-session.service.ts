@@ -360,6 +360,25 @@ export async function resolveTutorChatSession(userId: string): Promise<string> {
   return getOrCreateSession(userId, 'tutor');
 }
 
+/** Most recent coaching thread with history, else create one. */
+export async function resolveCoachingChatSession(userId: string): Promise<string> {
+  const recent = await ADAMFounderSessionModel.findOne({
+    founderId:    userId,
+    sessionType:  'coaching',
+    messageCount: { $gt: 0 },
+  })
+    .sort({ lastActiveAt: -1 })
+    .lean();
+  if (recent?.sessionId) {
+    await ADAMFounderSessionModel.updateOne(
+      { sessionId: recent.sessionId },
+      { lastActiveAt: new Date(), active: true },
+    );
+    return recent.sessionId;
+  }
+  return getOrCreateSession(userId, 'coaching');
+}
+
 /** Most recent niaga thread with history, else create one. */
 export async function resolveNiagaChatSession(userId: string): Promise<string> {
   const recent = await ADAMFounderSessionModel.findOne({
@@ -729,7 +748,7 @@ export async function assertCanClearSessionChat(
       if (!opts.isFounder) throw new Error('Session access denied.');
       return;
     }
-    if (session.sessionType === 'student' || session.sessionType === 'tutor' || session.sessionType === 'niaga') {
+    if (session.sessionType === 'student' || session.sessionType === 'tutor' || session.sessionType === 'coaching' || session.sessionType === 'niaga') {
       if (opts.isFounder || session.founderId === userId) return;
       throw new Error('Session access denied.');
     }

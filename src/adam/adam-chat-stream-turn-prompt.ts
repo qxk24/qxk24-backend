@@ -88,6 +88,7 @@ export async function buildTurnPromptAndSearchGate(input: {
   } = turnContext;
 
   const isTutorLane = mode === 'TUTOR';
+  const isCoachingLane = mode === 'COACHING';
   const isNiagaLane = isAdamNiagaMode(mode);
   const isResearchLane = mode === 'RESEARCH';
 
@@ -130,7 +131,7 @@ export async function buildTurnPromptAndSearchGate(input: {
       : getWebSearchGateReason(userMessage, {
         isFounder,
         technicalFollowUp: precisionTurn.isFollowUp && !isVerifiedDataStatAsk(messageForAdam),
-        userUmumChannelGate: !isFounder && !isTutorLane && !isNiagaLane && !isResearchLane,
+        userUmumChannelGate: !isFounder && !isTutorLane && !isCoachingLane && !isNiagaLane && !isResearchLane,
         brainRecallLoaded: turnContext.brainRecallLoaded,
         recentUserMessages: recentUserTurns,
         recentAssistantMessages: recentAssistantTurns,
@@ -138,7 +139,7 @@ export async function buildTurnPromptAndSearchGate(input: {
 
   const enableWebSearch = Boolean(webSearchGateReason);
   const usersSearchFirst = shouldUsersUseSearchFirstFlow(isFounder, webSearchGateReason);
-  const usersKnowledgeTier = !isFounder && !isTutorLane && !isNiagaLane && !isResearchLane
+  const usersKnowledgeTier = !isFounder && !isTutorLane && !isCoachingLane && !isNiagaLane && !isResearchLane
     ? resolveUsersKnowledgeTier(messageForAdam, recentUserTurns, recentAssistantTurns)
     : isResearchLane ? 2 as const : undefined;
 

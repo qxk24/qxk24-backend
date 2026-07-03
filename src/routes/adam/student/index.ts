@@ -2,7 +2,7 @@
  * ============================================================
  * ALAMTOLOGI-QURANIC SCIENCE
  * ============================================================
- * Module      : ADAM Student Routes
+ * Module      : ADAM Student Routes (aggregator)
  * Platform    : Backend (TypeScript)
  * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
@@ -15,4 +15,19 @@
  * ============================================================
  */
 
-export { default } from './student/index';
+import { Hono } from 'hono';
+import authRoutes from './adam-student.auth.routes';
+import billingRoutes from './adam-student.billing.routes';
+import chatRoutes from './adam-student.chat.routes';
+import coachingRoutes from './adam-student.coaching.routes';
+import tutorRoutes from './adam-student.tutor.routes';
+
+const router = new Hono();
+
+router.route('/', authRoutes);
+router.route('/', billingRoutes);
+router.route('/', chatRoutes);
+router.route('/', tutorRoutes);
+router.route('/', coachingRoutes);
+
+export default router;

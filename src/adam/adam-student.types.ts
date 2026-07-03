@@ -46,7 +46,7 @@ export interface StudentAccountRecord {
 export const GROUP_SESSION_ID = 'K24s-group-alamtologi-era1';
 export const FOUNDER_USER_ID = 'masa-bayu';
 
-export type SessionType = 'founder' | 'student' | 'group' | 'guru' | 'tutor' | 'niaga';
+export type SessionType = 'founder' | 'student' | 'group' | 'guru' | 'tutor' | 'coaching' | 'niaga';
 export type SpeakerRole = 'founder' | 'student' | 'guru' | 'adam';
 export type AdamUserRole = 'founder' | 'student' | 'guru';
 export type AdamAccountRole = 'student' | 'guru';

@@ -76,8 +76,8 @@ export function friendlyLlmError(err: unknown): string {
   }
   if (/credit balance|purchase credits|billing|insufficient.*credit|quota|balance/i.test(msg)) {
     return (
-      'ADAM is paused — teaching credits on the server need to be renewed. ' +
-      'Please ask the Founder to top up the DashScope API account, then try again.'
+      'ADAM is paused — teaching capacity on the server needs renewal. ' +
+      'Please try again later or contact the Alamtologi team.'
     );
   }
   if (/internal server error|api_error|502|503/i.test(msg)) {

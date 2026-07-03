@@ -53,6 +53,7 @@ export {
   deleteUserChatSession,
   resolveStudentChatSession,
   resolveTutorChatSession,
+  resolveCoachingChatSession,
   deriveSessionTitleFromMessage,
   resolveNiagaChatSession,
 } from './adam-chat-session.service';

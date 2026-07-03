@@ -75,10 +75,13 @@ function issueFounderToken(): string {
 }
 
 function founderDeniedHint(submitted: string, expected: string): string {
-  const lengthMismatch = submitted.length !== expected.length;
-  return lengthMismatch
-    ? `You entered ${submitted.length} characters; this server expects ${expected.length}. Check # and * at the end.`
-    : 'Incorrect email or password. Try again or use Forgot password.';
+  if (submitted.length === expected.length) {
+    return 'Incorrect email or password. Try again or use Forgot password.';
+  }
+  const extra = submitted.length > expected.length
+    ? ' Autofill or copy/paste may add extra characters — retype manually.'
+    : ' Check you pasted the full password.';
+  return `You entered ${submitted.length} characters; this server expects ${expected.length}.${extra}`;
 }
 
 async function authDelay(ms: number): Promise<void> {

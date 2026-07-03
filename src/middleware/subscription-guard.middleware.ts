@@ -22,14 +22,30 @@ import {
   type SubscriptionAccess,
 } from '../subscriptions/subscription-access.service';
 import { ENV } from '../config/environments';
-import { resolveTutorSubscriptionAccess } from '../adam/adam-tutor-subscription.service';
+import {
+  resolveTutorSubscriptionAccess,
+  type TutorSubscriptionAccess,
+} from '../adam/adam-tutor-subscription.service';
+import {
+  resolveCoachingSubscriptionAccess,
+  type CoachingSubscriptionAccess,
+} from '../adam/adam-coaching-subscription.service';
 
 export const TUTOR_SUBSCRIPTION_ACCESS_KEY = 'tutorSubscriptionAccess';
+export const COACHING_SUBSCRIPTION_ACCESS_KEY = 'coachingSubscriptionAccess';
 
 export const SUBSCRIPTION_ACCESS_KEY = 'subscriptionAccess';
 
 export function getSubscriptionAccess(c: Context): SubscriptionAccess | null {
   return c.get(SUBSCRIPTION_ACCESS_KEY) as SubscriptionAccess | undefined ?? null;
+}
+
+export function getTutorSubscriptionAccess(c: Context): TutorSubscriptionAccess | null {
+  return c.get(TUTOR_SUBSCRIPTION_ACCESS_KEY) as TutorSubscriptionAccess | undefined ?? null;
+}
+
+export function getCoachingSubscriptionAccess(c: Context): CoachingSubscriptionAccess | null {
+  return c.get(COACHING_SUBSCRIPTION_ACCESS_KEY) as CoachingSubscriptionAccess | undefined ?? null;
 }
 
 /**
@@ -101,6 +117,11 @@ export async function requireTutorSubscription(
   const access = await resolveTutorSubscriptionAccess(user.userId);
   c.set(TUTOR_SUBSCRIPTION_ACCESS_KEY, access);
 
+  if (access.freemium) {
+    const learnAccess = await resolveSubscriptionAccess(user.userId);
+    c.set(SUBSCRIPTION_ACCESS_KEY, learnAccess);
+  }
+
   if (!access.canChat) {
     return c.json({
       success:    false,
@@ -109,6 +130,38 @@ export async function requireTutorSubscription(
       upgradeUrl: access.upgradeUrl,
       monthlyAmount: access.monthlyAmount,
       currency:      access.currency,
+      kernel:     'ALAMTOLOGI',
+    }, 402);
+  }
+
+  await next();
+}
+
+/** ADAM Coaching lane — freemium Basic + consumer plans; separate from Tutor billing. */
+export async function requireCoachingSubscription(
+  c: Context,
+  next: Next,
+): Promise<Response | void> {
+  const user = getTokenUser(c);
+
+  if (!user || isFounderPayload(user)) {
+    await next();
+    return;
+  }
+
+  const access = await resolveCoachingSubscriptionAccess(user.userId);
+  c.set(COACHING_SUBSCRIPTION_ACCESS_KEY, access);
+
+  if (access.freemium) {
+    const learnAccess = await resolveSubscriptionAccess(user.userId);
+    c.set(SUBSCRIPTION_ACCESS_KEY, learnAccess);
+  }
+
+  if (!access.canChat) {
+    return c.json({
+      success:    false,
+      error:      access.message ?? 'Daily limit reached — try again tomorrow or upgrade.',
+      code:       access.code ?? 'DAILY_LIMIT',
       kernel:     'ALAMTOLOGI',
     }, 402);
   }

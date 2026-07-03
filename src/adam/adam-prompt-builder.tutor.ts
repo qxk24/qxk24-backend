@@ -58,7 +58,6 @@ import {
   buildTutorAboveBaselineGuidanceLaw,
   isQuestionAboveBaselineLevel,
   buildTutorBehaviorModePrompt,
-  classifyTutorBehaviorMode,
   buildAdamUniversityStandardLaw,
   buildUniversityArtifactPrompt,
   buildUniversityOutcomeMapLaw,
@@ -100,12 +99,7 @@ export function buildAdamTutorSystemPrompt(params: AdamChatSystemPromptParams): 
     recentUserMessages:      params.recentUserMessages ?? [],
     recentAssistantMessages: params.recentAssistantMessages ?? [],
   });
-  const behaviorMode = universityStandardActive ? 'coaching' : classifyTutorBehaviorMode({
-    userMessage:             params.userMessage ?? '',
-    recentUserMessages:      params.recentUserMessages ?? [],
-    recentAssistantMessages: params.recentAssistantMessages ?? [],
-    profile:                 params.tutorProfile,
-  });
+  const behaviorMode: 'teaching' = 'teaching';
   const mathIntent = academic.mathIntent;
 
   const parts: string[] = [
