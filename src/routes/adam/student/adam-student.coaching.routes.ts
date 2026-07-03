@@ -38,12 +38,15 @@ import {
 } from '../../../adam-servers/adam-layer-gate.service';
 import {
   streamADAMChat,
+  createNewChatSession,
   listUserChatSessions,
+  renameUserChatSession,
+  deleteUserChatSession,
   resolveCoachingChatSession,
   loadMessageHistory,
 } from '../../../adam/adam-chat.service';
 import { assertStudentOwnsSession } from '../../../adam/adam-workspace.service';
-import { CoachingChatSchema } from './adam-student.schemas';
+import { CoachingChatSchema, SessionTitleSchema } from './adam-student.schemas';
 
 const router = new Hono();
 
@@ -91,6 +94,42 @@ router.get('/coaching/chat/sessions', requireStudent, requireCoachingSubscriptio
     sessions,
     count:   sessions.length,
     kernel:  'ALAMTOLOGI',
+  });
+});
+
+router.patch('/coaching/chat/sessions/:sessionId', requireStudent, requireCoachingSubscription, zValidator('json', SessionTitleSchema), async (c) => {
+  const user = getTokenUser(c)!;
+  const sessionId = c.req.param('sessionId') ?? '';
+  const { title } = c.req.valid('json');
+  try {
+    const ok = await renameUserChatSession(user.userId, sessionId, 'coaching', title);
+    if (!ok) return c.json({ success: false, error: 'Session not found.' }, 404);
+    return c.json({ success: true, sessionId, title: title.trim() });
+  } catch (err) {
+    return c.json({ success: false, error: (err as Error).message }, 403);
+  }
+});
+
+router.delete('/coaching/chat/sessions/:sessionId', requireStudent, requireCoachingSubscription, async (c) => {
+  const user = getTokenUser(c)!;
+  const sessionId = c.req.param('sessionId') ?? '';
+  try {
+    const ok = await deleteUserChatSession(user.userId, sessionId, 'coaching');
+    if (!ok) return c.json({ success: false, error: 'Session not found.' }, 404);
+    return c.json({ success: true, sessionId });
+  } catch (err) {
+    return c.json({ success: false, error: (err as Error).message }, 403);
+  }
+});
+
+router.post('/coaching/chat/sessions', requireStudent, requireCoachingSubscription, async (c) => {
+  const user = getTokenUser(c)!;
+  const sessionId = await createNewChatSession(user.userId, 'coaching');
+  return c.json({
+    success: true,
+    sessionId,
+    kernel:  'ALAMTOLOGI',
+    timestamp: new Date().toISOString(),
   });
 });
 
