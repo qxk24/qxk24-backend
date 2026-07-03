@@ -107,16 +107,20 @@ export async function repairUsersStreamOutput(input: {
 
   let fullResponse = await repairEastAsianScriptLeak(rawModelStream, userMessage);
 
-  if (isAdamTutorMode(mode) || isAdamCoachingMode(mode)) {
-    if (!fullResponse?.trim() && isAdamLightChatTurn(userMessage)) {
-      fullResponse = isAdamTutorMode(mode)
-        ? buildTutorGreetingFallback(
-          userMessage,
-          participant.userName,
-          shell.options.tutorProfile,
-        )
-        : buildStudentGreetingFallback(userMessage, participant.userName);
-    } else if (fullResponse?.trim() && isAdamTutorMode(mode)) {
+  if (!fullResponse?.trim() && isAdamLightChatTurn(userMessage)) {
+    if (isAdamTutorMode(mode)) {
+      fullResponse = buildTutorGreetingFallback(
+        userMessage,
+        participant.userName,
+        shell.options.tutorProfile,
+      );
+    } else if (isAdamCoachingMode(mode)) {
+      fullResponse = buildStudentGreetingFallback(userMessage, participant.userName);
+    }
+  }
+
+  if (isAdamTutorMode(mode)) {
+    if (fullResponse?.trim()) {
       const tutorLangStarted = Date.now();
       fullResponse = await repairTutorMalaySessionLanguage(
         fullResponse,
