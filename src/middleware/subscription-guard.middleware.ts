@@ -32,7 +32,14 @@ import {
 } from '../adam/adam-coaching-subscription.service';
 import { getAccountLane } from '../adam/adam-student-registry.service';
 
-/** Tools-lane accounts may only use ADAM Tools — not Tutor or Coaching. */
+async function resolveStudentLane(user: { userId: string; accountLane?: string }) {
+  if (user.accountLane === 'tools' || user.accountLane === 'niaga' || user.accountLane === 'pelajar' || user.accountLane === 'umum') {
+    return user.accountLane;
+  }
+  return getAccountLane(user.userId);
+}
+
+/** Tools-lane accounts may only use ADAM Tools. */
 export async function rejectToolsLaneOnly(
   c: Context,
   next: Next,
@@ -43,17 +50,38 @@ export async function rejectToolsLaneOnly(
     return;
   }
 
-  let lane = user.accountLane;
-  if (lane !== 'tools' && user.userId) {
-    lane = await getAccountLane(user.userId);
-  }
-
+  const lane = await resolveStudentLane(user);
   if (lane === 'tools') {
     return c.json({
       success: false,
       error:   'This account is registered for ADAM Tools only. Open Tools › Docs.',
       code:    'TOOLS_LANE_ONLY',
       upgradeUrl: '/adam/tools/docs',
+      kernel:  'ALAMTOLOGI',
+    }, 403);
+  }
+
+  await next();
+}
+
+/** Niaga-lane accounts may only use ADAM Niaga. */
+export async function rejectNiagaLaneOnly(
+  c: Context,
+  next: Next,
+): Promise<Response | void> {
+  const user = getTokenUser(c);
+  if (!user || isFounderPayload(user)) {
+    await next();
+    return;
+  }
+
+  const lane = await resolveStudentLane(user);
+  if (lane === 'niaga') {
+    return c.json({
+      success: false,
+      error:   'This account is registered for ADAM Niaga only. Open Niaga.',
+      code:    'NIAGA_LANE_ONLY',
+      upgradeUrl: '/rd/niaga',
       kernel:  'ALAMTOLOGI',
     }, 403);
   }

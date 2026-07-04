@@ -25,7 +25,7 @@ export interface QXK24TokenPayload {
   role:         string;
   name?:        string;
   isFounder?:   boolean;
-  accountLane?: 'umum' | 'pelajar' | 'tools';
+  accountLane?: 'umum' | 'pelajar' | 'tools' | 'niaga';
   appSource?:   string;
   iat?:         number;
   exp?:          number;

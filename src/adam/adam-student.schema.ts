@@ -31,7 +31,7 @@ export interface ADAMStudentAccountDocument extends Document {
   /** ADAMGuru — guru may create kelas and teach ADAM; default student */
   accountRole?: 'student' | 'guru';
   /** umum = ADAM Learn; pelajar = ADAM Tutor (school/uni) */
-  accountLane?: 'umum' | 'pelajar' | 'tools';
+  accountLane?: 'umum' | 'pelajar' | 'tools' | 'niaga';
   /** Saved ADAM Tutor profile — level, syllabus, country (server-side for Founder visibility). */
   tutorProfile?: {
     level:       'primary' | 'secondary' | 'university';
@@ -63,7 +63,7 @@ const ADAMStudentAccountSchema = new Schema<ADAMStudentAccountDocument>(
     passwordSource: { type: String, enum: ['env', 'founder', 'self-register', 'google', 'self'] },
     passwordUpdatedAt: { type: Date },
     accountRole: { type: String, enum: ['student', 'guru'], default: 'student', index: true },
-    accountLane: { type: String, enum: ['umum', 'pelajar', 'tools'], default: 'umum', index: true },
+    accountLane: { type: String, enum: ['umum', 'pelajar', 'tools', 'niaga'], default: 'umum', index: true },
     tutorProfile: {
       level:       { type: String, enum: ['primary', 'secondary', 'university'] },
       curriculum:  { type: String },

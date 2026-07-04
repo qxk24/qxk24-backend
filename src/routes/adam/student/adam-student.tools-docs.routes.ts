@@ -22,6 +22,7 @@ import { withSseKeepalive } from '../../../adam/adam-sse-keepalive';
 import { getTokenUser, requireStudent } from '../../../middleware/auth.middleware';
 import {
   requireCoachingSubscription,
+  rejectNiagaLaneOnly,
   getSubscriptionAccess,
   getCoachingSubscriptionAccess,
 } from '../../../middleware/subscription-guard.middleware';
@@ -49,6 +50,8 @@ import {
 import { DocsGenerateSchema } from './adam-student.schemas';
 
 const router = new Hono();
+
+router.use('/tools/*', requireStudent, rejectNiagaLaneOnly);
 
 /** Reuse coaching freemium gate for Tools MVP (same consumer Basic/Pro pool). */
 router.get('/tools/docs/tasks', requireStudent, async (c) => {

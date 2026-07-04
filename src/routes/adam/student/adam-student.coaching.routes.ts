@@ -23,6 +23,7 @@ import { getTokenUser, requireStudent } from '../../../middleware/auth.middlewar
 import {
   requireCoachingSubscription,
   rejectToolsLaneOnly,
+  rejectNiagaLaneOnly,
   getSubscriptionAccess,
   getCoachingSubscriptionAccess,
 } from '../../../middleware/subscription-guard.middleware';
@@ -51,7 +52,7 @@ import { CoachingChatSchema, SessionTitleSchema } from './adam-student.schemas';
 
 const router = new Hono();
 
-router.use('/coaching/*', requireStudent, rejectToolsLaneOnly);
+router.use('/coaching/*', requireStudent, rejectToolsLaneOnly, rejectNiagaLaneOnly);
 
 router.get('/coaching/subscription', requireStudent, async (c) => {
   const user = getTokenUser(c)!;

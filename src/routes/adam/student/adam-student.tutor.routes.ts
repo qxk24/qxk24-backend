@@ -23,6 +23,7 @@ import { getTokenUser, requireStudent } from '../../../middleware/auth.middlewar
 import {
   requireTutorSubscription,
   rejectToolsLaneOnly,
+  rejectNiagaLaneOnly,
   getSubscriptionAccess,
   getTutorSubscriptionAccess,
 } from '../../../middleware/subscription-guard.middleware';
@@ -57,7 +58,7 @@ import { SessionTitleSchema, TutorChatSchema, TutorProfileSchema } from './adam-
 
 const router = new Hono();
 
-router.use('/tutor/*', requireStudent, rejectToolsLaneOnly);
+router.use('/tutor/*', requireStudent, rejectToolsLaneOnly, rejectNiagaLaneOnly);
 
 router.get('/tutor/profile', requireStudent, async (c) => {
   const user = getTokenUser(c)!;

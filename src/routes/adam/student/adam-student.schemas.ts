@@ -35,13 +35,13 @@ export const RegisterSchema = z.object({
   email:        z.string().email().max(120).optional(),
   password:     z.string().min(6).max(128),
   registerCode: z.string().max(64).optional(),
-  accountLane:  z.enum(['umum', 'pelajar', 'tools']).optional(),
+  accountLane:  z.enum(['umum', 'pelajar', 'tools', 'niaga']).optional(),
 });
 
 export const GoogleSchema = z.object({
   idToken:     z.string().min(20),
   /** New Google accounts only — existing accounts keep their lane. */
-  accountLane: z.enum(['umum', 'pelajar', 'tools']).optional(),
+  accountLane: z.enum(['umum', 'pelajar', 'tools', 'niaga']).optional(),
 });
 
 export const ForgotPasswordSchema = z.object({

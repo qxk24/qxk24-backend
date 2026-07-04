@@ -252,6 +252,9 @@ export function founderStudentLaneLabel(lane?: AdamAccountLane): string {
   if (lane === 'tools') {
     return 'ADAM Tools · Docs and future apps (tools lane only)';
   }
+  if (lane === 'niaga') {
+    return 'ADAM Niaga · small-trader advisor (niaga lane only)';
+  }
   return 'ADAM Learn · Alamtologi constitutional journey (umum lane)';
 }
 
@@ -474,7 +477,12 @@ export async function updateStudentAccount(
   if (patch.accountRole === 'guru' || patch.accountRole === 'student') {
     doc.accountRole = patch.accountRole;
   }
-  if (patch.accountLane === 'pelajar' || patch.accountLane === 'umum' || patch.accountLane === 'tools') {
+  if (
+    patch.accountLane === 'pelajar'
+    || patch.accountLane === 'umum'
+    || patch.accountLane === 'tools'
+    || patch.accountLane === 'niaga'
+  ) {
     doc.accountLane = patch.accountLane;
   }
 

@@ -18,6 +18,7 @@ import {
   requireAdamUser,
   getTokenUser,
 } from '../../middleware/auth.middleware';
+import { rejectToolsLaneOnly } from '../../middleware/subscription-guard.middleware';
 import { requirePlatformAdminModule } from '../../middleware/platform-admin.middleware';
 import { NIAGA_ENTITY_TYPES, NiagaApplicationStatus } from '../../niaga/niaga.types';
 import {
@@ -70,6 +71,10 @@ import {
 } from '../../niaga/niaga-commission-export.service';
 
 const router = new Hono();
+
+/** Tools-lane free accounts cannot use Niaga trader/chat APIs. */
+router.use('/trader/*', requireAdamUser, rejectToolsLaneOnly);
+router.use('/chat/*', requireAdamUser, rejectToolsLaneOnly);
 
 const ApplySchema = z.object({
   applicationId:  z.string().min(8).max(64).optional(),

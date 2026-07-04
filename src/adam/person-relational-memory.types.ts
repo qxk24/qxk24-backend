@@ -31,7 +31,7 @@ export interface PersonMessageStats {
 export interface PersonRelationalProfile {
   personId:              string;
   displayName:           string;
-  accountLane?:          'umum' | 'pelajar' | 'tools';
+  accountLane?:          'umum' | 'pelajar' | 'tools' | 'niaga';
   brainTrackUnderstanding: string;
   relationalSummary:     string;
   relationshipArc:       string;

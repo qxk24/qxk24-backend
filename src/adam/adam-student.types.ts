@@ -10,12 +10,13 @@
  * ============================================================
  */
 
-/** umum = general consumer · pelajar = Tutor · tools = Tools mode only (Docs, etc.) */
-export type AdamAccountLane = 'umum' | 'pelajar' | 'tools';
+/** umum = general · pelajar = Tutor · tools = Tools only · niaga = Niaga only */
+export type AdamAccountLane = 'umum' | 'pelajar' | 'tools' | 'niaga';
 
 export function normalizeAccountLane(value: unknown): AdamAccountLane {
   if (value === 'pelajar') return 'pelajar';
   if (value === 'tools') return 'tools';
+  if (value === 'niaga') return 'niaga';
   return 'umum';
 }
 

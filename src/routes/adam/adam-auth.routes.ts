@@ -164,7 +164,7 @@ router.post('/verify', async (c) => {
       era?:         string;
       role?:        string;
       isFounder?:   boolean;
-      accountLane?: 'umum' | 'pelajar' | 'tools';
+      accountLane?: 'umum' | 'pelajar' | 'tools' | 'niaga';
     };
 
     const isFounder = decoded.role === 'founder' || decoded.isFounder === true;
@@ -180,6 +180,7 @@ router.post('/verify', async (c) => {
       : decoded.accountLane === 'pelajar'
         || decoded.accountLane === 'umum'
         || decoded.accountLane === 'tools'
+        || decoded.accountLane === 'niaga'
         ? normalizeAccountLane(decoded.accountLane)
         : decoded.userId
           ? await getAccountLane(decoded.userId)
