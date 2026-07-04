@@ -190,33 +190,59 @@ async function buildPdf(input: CompileAdamDocumentInput): Promise<Buffer> {
   });
 }
 
+function ensurePdfSpace(doc: PDFKit.PDFDocument, needed: number): void {
+  const bottom = doc.page.height - doc.page.margins.bottom;
+  if (doc.y + needed > bottom) {
+    doc.addPage();
+  }
+}
+
 function renderPdfBlock(doc: PDFKit.PDFDocument, block: ExportBlock): void {
+  const left = doc.page.margins.left;
   const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  doc.x = left;
 
   switch (block.type) {
     case 'heading':
-      doc.moveDown(0.4);
+      ensurePdfSpace(doc, 28);
+      doc.moveDown(0.45);
+      doc.x = left;
       doc.font('Helvetica-Bold').fontSize(block.level <= 1 ? 14 : 12).fillColor('#2c2c54')
-        .text(stripBoldMarkers(block.text), { width: pageWidth });
-      doc.moveDown(0.3);
-      break;
-
-    case 'paragraph':
-      renderPdfInlineText(doc, block.text, pageWidth);
+        .text(stripBoldMarkers(block.text), left, doc.y, { width: pageWidth, lineGap: 2 });
+      doc.x = left;
       doc.moveDown(0.35);
       break;
 
-    case 'answer':
-      doc.moveDown(0.2);
-      doc.rect(doc.x, doc.y, pageWidth, 28).fill('#f4f3ff');
-      doc.fillColor('#615ced').font('Courier').fontSize(11)
-        .text(block.text, doc.page.margins.left + 8, doc.y - 22, { width: pageWidth - 16 });
-      doc.fillColor('#111111');
-      doc.moveDown(0.5);
+    case 'paragraph':
+      ensurePdfSpace(doc, 20);
+      renderPdfInlineText(doc, block.text, pageWidth);
+      doc.x = left;
+      doc.moveDown(0.4);
       break;
+
+    case 'answer': {
+      doc.moveDown(0.15);
+      const pad = 8;
+      doc.font('Courier').fontSize(10);
+      const textHeight = doc.heightOfString(block.text, { width: pageWidth - pad * 2, lineGap: 2 });
+      const boxHeight = Math.max(28, textHeight + pad * 2);
+      ensurePdfSpace(doc, boxHeight + 8);
+      const boxY = doc.y;
+      doc.rect(left, boxY, pageWidth, boxHeight).fill('#f4f3ff');
+      doc.fillColor('#4338ca')
+        .text(block.text, left + pad, boxY + pad, {
+          width:   pageWidth - pad * 2,
+          lineGap: 2,
+        });
+      doc.fillColor('#111111');
+      doc.y = boxY + boxHeight + 8;
+      doc.x = left;
+      break;
+    }
 
     case 'table':
       renderPdfTable(doc, block.headers, block.rows, pageWidth);
+      doc.x = left;
       doc.moveDown(0.5);
       break;
 
@@ -229,13 +255,48 @@ function stripBoldMarkers(text: string): string {
   return text.replace(/\*\*([^*]+)\*\*/g, '$1');
 }
 
+/**
+ * PDFKit `continued: true` across wrapped lines often leaves `doc.y` wrong,
+ * so the next block overlaps. Render each visual line as its own text run.
+ */
 function renderPdfInlineText(doc: PDFKit.PDFDocument, text: string, width: number): void {
-  const segments = parseInlineBoldSegments(text);
-  for (const seg of segments) {
-    doc.font(seg.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(11).fillColor('#111111')
-      .text(seg.text, { continued: true, width });
+  const left = doc.page.margins.left;
+  const lines = text.split('\n');
+
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li] ?? '';
+    doc.x = left;
+    const segments = parseInlineBoldSegments(line);
+
+    if (segments.length === 0 || (segments.length === 1 && !segments[0]!.text)) {
+      doc.moveDown(0.35);
+      continue;
+    }
+
+    ensurePdfSpace(doc, 16);
+
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i]!;
+      const isLast = i === segments.length - 1;
+      doc.font(seg.bold ? 'Helvetica-Bold' : 'Helvetica')
+        .fontSize(11)
+        .fillColor('#111111')
+        .text(seg.text, {
+          continued: isLast ? false : true,
+          width,
+          lineGap:   3,
+          align:     'left',
+        });
+    }
+
+    doc.x = left;
+    if (li < lines.length - 1) {
+      // Explicit gap between hard-wrapped markdown lines (e.g. list items).
+      doc.moveDown(0.15);
+    }
   }
-  doc.text('', { continued: false });
+
+  doc.x = left;
 }
 
 function renderPdfTable(

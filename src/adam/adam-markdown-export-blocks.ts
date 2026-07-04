@@ -103,6 +103,42 @@ export function parseMarkdownExportBlocks(raw: string): ExportBlock[] {
       continue;
     }
 
+    // Keep list items as their own blocks so PDF/DOCX spacing stays clean.
+    if (/^(?:\d+[.)]\s+|[-*•]\s+)/.test(line)) {
+      flushParagraph();
+      blocks.push({ type: 'paragraph', text: line });
+      i++;
+      continue;
+    }
+
+    // Blockquotes / fact boxes
+    if (/^>\s?/.test(line)) {
+      flushParagraph();
+      const quoteLines: string[] = [];
+      while (i < lines.length && /^>\s?/.test(lines[i].trim())) {
+        quoteLines.push(lines[i].trim().replace(/^>\s?/, ''));
+        i++;
+      }
+      const quote = quoteLines.join('\n').trim();
+      if (quote) blocks.push({ type: 'answer', text: quote });
+      continue;
+    }
+
+    // Fenced code / formula boxes
+    if (/^```/.test(line)) {
+      flushParagraph();
+      i++;
+      const codeLines: string[] = [];
+      while (i < lines.length && !/^```/.test(lines[i].trim())) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      const code = codeLines.join('\n').trim();
+      if (code) blocks.push({ type: 'answer', text: code });
+      continue;
+    }
+
     paragraphBuffer.push(line);
     i++;
   }
