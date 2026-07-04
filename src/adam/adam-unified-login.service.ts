@@ -28,7 +28,7 @@ import {
   resolveStudentLoginUserIdAsync,
   verifyStudentPassword,
 } from './adam-student.service';
-import { FOUNDER_USER_ID } from './adam-student.types';
+import { FOUNDER_USER_ID, type AdamAccountLane } from './adam-student.types';
 
 const FOUNDER_DISPLAY_NAME = 'Masa Bayu';
 
@@ -47,7 +47,7 @@ export type UnifiedLoginSuccess =
       userId:       string;
       name:         string;
       role:         'student' | 'guru';
-      accountLane:  'umum' | 'pelajar';
+      accountLane:  AdamAccountLane;
     };
 
 export type UnifiedLoginFailure = {

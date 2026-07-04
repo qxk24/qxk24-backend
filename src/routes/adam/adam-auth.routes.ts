@@ -24,6 +24,7 @@ import { getFounderPassword } from '../../config/founder-auth';
 import { attemptUnifiedAdamLogin } from '../../adam/adam-unified-login.service';
 import { requireFounder } from '../../middleware/auth.middleware';
 import { getAccountLane } from '../../adam/adam-student-registry.service';
+import { normalizeAccountLane } from '../../adam/adam-student.types';
 import { ADAMFounderSessionModel } from '../../adam/adam.schema';
 import {
   resolveFounderTeachingSession,
@@ -163,7 +164,7 @@ router.post('/verify', async (c) => {
       era?:         string;
       role?:        string;
       isFounder?:   boolean;
-      accountLane?: 'umum' | 'pelajar';
+      accountLane?: 'umum' | 'pelajar' | 'tools';
     };
 
     const isFounder = decoded.role === 'founder' || decoded.isFounder === true;
@@ -176,8 +177,10 @@ router.post('/verify', async (c) => {
 
     const accountLane = isFounder
       ? undefined
-      : decoded.accountLane === 'pelajar' || decoded.accountLane === 'umum'
-        ? decoded.accountLane
+      : decoded.accountLane === 'pelajar'
+        || decoded.accountLane === 'umum'
+        || decoded.accountLane === 'tools'
+        ? normalizeAccountLane(decoded.accountLane)
         : decoded.userId
           ? await getAccountLane(decoded.userId)
           : 'umum';

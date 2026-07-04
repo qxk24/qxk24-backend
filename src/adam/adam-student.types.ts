@@ -10,8 +10,14 @@
  * ============================================================
  */
 
-/** umum = ADAM Learn (public); pelajar = ADAM Tutor (school/uni). */
-export type AdamAccountLane = 'umum' | 'pelajar';
+/** umum = general consumer · pelajar = Tutor · tools = Tools mode only (Docs, etc.) */
+export type AdamAccountLane = 'umum' | 'pelajar' | 'tools';
+
+export function normalizeAccountLane(value: unknown): AdamAccountLane {
+  if (value === 'pelajar') return 'pelajar';
+  if (value === 'tools') return 'tools';
+  return 'umum';
+}
 
 export interface SeedStudentAccount {
   userId:       string;

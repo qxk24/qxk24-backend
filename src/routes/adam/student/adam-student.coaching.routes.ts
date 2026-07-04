@@ -22,6 +22,7 @@ import { withSseKeepalive } from '../../../adam/adam-sse-keepalive';
 import { getTokenUser, requireStudent } from '../../../middleware/auth.middleware';
 import {
   requireCoachingSubscription,
+  rejectToolsLaneOnly,
   getSubscriptionAccess,
   getCoachingSubscriptionAccess,
 } from '../../../middleware/subscription-guard.middleware';
@@ -49,6 +50,8 @@ import { assertStudentOwnsSession } from '../../../adam/adam-workspace.service';
 import { CoachingChatSchema, SessionTitleSchema } from './adam-student.schemas';
 
 const router = new Hono();
+
+router.use('/coaching/*', requireStudent, rejectToolsLaneOnly);
 
 router.get('/coaching/subscription', requireStudent, async (c) => {
   const user = getTokenUser(c)!;

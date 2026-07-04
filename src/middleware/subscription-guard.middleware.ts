@@ -30,6 +30,36 @@ import {
   resolveCoachingSubscriptionAccess,
   type CoachingSubscriptionAccess,
 } from '../adam/adam-coaching-subscription.service';
+import { getAccountLane } from '../adam/adam-student-registry.service';
+
+/** Tools-lane accounts may only use ADAM Tools — not Tutor or Coaching. */
+export async function rejectToolsLaneOnly(
+  c: Context,
+  next: Next,
+): Promise<Response | void> {
+  const user = getTokenUser(c);
+  if (!user || isFounderPayload(user)) {
+    await next();
+    return;
+  }
+
+  let lane = user.accountLane;
+  if (lane !== 'tools' && user.userId) {
+    lane = await getAccountLane(user.userId);
+  }
+
+  if (lane === 'tools') {
+    return c.json({
+      success: false,
+      error:   'This account is registered for ADAM Tools only. Open Tools › Docs.',
+      code:    'TOOLS_LANE_ONLY',
+      upgradeUrl: '/adam/tools/docs',
+      kernel:  'ALAMTOLOGI',
+    }, 403);
+  }
+
+  await next();
+}
 
 export const TUTOR_SUBSCRIPTION_ACCESS_KEY = 'tutorSubscriptionAccess';
 export const COACHING_SUBSCRIPTION_ACCESS_KEY = 'coachingSubscriptionAccess';

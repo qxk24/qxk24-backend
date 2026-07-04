@@ -80,7 +80,13 @@ export async function verifyGoogleIdToken(idToken: string): Promise<{
   };
 }
 
-export async function authenticateGoogleIdToken(idToken: string) {
+export async function authenticateGoogleIdToken(
+  idToken: string,
+  options?: { accountLane?: import('./adam-student.types').AdamAccountLane },
+) {
   const profile = await verifyGoogleIdToken(idToken);
-  return loginStudentWithGoogle(profile);
+  return loginStudentWithGoogle({
+    ...profile,
+    accountLane: options?.accountLane,
+  });
 }

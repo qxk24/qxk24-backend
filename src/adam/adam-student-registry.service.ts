@@ -44,6 +44,7 @@ import {
 import {
   FOUNDER_USER_ID,
   SEED_STUDENT_ACCOUNTS,
+  normalizeAccountLane,
   type AdamAccountLane,
   type StudentAccountRecord,
 } from './adam-student.types';
@@ -98,7 +99,7 @@ async function insertSeedAccount(
     active:         true,
     createdBy:      FOUNDER_USER_ID,
     passwordSource: 'env',
-    accountLane:    seed.accountLane === 'pelajar' ? 'pelajar' : 'umum',
+    accountLane:    normalizeAccountLane(seed.accountLane),
   });
 }
 
@@ -239,7 +240,7 @@ export async function refreshStudentCache(): Promise<void> {
   activeAccounts = docs.map((d) => ({
     userId:       d.userId,
     name:         d.name,
-    accountLane:  d.accountLane === 'pelajar' ? 'pelajar' : 'umum',
+    accountLane:  normalizeAccountLane(d.accountLane),
   }));
 }
 
@@ -247,6 +248,9 @@ export async function refreshStudentCache(): Promise<void> {
 export function founderStudentLaneLabel(lane?: AdamAccountLane): string {
   if (lane === 'pelajar') {
     return 'ADAM Tutor · conventional school/university (pelajar lane)';
+  }
+  if (lane === 'tools') {
+    return 'ADAM Tools · Docs and future apps (tools lane only)';
   }
   return 'ADAM Learn · Alamtologi constitutional journey (umum lane)';
 }
@@ -262,7 +266,7 @@ export async function backfillAccountLanesToUmum(): Promise<number> {
 
 export async function getAccountLane(userId: string): Promise<AdamAccountLane> {
   const doc = await ADAMStudentAccountModel.findOne({ userId, active: true }).lean();
-  return doc?.accountLane === 'pelajar' ? 'pelajar' : 'umum';
+  return normalizeAccountLane(doc?.accountLane);
 }
 
 export async function initStudentRegistry(): Promise<void> {
@@ -338,7 +342,7 @@ export async function resolveStudentLoginUserIdAsync(raw: string): Promise<strin
   if (!doc) return null;
 
   if (!activeAccounts.some((s) => s.userId === doc.userId)) {
-    const accountLane: AdamAccountLane = doc.accountLane === 'pelajar' ? 'pelajar' : 'umum';
+    const accountLane: AdamAccountLane = normalizeAccountLane(doc.accountLane);
     const row: StudentAccountRecord = {
       userId: doc.userId,
       name:   doc.name,
@@ -393,7 +397,7 @@ export async function listStudentsForFounder(): Promise<FounderStudentRow[]> {
     email:             d.email,
     active:            d.active,
     accountRole:       d.accountRole === 'guru' ? 'guru' : 'student',
-    accountLane:       d.accountLane === 'pelajar' ? 'pelajar' : 'umum',
+    accountLane:       normalizeAccountLane(d.accountLane),
     createdAt:         d.createdAt,
     passwordSource:    d.passwordSource,
     passwordUpdatedAt: d.passwordUpdatedAt,
@@ -422,7 +426,7 @@ export async function createStudentAccount(params: {
     active:            true,
     createdBy:         params.createdBy,
     accountRole:       params.accountRole === 'guru' ? 'guru' : 'student',
-    accountLane:       params.accountLane === 'pelajar' ? 'pelajar' : 'umum',
+    accountLane:       normalizeAccountLane(params.accountLane),
     passwordSource:    params.createdBy === 'self-register' ? 'self-register' : 'founder',
     passwordUpdatedAt: params.createdBy === 'self-register' ? undefined : new Date(),
   });
@@ -435,7 +439,7 @@ export async function createStudentAccount(params: {
     email:             doc.email,
     active:            doc.active,
     accountRole:       doc.accountRole === 'guru' ? 'guru' : 'student',
-    accountLane:       doc.accountLane === 'pelajar' ? 'pelajar' : 'umum',
+    accountLane:       normalizeAccountLane(doc.accountLane),
     createdAt:         doc.createdAt,
     passwordSource:    doc.passwordSource,
     passwordUpdatedAt: doc.passwordUpdatedAt,
@@ -470,7 +474,7 @@ export async function updateStudentAccount(
   if (patch.accountRole === 'guru' || patch.accountRole === 'student') {
     doc.accountRole = patch.accountRole;
   }
-  if (patch.accountLane === 'pelajar' || patch.accountLane === 'umum') {
+  if (patch.accountLane === 'pelajar' || patch.accountLane === 'umum' || patch.accountLane === 'tools') {
     doc.accountLane = patch.accountLane;
   }
 
@@ -483,7 +487,7 @@ export async function updateStudentAccount(
     email:             doc.email,
     active:            doc.active,
     accountRole:       doc.accountRole === 'guru' ? 'guru' : 'student',
-    accountLane:       doc.accountLane === 'pelajar' ? 'pelajar' : 'umum',
+    accountLane:       normalizeAccountLane(doc.accountLane),
     createdAt:         doc.createdAt,
     passwordSource:    doc.passwordSource,
     passwordUpdatedAt: doc.passwordUpdatedAt,
@@ -538,6 +542,8 @@ export async function loginStudentWithGoogle(profile: {
   googleSub: string;
   email:     string;
   name:      string;
+  /** Applied only when creating a new account (signup). Existing accounts keep their lane. */
+  accountLane?: AdamAccountLane;
 }): Promise<FounderStudentRow> {
   let doc = await ADAMStudentAccountModel.findOne({ googleSub: profile.googleSub });
   if (!doc) {
@@ -560,7 +566,7 @@ export async function loginStudentWithGoogle(profile: {
       email:             doc.email,
       active:            doc.active,
       accountRole:       doc.accountRole === 'guru' ? 'guru' : 'student',
-      accountLane:       doc.accountLane === 'pelajar' ? 'pelajar' : 'umum',
+      accountLane:       normalizeAccountLane(doc.accountLane),
       createdAt:         doc.createdAt,
       passwordSource:    doc.passwordSource,
       passwordUpdatedAt: doc.passwordUpdatedAt,
@@ -580,6 +586,7 @@ export async function loginStudentWithGoogle(profile: {
   const preferred = slugStudentUserId(emailLocal || profile.name);
   const userId = await ensureUniqueUserId(preferred);
   const placeholderSecret = crypto.randomBytes(32).toString('hex');
+  const accountLane = normalizeAccountLane(profile.accountLane);
 
   doc = await ADAMStudentAccountModel.create({
     userId,
@@ -590,7 +597,7 @@ export async function loginStudentWithGoogle(profile: {
     active:         true,
     createdBy:      'google',
     passwordSource: 'google',
-    accountLane:    'umum',
+    accountLane,
   });
 
   await refreshStudentCache();
@@ -601,7 +608,7 @@ export async function loginStudentWithGoogle(profile: {
     email:             doc.email,
     active:            doc.active,
     accountRole:       'student',
-    accountLane:       'umum',
+    accountLane,
     createdAt:         doc.createdAt,
     passwordSource:    doc.passwordSource,
     passwordUpdatedAt: doc.passwordUpdatedAt,

@@ -22,6 +22,7 @@ import { withSseKeepalive } from '../../../adam/adam-sse-keepalive';
 import { getTokenUser, requireStudent } from '../../../middleware/auth.middleware';
 import {
   requireTutorSubscription,
+  rejectToolsLaneOnly,
   getSubscriptionAccess,
   getTutorSubscriptionAccess,
 } from '../../../middleware/subscription-guard.middleware';
@@ -55,6 +56,8 @@ import { getTutorProfile, saveTutorProfile } from '../../../adam/adam-tutor-prof
 import { SessionTitleSchema, TutorChatSchema, TutorProfileSchema } from './adam-student.schemas';
 
 const router = new Hono();
+
+router.use('/tutor/*', requireStudent, rejectToolsLaneOnly);
 
 router.get('/tutor/profile', requireStudent, async (c) => {
   const user = getTokenUser(c)!;

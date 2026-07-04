@@ -155,9 +155,11 @@ router.post('/register', zValidator('json', RegisterSchema), async (c) => {
 });
 
 router.post('/google', zValidator('json', GoogleSchema), async (c) => {
-  const { idToken } = c.req.valid('json');
+  const body = c.req.valid('json');
   try {
-    const account = await authenticateGoogleIdToken(idToken);
+    const account = await authenticateGoogleIdToken(body.idToken, {
+      accountLane: body.accountLane,
+    });
     const accountRole = await getAccountRole(account.userId);
     const accountLane = await getAccountLane(account.userId);
     const token = issueAdamToken({
