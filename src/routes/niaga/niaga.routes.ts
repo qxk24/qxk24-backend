@@ -69,6 +69,10 @@ import {
   exportNiagaAdminLedgerCsv,
   exportNiagaCommissionCsv,
 } from '../../niaga/niaga-commission-export.service';
+import {
+  buildNiagaCashflowTemplate,
+  type NiagaCashflowFormat,
+} from '../../niaga/niaga-cashflow-template.service';
 
 const router = new Hono();
 
@@ -468,6 +472,28 @@ router.post('/admin/licenses/suspend', requireNiagaAdmin, zValidator('json', Sus
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Suspend failed.';
     return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
+  }
+});
+
+// GET /api/niaga/templates/cashflow?format=xlsx|pdf|docx — free Basic template download
+router.get('/templates/cashflow', requireAdamUser, rejectToolsLaneOnly, async (c) => {
+  const formatRaw = (c.req.query('format') ?? 'xlsx').toLowerCase();
+  const format = (['xlsx', 'pdf', 'docx'].includes(formatRaw)
+    ? formatRaw
+    : 'xlsx') as NiagaCashflowFormat;
+  try {
+    const file = await buildNiagaCashflowTemplate(format);
+    return new Response(new Uint8Array(file.buffer), {
+      status: 200,
+      headers: {
+        'Content-Type':        file.contentType,
+        'Content-Disposition': `attachment; filename="${file.filename}"`,
+        'Cache-Control':       'no-store',
+      },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Could not build template.';
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 500);
   }
 });
 

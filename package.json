@@ -39,6 +39,7 @@
     "bcryptjs": "^2.4.3",
     "docx": "^9.7.1",
     "dotenv": "^16.3.1",
+    "exceljs": "^4.4.0",
     "google-auth-library": "^9.15.1",
     "hono": "^4.2.7",
     "jsonwebtoken": "^9.0.2",
