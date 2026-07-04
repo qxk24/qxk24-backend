@@ -61,6 +61,7 @@ import {
 } from './adam-brain-river';
 import { resolveFounderTurnDisplayForSave } from './adam-founder-stream-repair';
 import { isAdamCoachingMode } from './adam-coaching-law';
+import { isAdamToolsMode } from './adam-tools-docs-law';
 import { isAdamMediaSearchTurn } from './adam-media-search';
 import { outputHasAdamChatMedia } from './adam-media-guard';
 import { isAdamCurrentAffairsTurn, isFactualAdamWebSearchGateReason, isVerifiedDataStatAsk } from './adam-web-search';
@@ -327,6 +328,11 @@ export async function executeAdamSynthesisTurn(input: {
           preserveStreamBody = true;
           fullResponse = streamBody;
         }
+      } else if (isAdamToolsMode(mode)) {
+        // Keep repaired deliverable; fall back to model stream if repair emptied it.
+        if (!fullResponse?.trim() && rawModelStream.trim()) {
+          fullResponse = rawModelStream;
+        }
       } else {
         fullResponse = resolveAdamTurnDisplayForSave(rawModelStream, fullResponse, {
           forceReplace: sanitizedRepairApplied && isAdamCurrentAffairsTurn(userMessage),
@@ -360,6 +366,7 @@ export async function executeAdamSynthesisTurn(input: {
         !isFounderChannel(channel)
         && !isAdamTutorMode(mode)
         && !isAdamCoachingMode(mode)
+        && !isAdamToolsMode(mode)
       ) {
         const beforeProductRedirect = fullResponse;
         fullResponse = ensureUsersProductRedirectFree(fullResponse, userMessage, recentUserTurns);

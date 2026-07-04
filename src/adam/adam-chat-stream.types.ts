@@ -34,6 +34,8 @@ export interface StreamADAMChatOptions {
   builderEvaluate?:   boolean;
   /** ADAM Tutor lane — level, curriculum, year */
   tutorProfile?:      AdamTutorProfile;
+  /** ADAM Tools › Docs — task contract for TOOLS mode */
+  docsTaskId?:        import('./adam-tools-docs-law').AdamDocsTaskId;
   /** ERA_2c — student sent message via browser STT microphone */
   viaVoice?:          boolean;
   /** ERA_2h — client-measured response time since last ADAM prompt (ms) */

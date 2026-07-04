@@ -50,6 +50,7 @@ export type AdamOceanSinkKind =
   | 'founder-master'
   | 'student-transform'
   | 'tutor-local'
+  | 'tools-local'
   | 'niaga-local'
   | 'guest-ephemeral';
 
@@ -171,6 +172,18 @@ export function resolveBrainRiverBranchPolicy(
         isFounder,
       ),
       oceanSink:                isGuestTrial ? 'guest-ephemeral' : 'student-transform',
+      usersTechnicalFinalize:   false,
+    };
+  }
+
+  if (channel.family === 'tools') {
+    return {
+      studentStreamlined:       true,
+      needContinuityBridge:     !isGuestTrial,
+      needFounderTamat:         false,
+      needTesterPrefix:         false,
+      bufferStreamUntilRepair:  true,
+      oceanSink:                isGuestTrial ? 'guest-ephemeral' : 'tools-local',
       usersTechnicalFinalize:   false,
     };
   }

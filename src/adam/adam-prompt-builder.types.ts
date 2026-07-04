@@ -52,6 +52,8 @@ export interface AdamChatSystemPromptParams {
   userMessage?:            string;
   /** ADAM Tutor lane — conventional academics only (no Alamtologi stack). */
   tutorProfile?:           AdamTutorProfile;
+  /** ADAM Tools › Docs — active task id for deliverable contract. */
+  docsTaskId?:             import('./adam-tools-docs-law').AdamDocsTaskId;
   /** ERA_2 — persisted learning profile for adaptive/ZPD prompts. */
   tutorLearningProfile?:   import('./tutor-law/tutor-law.learning-profile.types').AdamTutorLearningProfile;
   tutorPlacementPrompt?:   string | null;

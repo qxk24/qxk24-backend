@@ -417,7 +417,7 @@ export interface ADAMMessageDocument extends Document {
   founderId:    string;
   speakerId:    string;
   speakerName:  string;
-  sessionType:  'founder' | 'student' | 'group' | 'guru' | 'tutor' | 'coaching' | 'niaga';
+  sessionType:  'founder' | 'student' | 'group' | 'guru' | 'tutor' | 'coaching' | 'tools' | 'niaga';
   role:         'founder' | 'student' | 'guru' | 'adam';
   content:      string;
   mode:         string;
@@ -439,7 +439,7 @@ const ADAMMessageSchema = new Schema<ADAMMessageDocument>({
   founderId:    { type: String, required: true, default: 'masa-bayu', index: true },
   speakerId:    { type: String, required: true, default: 'masa-bayu', index: true },
   speakerName:  { type: String, default: '' },
-  sessionType:  { type: String, enum: ['founder', 'student', 'group', 'guru', 'tutor', 'coaching', 'niaga'], default: 'founder', index: true },
+  sessionType:  { type: String, enum: ['founder', 'student', 'group', 'guru', 'tutor', 'coaching', 'tools', 'niaga'], default: 'founder', index: true },
   role:         { type: String, enum: ['founder', 'student', 'guru', 'adam'], required: true },
   content:      { type: String, required: true },
   mode:         { type: String, default: 'TEACHING' },
@@ -467,7 +467,7 @@ export const ADAMMessageModel = mongoose.model<ADAMMessageDocument>(
 export interface ADAMFounderSessionDocument extends Document {
   sessionId:          string;
   founderId:          string;
-  sessionType:        'founder' | 'student' | 'group' | 'guru' | 'tutor' | 'coaching' | 'niaga';
+  sessionType:        'founder' | 'student' | 'group' | 'guru' | 'tutor' | 'coaching' | 'tools' | 'niaga';
   /** ChatGPT-style recents label — first user message, trimmed. */
   title?:             string;
   kernel:             string;
@@ -491,7 +491,7 @@ export interface ADAMFounderSessionDocument extends Document {
 const ADAMFounderSessionSchema = new Schema<ADAMFounderSessionDocument>({
   sessionId:    { type: String, required: true, unique: true },
   founderId:    { type: String, required: true, default: 'masa-bayu', index: true },
-  sessionType:  { type: String, enum: ['founder', 'student', 'group', 'guru', 'tutor', 'coaching', 'niaga'], default: 'founder', index: true },
+  sessionType:  { type: String, enum: ['founder', 'student', 'group', 'guru', 'tutor', 'coaching', 'tools', 'niaga'], default: 'founder', index: true },
   title:        { type: String, maxlength: 120 },
   kernel:       { type: String, default: 'ALAMTOLOGI' },
   era:          { type: String, default: 'ERA_1' },

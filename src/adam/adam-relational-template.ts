@@ -131,7 +131,7 @@ export function laneUsesRelationalTemplate(lane: {
   mode?:        string;
 }): boolean {
   if (lane.isGuestTrial) return false;
-  if (lane.mode === 'TUTOR' || lane.mode === 'NIAGA' || lane.mode === 'COACHING') return false;
-  if (lane.sessionType === 'tutor' || lane.sessionType === 'niaga' || lane.sessionType === 'coaching') return false;
+  if (lane.mode === 'TUTOR' || lane.mode === 'NIAGA' || lane.mode === 'COACHING' || lane.mode === 'TOOLS') return false;
+  if (lane.sessionType === 'tutor' || lane.sessionType === 'niaga' || lane.sessionType === 'coaching' || lane.sessionType === 'tools') return false;
   return true;
 }

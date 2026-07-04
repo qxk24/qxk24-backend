@@ -379,6 +379,11 @@ export async function resolveCoachingChatSession(userId: string): Promise<string
   return getOrCreateSession(userId, 'coaching');
 }
 
+/** Fresh tools session for each Docs generate (deliverable, not long chat). */
+export async function resolveToolsChatSession(userId: string): Promise<string> {
+  return createNewChatSession(userId, 'tools');
+}
+
 /** Most recent niaga thread with history, else create one. */
 export async function resolveNiagaChatSession(userId: string): Promise<string> {
   const recent = await ADAMFounderSessionModel.findOne({
@@ -748,7 +753,7 @@ export async function assertCanClearSessionChat(
       if (!opts.isFounder) throw new Error('Session access denied.');
       return;
     }
-    if (session.sessionType === 'student' || session.sessionType === 'tutor' || session.sessionType === 'coaching' || session.sessionType === 'niaga') {
+    if (session.sessionType === 'student' || session.sessionType === 'tutor' || session.sessionType === 'coaching' || session.sessionType === 'tools' || session.sessionType === 'niaga') {
       if (opts.isFounder || session.founderId === userId) return;
       throw new Error('Session access denied.');
     }

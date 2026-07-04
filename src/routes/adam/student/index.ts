@@ -20,6 +20,7 @@ import authRoutes from './adam-student.auth.routes';
 import billingRoutes from './adam-student.billing.routes';
 import chatRoutes from './adam-student.chat.routes';
 import coachingRoutes from './adam-student.coaching.routes';
+import toolsDocsRoutes from './adam-student.tools-docs.routes';
 import tutorRoutes from './adam-student.tutor.routes';
 
 const router = new Hono();
@@ -29,5 +30,6 @@ router.route('/', billingRoutes);
 router.route('/', chatRoutes);
 router.route('/', tutorRoutes);
 router.route('/', coachingRoutes);
+router.route('/', toolsDocsRoutes);
 
 export default router;

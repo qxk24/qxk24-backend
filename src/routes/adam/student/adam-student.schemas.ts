@@ -107,6 +107,19 @@ export const CoachingChatSchema = z.object({
   { message: 'Provide a message and/or at least one attached file (uploadIds).' },
 );
 
+export const DocsGenerateSchema = z.object({
+  taskId:     z.enum([
+    'study-pack',
+    'document-faq',
+    'meeting-minutes',
+    'pitch-deck-content',
+    'business-checklist',
+  ]),
+  brief:      z.string().max(12_000).optional(),
+  sourceText: z.string().max(80_000).optional(),
+  sessionId:  z.string().optional(),
+});
+
 export const MacBridgeToggleSchema = z.object({
   open: z.boolean(),
 });

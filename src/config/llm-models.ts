@@ -28,7 +28,7 @@ export interface ModelRouterParticipant {
   userId:      string;
   userName:    string;
   role:        'founder' | 'student' | 'guru';
-  sessionType: 'founder' | 'student' | 'group' | 'guru' | 'tutor' | 'coaching' | 'niaga';
+  sessionType: 'founder' | 'student' | 'group' | 'guru' | 'tutor' | 'coaching' | 'tools' | 'niaga';
 }
 
 const DEEP_MODES: ADAMChatMode[] = [

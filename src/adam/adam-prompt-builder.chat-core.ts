@@ -132,6 +132,11 @@ import {
 import { appendExplainBackPedagogy } from './adam-prompt-builder.pedagogy';
 import { buildAdamTutorSystemPrompt } from './adam-prompt-builder.tutor';
 import { isAdamCoachingMode, buildAdamCoachingSystemPrompt } from './adam-coaching-law';
+import {
+  isAdamToolsMode,
+  buildAdamDocsSystemPrompt,
+  isAdamDocsTaskId,
+} from './adam-tools-docs-law';
 import { appendAdamUsersConsumerTurnParts } from './adam-prompt-builder.chat-users';
 
 export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): string {
@@ -154,6 +159,17 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
       participantName: params.participantName,
       userMessage:     params.userMessage,
       preferMalay,
+    });
+  }
+
+  if (isAdamToolsMode(params.mode) && !params.isFounder) {
+    const taskId = params.docsTaskId && isAdamDocsTaskId(params.docsTaskId)
+      ? params.docsTaskId
+      : 'business-checklist';
+    return buildAdamDocsSystemPrompt({
+      taskId,
+      participantName: params.participantName,
+      userMessage:     params.userMessage,
     });
   }
 

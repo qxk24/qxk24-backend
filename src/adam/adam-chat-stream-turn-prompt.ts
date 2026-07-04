@@ -89,6 +89,7 @@ export async function buildTurnPromptAndSearchGate(input: {
 
   const isTutorLane = mode === 'TUTOR';
   const isCoachingLane = mode === 'COACHING';
+  const isToolsLane = mode === 'TOOLS';
   const isNiagaLane = isAdamNiagaMode(mode);
   const isResearchLane = mode === 'RESEARCH';
 
@@ -174,18 +175,18 @@ export async function buildTurnPromptAndSearchGate(input: {
     recentUserMessages:   recentUserTurns,
     recentAssistantMessages: recentAssistantTurns,
     brainRecallLoaded:    turnContext.brainRecallLoaded,
-    workspacePrompt:      isTutorLane || isNiagaLane ? undefined : workspacePrompt,
+    workspacePrompt:      isTutorLane || isNiagaLane || isToolsLane ? undefined : workspacePrompt,
     founderStudentsBlock: isFounder
       ? await buildFounderStudentsAwarenessBlockAsync()
       : '',
-    usersContinuityBridge: isTutorLane || isNiagaLane ? undefined : usersContinuityBridge,
-    usersRelationalVoice: !isFounder && !isTutorLane && !isNiagaLane
+    usersContinuityBridge: isTutorLane || isNiagaLane || isToolsLane ? undefined : usersContinuityBridge,
+    usersRelationalVoice: !isFounder && !isTutorLane && !isNiagaLane && !isToolsLane
       && turnContext.river.gate.flags.relationalVoice
       && contextHasRelationalVoice(contextMessages),
     founderTeachingAbsorption,
     founderTeachingInquiry,
     founderTeachingSynthesis,
-    amaTamatBlock:        isTutorLane || isNiagaLane ? undefined : amaTamatBlock,
+    amaTamatBlock:        isTutorLane || isNiagaLane || isToolsLane ? undefined : amaTamatBlock,
     usersKnowledgeTier,
     knowledgeMode: turnContext.knowledgeMode,
     answerPlan:    turnContext.river.answerPlan,
@@ -198,6 +199,7 @@ export async function buildTurnPromptAndSearchGate(input: {
     tutorContentId: isTutorLane ? tutorContentId ?? undefined : undefined,
     viaVoice:             isTutorLane ? options.viaVoice === true : undefined,
     niagaProfile:         isNiagaLane ? options.niagaProfile : undefined,
+    docsTaskId:           isToolsLane ? options.docsTaskId : undefined,
     webSearchPrompt:      webSearchEnabledThisTurn && webSearchGateReason && isTutorLane
       ? buildTutorWebSearchPrompt(
         tutorProfile,
@@ -224,7 +226,8 @@ export async function buildTurnPromptAndSearchGate(input: {
   });
 
   // Layer 0: student consumer gets student core; Founder (including Teaching learner) keeps founder core.
-  let systemPrompt = isTutorLane || isNiagaLane
+  // Tutor / Niaga / Tools carry their own lane law — do not prepend student core.
+  let systemPrompt = isTutorLane || isNiagaLane || isToolsLane
     ? builtPrompt
     : prependCoreToSystem(builtPrompt, !isFounder);
 

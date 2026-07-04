@@ -46,6 +46,7 @@ import {
 } from './adam-users-output-law';
 import { isAdamTutorMode, buildTutorGreetingFallback, repairTutorMalaySessionLanguage } from './adam-tutor-law';
 import { isAdamCoachingMode } from './adam-coaching-law';
+import { isAdamToolsMode } from './adam-tools-docs-law';
 import { repairTechnicalDiagramOutput } from './adam-technical-diagram-guard';
 import {
   repairTechnicalKonvensionalDisplayStructure,
@@ -127,6 +128,28 @@ export async function repairUsersStreamOutput(input: {
         shell.options.tutorProfile,
       );
       syncRepairMs = Date.now() - tutorLangStarted;
+    }
+  } else if (isAdamToolsMode(mode)) {
+    // Tools deliverables: strip framework/faith leaks; no greeting fallback.
+    if (fullResponse?.trim()) {
+      const syncStarted = Date.now();
+      fullResponse = applyUsersSurfaceOutputRepair(
+        fullResponse,
+        userMessage,
+        recentUserTurns,
+        recentAssistantTurns,
+        participant.userName,
+        true,
+        {
+          usersTechnicalDirect: false,
+          gateFaithPermitted: turnGate?.flags.faithPermitted,
+          gateKonvensionalSurface: true,
+        },
+      );
+      syncRepairMs = Date.now() - syncStarted;
+      if (fullResponse !== rawModelStream) {
+        sanitizedRepairApplied = true;
+      }
     }
   } else {
     const syncStarted = Date.now();
@@ -243,6 +266,7 @@ export async function repairUsersStreamOutput(input: {
 
   if (
     !isAdamTutorMode(mode)
+    && !isAdamToolsMode(mode)
     && !isAdamLightChatTurn(userMessage)
     && fullResponse?.trim()
     && isUsersGreetingOnlyRepair(rawModelStream, fullResponse)
@@ -272,7 +296,9 @@ export async function repairUsersStreamOutput(input: {
     }
   }
 
-  fullResponse = ensureIslamicSalamReply(fullResponse, userMessage, participant.userName);
+  if (!isAdamToolsMode(mode)) {
+    fullResponse = ensureIslamicSalamReply(fullResponse, userMessage, participant.userName);
+  }
 
   return {
     fullResponse,
