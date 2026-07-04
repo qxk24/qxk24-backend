@@ -55,14 +55,17 @@ import {
   clearSessionChatHistory,
   getOrCreateGroupSession,
 } from '../../../adam/adam-chat.service';
-import { guardUmumLane } from '../../../adam/adam-account-lane-guard';
+import {
+  guardStudentChatLane,
+  guardStudentSessionLane,
+} from '../../../adam/adam-account-lane-guard';
 import { assertStudentOwnsSession } from '../../../adam/adam-workspace.service';
 import { ChatSchema, SessionTitleSchema } from './adam-student.schemas';
 
 const router = new Hono();
 
 router.get('/session', requireStudent, async (c) => {
-  const laneBlock = await guardUmumLane(c);
+  const laneBlock = await guardStudentSessionLane(c);
   if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const preferred = c.req.query('sessionId')?.trim();
@@ -87,7 +90,7 @@ router.get('/session', requireStudent, async (c) => {
 });
 
 router.get('/chat/sessions', requireStudent, async (c) => {
-  const laneBlock = await guardUmumLane(c);
+  const laneBlock = await guardStudentSessionLane(c);
   if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const rawLimit = parseInt(c.req.query('limit') ?? '30', 10);
@@ -103,7 +106,7 @@ router.get('/chat/sessions', requireStudent, async (c) => {
 });
 
 router.post('/chat/sessions', requireStudent, async (c) => {
-  const laneBlock = await guardUmumLane(c);
+  const laneBlock = await guardStudentSessionLane(c);
   if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const sessionId = await createNewChatSession(user.userId, 'student');
@@ -116,7 +119,7 @@ router.post('/chat/sessions', requireStudent, async (c) => {
 });
 
 router.patch('/chat/sessions/:sessionId', requireStudent, zValidator('json', SessionTitleSchema), async (c) => {
-  const laneBlock = await guardUmumLane(c);
+  const laneBlock = await guardStudentSessionLane(c);
   if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const sessionId = c.req.param('sessionId') ?? '';
@@ -131,7 +134,7 @@ router.patch('/chat/sessions/:sessionId', requireStudent, zValidator('json', Ses
 });
 
 router.delete('/chat/sessions/:sessionId', requireStudent, async (c) => {
-  const laneBlock = await guardUmumLane(c);
+  const laneBlock = await guardStudentSessionLane(c);
   if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const sessionId = c.req.param('sessionId') ?? '';
@@ -145,17 +148,17 @@ router.delete('/chat/sessions/:sessionId', requireStudent, async (c) => {
 });
 
 router.get('/group/session', requireStudent, async (c) => {
-  const laneBlock = await guardUmumLane(c);
+  const laneBlock = await guardStudentSessionLane(c);
   if (laneBlock) return laneBlock;
   const sessionId = await getOrCreateGroupSession();
   return c.json({ success: true, sessionId, kernel: 'ALAMTOLOGI' });
 });
 
 router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json', ChatSchema), async (c) => {
-  const laneBlock = await guardUmumLane(c);
+  const body = c.req.valid('json');
+  const laneBlock = await guardStudentChatLane(c, body.mode);
   if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
-  const body = c.req.valid('json');
   const access = getSubscriptionAccess(c);
 
   let sessionId = body.sessionId;
@@ -275,7 +278,7 @@ router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json
 });
 
 router.post('/group/chat', requireStudent, requireActiveSubscription, zValidator('json', ChatSchema), async (c) => {
-  const laneBlock = await guardUmumLane(c);
+  const laneBlock = await guardStudentSessionLane(c);
   if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const body = c.req.valid('json');
@@ -327,7 +330,7 @@ router.post('/group/chat', requireStudent, requireActiveSubscription, zValidator
 });
 
 router.get('/chat/history/:sessionId', requireStudent, async (c) => {
-  const laneBlock = await guardUmumLane(c);
+  const laneBlock = await guardStudentSessionLane(c);
   if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const sessionId = c.req.param('sessionId') ?? '';
@@ -342,7 +345,7 @@ router.get('/chat/history/:sessionId', requireStudent, async (c) => {
 });
 
 router.delete('/chat/history/:sessionId', requireStudent, async (c) => {
-  const laneBlock = await guardUmumLane(c);
+  const laneBlock = await guardStudentSessionLane(c);
   if (laneBlock) return laneBlock;
   const user = getTokenUser(c)!;
   const sessionId = c.req.param('sessionId') ?? '';

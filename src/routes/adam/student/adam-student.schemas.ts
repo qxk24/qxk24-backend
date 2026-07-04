@@ -62,7 +62,16 @@ export const ChangePasswordSchema = z.object({
 export const ChatSchema = z.object({
   sessionId:    z.string().optional(),
   message:      z.string().max(100_000).optional(),
-  mode:         z.enum(['TEACHING', 'QUESTIONING', 'AUDIT', 'CONSTITUTIONAL', 'JOURNAL_GEN', 'TUTOR']).default('QUESTIONING'),
+  mode:         z.enum([
+    'TEACHING',
+    'QUESTIONING',
+    'AUDIT',
+    'CONSTITUTIONAL',
+    'JOURNAL_GEN',
+    'TUTOR',
+    'COACHING',
+    'NIAGA',
+  ]).default('QUESTIONING'),
   answerStyle:  z.enum(['natural', 'philosophy', 'formal', 'technical']).optional(),
   uploadIds:    z.array(z.string().min(1)).max(5).optional(),
 }).refine(
