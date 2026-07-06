@@ -68,6 +68,27 @@ STRIPE_PRICE_ID_BUNDLE_IND_AS_SOLO_ANNUAL=price_...
 STRIPE_PRICE_ID_BUNDLE_IND_AS_LAB_ANNUAL=price_...
 ```
 
+## ADAM Stream Host (USD · monthly + annual)
+
+Full table: `docs/STRIPE_ADAM_STREAM_PRICES.md`
+
+| Plan | Monthly | Annual | Env keys |
+|------|---------|--------|----------|
+| Business Starter | $5 | $50 | `STRIPE_PRICE_ID_STREAM_BUSINESS_STARTER_*` |
+| Business Standard | $12 | $120 | `STRIPE_PRICE_ID_STREAM_BUSINESS_STANDARD_*` |
+| Business Plus | $20 | $200 | `STRIPE_PRICE_ID_STREAM_BUSINESS_PLUS_*` |
+
+```bash
+STRIPE_PRICE_ID_STREAM_BUSINESS_STARTER_MONTHLY=price_...
+STRIPE_PRICE_ID_STREAM_BUSINESS_STARTER_ANNUAL=price_...
+STRIPE_PRICE_ID_STREAM_BUSINESS_STANDARD_MONTHLY=price_...
+STRIPE_PRICE_ID_STREAM_BUSINESS_STANDARD_ANNUAL=price_...
+STRIPE_PRICE_ID_STREAM_BUSINESS_PLUS_MONTHLY=price_...
+STRIPE_PRICE_ID_STREAM_BUSINESS_PLUS_ANNUAL=price_...
+```
+
+Provision (test mode): `npx ts-node --transpile-only src/scripts/provision-adam-stream-stripe-prices.ts`
+
 ## Deploy
 
 ```bash

@@ -45,6 +45,7 @@ import adamTesterRoutes from '../routes/adam/adam-tester.routes';
 import niagaRoutes from '../routes/niaga/niaga.routes';
 import adamTutorRegisterRoutes from '../routes/adam/adam-tutor-register.routes';
 import businessCoachRoutes from '../routes/adam/business-coach.routes';
+import adamStreamRoutes from '../routes/adam/adam-stream.routes';
 import platformAdminRoutes from '../routes/admin/platform-admin.routes';
 import adamExportRoutes from '../routes/adam/adam-export.routes';
 import teachingBridgeRoutes from '../teaching-bridge/teaching-bridge.routes';
@@ -136,6 +137,7 @@ export function registerRoutes(app: Hono): void {
   app.route('/api/adam/student',       adamStudentRoutes);
   app.route('/api/adam/tutor',         adamTutorRegisterRoutes);
   app.route('/api/adam/business-coach', businessCoachRoutes);
+  app.route('/api/adam/stream',         adamStreamRoutes);
   app.route('/api/adam/guru',          adamGuruRoutes);
   app.route('/api/adam/students',      adamStudentsRoutes);
   app.route('/api/adam/consults',      adamConsultRoutes);

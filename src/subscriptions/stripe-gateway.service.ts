@@ -402,6 +402,11 @@ async function handleCheckoutCompleted(session: Record<string, unknown>): Promis
     await activateBusinessCoachFromStripeCheckout(session);
     return;
   }
+  if (meta?.checkoutType === 'adam_stream_host') {
+    const { activateAdamStreamFromStripeCheckout } = await import('../adam/stream/adam-stream-stripe.service');
+    await activateAdamStreamFromStripeCheckout(session);
+    return;
+  }
   if (meta?.checkoutType === 'adam_credits') {
     const { activateAdamCreditsFromStripeCheckout } = await import('../freemium/adam-credit-stripe.service');
     await activateAdamCreditsFromStripeCheckout(session);
