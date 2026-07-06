@@ -81,6 +81,9 @@ SENARAI PENUH PERKATAAN DILARANG:
   praktis                  → praktikal
   efektif                  → berkesan
   efisien                  → cekap
+  kemitraan                → kerjasama / perkongsian
+  mitra                    → rakan
+  siap saji                → siap makan
   kau / kamu / engkau      → DILARANG kepada pelajar — guna nama pelajar atau ayat neutral ("Apa yang ingin dikongsi?")
   aku                      → saya (untuk diri sendiri sahaja)
 

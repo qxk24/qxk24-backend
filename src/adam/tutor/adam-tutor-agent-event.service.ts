@@ -434,12 +434,35 @@ export function isTutorAgentEventLiveJoinWindow(event: ITutorAgentEvent): boolea
   return now >= openAt && now <= event.endsAt.getTime();
 }
 
+/** Clear stale live room link after scheduled end (does not touch LiveKit — caller deletes room). */
+export async function expireTutorAgentEventLiveIfPastEnd(eventId: string): Promise<{
+  expired:  boolean;
+  roomName: string | null;
+  endsAt:   string | null;
+}> {
+  const event = await TutorAgentEventModel.findOne({ eventId });
+  if (!event) {
+    return { expired: false, roomName: null, endsAt: null };
+  }
+  const roomName = event.livekitRoomName?.trim() || null;
+  const endsAt = event.endsAt?.toISOString?.() ?? null;
+  if (!roomName) {
+    return { expired: false, roomName: null, endsAt };
+  }
+  if (Date.now() <= event.endsAt.getTime()) {
+    return { expired: false, roomName, endsAt };
+  }
+  event.livekitRoomName = null;
+  await event.save();
+  return { expired: true, roomName, endsAt };
+}
+
 export async function checkTutorAgentEventViewerEligibility(
   eventId: string,
   email: string,
 ): Promise<{
   allowed:      boolean;
-  reason:       'ok' | 'no_rsvp' | 'declined' | 'not_published' | 'not_online' | 'no_room' | 'not_in_window';
+  reason:       'ok' | 'no_rsvp' | 'declined' | 'not_published' | 'not_online' | 'no_room' | 'not_in_window' | 'ended';
   displayName:  string | null;
   roomName:     string | null;
   otherBriefingTitle?: string | null;
@@ -450,6 +473,13 @@ export async function checkTutorAgentEventViewerEligibility(
   }
   if (event.locationType !== TutorAgentEventLocationType.ONLINE) {
     return { allowed: false, reason: 'not_online', displayName: null, roomName: null };
+  }
+  if (Date.now() > event.endsAt.getTime()) {
+    if (event.livekitRoomName?.trim()) {
+      event.livekitRoomName = null;
+      await event.save();
+    }
+    return { allowed: false, reason: 'ended', displayName: null, roomName: null };
   }
   if (!event.livekitRoomName?.trim()) {
     return { allowed: false, reason: 'no_room', displayName: null, roomName: null };

@@ -59,9 +59,14 @@ import {
   resolveNiagaChatSession,
   assertCanClearSessionChat,
   clearSessionChatHistory,
+  createNewChatSession,
+  listUserChatSessions,
+  renameUserChatSession,
+  deleteUserChatSession,
 } from '../../adam/adam-chat.service';
 import { assertStudentOwnsSession } from '../../adam/adam-workspace.service';
 import { withSseKeepalive } from '../../adam/adam-sse-keepalive';
+import { SessionTitleSchema } from '../adam/student/adam-student.schemas';
 import { resolveNiagaSubscriptionAccess } from '../../niaga/niaga-subscription-access.service';
 import { loadNiagaBusinessProfile, resolveNiagaSubscriptionId } from '../../niaga/niaga-business-context.service';
 import { recordNiagaChatMessage } from '../../niaga/niaga-usage.service';
@@ -475,14 +480,27 @@ router.post('/admin/licenses/suspend', requireNiagaAdmin, zValidator('json', Sus
   }
 });
 
-// GET /api/niaga/templates/cashflow?format=xlsx|pdf|docx — free Basic template download
+// GET /api/niaga/templates/cashflow?format=xlsx|pdf|docx&delivery=json|attachment
+// delivery=json → { filename, type, base64 } for in-chat cards + preview
+// delivery=attachment (default) → binary download stream
 router.get('/templates/cashflow', requireAdamUser, rejectToolsLaneOnly, async (c) => {
   const formatRaw = (c.req.query('format') ?? 'xlsx').toLowerCase();
   const format = (['xlsx', 'pdf', 'docx'].includes(formatRaw)
     ? formatRaw
     : 'xlsx') as NiagaCashflowFormat;
+  const delivery = (c.req.query('delivery') ?? 'attachment').toLowerCase();
   try {
     const file = await buildNiagaCashflowTemplate(format);
+    if (delivery === 'json') {
+      return c.json({
+        success:  true,
+        filename: file.filename,
+        type:     format,
+        mimeType: file.contentType,
+        base64:   file.buffer.toString('base64'),
+        kernel:   'ALAMTOLOGI',
+      });
+    }
     return new Response(new Uint8Array(file.buffer), {
       status: 200,
       headers: {
@@ -529,6 +547,61 @@ router.get('/chat/session', requireNiagaSubscription, async (c) => {
     userId:    user.userId,
     name:      user.name,
     kernel:    'ALAMTOLOGI',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /api/niaga/chat/sessions — recents sidebar
+router.get('/chat/sessions', requireNiagaSubscription, async (c) => {
+  const user = getTokenUser(c)!;
+  const rawLimit = parseInt(c.req.query('limit') ?? '30', 10);
+  const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 30;
+  const sessions = await listUserChatSessions(user.userId, 'niaga', limit);
+  return c.json({
+    success: true,
+    sessions,
+    count:   sessions.length,
+    kernel:  'ALAMTOLOGI',
+  });
+});
+
+router.patch(
+  '/chat/sessions/:sessionId',
+  requireNiagaSubscription,
+  zValidator('json', SessionTitleSchema),
+  async (c) => {
+    const user = getTokenUser(c)!;
+    const sessionId = c.req.param('sessionId') ?? '';
+    const { title } = c.req.valid('json');
+    try {
+      const ok = await renameUserChatSession(user.userId, sessionId, 'niaga', title);
+      if (!ok) return c.json({ success: false, error: 'Session not found.' }, 404);
+      return c.json({ success: true, sessionId, title: title.trim() });
+    } catch (err) {
+      return c.json({ success: false, error: (err as Error).message }, 403);
+    }
+  },
+);
+
+router.delete('/chat/sessions/:sessionId', requireNiagaSubscription, async (c) => {
+  const user = getTokenUser(c)!;
+  const sessionId = c.req.param('sessionId') ?? '';
+  try {
+    const ok = await deleteUserChatSession(user.userId, sessionId, 'niaga');
+    if (!ok) return c.json({ success: false, error: 'Session not found.' }, 404);
+    return c.json({ success: true, sessionId });
+  } catch (err) {
+    return c.json({ success: false, error: (err as Error).message }, 403);
+  }
+});
+
+router.post('/chat/sessions', requireNiagaSubscription, async (c) => {
+  const user = getTokenUser(c)!;
+  const sessionId = await createNewChatSession(user.userId, 'niaga');
+  return c.json({
+    success: true,
+    sessionId,
+    kernel:  'ALAMTOLOGI',
     timestamp: new Date().toISOString(),
   });
 });

@@ -457,6 +457,7 @@ export type SSEEventType =
   | 'adam_media_ready'
   | 'adam_media_generating'
   | 'adam_media_quota_blocked'
+  | 'adam_files'
   | 'adam_judgment'
   | 'adam_complete'
   | 'adam_guru_sleep'

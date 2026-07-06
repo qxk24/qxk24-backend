@@ -53,6 +53,13 @@ import type { AdamBrainRiverTurn } from './adam-brain-river';
 import { handleAdamTurnRelays } from './adam-chat-stream-post-relay';
 import { recordTutorLearningTurn } from './adam-tutor-learning-profile.service';
 import { normalizeTutorHeadingLanguage } from './adam-tutor-law';
+import { isAdamNiagaMode } from './adam-niaga-law';
+import {
+  appendNiagaChatFilesToResponse,
+  buildNiagaChatFileRefs,
+  detectNiagaCashflowTemplateFormats,
+  emitAdamFilesEvent,
+} from './adam-niaga-chat-files';
 
 export { persistInteractiveJournalDraft } from './adam-chat-stream-journal-persist';
 
@@ -187,6 +194,15 @@ export async function finishAdamChatTurn(input: {
   const rawForGreeting = input.turnBrainMeta?.rawModelStream?.trim() ?? '';
   const usersGreetingRepairApplied = input.usersGreetingRepairApplied === true
     || (rawForGreeting.length > 0 && isUsersGreetingOnlyRepair(rawForGreeting, finalResponse));
+
+  // Niaga Fasa B — attach cashflow template cards when the entrepreneur asks for them.
+  if (isAdamNiagaMode(shell.mode) && !shell.isFounder) {
+    const formats = detectNiagaCashflowTemplateFormats(shell.userMessage);
+    if (formats?.length) {
+      finalResponse = appendNiagaChatFilesToResponse(finalResponse, formats);
+      emitAdamFilesEvent(shell.onEvent, buildNiagaChatFileRefs(formats));
+    }
+  }
 
   const k24Address = await generateK24Address(shell.mode);
   const messageId = await saveMessage(

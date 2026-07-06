@@ -16,6 +16,13 @@
  */
 
 import type { ADAMChatMode } from './adam.types';
+import {
+  buildNiagaCashflowFilesContextBlock,
+  detectNiagaCashflowTemplateFormats,
+} from './adam-niaga-chat-files';
+import { detectLanguage } from './adam-language-mirror.service';
+import { MALAYSIA_BM_LANGUAGE_DIRECTIVE } from './adam-malaysia-bm-guard';
+import { ADAM_BAHASA_MELAYU_LAW } from './adam-language-prompts';
 
 export type NiagaModuleId = 'NIH' | 'NIK' | 'NIP' | 'NIR';
 
@@ -85,6 +92,7 @@ VOICE:
 • Professional business advisor — formal, clear, technical statements
 • Not a school teacher (never Cikgu), not essay/karangan, not long story metaphors
 • Mirror the entrepreneur's language (BM / English / mix)
+• Bahasa Melayu Malaysia: kerjasama (bukan kemitraan), rakan (bukan mitra), siap makan (bukan siap saji)
 `.trim();
 
 /**
@@ -155,6 +163,89 @@ Baki Permulaan
 Then optionally offer a simple template — not a long story.
 `.trim();
 
+/**
+ * Pitch deck, framework, outline, checklist — one consistent professional layout.
+ * Applies to every "struktur / contoh / template / langkah" business question.
+ */
+export const ADAM_NIAGA_STRUCTURED_DELIVERABLE_FORMAT = `
+ADAM NIAGA — STRUCTURED DELIVERABLE FORMAT (mandatory when user asks for structure, framework, pitch deck, slide outline, template, or step guide):
+
+Use the SAME method for ALL such questions — formal, academic-business tone, scannable bold headings.
+
+FORBIDDEN:
+• Long essay intro before the structure (e.g. "Berikut adalah contoh struktur… yang boleh digunakan sebagai panduan")
+• Numbered items mashed into one paragraph
+• Bold titles inline without their own line after the number
+• Mixing numbered and unnumbered items in one list
+• Stray quotes, dashes, or punctuation between items
+• Closing coaching essay longer than two sentences
+
+REQUIRED OPENING:
+## [Nama dokumen] — [Produk / konteks ringkas]
+
+Optional ONE formal scope line under the heading — no praise, no story.
+
+REQUIRED BODY — numbered blocks (1. 2. 3. …):
+Each item MUST use this pattern (keep one continuous Markdown ordered list — no blank line between the number line and its body):
+
+1. **Tajuk bahagian**
+    Satu atau dua ayat penjelasan formal. Contoh ringkas dibenarkan.
+
+2. **Bahagian seterusnya**
+    Penjelasan…
+
+Rules:
+• Number starts the line; **bold title** immediately after the number on the SAME line.
+• Explanation starts on the NEXT line with a 4-space indent — NO blank line between title and explanation.
+• Use incrementing numbers (1. then 2. then 3.) — never repeat 1. for every section.
+• One blank line only BETWEEN completed items (after the explanation), not inside an item.
+• Use ## subheadings only to group major parts when there are 10+ items or two distinct sections.
+• For pitch decks: 8–12 numbered slide sections unless the user specifies otherwise.
+• For checklists / SOPs: use \`1. [ ]\` task markers when the deliverable is executable.
+
+FACT BOX (when a key definition or formula appears):
+> **Fakta:** …
+
+CLOSING (optional — max one blockquote line):
+> **Nota:** Satu ayat penyesuaian mengikut produk atau audiens — skip if redundant.
+
+EXAMPLE SHAPE (pitching deck produk makanan — mirror this layout for any product):
+
+## Struktur Pitching Deck — Produk Makanan
+
+1. **Tajuk Slide**
+   Nama produk + tagline ringkas, mudah diingat, menonjolkan nilai utama.
+
+2. **Masalah yang Dihadapi**
+   Masalah atau keperluan pasaran yang produk ini selesaikan — konkret, bukan cerita panjang.
+
+3. **Penyelesaian (Produk)**
+   Perkenalan produk: keunikan, manfaat utama, beza berbanding pesaing.
+
+4. **Kelebihan Produk**
+   Bahan, proses, kemasan, harga kompetitif, dan bukti sosial jika ada.
+
+5. **Pasaran Sasaran**
+   Profil pelanggan: demografi, tingkah laku, saiz segmen jika diketahui.
+
+6. **Strategi Pemasaran**
+   Saluran, irama, dan taktik promosi realistik untuk skala perniagaan.
+
+7. **Model Pendapatan**
+   Cara wang masuk: harga, saluran jualan, margin kasar anggaran.
+
+8. **Kerjasama Berpotensi**
+   Rakan strategik: runcit, penghantaran, agensi, atau pembekal.
+
+9. **Profil Syarikat**
+   Visi, misi, sejarah ringkas — fakta, bukan slogan kosong.
+
+10. **Call to Action**
+    Langkah seterusnya untuk pelabur, rakan, atau pelanggan.
+
+> **Nota:** Struktur ini boleh disesuaikan mengikut jenis produk dan audiens sasaran.
+`.trim();
+
 export const ADAM_NIAGA_MEMORY_LAW = `
 Remember this trader's business profile and prior chat context.
 If they share stock, prices, or promos — refer back naturally.
@@ -185,13 +276,26 @@ export function buildAdamNiagaSystemPrompt(params: {
   userMessage?:    string;
 }): string {
   const name = params.participantName?.trim();
+  const fileFormats = params.userMessage
+    ? detectNiagaCashflowTemplateFormats(params.userMessage)
+    : null;
+  const userMessage = params.userMessage?.trim() ?? '';
+  const speakerLocale = userMessage
+    ? detectLanguage(userMessage).detectedLocale
+    : 'en';
+  const preferMalay = speakerLocale === 'ms' || speakerLocale === 'mixed-ms-en';
+
   const parts = [
     ADAM_NIAGA_IDENTITY,
     ADAM_NIAGA_COACHING_COVENANT,
     ADAM_NIAGA_GUARDRAILS,
     ADAM_NIAGA_OUTPUT_FORMAT,
+    ADAM_NIAGA_STRUCTURED_DELIVERABLE_FORMAT,
     buildAdamNiagaProfileBlock(params.niagaProfile),
     ADAM_NIAGA_MEMORY_LAW,
+    fileFormats ? buildNiagaCashflowFilesContextBlock(fileFormats) : '',
+    preferMalay ? MALAYSIA_BM_LANGUAGE_DIRECTIVE : '',
+    preferMalay ? ADAM_BAHASA_MELAYU_LAW : '',
     name
       ? `Address the entrepreneur professionally by name (${name}) when natural — not as a school student.`
       : 'Address the entrepreneur professionally — not as a school student.',

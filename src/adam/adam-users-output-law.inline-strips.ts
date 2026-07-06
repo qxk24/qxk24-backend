@@ -315,6 +315,7 @@ export function paragraphIsMediaKeywordRedirectLeak(paragraph: string): boolean 
 export function outputHasKonvensionalFrameworkLeak(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
+  if (/\bDalam\s+(?:konteks|perspektif|lens[ae]|pandangan)\s+Alamtologi\b/i.test(t)) return true;
   if (/\bMASA\b/.test(t) && /\bTENAGA\b/.test(t) && /\bRUANG\b/.test(t)) return true;
   if (/\bMASA\b/.test(t) && /\bTENAGA\b/.test(t) && /\bCAHAYA\b/.test(t)) return true;
   if (/\bpenyelarasan\s+antara\b/i.test(t) && /\bMASA\b/.test(t) && /\bTENAGA\b/.test(t)) return true;

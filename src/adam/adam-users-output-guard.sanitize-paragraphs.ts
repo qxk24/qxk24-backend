@@ -56,6 +56,7 @@ import {
   isAdamPracticalAdvisoryTurn,
   isAdamLinearAlgebraTurn,
   isAdamSimpleArithmeticTurn,
+  isAdamSimpleFactualTurn,
   isAdamVisualDrawTurn,
   isAdamAlgorithmTeachingTurn,
   isAdamCompareTurn,
@@ -75,6 +76,7 @@ import {
 import { isAdamGeneralKonvensionalTurn, shouldStripKonvensionalFrameworkLeaks } from './adam-knowledge-mode';
 import { GOLD_STANDARD_FOLLOW_UP_RE } from './adam-gold-standard';
 import { SCRIPTED_CLOSINGS } from './adam-users-output-guard.framework';
+import { paragraphIsSimpleFactualPhilosophyTail } from './adam-simple-factual-voice-guard';
 
 export interface UsersSanitizeParagraphFilterInput {
   userMessage: string;
@@ -234,6 +236,14 @@ export function filterUsersSanitizeParagraphs(
     if (
       isAdamSimpleArithmeticTurn(userMessage)
       && paragraphIsSimpleArithmeticPhilosophyLeak(trimmed)
+    ) {
+      continue;
+    }
+    if (
+      isAdamSimpleFactualTurn(userMessage)
+      && !userAskedForAlamtologi(userMessage)
+      && !userAskedForConstitutionalStructure(userMessage)
+      && paragraphIsSimpleFactualPhilosophyTail(trimmed)
     ) {
       continue;
     }

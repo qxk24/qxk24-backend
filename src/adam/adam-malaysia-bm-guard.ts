@@ -41,6 +41,7 @@ BAHASA MELAYU MALAYSIA — BUKAN BAHASA INDONESIA:
 ${ADAM_BM_VOICE_IDENTITY}
 - Elak drift Indonesia: kerana (bukan karena), boleh (bukan bisa), sudah (bukan udah), perlu (bukan butuh),
   keperluan (bukan kebutuhan), pelbagai (bukan berbagai),
+  kerjasama (bukan kemitraan), rakan (bukan mitra), siap makan (bukan siap saji),
   teknikal (bukan teknis), berkesan (bukan efektif), cekap (bukan efisien), praktikal (bukan praktis).
 - Dilarang: enggak, nggak, banget, gimana, kayak, dong, sih, aja, deh, memberikan, mengatakan.
 - Ejaan Malaysia: semak reduplikasi — beramai-ramai (bukan berramai-ramai); jangan gandakan konsonan tidak perlu.
@@ -66,10 +67,14 @@ const FALLBACK_INDONESIAN_DRIFT_REPLACEMENTS: ReadonlyArray<[RegExp, string]> = 
   [/\bsisa perut\b/gi, 'najis'],
   [/\bmemberikan\b/gi, 'memberi'],
   [/\bmengatakan\b/gi, 'berkata'],
+  [/\bmakanan siap saji\b/gi, 'makanan siap makan'],
+  [/\bsiap saji\b/gi, 'siap makan'],
+  [/\bkemitraan\b/gi, 'kerjasama'],
+  [/\bmitra\b/gi, 'rakan'],
 ];
 
 const FALLBACK_INDONESIAN_DRIFT_MARKERS =
-  /\b(karena|dikarenakan|bisa|gimana|banget|enggak|nggak|gak|udah|butuh|kebutuhan|berbagai|teknis|praktis|efektif|efisien|memberikan|mengatakan)\b/i;
+  /\b(karena|dikarenakan|bisa|gimana|banget|enggak|nggak|gak|udah|butuh|kebutuhan|berbagai|teknis|praktis|efektif|efisien|memberikan|mengatakan|kemitraan|mitra|siap saji)\b/i;
 
 export function isMalayReplyLocale(locale: SupportedLocale | string): boolean {
   return locale === 'ms' || locale === 'mixed-ms-en';

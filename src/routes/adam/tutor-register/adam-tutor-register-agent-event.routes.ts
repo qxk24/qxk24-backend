@@ -33,6 +33,7 @@ import { TutorAgentProspectInterest } from '../../../adam/tutor/adam-tutor-agent
 import {
   checkTutorAgentEventViewerEligibility,
   createTutorAgentEvent,
+  expireTutorAgentEventLiveIfPastEnd,
   getAgentRsvpForEvent,
   getFeaturedTutorAgentEvent,
   getPublishedTutorAgentEvent,
@@ -184,6 +185,27 @@ router.get('/agent/events/:eventId', async (c) => {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Event not found.';
     return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 404);
+  }
+});
+
+// POST /api/adam/tutor/agent/events/:eventId/live-room/expire
+// Public — only clears live link after scheduled endsAt (safe to call from token routes).
+router.post('/agent/events/:eventId/live-room/expire', async (c) => {
+  try {
+    const eventId = eventIdParam(c);
+    const result = await expireTutorAgentEventLiveIfPastEnd(eventId);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    result,
+      message: result.expired
+        ? 'ADAM Stream ended — live room link cleared.'
+        : 'ADAM Stream still within schedule.',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Could not expire live room.';
+    return c.json({ success: false, error: msg, kernel: 'ALAMTOLOGI' }, 400);
   }
 });
 

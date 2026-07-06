@@ -287,7 +287,8 @@ export function buildAdamChatSystemPrompt(params: AdamChatSystemPromptParams): s
         ? ['factual', 'arithmetic', 'record-superlative', 'definitional'].includes(
           params.turnGate.iq.surfaceKind,
         )
-        : undefined,
+        : isAdamSimpleFactualTurn(params.userMessage)
+          || isAdamSimpleArithmeticTurn(params.userMessage),
     })
     : '';
   if (eqVirtueOverlay) parts.push(eqVirtueOverlay);

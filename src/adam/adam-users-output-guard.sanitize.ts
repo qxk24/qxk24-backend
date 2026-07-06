@@ -117,7 +117,7 @@ import { repairDomainTeachingGuttedOutput,
 import { repairParliamentComponentsOutput } from './adam-civics-parliament-intent';
 import { repairGeographyVoiceOutput } from './adam-geography-voice-guard';
 import { repairKbatAcronymExpansion } from './adam-pedagogy-voice-guard';
-import { stripSimpleFactualEchoOpener } from './adam-simple-factual-voice-guard';
+import { stripSimpleFactualEchoOpener, stripSimpleFactualPhilosophyTail } from './adam-simple-factual-voice-guard';
 import {
   inlineQuranAyat,
   stashStudentMathBlocks,
@@ -514,6 +514,7 @@ export function sanitizeUsersOutputSync(
   polished = sanitizeMalaysiaBmDrift(polished, speakerLocale);
   polished = repairKbatAcronymExpansion(polished, userMessage);
   polished = stripSimpleFactualEchoOpener(polished, userMessage);
+  polished = stripSimpleFactualPhilosophyTail(polished, userMessage);
   polished = stripStreamCutOrphanMeasures(polished);
   polished = repairGeographyVoiceOutput(userMessage, polished, stashed);
   polished = repairParliamentComponentsOutput(userMessage, polished, stashed);

@@ -59,6 +59,7 @@ import { isAlgorithmTeachingRepairApplied } from './adam-algorithm-teaching-repa
 import { isVisualDrawCollapsedRepair } from './adam-visual-draw-guard';
 import { dedupeUsersHaiGreeting, isUsersGreetingOnlyRepair } from './adam-users-constitution';
 import { isAdamProseCraftTurn, isProseCraftSurfaceRepair } from './adam-prose-craft';
+import { isSimpleFactualFrameworkLeakRepair } from './adam-simple-factual-voice-guard';
 import type { StreamRepairResult } from './adam-chat-stream-llm';
 import { ensureIslamicSalamReply } from './adam-salam-reply-guard';
 
@@ -175,13 +176,20 @@ export async function repairUsersStreamOutput(input: {
         surface = buildStudentGreetingFallback(userMessage, participant.userName);
       }
       const preferSanitized = isAdamCurrentAffairsTurn(userMessage);
-      const forceSanitized = usersTechnical
+      const simpleFactualFrameworkRepair = isSimpleFactualFrameworkLeakRepair(
+        rawModelStream,
+        surface,
+        userMessage,
+      );
+      const forceSanitized = (usersTechnical
         && (
           outputHasKonvensionalFrameworkLeak(rawModelStream)
           || outputHasMediaRefusal(rawModelStream)
-        );
+        ))
+        || simpleFactualFrameworkRepair;
       const proseCraftTurn = isAdamProseCraftTurn(userMessage);
       const streamGutted = !proseCraftTurn
+        && !simpleFactualFrameworkRepair
         && usersStreamBodyWasGutted(rawModelStream, surface, userMessage);
       if (streamGutted) {
         fullResponse = alphaStatPersistedStreamBody(rawModelStream);

@@ -23,6 +23,7 @@ import { isVisualDrawCollapsedRepair } from './adam-visual-draw-guard';
 import { isUsersGreetingOnlyRepair } from './adam-users-constitution';
 import { resolveProseCraftDisplayForSave } from './adam-prose-craft';
 import { outputHasAdamProductRedirectLeak } from './adam-response-generation';
+import { isSimpleFactualFrameworkLeakRepair } from './adam-simple-factual-voice-guard';
 
 const KONVENSIONAL_MEDIA_TAG_RE = /<adam-(?:chat-image|chat-video|technical-diagram)\b/i;
 
@@ -123,6 +124,13 @@ export function resolveAdamTurnDisplayForSave(
 
   if (options?.proseCraftRepair) {
     return resolveProseCraftDisplayForSave(prev, next);
+  }
+
+  if (
+    options?.userMessage
+    && isSimpleFactualFrameworkLeakRepair(prev, next, options.userMessage)
+  ) {
+    return next || prev;
   }
 
   if (

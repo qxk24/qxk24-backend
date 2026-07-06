@@ -125,17 +125,20 @@ RULES:
     outputContract: `
 STRUCTURE:
 # Pitch Deck Content
-For each slide:
-## Slide N — [Title]
-- Bullet
+
+## Slide 1 — [Title]
+- Bullet (short, presentation-ready)
 - Bullet
 **Speaker notes:** one short paragraph
 
+(Repeat ## Slide N — [Title] for each slide)
+
 RULES:
 - 8–12 slides unless the brief asks otherwise.
-- Bullets are presentation-ready (short, concrete).
-- Speaker notes help the presenter, not the audience slide text.
-- No "how to pitch" essay. Deliver the slide content.
+- Each slide: ## heading, bullets, then **Speaker notes:** on its own line.
+- Bold slide titles; bullets are concrete — not essay prose.
+- No long intro essay before slide 1. Start with # Pitch Deck Content.
+- Mirror the same numbered/bold layout if user asks for a structure guide instead of full copy.
 `.trim(),
   },
   'business-checklist': {

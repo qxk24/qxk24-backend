@@ -72,9 +72,20 @@ export function stripLeadingAdamSalutation(message: string): string {
     .trim();
 }
 
+export function isAdamSimpleDefinitionalAsk(message: string): boolean {
+  const t = stripLeadingAdamSalutation(message).trim();
+  if (!t || isAdamLightChatTurn(t)) return false;
+  if (t.length > 160) return false;
+  if (/\b(?:terangkan|jelaskan|huraikan|penjelasan|explain|describe|bagaimana|kenapa|mengapa|why|how\s+does|bezakan|banding|compare|ceritakan)\b/i.test(t)) {
+    return false;
+  }
+  return /^(?:what\s+is|what['']s|apa(?:kah)?\s+(?:itu|ialah))\b/i.test(t);
+}
+
 export function isAdamSimpleFactualTurn(message: string): boolean {
   const t = message.trim();
   if (!t || isAdamLightChatTurn(t)) return false;
+  if (isAdamSimpleDefinitionalAsk(t)) return true;
   if (t.length > 160) return false;
   if (/\bcampur\s+tangan\b/i.test(t)) return false;
   if (/\bapakah\s+kesan\b/i.test(t)) return false;
@@ -489,7 +500,10 @@ export function isAdamTeachingDepthTurn(message: string): boolean {
   const t = message.trim();
   if (/\bapakah\s+kesan\b/i.test(t)) return true;
   if (/\bcampur\s+tangan\s+kerajaan\b/i.test(t)) return true;
-  if (TEACHING_DEPTH_ASK.test(t)) return true;
+  if (TEACHING_DEPTH_ASK.test(t)) {
+    if (isAdamSimpleDefinitionalAsk(t)) return false;
+    return true;
+  }
   if (KONVENSIONAL_CONCEPT_DEPTH_SUBJECT.test(t) && isAdamSubstantiveTurn(t)) return true;
   if (isAdamContinuationDepthTurn(t)) return true;
   return false;

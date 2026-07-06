@@ -47,6 +47,21 @@ describe('sanitizeMalaysiaBmDrift', () => {
     expect(out).toContain('beramai-ramai');
     expect(out).not.toMatch(/berramai/i);
   });
+
+  it('replaces Indonesian siap saji with Malaysian siap makan', () => {
+    const raw = 'Produk makanan siap saji untuk pasaran bandar.';
+    const out = sanitizeMalaysiaBmDrift(raw, 'ms');
+    expect(out).toContain('makanan siap makan');
+    expect(out).not.toMatch(/siap saji/i);
+  });
+
+  it('replaces Indonesian kemitraan with Malaysian kerjasama', () => {
+    const raw =
+      'Cadangkan potensi kemitraan dengan pihak lain seperti restoran, pasar raya, atau penghantaran makanan.';
+    const out = sanitizeMalaysiaBmDrift(raw, 'ms');
+    expect(out).toContain('potensi kerjasama');
+    expect(out).not.toMatch(/kemitraan/i);
+  });
 });
 
 describe('fixBmBerPrefixReduplicationSpelling', () => {
