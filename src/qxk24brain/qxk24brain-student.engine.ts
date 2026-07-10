@@ -10,8 +10,7 @@
  * ============================================================
  */
 
-import { resolveBrainFastModel } from '../config/llm-models';
-import { llmCompleteUserPrompt } from '../llm/llm-client';
+import { checkStudentAlignmentDeterministic } from './deep-ul/student-alignment-engine';
 import {
   ADAMFounderSessionModel,
   ADAMMessageModel,
@@ -32,10 +31,7 @@ import {
 } from '../adam/adam-student-subscription-summary.service';
 import { getUserWorkspaces } from '../adam/adam-workspace.service';
 import { getOrCreateMaster } from './qxk24brain.engine';
-import { prependCoreToSystem } from './adam-core';
 import { AlamtologiBrainMasterModel, type StudentTrack } from './qxk24brain.schema';
-
-const BRAIN_MODEL = () => resolveBrainFastModel();
 
 function scoreStudentTrack(track: StudentTrack): number {
   return (track.masteredTopics?.length ?? 0) * 10 + (track.constitutionalLevel ?? 1);
@@ -76,35 +72,6 @@ interface AlignmentResult {
   enrichment:    string;
 }
 
-function parseJson<T>(raw: string, fallback: T): T {
-  const trimmed = raw.trim();
-  try {
-    return JSON.parse(trimmed) as T;
-  } catch {
-    const brace = trimmed.match(/\{[\s\S]*\}/);
-    if (brace) {
-      try {
-        return JSON.parse(brace[0]) as T;
-      } catch {
-        return fallback;
-      }
-    }
-    return fallback;
-  }
-}
-
-async function callJson<T>(prompt: string, fallback: T): Promise<T> {
-  const text = await llmCompleteUserPrompt(
-    prependCoreToSystem(
-      'You are ADAM Alamtologi Brain alignment checker. Founder teachings are supreme. Respond JSON only.',
-    ),
-    prompt,
-    BRAIN_MODEL(),
-    1200,
-  );
-  return parseJson(text, fallback);
-}
-
 /**
  * Student B may enrich ADAM only if aligned with Founder's unified being.
  * Returns alignment outcome — does not throw.
@@ -125,34 +92,11 @@ export async function processStudentContribution(
     const master = await getOrCreateMaster(FOUNDER_USER_ID);
     const studentTrack = master.studentTracks?.find((t) => t.studentId === studentId);
 
-    const result = await callJson<AlignmentResult>(
-      `STUDENT CONTRIBUTION — Alamtologi alignment check
-
-FOUNDER'S UNIFIED UNDERSTANDING (supreme — cannot be contradicted):
-${master.unifiedUnderstanding.slice(0, 6000)}
-
-STUDENT: ${studentName} (${studentId})
-STUDENT'S PRIOR TRACK:
-${studentTrack?.understanding || 'No prior track yet.'}
-
-NEW MESSAGE FROM STUDENT:
-${message}
-
-RULES:
-- aligned=true only if this enriches ADAM within Founder's scope without contradiction
-- shouldConsult=true if unclear, outside scope, contradicts Founder, or needs Founder judgment
-- If shouldConsult, aligned must be false
-- enrichment: one paragraph of how this fits Alamtologi IF aligned
-
-JSON:
-{
-  "aligned": true,
-  "shouldConsult": false,
-  "reason": "...",
-  "enrichment": "..."
-}`,
-      fallback,
-    );
+    const result = checkStudentAlignmentDeterministic({
+      message,
+      founderUnderstanding: master.unifiedUnderstanding,
+      priorTrack:           studentTrack?.understanding,
+    });
 
     if (result.shouldConsult) {
       await recordStudentContact(

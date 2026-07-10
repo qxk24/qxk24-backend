@@ -306,6 +306,29 @@ export function applyUsersHaiGreetingPolicy(
   return out;
 }
 
+/** DB save last mile — prepend Hai + name on substantive student replies (no Adam-in-message gate). */
+export function applyUsersFinalizeHaiGreeting(
+  answer: string,
+  participantName?: string,
+): string {
+  const first = participantName?.trim() ? usersDisplayFirstName(participantName.trim()) : '';
+  const t = normalizeUsersTechnicalDisplayLead(answer, participantName).trim();
+  if (!t || !first) return t;
+
+  if (answerAlreadyHasStudentGreeting(t, first)) {
+    return dedupeUsersHaiGreeting(t, participantName);
+  }
+
+  const greeting = formatUsersHaiGreeting(participantName);
+  const rest = stripBismillahBeforeGreetingBody(
+    /^[A-Z]/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t,
+  );
+  const merged = answerHasVisualDrawBlock(rest)
+    ? `${greeting}\n\n${rest}`
+    : `${greeting} ${rest}`;
+  return stripUsersBismillahOpener(dedupeUsersHaiGreeting(merged, participantName));
+}
+
 /** Prepend Hai + name when user called ADAM by name and the answer has no greeting yet. */
 export function ensureUsersHaiGreeting(
   answer: string,

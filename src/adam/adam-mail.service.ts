@@ -130,9 +130,6 @@ export async function sendMail(options: SendMailOptions): Promise<SendMailResult
       /* non-json success body */
     }
 
-    console.log(
-      `[adam:mail] sent id=${id ?? 'unknown'} to=${options.to} replyTo=${replyTo} fromDomain=${extractMailDomain(from) ?? '?'}`,
-    );
     return { sent: true, id };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -157,7 +154,7 @@ export async function sendEnterpriseWelcomeEmail(
   });
 
   if (result.sent) {
-    console.log(`[ADAM Mail] Enterprise welcome sent → ${data.email} (${data.orgName})`);
+
   }
   return result.sent;
 }

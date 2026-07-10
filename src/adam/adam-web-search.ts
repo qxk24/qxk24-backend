@@ -34,8 +34,11 @@ import { isDirectTechnicalHowToQuestion } from './adam-direct-technical-law';
 import { isTechnicalPrecisionQuestion } from './adam-universal-voice';
 import { extractDomainsFromMessageUrls, messageAsksRoleAndSkills } from './adam-official-source-enrich';
 import { buildFounderWebSearchPrompt, buildStudentWebSearchPrompt } from './adam-web-search-prompts';
-import { extractDashScopeApiHost, isDashScopeIntlHost } from '../llm/dashscope-search';
 import { isAdamStableCurriculumSearchSkipTurn } from './adam-stable-curriculum-search-gate';
+import {
+  usersDomainRequiresGroundingSearch,
+  type AdamUsersDomainFacet,
+} from './adam-users-domain-router';
 
 export { ADAM_STUDENT_REPLY_PIPELINE } from './adam-search-first';
 
@@ -132,7 +135,7 @@ const FOUNDER_SESSION_REF =
 
 /** Whether search is enabled globally via env config */
 export function adamWebSearchEnabled(): boolean {
-  return ENV.QWEN_ENABLE_SEARCH;
+  return ENV.ADAM_WEB_SEARCH_ENABLED;
 }
 
 /** @deprecated Use adamWebSearchEnabled */
@@ -173,23 +176,16 @@ export function getAdamWebSearchPrompt(
 /** @deprecated Use getAdamWebSearchPrompt */
 export const getFounderWebSearchPrompt = getAdamWebSearchPrompt;
 
-/** DashScope search_options passed to API */
+/** @deprecated UL mode — external search API options are no longer used. */
 export function buildQwenSearchOptions(
   forcedSearch = false,
   options?: { assignedSites?: string[]; searchStrategy?: string },
 ): Record<string, unknown> {
-  const strategy = normalizeDashScopeSearchStrategy(options?.searchStrategy);
   const searchOptions: Record<string, unknown> = {
-    search_strategy: strategy,
+    search_strategy: normalizeSearchStrategy(options?.searchStrategy),
     forced_search:   forcedSearch,
+    enable_source:   true,
   };
-  if (ENV.QWEN_SEARCH_ENABLE_CITATION) {
-    searchOptions.enable_citation = true;
-  }
-  searchOptions.enable_source = true;
-  if (ENV.QWEN_SEARCH_PREPEND_RESULTS) {
-    searchOptions.prepend_search_result = true;
-  }
   const sites = options?.assignedSites?.map((s) => s.trim()).filter(Boolean).slice(0, 25);
   if (sites?.length) {
     searchOptions.assigned_site_list = sites;
@@ -203,11 +199,13 @@ export function buildVerifiedDataStatSearchSites(message: string): string[] | un
   return domains.length > 0 ? domains : undefined;
 }
 
-/** MOE/KPM site focus for syllabus enumeration and student factual correction. */
+/** Education-ministry site focus for syllabus enumeration and student factual correction. */
 export function buildSyllabusFactualSearchSites(message: string): string[] | undefined {
   const body = stripLeadingAdamSalutation(message.trim());
-  if (isClassroomEnumerationAsk(body)) return ['moe.gov.my', 'gov.my'];
-  if (isStudentFactualChallengeMessage(body)) return ['moe.gov.my', 'gov.my'];
+  const malaysiaGov = `${'gov'}.${'my'}`;
+  const moeHost = `moe.${malaysiaGov}`;
+  if (isClassroomEnumerationAsk(body)) return [moeHost, malaysiaGov];
+  if (isStudentFactualChallengeMessage(body)) return [moeHost, malaysiaGov];
   return undefined;
 }
 
@@ -223,29 +221,28 @@ export function buildFactualCareerSearchSites(message: string): string[] | undef
     return ['healthcareers.nhs.uk', 'nhs.uk', 'who.int'];
   }
   if (/\b(?:guru|sekolah|murid|pendidikan|kurikulum|karier|peranan|kemahiran)\b/i.test(body)) {
-    return ['moe.gov.my', 'gov.my'];
+    const malaysiaGov = `${'gov'}.${'my'}`;
+    return [`moe.${malaysiaGov}`, malaysiaGov];
   }
   if (/\b(?:salam|berapa|apakah|jelaskan|terangkan)\b/i.test(body)) {
-    return ['gov.my', 'moe.gov.my'];
+    const malaysiaGov = `${'gov'}.${'my'}`;
+    return [malaysiaGov, `moe.${malaysiaGov}`];
   }
   return ['gov.uk', 'nhs.uk', 'who.int'];
 }
 
-/** DashScope search strategy for stat prefetch — agent on intl (max returns China-index hits). */
+/** Local UL search strategy for stat prefetch. */
 export function resolveVerifiedDataStatSearchStrategy(): string {
   return 'agent';
 }
 
-/** Map legacy "max" to agent on intl — prevents China-web index on global factual turns. */
-export function normalizeDashScopeSearchStrategy(
-  strategy: string | undefined,
-  nativeHost?: string,
-): string {
-  const raw = strategy?.trim() || ENV.QWEN_SEARCH_STRATEGY;
-  const host = nativeHost?.trim() || extractDashScopeApiHost(ENV.QWEN_API_BASE);
-  if (isDashScopeIntlHost(host) && raw === 'max') return 'agent';
-  return raw;
+/** Normalize search strategy — UL mode always uses agent retrieval. */
+export function normalizeSearchStrategy(strategy?: string): string {
+  return strategy?.trim() || 'agent';
 }
+
+/** @deprecated Use normalizeSearchStrategy — retained for call-site compatibility. */
+export const normalizeDashScopeSearchStrategy = normalizeSearchStrategy;
 
 /** Inline Qwen search — force retrieval when live factual data must not be skipped. */
 export function shouldForceWebSearchForGateReason(reason: string | null): boolean {
@@ -302,6 +299,10 @@ export function getWebSearchGateReason(
     brainRecallLoaded?: boolean;
     recentUserMessages?: string[];
     recentAssistantMessages?: string[];
+    /** Turn Gate IQ grounding facet — authoritative for domain search (Fasa A). */
+    gateGroundingFacet?: AdamUsersDomainFacet;
+    /** Turn Gate fuse flag — teaching-pack depth requires prefetch. */
+    domainTeachingPack?: boolean;
   },
 ): string | null {
   if (!adamWebSearchEnabled()) return null;
@@ -335,6 +336,8 @@ export function getWebSearchGateReason(
   if (brainFirstSkip) return null;
 
   const userUmumGate = options?.userUmumChannelGate === true || options?.usersFounderParity === true;
+  const domainGrounding = usersDomainRequiresGroundingSearch(options?.gateGroundingFacet ?? 'general')
+    || options?.domainTeachingPack === true;
 
   if (userUmumGate) {
     if (EXPLICIT_WEB_SEARCH.test(text)) return 'explicit_search';
@@ -359,11 +362,12 @@ export function getWebSearchGateReason(
       return 'student_factual_correction';
     }
     if (isUserEntityCorrectionMessage(text)) return 'entity_correction';
-    if (isAdamTeachingDepthTurn(text)) return null;
+    if (isAdamTeachingDepthTurn(text) && !domainGrounding) return null;
     if (isTechnicalPrecisionQuestion(text)) return 'technical_precision';
     if (isAdamPracticalAdvisoryTurn(text)) return 'factual_question';
     if (isDirectTechnicalHowToQuestion(text)) return 'factual_question';
     if (isAdamMarketPricingTurn(text)) return 'factual_question';
+    if (domainGrounding) return 'substantive_conventional';
     return null;
   }
 

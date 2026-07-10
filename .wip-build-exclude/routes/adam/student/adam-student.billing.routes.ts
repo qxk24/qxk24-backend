@@ -40,42 +40,52 @@ import { BuyCreditSchema } from './adam-student.schemas';
 const router = new Hono();
 
 router.get('/freemium-status', requireStudent, attachSubscriptionAccess, async (c) => {
-  const user = getTokenUser(c)!;
-  const access = getSubscriptionAccess(c);
-  const status = await getStudentFreemiumStatus(user.userId, access);
-  const packs  = creditPacksForAccess(access);
+  try {
+    const user = getTokenUser(c)!;
+    const access = getSubscriptionAccess(c);
+    const status = await getStudentFreemiumStatus(user.userId, access);
+    const packs  = creditPacksForAccess(access);
 
-  return c.json({
-    success: true,
-    freemium: await buildFreemiumStatusPayloadForUser(user.userId, status),
-    credits: {
-      balance:      status.creditBalance,
-      packs,
-      pack:         packs[0],
-      paymentWired: isCreditPurchaseWired(),
-    },
-    tier:    access?.tier ?? 'PENCARIAN',
-    payment: { comingSoon: !isCreditPurchaseWired() },
-    kernel:  'Alamtologi',
-  });
-});
+    return c.json({
+      success: true,
+      freemium: await buildFreemiumStatusPayloadForUser(user.userId, status),
+      credits: {
+        balance:      status.creditBalance,
+        packs,
+        pack:         packs[0],
+        paymentWired: isCreditPurchaseWired(),
+      },
+      tier:    access?.tier ?? 'PENCARIAN',
+      payment: { comingSoon: !isCreditPurchaseWired() },
+      kernel:  'Alamtologi',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/credits', requireStudent, attachSubscriptionAccess, async (c) => {
-  const user = getTokenUser(c)!;
-  const access = getSubscriptionAccess(c);
-  const wallet = await getCreditWalletSnapshot(user.userId);
-  const packs  = creditPacksForAccess(access);
+  try {
+    const user = getTokenUser(c)!;
+    const access = getSubscriptionAccess(c);
+    const wallet = await getCreditWalletSnapshot(user.userId);
+    const packs  = creditPacksForAccess(access);
 
-  return c.json({
-    success: true,
-    wallet,
-    packs,
-    pack:             packs[0] ?? null,
-    extraMessageCost: extraMessageCostCents() / 100,
-    paymentWired:     isCreditPurchaseWired(),
-    kernel:           'Alamtologi',
-  });
-});
+    return c.json({
+      success: true,
+      wallet,
+      packs,
+      pack:             packs[0] ?? null,
+      extraMessageCost: extraMessageCostCents() / 100,
+      paymentWired:     isCreditPurchaseWired(),
+      kernel:           'Alamtologi',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/credits/buy', requireStudent, attachSubscriptionAccess, zValidator('json', BuyCreditSchema), async (c) => {
   const user = getTokenUser(c)!;

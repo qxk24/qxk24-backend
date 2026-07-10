@@ -44,7 +44,6 @@ export function shouldRunUniversalTeachingRecall(input: UniversalRecallRouterInp
 
   if (teachingFreshUpload) return false;
   if (bookAwareRecallLoaded) return false;
-  if (isGuestTrial) return false;
 
   const probe = message.trim();
   if (!probe || isAdamLightChatTurn(probe)) return false;
@@ -68,6 +67,6 @@ export function detectContextRecallLoaded(
   messages: ReadonlyArray<{ content?: string }>,
 ): boolean {
   return messages.some((m) =>
-    /\[(?:UNIVERSAL TEACHING RECALL|KONVENSIONAL BRAIN RECALL|P\.ALT TEACHING RECORDS|CONSTITUTIONAL BACKBONE|METERAI — Formula XYZ)/i.test(m.content ?? ''),
+    /\[(?:UNIVERSAL TEACHING RECALL|KONVENSIONAL BRAIN RECALL|P\.ALT TEACHING RECORDS|CONSTITUTIONAL BACKBONE|METERAI — Formula XYZ|TUTOR UID RECALL)/i.test(m.content ?? ''),
   );
 }

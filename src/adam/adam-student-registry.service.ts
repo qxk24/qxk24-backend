@@ -136,7 +136,7 @@ export async function syncMissingSeedStudents(): Promise<number> {
     }
 
     await insertSeedAccount(seed, plain);
-    console.log(`[QXK24] Seed sync added student: ${seed.userId}`);
+
     added += 1;
   }
 
@@ -167,7 +167,7 @@ export async function syncSeedStudentPasswords(force = false): Promise<number> {
         passwordSource: 'env',
       },
     );
-    console.log(`[QXK24] Seed password re-synced: ${seed.userId}`);
+
     updated += 1;
   }
 
@@ -216,7 +216,6 @@ async function ensureSeeded(): Promise<void> {
     await insertSeedAccount(seed, plain);
   }
 
-  console.log('[QXK24] Student registry seeded from env (first boot).');
 }
 
 /** One-time — accounts updated after create were likely reset by P.alt. */
@@ -280,15 +279,7 @@ export async function initStudentRegistry(): Promise<void> {
   const passwordsResynced = await syncSeedStudentPasswords(false);
   const qaProfiles = await ensureQaTutorProfiles();
   await refreshStudentCache();
-  console.log(
-    `[QXK24] Student registry ready — ${activeAccounts.length} active account(s)` +
-      (qaProfiles > 0 ? ` (${qaProfiles} QA tutor profile(s) seeded)` : '') +
-      (legacyMarked > 0 ? ` (${legacyMarked} founder-managed passwords preserved)` : '') +
-      (lanesBackfilled > 0 ? ` (${lanesBackfilled} accounts → umum)` : '') +
-      (added > 0 ? ` (${added} synced from env)` : '') +
-      (passwordsResynced > 0 ? ` (${passwordsResynced} env passwords applied)` : '') +
-      '.',
-  );
+
 }
 
 export function getStudentAccounts(): readonly StudentAccountRecord[] {

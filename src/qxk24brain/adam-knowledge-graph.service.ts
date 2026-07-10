@@ -313,18 +313,23 @@ LAW: Nothing is isolated. The graph IS constitutional intelligence — what P.al
 }
 
 export async function getKnowledgeGraphSnapshot(founderId = 'masa-bayu') {
-  await backfillKnowledgeGraph(founderId, 30);
-  const entities = await AlamtologiBrainEntityModel.find({
-    founderId,
-    auditStatus: { $nin: ['dissolved', 'waqf'] },
-  })
-    .sort({ masa_born: -1 })
-    .limit(80)
-    .select('uid family principle stage connections isNucleus masa_born')
-    .lean();
-  return {
-    entityCount: entities.length,
-    connectedCount: entities.filter((e) => (e.connections?.length ?? 0) > 0).length,
-    entities,
-  };
-}
+  try {
+    await backfillKnowledgeGraph(founderId, 30);
+    const entities = await AlamtologiBrainEntityModel.find({
+      founderId,
+      auditStatus: { $nin: ['dissolved', 'waqf'] },
+    })
+      .sort({ masa_born: -1 })
+      .limit(80)
+      .select('uid family principle stage connections isNucleus masa_born')
+      .lean();
+    return {
+      entityCount: entities.length,
+      connectedCount: entities.filter((e) => (e.connections?.length ?? 0) > 0).length,
+      entities,
+    };
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }}

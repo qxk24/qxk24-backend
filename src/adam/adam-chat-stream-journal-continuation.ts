@@ -82,16 +82,6 @@ export async function runJournalContinuationPasses(input: {
   for (let cont = 0; cont < continuationConfig.maxContinuations; cont++) {
     if (!journalTurnNeedsContinuation(fullResponse, input.userMessage)) break;
 
-    console.log(
-      '[adam:journal-continue]',
-      JSON.stringify({
-        sessionId:    input.resolvedSessionId,
-        continuation: cont + 1,
-        charsSoFar:   fullResponse.length,
-        ts:           new Date().toISOString(),
-      }),
-    );
-
     input.onEvent(
       'adam_chunk',
       JSON.stringify({ text: '\n\n— continuing manuscript —\n\n' }),
@@ -158,15 +148,7 @@ async function runJournalDraftWritePasses(input: {
   let fullResponse = input.fullResponse;
 
   for (let w = 0; w < 2; w++) {
-    console.log(
-      '[adam:journal-write-draft]',
-      JSON.stringify({
-        sessionId:  input.resolvedSessionId,
-        pass:       w + 1,
-        charsSoFar: fullResponse.length,
-        ts:         new Date().toISOString(),
-      }),
-    );
+
     input.onEvent(
       'adam_chunk',
       JSON.stringify({ text: '\n\n— writing full IMRaD manuscript now —\n\n' }),
@@ -209,15 +191,6 @@ async function runJournalSealWritePasses(input: {
   if (!needsWrite) return fullResponse;
 
   for (let w = 0; w < 2; w++) {
-    console.log(
-      '[adam:journal-write-seal]',
-      JSON.stringify({
-        sessionId:  input.resolvedSessionId,
-        pass:       w + 1,
-        charsSoFar: fullResponse.length,
-        ts:         new Date().toISOString(),
-      }),
-    );
 
     input.onEvent(
       'adam_chunk',

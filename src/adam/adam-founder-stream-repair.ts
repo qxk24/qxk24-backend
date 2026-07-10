@@ -212,9 +212,7 @@ export async function repairFounderStreamOutput(input: {
         fullResponse !== beforeInquiry
         && adamTeachingMessageHasInquirySection(fullResponse)
       ) {
-        console.log('[adam:founder-teaching-inquiry] sync inquiry close applied', {
-          sessionId: resolvedSessionId,
-        });
+
       }
     }
     if (founderTeachingSynthesis) {
@@ -224,9 +222,7 @@ export async function repairFounderStreamOutput(input: {
         fullResponse !== beforeSynthesis
         && adamTeachingMessageHasSynthesisSection(fullResponse)
       ) {
-        console.log('[adam:founder-teaching-synthesis] sync section labels applied', {
-          sessionId: resolvedSessionId,
-        });
+
       }
       fullResponse = repairFounderInventedEmpiricalClaims(
         fullResponse,

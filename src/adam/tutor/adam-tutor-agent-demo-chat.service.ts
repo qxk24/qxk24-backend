@@ -64,7 +64,12 @@ export async function loadAgentDemoChatHistory(
   sessionId: string,
   limit = 100,
 ) {
-  const allowed = await assertAgentDemoOwnsSession(agent, sessionId);
-  if (!allowed) throw new Error('Session access denied.');
-  return loadMessageHistory(sessionId, limit);
-}
+  try {
+    const allowed = await assertAgentDemoOwnsSession(agent, sessionId);
+    if (!allowed) throw new Error('Session access denied.');
+    return loadMessageHistory(sessionId, limit);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }}

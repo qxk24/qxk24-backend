@@ -25,7 +25,7 @@ const SEARCH_PIPELINE_FILES = [
   'src/adam/adam-web-search-prompts.ts',
   'src/adam/adam-alpha-output-guard.ts',
   'src/adam/adam-chat-stream-turn-search.ts',
-  'src/llm/llm-client.ts',
+  'src/qxk24brain/deep-ul/web-search-engine.ts',
 ];
 
 const BANNED_IN_PRODUCTION = [

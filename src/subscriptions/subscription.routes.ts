@@ -33,6 +33,7 @@ import {
   getTutorPricing,
   listTutorLevelPricing,
   getConsumerProPricing,
+  getConsumerGeneralPremiumPricing,
   getConsumerPremiumPricing,
   getBusinessCoachPricing,
   consumerTierSavingsNote,
@@ -49,6 +50,8 @@ import {
   SupportedRegion,
   FOUNDER_SUBSCRIPTION_ID,
   resolveCheckoutTier,
+  isGeneralPremiumCheckout,
+  type ConsumerProductSku,
 } from './subscription.schema';
 import {
   handleRazorpayWebhook,
@@ -115,6 +118,9 @@ router.get('/pricing', async (c) => {
   const businessCoachTier = buildBusinessCoachPricingTier(paymentWired);
 
   const consumerPro = consumerPlan ? getConsumerProPricing(region, myrRate) : null;
+  const consumerGeneralPremium = consumerPlan
+    ? getConsumerGeneralPremiumPricing(region, myrRate)
+    : null;
   const consumerPremium = consumerPlan ? getConsumerPremiumPricing(region, myrRate) : null;
   const consumerCreditPacks = consumerPlan
     ? getPremiumCreditPacksForRegion(region, myrRate)
@@ -138,6 +144,8 @@ router.get('/pricing', async (c) => {
       proDailyLimit:       consumerProDailyLimit(),
       proMonthlyUsd:       consumerPro!.monthlyUsd,
       proAnnualUsd:        consumerPro!.annualUsd,
+      generalPremiumMonthlyUsd: consumerGeneralPremium!.monthlyUsd,
+      generalPremiumAnnualUsd:  consumerGeneralPremium!.annualUsd,
       premiumMonthlyUsd:   consumerPremium!.monthlyUsd,
       premiumAnnualUsd:    consumerPremium!.annualUsd,
       extraMessageCost:    extraMsgRegional.monthlyLocal,
@@ -177,6 +185,18 @@ router.get('/pricing', async (c) => {
         comingSoon:       !paymentWired,
         dailyLimit:       consumerProDailyLimit(),
         topUpPacks:       consumerCreditPacks,
+        extraMessageCost: extraMsgRegional.monthlyLocal,
+      },
+      generalPremium: {
+        label:         'Premium',
+        monthlyAmount: consumerGeneralPremium!.monthly,
+        annualAmount:  consumerGeneralPremium!.annual,
+        currency:      consumerGeneralPremium!.currency,
+        description:   'ADAM General — 100 messages per day, neural voice, deeper memory.',
+        savingsNote:   consumerTierSavingsNote(consumerGeneralPremium!),
+        comingSoon:    !paymentWired,
+        dailyLimit:    consumerProDailyLimit(),
+        topUpPacks:    consumerCreditPacks,
         extraMessageCost: extraMsgRegional.monthlyLocal,
       },
       premium: {
@@ -314,6 +334,13 @@ router.post('/create', requireAdamUser, async (c) => {
     return c.json({ error: `Unknown tier: ${body.tier}` }, 400);
   }
 
+  let consumerProductSku: ConsumerProductSku | null = null;
+  if (tier === SubscriptionTier.PRO) {
+    consumerProductSku = isGeneralPremiumCheckout(body.tier)
+      ? 'general_premium'
+      : 'pro';
+  }
+
   if (tier === SubscriptionTier.TUTOR && !body.tutorLevel) {
     return c.json({
       error: 'tutorLevel is required for ADAM Tutor (primary, secondary, or university).',
@@ -354,6 +381,7 @@ router.post('/create', requireAdamUser, async (c) => {
       billingCycle: body.billingCycle,
       headers:      c.req.raw.headers,
       tutorLevel:   body.tutorLevel,
+      consumerProductSku,
     });
     return c.json(result);
   } catch (err) {
@@ -362,133 +390,163 @@ router.post('/create', requireAdamUser, async (c) => {
 });
 
 router.get('/me', requireAdamUser, async (c) => {
-  const userId = getTokenUser(c)!.userId;
+  try {
+    const userId = getTokenUser(c)!.userId;
 
-  const sub = await SubscriptionModel.findOne(
-    { userId, status: { $in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.WAQF] } },
-    {
-      pencarianUsage: 1,
-      tier: 1,
-      status: 1,
-      access: 1,
-      billingCycle: 1,
-      currentPeriodEnd: 1,
-    },
-  ).sort({ createdAt: -1 });
+    const sub = await SubscriptionModel.findOne(
+      { userId, status: { $in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.WAQF] } },
+      {
+        pencarianUsage: 1,
+        tier: 1,
+        status: 1,
+        access: 1,
+        billingCycle: 1,
+        currentPeriodEnd: 1,
+      },
+    ).sort({ createdAt: -1 });
 
-  if (!sub) {
-    return c.json({
-      tier:    SubscriptionTier.BASIC,
-      status:  SubscriptionStatus.WAQF,
-      message: 'Selamat datang. Perjalanan kamu dibiayai oleh pengasas.',
-    });
-  }
+    if (!sub) {
+      return c.json({
+        tier:    SubscriptionTier.BASIC,
+        status:  SubscriptionStatus.WAQF,
+        message: 'Selamat datang. Perjalanan kamu dibiayai oleh pengasas.',
+      });
+    }
 
-  return c.json(sub);
-});
+    return c.json(sub);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/pencarian/usage', requireAdamUser, async (c) => {
-  const userId = getTokenUser(c)!.userId;
+  try {
+    const userId = getTokenUser(c)!.userId;
 
-  if (ENV.ADAM_FREEMIUM_ENABLED) {
-    const limit = freeRollingLimit();
-    const snap = await getRollingQuotaSnapshot(getTokenUser(c)!.userId, RollingQuotaBucket.FREE, limit);
-    return c.json({
-      totalMessagesUsed:  snap.questionsUsed,
-      totalMessagesLimit: snap.limit,
-      currentStage:       'KNOW',
-      dateKey:            snap.windowStart.toISOString(),
-      rollingLimit:       true,
-      windowHours:        snap.windowHours,
-      windowResetsAt:     snap.windowResetsAt.toISOString(),
-    });
-  }
+    if (ENV.ADAM_FREEMIUM_ENABLED) {
+      const limit = freeRollingLimit();
+      const snap = await getRollingQuotaSnapshot(getTokenUser(c)!.userId, RollingQuotaBucket.FREE, limit);
+      return c.json({
+        totalMessagesUsed:  snap.questionsUsed,
+        totalMessagesLimit: snap.limit,
+        currentStage:       'KNOW',
+        dateKey:            snap.windowStart.toISOString(),
+        rollingLimit:       true,
+        windowHours:        snap.windowHours,
+        windowResetsAt:     snap.windowResetsAt.toISOString(),
+      });
+    }
 
-  const usage = await getPencarianUsage(userId);
+    const usage = await getPencarianUsage(userId);
 
-  if (!usage) {
-    return c.json({ totalMessagesUsed: 0, totalMessagesLimit: 100, currentStage: 'KNOW' });
-  }
+    if (!usage) {
+      return c.json({ totalMessagesUsed: 0, totalMessagesLimit: 100, currentStage: 'KNOW' });
+    }
 
-  return c.json(usage);
-});
+    return c.json(usage);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/pencarian/check', requireAdamUser, async (c) => {
-  const userId = getTokenUser(c)!.userId;
-  const body   = await c.req.json() as {
-    sessionId?:      string;
-    messageContent?: string;
-    sessionHistory?: string[];
-  };
+  try {
+    const userId = getTokenUser(c)!.userId;
+    const body   = await c.req.json() as {
+      sessionId?:      string;
+      messageContent?: string;
+      sessionHistory?: string[];
+    };
 
-  const result = await checkPencarianLimit(
-    userId,
-    body.sessionId ?? '',
-    body.messageContent ?? '',
-    body.sessionHistory ?? [],
-  );
+    const result = await checkPencarianLimit(
+      userId,
+      body.sessionId ?? '',
+      body.messageContent ?? '',
+      body.sessionHistory ?? [],
+    );
 
-  return c.json(result);
-});
+    return c.json(result);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/pencarian/extend', requireAdamUser, async (c) => {
-  const userId = getTokenUser(c)!.userId;
-  const body   = await c.req.json() as {
-    transactionId?: string;
-    provider?:      PaymentProvider;
-    amountPaid?:    number;
-    currency?:      string;
-  };
+  try {
+    const userId = getTokenUser(c)!.userId;
+    const body   = await c.req.json() as {
+      transactionId?: string;
+      provider?:      PaymentProvider;
+      amountPaid?:    number;
+      currency?:      string;
+    };
 
-  const result = await purchasePencarianExtension(
-    userId,
-    body.transactionId ?? '',
-    body.provider ?? PaymentProvider.MANUAL,
-    body.amountPaid ?? 0,
-    body.currency ?? 'MYR',
-  );
+    const result = await purchasePencarianExtension(
+      userId,
+      body.transactionId ?? '',
+      body.provider ?? PaymentProvider.MANUAL,
+      body.amountPaid ?? 0,
+      body.currency ?? 'MYR',
+    );
 
-  return c.json(result);
-});
+    return c.json(result);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/pencarian/convert', requireAdamUser, async (c) => {
-  await convertPencarianToPelajar(getTokenUser(c)!.userId);
-  return c.json({ success: true, message: 'Selamat datang sebagai Pelajar Alamtologi.' });
-});
+  try {
+    await convertPencarianToPelajar(getTokenUser(c)!.userId);
+    return c.json({ success: true, message: 'Selamat datang sebagai Pelajar Alamtologi.' });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/enterprise-inquiry', requireAdamUser, async (c) => {
-  const body = await c.req.json() as {
-    organisationName?: string;
-    contactEmail?:     string;
-    estimatedUsers?:   number;
-    notes?:            string;
-  };
+  try {
+    const body = await c.req.json() as {
+      organisationName?: string;
+      contactEmail?:     string;
+      estimatedUsers?:   number;
+      notes?:            string;
+    };
 
-  const access = {
-    ...TIER_ACCESS[SubscriptionTier.ENTERPRISE],
-    maxUsers: body.estimatedUsers ?? TIER_ACCESS[SubscriptionTier.ENTERPRISE].maxUsers,
-  };
+    const access = {
+      ...TIER_ACCESS[SubscriptionTier.ENTERPRISE],
+      maxUsers: body.estimatedUsers ?? TIER_ACCESS[SubscriptionTier.ENTERPRISE].maxUsers,
+    };
 
-  await SubscriptionModel.create({
-    userId:          getTokenUser(c)!.userId,
-    founderId:       FOUNDER_SUBSCRIPTION_ID,
-    tier:            SubscriptionTier.ENTERPRISE,
-    status:          SubscriptionStatus.PENDING,
-    billingCycle:    BillingCycle.ENTERPRISE,
-    region:          detectRegionFromHeaders(c.req.raw.headers),
-    currency:        'MYR',
-    amountPerCycle:  0,
-    provider:        PaymentProvider.MANUAL,
-    access,
-    enterpriseNotes: `Org: ${body.organisationName ?? ''} | Contact: ${body.contactEmail ?? ''} | Users: ${body.estimatedUsers ?? 0} | Notes: ${body.notes ?? ''}`,
-    neverDelete:     true,
-  });
+    await SubscriptionModel.create({
+      userId:          getTokenUser(c)!.userId,
+      founderId:       FOUNDER_SUBSCRIPTION_ID,
+      tier:            SubscriptionTier.ENTERPRISE,
+      status:          SubscriptionStatus.PENDING,
+      billingCycle:    BillingCycle.ENTERPRISE,
+      region:          detectRegionFromHeaders(c.req.raw.headers),
+      currency:        'MYR',
+      amountPerCycle:  0,
+      provider:        PaymentProvider.MANUAL,
+      access,
+      enterpriseNotes: `Org: ${body.organisationName ?? ''} | Contact: ${body.contactEmail ?? ''} | Users: ${body.estimatedUsers ?? 0} | Notes: ${body.notes ?? ''}`,
+      neverDelete:     true,
+    });
 
-  return c.json({
-    received: true,
-    message:  'Thank you. The Founder will contact you personally.',
-  });
-});
+    return c.json({
+      received: true,
+      message:  'Thank you. The Founder will contact you personally.',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/payment-config', (c) => {
   const region = detectRegionFromHeaders(c.req.raw.headers);
@@ -514,9 +572,14 @@ router.get('/stripe/confirm', requireAdamUser, async (c) => {
 });
 
 router.get('/waqf-report', requireFounder, async (c) => {
-  const report = await getWaqfReport();
-  return c.json(report);
-});
+  try {
+    const report = await getWaqfReport();
+    return c.json(report);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 /** GET /api/subscription/founder/categories — ADAM subscription + freemium quota categories. */
 router.get('/founder/categories', requireFounder, (c) => {
@@ -529,98 +592,108 @@ router.get('/founder/categories', requireFounder, (c) => {
 
 /** POST /api/subscription/founder/grant-unlimited — Founder waqf unlimited (all quota categories). */
 router.post('/founder/grant-unlimited', requireFounder, async (c) => {
-  const body = await c.req.json() as {
-    identifiers?:  string[];
-    userIds?:       string[];
-    notes?:         string;
-    tutorLevel?:    'primary' | 'secondary' | 'university';
-    skipTutor?:     boolean;
-    create?: {
-      name:        string;
-      password:    string;
-      userId?:     string;
-      email?:      string;
-      accountRole?: 'student' | 'guru';
-      accountLane?: 'umum' | 'pelajar';
+  try {
+    const body = await c.req.json() as {
+      identifiers?:  string[];
+      userIds?:       string[];
+      notes?:         string;
+      tutorLevel?:    'primary' | 'secondary' | 'university';
+      skipTutor?:     boolean;
+      create?: {
+        name:        string;
+        password:    string;
+        userId?:     string;
+        email?:      string;
+        accountRole?: 'student' | 'guru';
+        accountLane?: 'umum' | 'pelajar';
+      };
     };
-  };
 
-  if (body.create?.name && body.create?.password) {
-    const created = await createFounderUnlimitedAccount({
-      name:        body.create.name,
-      password:    body.create.password,
-      userId:      body.create.userId,
-      email:       body.create.email,
-      notes:       body.notes,
-      tutorLevel:  body.tutorLevel,
-      skipTutor:   body.skipTutor,
-      accountRole: body.create.accountRole,
-      accountLane: body.create.accountLane,
+    if (body.create?.name && body.create?.password) {
+      const created = await createFounderUnlimitedAccount({
+        name:        body.create.name,
+        password:    body.create.password,
+        userId:      body.create.userId,
+        email:       body.create.email,
+        notes:       body.notes,
+        tutorLevel:  body.tutorLevel,
+        skipTutor:   body.skipTutor,
+        accountRole: body.create.accountRole,
+        accountLane: body.create.accountLane,
+      });
+      return c.json({
+        success: true,
+        mode:    'create',
+        result:  created,
+        tier:    SubscriptionTier.ENTERPRISE,
+        quota:   'unlimited',
+        kernel:  'ALAMTOLOGI',
+      }, 201);
+    }
+
+    const identifiers = [
+      ...(body.identifiers ?? []),
+      ...(body.userIds ?? []),
+    ].map((s) => s.trim()).filter(Boolean);
+
+    if (identifiers.length === 0) {
+      return c.json({ error: 'identifiers, userIds, or create { name, password } required.' }, 400);
+    }
+
+    const results = await grantFounderUnlimitedBatch(identifiers, {
+      notes:      body.notes,
+      tutorLevel: body.tutorLevel,
+      skipTutor:  body.skipTutor,
     });
+
     return c.json({
-      success: true,
-      mode:    'create',
-      result:  created,
+      success: results.some((r) => r.ok),
+      mode:    'upgrade',
+      results,
       tier:    SubscriptionTier.ENTERPRISE,
       quota:   'unlimited',
       kernel:  'ALAMTOLOGI',
-    }, 201);
-  }
+    });
 
-  const identifiers = [
-    ...(body.identifiers ?? []),
-    ...(body.userIds ?? []),
-  ].map((s) => s.trim()).filter(Boolean);
-
-  if (identifiers.length === 0) {
-    return c.json({ error: 'identifiers, userIds, or create { name, password } required.' }, 400);
-  }
-
-  const results = await grantFounderUnlimitedBatch(identifiers, {
-    notes:      body.notes,
-    tutorLevel: body.tutorLevel,
-    skipTutor:  body.skipTutor,
-  });
-
-  return c.json({
-    success: results.some((r) => r.ok),
-    mode:    'upgrade',
-    results,
-    tier:    SubscriptionTier.ENTERPRISE,
-    quota:   'unlimited',
-    kernel:  'ALAMTOLOGI',
-  });
-});
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 /** POST /api/subscription/founder/grant-profesional — Founder waqf upgrade (no Stripe). */
 router.post('/founder/grant-profesional', requireFounder, async (c) => {
-  const body = await c.req.json() as {
-    identifiers?: string[];
-    userIds?:      string[];
-    notes?:        string;
-    periodMonths?: number;
-  };
+  try {
+    const body = await c.req.json() as {
+      identifiers?: string[];
+      userIds?:      string[];
+      notes?:        string;
+      periodMonths?: number;
+    };
 
-  const identifiers = [
-    ...(body.identifiers ?? []),
-    ...(body.userIds ?? []),
-  ].map((s) => s.trim()).filter(Boolean);
+    const identifiers = [
+      ...(body.identifiers ?? []),
+      ...(body.userIds ?? []),
+    ].map((s) => s.trim()).filter(Boolean);
 
-  if (identifiers.length === 0) {
-    return c.json({ error: 'identifiers or userIds required.' }, 400);
-  }
+    if (identifiers.length === 0) {
+      return c.json({ error: 'identifiers or userIds required.' }, 400);
+    }
 
-  const results = await grantFounderProfesionalBatch(identifiers, {
-    notes:        body.notes,
-    periodMonths: body.periodMonths,
-  });
+    const results = await grantFounderProfesionalBatch(identifiers, {
+      notes:        body.notes,
+      periodMonths: body.periodMonths,
+    });
 
-  return c.json({
-    success: results.every((r) => r.ok),
-    results,
-    kernel:  'ALAMTOLOGI',
-  });
-});
+    return c.json({
+      success: results.every((r) => r.ok),
+      results,
+      kernel:  'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/webhooks/razorpay', handleRazorpayWebhook);
 router.post('/webhooks/stripe',   handleStripeWebhook);

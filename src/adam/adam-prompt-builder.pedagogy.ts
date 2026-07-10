@@ -49,7 +49,6 @@ import {
   isAdamAlgorithmTeachingTurn,
   isAdamLayer1BookWritingTurn,
   isAdamLayer1ManuscriptExportTurn,
-  isAdamScienceNatureSynthesisTurn,
   threadRootIsPracticalAdvisory,
   userRequestedPhilosophicalBookVoice,
 } from './adam-response-generation';
@@ -184,9 +183,7 @@ ADAM GOLD STANDARD — ALGORITHM TEACHING (mandatory):
       params.recentUserMessages ?? [],
     );
     parts.push(USERS_MODE_PROMPT);
-    const scienceNatureTurn = isAdamScienceNatureSynthesisTurn(userMessage);
-    const bookWritingTail = !scienceNatureTurn
-      && isAdamLayer1BookWritingTurn(params.recentUserMessages ?? [], userMessage);
+    const bookWritingTail = isAdamLayer1BookWritingTurn(params.recentUserMessages ?? [], userMessage);
     const bookPhilosophyTail = bookWritingTail
       && userRequestedPhilosophicalBookVoice(userMessage, params.recentUserMessages ?? []);
     if (bookWritingTail || isAdamLayer1ManuscriptExportTurn(userMessage)) {

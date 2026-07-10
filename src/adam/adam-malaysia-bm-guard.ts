@@ -95,7 +95,12 @@ export function sanitizeMalaysiaBmDrift(
   text: string,
   locale: SupportedLocale | string = 'ms',
 ): string {
-  if (!text?.trim() || !isMalayReplyLocale(locale)) {
+  if (!text?.trim()) {
+    return text;
+  }
+
+  const applyBm = isMalayReplyLocale(locale) || containsIndonesianDrift(text);
+  if (!applyBm) {
     return text;
   }
 

@@ -55,51 +55,66 @@ const router = new Hono();
 router.use('/coaching/*', requireStudent, rejectToolsLaneOnly, rejectNiagaLaneOnly);
 
 router.get('/coaching/subscription', requireStudent, async (c) => {
-  const user = getTokenUser(c)!;
-  const access = await resolveCoachingSubscriptionAccess(user.userId);
-  return c.json({
-    success:         true,
-    billingEnforced: false,
-    ...access,
-    kernel:          'ALAMTOLOGI',
-  });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const access = await resolveCoachingSubscriptionAccess(user.userId);
+    return c.json({
+      success:         true,
+      billingEnforced: false,
+      ...access,
+      kernel:          'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/coaching/session', requireStudent, requireCoachingSubscription, async (c) => {
-  const user = getTokenUser(c)!;
-  const preferred = c.req.query('sessionId')?.trim();
-  let sessionId: string;
-  if (preferred) {
-    const allowed = await assertStudentOwnsSession(user.userId, preferred);
-    if (!allowed) {
-      return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+  try {
+    const user = getTokenUser(c)!;
+    const preferred = c.req.query('sessionId')?.trim();
+    let sessionId: string;
+    if (preferred) {
+      const allowed = await assertStudentOwnsSession(user.userId, preferred);
+      if (!allowed) {
+        return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+      }
+      sessionId = preferred;
+    } else {
+      sessionId = await resolveCoachingChatSession(user.userId);
     }
-    sessionId = preferred;
-  } else {
-    sessionId = await resolveCoachingChatSession(user.userId);
-  }
-  return c.json({
-    success: true,
-    sessionId,
-    userId:  user.userId,
-    name:    user.name,
-    kernel:  'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+    return c.json({
+      success: true,
+      sessionId,
+      userId:  user.userId,
+      name:    user.name,
+      kernel:  'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/coaching/chat/sessions', requireStudent, requireCoachingSubscription, async (c) => {
-  const user = getTokenUser(c)!;
-  const rawLimit = parseInt(c.req.query('limit') ?? '30', 10);
-  const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 30;
-  const sessions = await listUserChatSessions(user.userId, 'coaching', limit);
-  return c.json({
-    success: true,
-    sessions,
-    count:   sessions.length,
-    kernel:  'ALAMTOLOGI',
-  });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const rawLimit = parseInt(c.req.query('limit') ?? '30', 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 30;
+    const sessions = await listUserChatSessions(user.userId, 'coaching', limit);
+    return c.json({
+      success: true,
+      sessions,
+      count:   sessions.length,
+      kernel:  'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.patch('/coaching/chat/sessions/:sessionId', requireStudent, requireCoachingSubscription, zValidator('json', SessionTitleSchema), async (c) => {
   const user = getTokenUser(c)!;
@@ -127,30 +142,40 @@ router.delete('/coaching/chat/sessions/:sessionId', requireStudent, requireCoach
 });
 
 router.post('/coaching/chat/sessions', requireStudent, requireCoachingSubscription, async (c) => {
-  const user = getTokenUser(c)!;
-  const sessionId = await createNewChatSession(user.userId, 'coaching');
-  return c.json({
-    success: true,
-    sessionId,
-    kernel:  'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const sessionId = await createNewChatSession(user.userId, 'coaching');
+    return c.json({
+      success: true,
+      sessionId,
+      kernel:  'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/coaching/chat/history/:sessionId', requireStudent, requireCoachingSubscription, async (c) => {
-  const user = getTokenUser(c)!;
-  const sessionId = c.req.param('sessionId') ?? '';
-  const allowed = await assertStudentOwnsSession(user.userId, sessionId);
-  if (!allowed) {
-    return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
-  }
-  const rawLimit = parseInt(c.req.query('limit') ?? '100', 10);
-  const limit = Number.isFinite(rawLimit)
-    ? Math.min(100, Math.max(1, rawLimit))
-    : 100;
-  const messages = await loadMessageHistory(sessionId, limit);
-  return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const sessionId = c.req.param('sessionId') ?? '';
+    const allowed = await assertStudentOwnsSession(user.userId, sessionId);
+    if (!allowed) {
+      return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+    }
+    const rawLimit = parseInt(c.req.query('limit') ?? '100', 10);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.min(100, Math.max(1, rawLimit))
+      : 100;
+    const messages = await loadMessageHistory(sessionId, limit);
+    return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/coaching/chat', requireStudent, requireCoachingSubscription, zValidator('json', CoachingChatSchema), async (c) => {
   const user = getTokenUser(c)!;
@@ -209,7 +234,12 @@ router.post('/coaching/chat', requireStudent, requireCoachingSubscription, zVali
           sessionId!,
           message,
           'COACHING',
-          async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
+          async (event, data) => {
+ try {   await s.write(`event: ${event}\ndata: ${data}\n\n`); 
+ } catch (err) {
+   console.error(err);
+   throw err;
+ }},
           body.uploadIds ?? [],
           {
             userId:      user.userId,

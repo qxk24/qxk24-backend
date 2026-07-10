@@ -77,15 +77,11 @@ async function tick(): Promise<void> {
 export function startAdamIntegrityScheduler(): void {
   const cfg = integrityConfig();
   if (!cfg.enabled) {
-    console.log('[ADAM Integrity] Scheduler disabled (ADAM_INTEGRITY_ENABLED=false).');
+
     return;
   }
 
   if (schedulerTimer) return;
-
-  console.log(
-    `[ADAM Integrity] Scheduler active — daily at ${String(cfg.hour).padStart(2, '0')}:${String(cfg.minute).padStart(2, '0')} (${cfg.timezone})`,
-  );
 
   schedulerTimer = setInterval(() => {
     tick().catch((err) => {

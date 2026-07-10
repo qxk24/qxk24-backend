@@ -111,11 +111,7 @@ export function registerMacBridge(
     lastSeenAt:   Date.now(),
   };
   state.activeCallId = null;
-  console.log('[mac-bridge] registered', {
-    userId,
-    machine: info.machineName,
-    macRoot: info.macRoot,
-  });
+
   return state.registration;
 }
 

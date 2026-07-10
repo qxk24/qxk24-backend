@@ -132,110 +132,140 @@ function participantFromToken(user: NonNullable<ReturnType<typeof getTokenUser>>
 
 // GET /api/adam/guru/profile — guru teacher registration card
 router.get('/profile', requireGuru, async (c) => {
-  const user = getTokenUser(c)!;
-  const userId = user.userId ?? '';
-  const profile = await getGuruProfile(userId);
-  return c.json({
-    success: true,
-    profile,
-    profileComplete: profile ? profile.profileComplete : false,
-  });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const userId = user.userId ?? '';
+    const profile = await getGuruProfile(userId);
+    return c.json({
+      success: true,
+      profile,
+      profileComplete: profile ? profile.profileComplete : false,
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // PUT /api/adam/guru/profile — complete or update teacher registration
 router.put('/profile', requireGuru, zValidator('json', GuruProfileSchema), async (c) => {
-  const user = getTokenUser(c)!;
-  const userId = user.userId ?? '';
-  const body = c.req.valid('json');
-  const profile = await upsertGuruProfile(userId, {
-    ...body,
-    email: body.email ?? '',
-  });
+  try {
+    const user = getTokenUser(c)!;
+    const userId = user.userId ?? '';
+    const body = c.req.valid('json');
+    const profile = await upsertGuruProfile(userId, {
+      ...body,
+      email: body.email ?? '',
+    });
 
-  return c.json({ success: true, profile });
-});
+    return c.json({ success: true, profile });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/guru/kelas — create classroom (guru only, one subject per kelas)
 router.post('/kelas', requireGuru, zValidator('json', CreateKelasSchema), async (c) => {
-  const user = getTokenUser(c)!;
-  const userId = user.userId ?? '';
-  const body = c.req.valid('json');
-  const account = getStudentAccount(userId);
-  const existingProfile = await getGuruProfile(userId);
+  try {
+    const user = getTokenUser(c)!;
+    const userId = user.userId ?? '';
+    const body = c.req.valid('json');
+    const account = getStudentAccount(userId);
+    const existingProfile = await getGuruProfile(userId);
 
-  if (!isGuruProfileComplete(existingProfile)) {
-    return c.json({
-      success: false,
-      error:   'Complete your guru registration before creating a kelas.',
-      code:    'GURU_PROFILE_REQUIRED',
-      kernel:  'ALAMTOLOGI',
-    }, 403);
-  }
+    if (!isGuruProfileComplete(existingProfile)) {
+      return c.json({
+        success: false,
+        error:   'Complete your guru registration before creating a kelas.',
+        code:    'GURU_PROFILE_REQUIRED',
+        kernel:  'ALAMTOLOGI',
+      }, 403);
+    }
 
-  const subject = body.subject.trim();
-  await ensureGuruProfileSubject(userId, subject);
+    const subject = body.subject.trim();
+    await ensureGuruProfileSubject(userId, subject);
 
-  const guruName = existingProfile?.fullName
-    ?? user.name
-    ?? account?.name
-    ?? userId;
+    const guruName = existingProfile?.fullName
+      ?? user.name
+      ?? account?.name
+      ?? userId;
 
-  const kelas = await createGuruKelas({
-    guruId:   userId,
-    guruName,
-    title:    body.title,
-    subject,
-  });
+    const kelas = await createGuruKelas({
+      guruId:   userId,
+      guruName,
+      title:    body.title,
+      subject,
+    });
 
-  return c.json({ success: true, kelas });
-});
+    return c.json({ success: true, kelas });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/guru/kelas — list kelas for current user
 router.get('/kelas', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const kelas = await listGuruKelasForUser(user.userId);
-  return c.json({ success: true, kelas });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const kelas = await listGuruKelasForUser(user.userId);
+    return c.json({ success: true, kelas });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/guru/invitations — pending invites for student (+ access preview)
 router.get('/invitations', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const invitations = await listPendingInvitations(user.userId);
-  const enriched = await Promise.all(
-    invitations.map(async (inv) => ({
-      ...inv,
-      access: await kelasAccessPayload(user, inv.guruId, 'student', false),
-    })),
-  );
-  return c.json({ success: true, invitations: enriched });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const invitations = await listPendingInvitations(user.userId);
+    const enriched = await Promise.all(
+      invitations.map(async (inv) => ({
+        ...inv,
+        access: await kelasAccessPayload(user, inv.guruId, 'student', false),
+      })),
+    );
+    return c.json({ success: true, invitations: enriched });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/guru/kelas-access?kelasId= — student access for kelas (or general paths)
 router.get('/kelas-access', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const kelasId = c.req.query('kelasId')?.trim();
+  try {
+    const user = getTokenUser(c)!;
+    const kelasId = c.req.query('kelasId')?.trim();
 
-  if (!kelasId) {
-    const userId = user.userId ?? '';
-    const [premium, pasKelas] = await Promise.all([
-      hasActivePremiumLayer1(userId),
-      hasActivePasKelas(userId),
-    ]);
-    return c.json({
-      success: true,
-      premium,
-      pasKelas,
-      pasKelasPriceMYR: 15,
-      message: premium || pasKelas
-        ? 'You have kelas access via your subscription.'
-        : 'Join via guru invitation or request with a join code — access via Premium, Pas Kelas, or guru seat quota.',
-    });
-  }
+    if (!kelasId) {
+      const userId = user.userId ?? '';
+      const [premium, pasKelas] = await Promise.all([
+        hasActivePremiumLayer1(userId),
+        hasActivePasKelas(userId),
+      ]);
+      return c.json({
+        success: true,
+        premium,
+        pasKelas,
+        pasKelasPriceMYR: 15,
+        message: premium || pasKelas
+          ? 'You have kelas access via your subscription.'
+          : 'Join via guru invitation or request with a join code — access via Premium, Pas Kelas, or guru seat quota.',
+      });
+    }
 
-  const { kelas, memberRole } = await assertGuruKelasAccess(kelasId, user.userId ?? '');
-  const studentAccess = await kelasAccessPayload(user, kelas.guruId, memberRole, true);
-  return c.json({ success: true, kelasId, memberRole, access: studentAccess });
-});
+    const { kelas, memberRole } = await assertGuruKelasAccess(kelasId, user.userId ?? '');
+    const studentAccess = await kelasAccessPayload(user, kelas.guruId, memberRole, true);
+    return c.json({ success: true, kelasId, memberRole, access: studentAccess });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/guru/kelas/preview?joinCode=… — student previews kelas before requesting
 router.get('/kelas/preview', requireAdamUser, async (c) => {
@@ -284,17 +314,27 @@ router.post('/kelas/join-request', requireAdamUser, zValidator('json', JoinReque
 
 // GET /api/adam/guru/join-requests/mine — student's join requests
 router.get('/join-requests/mine', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const requests = await listStudentJoinRequests(user.userId ?? '');
-  return c.json({ success: true, requests });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const requests = await listStudentJoinRequests(user.userId ?? '');
+    return c.json({ success: true, requests });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/guru/join-requests/inbox — guru pending requests
 router.get('/join-requests/inbox', requireGuru, async (c) => {
-  const user = getTokenUser(c)!;
-  const requests = await listGuruJoinRequestInbox(user.userId ?? '');
-  return c.json({ success: true, requests });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const requests = await listGuruJoinRequestInbox(user.userId ?? '');
+    return c.json({ success: true, requests });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/guru/join-requests/:requestId/approve
 router.post('/join-requests/:requestId/approve', requireGuru, async (c) => {
@@ -330,12 +370,17 @@ router.post('/join-requests/:requestId/reject', requireGuru, async (c) => {
 
 // POST /api/adam/guru/invitations/accept
 router.post('/invitations/accept', requireAdamUser, zValidator('json', AcceptInviteSchema), async (c) => {
-  const user = getTokenUser(c)!;
-  const { token } = c.req.valid('json');
-  const kelas = await acceptGuruInvitation({ token, userId: user.userId });
-  const access = await kelasAccessPayload(user, kelas.guruId, 'student', true);
-  return c.json({ success: true, kelas, access });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const { token } = c.req.valid('json');
+    const kelas = await acceptGuruInvitation({ token, userId: user.userId });
+    const access = await kelasAccessPayload(user, kelas.guruId, 'student', true);
+    return c.json({ success: true, kelas, access });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/guru/kelas/:kelasId/invite — guru invites student by userId
 router.post(
@@ -343,54 +388,64 @@ router.post(
   requireGuru,
   zValidator('json', InviteSchema),
   async (c) => {
-    const user = getTokenUser(c)!;
-    const kelasId = c.req.param('kelasId');
-    const { inviteeUserId } = c.req.valid('json');
+    try {
+      const user = getTokenUser(c)!;
+      const kelasId = c.req.param('kelasId');
+      const { inviteeUserId } = c.req.valid('json');
 
-    const invite = await inviteStudentToKelas({
-      kelasId,
-      guruId: user.userId,
-      inviteeUserId: inviteeUserId.trim().toLowerCase(),
-    });
+      const invite = await inviteStudentToKelas({
+        kelasId,
+        guruId: user.userId,
+        inviteeUserId: inviteeUserId.trim().toLowerCase(),
+      });
 
-    return c.json({ success: true, invite });
-  },
+      return c.json({ success: true, invite });
+  
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }},
 );
 
 // GET /api/adam/guru/kelas/:kelasId/history
 router.get('/kelas/:kelasId/history', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const kelasId = c.req.param('kelasId') ?? '';
-  const userId = user.userId ?? '';
-  if (!kelasId) {
-    return c.json({ success: false, error: 'Kelas id required.', kernel: 'ALAMTOLOGI' }, 400);
-  }
-  const { kelas, memberRole } = await assertGuruKelasAccess(kelasId, userId);
-  const access = await kelasAccessPayload(user, kelas.guruId, memberRole, true);
-  if (!access.canAccess) {
-    return c.json({
-      success: false,
-      error:   access.message ?? 'Kelas access required.',
-      code:    access.code ?? 'KELAS_ACCESS_REQUIRED',
-      access,
-      kernel:  'ALAMTOLOGI',
-    }, 402);
-  }
+  try {
+    const user = getTokenUser(c)!;
+    const kelasId = c.req.param('kelasId') ?? '';
+    const userId = user.userId ?? '';
+    if (!kelasId) {
+      return c.json({ success: false, error: 'Kelas id required.', kernel: 'ALAMTOLOGI' }, 400);
+    }
+    const { kelas, memberRole } = await assertGuruKelasAccess(kelasId, userId);
+    const access = await kelasAccessPayload(user, kelas.guruId, memberRole, true);
+    if (!access.canAccess) {
+      return c.json({
+        success: false,
+        error:   access.message ?? 'Kelas access required.',
+        code:    access.code ?? 'KELAS_ACCESS_REQUIRED',
+        access,
+        kernel:  'ALAMTOLOGI',
+      }, 402);
+    }
 
-  const messages = await loadMessageHistory(kelas.sessionId, 100);
-  return c.json({
-    success: true,
-    sessionId: kelas.sessionId,
-    adamAwake: isKelasAdamAwake(kelas),
-    access,
-    messages: messages.map((m) => ({
-      role:        m.role,
-      content:     m.content,
-      speakerName: m.speakerName,
-      createdAt:   m.createdAt.toISOString(),
-    })),
-  });
-});
+    const messages = await loadMessageHistory(kelas.sessionId, 100);
+    return c.json({
+      success: true,
+      sessionId: kelas.sessionId,
+      adamAwake: isKelasAdamAwake(kelas),
+      access,
+      messages: messages.map((m) => ({
+        role:        m.role,
+        content:     m.content,
+        speakerName: m.speakerName,
+        createdAt:   m.createdAt.toISOString(),
+      })),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // PUT /api/adam/guru/kelas/:kelasId/adam-awake — guru puts ADAM to sleep or wakes ADAM
 router.put(
@@ -398,18 +453,23 @@ router.put(
   requireGuru,
   zValidator('json', AdamAwakeSchema),
   async (c) => {
-    const user = getTokenUser(c)!;
-    const kelasId = c.req.param('kelasId') ?? '';
-    const userId = user.userId ?? '';
-    const { awake } = c.req.valid('json');
+    try {
+      const user = getTokenUser(c)!;
+      const kelasId = c.req.param('kelasId') ?? '';
+      const userId = user.userId ?? '';
+      const { awake } = c.req.valid('json');
 
-    if (!kelasId) {
-      return c.json({ success: false, error: 'Kelas id required.', kernel: 'ALAMTOLOGI' }, 400);
-    }
+      if (!kelasId) {
+        return c.json({ success: false, error: 'Kelas id required.', kernel: 'ALAMTOLOGI' }, 400);
+      }
 
-    const kelas = await setKelasAdamAwake({ kelasId, guruId: userId, awake });
-    return c.json({ success: true, kelas, adamAwake: kelas.adamAwake });
-  },
+      const kelas = await setKelasAdamAwake({ kelasId, guruId: userId, awake });
+      return c.json({ success: true, kelas, adamAwake: kelas.adamAwake });
+  
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }},
 );
 
 // POST /api/adam/guru/kelas/:kelasId/chat — shared kelas SSE stream
@@ -462,8 +522,13 @@ router.post(
             isTeachTurn,
             memberRole,
             onEvent: async (event, data) => {
-              await s.write(`event: ${event}\ndata: ${data}\n\n`);
-            },
+              try {
+                await s.write(`event: ${event}\ndata: ${data}\n\n`);
+            
+              } catch (err) {
+                console.error(err);
+                throw err;
+              }},
           }),
         );
       } catch (err: unknown) {
@@ -477,20 +542,25 @@ router.post(
 
 // GET /api/adam/guru/me — account role + profile status
 router.get('/me', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const userId = user.userId ?? '';
-  const accountRole = await getAccountRole(userId);
-  const profile = accountRole === 'guru' ? await getGuruProfile(userId) : null;
+  try {
+    const user = getTokenUser(c)!;
+    const userId = user.userId ?? '';
+    const accountRole = await getAccountRole(userId);
+    const profile = accountRole === 'guru' ? await getGuruProfile(userId) : null;
 
-  return c.json({
-    success: true,
-    userId,
-    name:    user.name,
-    role:    user.role,
-    accountRole,
-    profile,
-    profileComplete: profile?.profileComplete ?? false,
-  });
-});
+    return c.json({
+      success: true,
+      userId,
+      name:    user.name,
+      role:    user.role,
+      accountRole,
+      profile,
+      profileComplete: profile?.profileComplete ?? false,
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

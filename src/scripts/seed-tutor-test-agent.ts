@@ -31,48 +31,39 @@ function redactMongoUri(uri: string): string {
 }
 
 async function main() {
-  if (process.argv.includes('--help') || process.argv.includes('-h')) {
-    console.log(`
-Seed ADAM Tutor test agent (${TUTOR_TEST_AGENT_EMAIL})
+  try {
+    if (process.argv.includes('--help') || process.argv.includes('-h')) {
 
-  npm run seed:tutor-test-agent
+      return;
+    }
 
-Portal login: /adam/tutor/agen
-Admin: ADAM Tutor admin → PIN & agents → QA test agen
-`);
-    return;
-  }
+    await connectDatabase();
 
-  console.log(`[seed] MongoDB: ${redactMongoUri(ENV.MONGODB_URI)}`);
-  await connectDatabase();
+    const result = await provisionDefaultTutorTestAgent({
+      activatedBy: 'seed:tutor-test-agent',
+      sendEmail:   true,
+    });
 
-  const result = await provisionDefaultTutorTestAgent({
-    activatedBy: 'seed:tutor-test-agent',
-    sendEmail:   true,
-  });
+    if (result.credentialsEmailSent) {
 
-  console.log('\n=== ADAM Tutor — Test Agen Account ===\n');
-  console.log(`Organisation : ${result.orgName}`);
-  console.log(`Email        : ${result.email}`);
-  console.log(`Pakej        : ${result.packageTier} · ${result.band} · ${result.packageStatus}`);
-  console.log(`PIN balance  : ${result.pinBalance} / ${result.pinPurchasedTotal}`);
-  console.log('');
-  console.log(`Agen Code    : ${result.agentCode}`);
-  console.log(`Portal Token : ${result.portalToken}`);
-  console.log('');
-  console.log('Login URL    : https://www.qxk24.com/adam/tutor/agen');
-  if (result.credentialsEmailSent) {
-    console.log(`\nCredentials also emailed to ${result.email}.`);
-  } else {
-    console.log('\nEmail not sent — copy the portal token above.');
-  }
-  console.log('');
+    } else {
 
-  await disconnectDatabase();
-}
+    }
+
+    await disconnectDatabase();
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }}
 
 main().catch(async (err) => {
-  console.error('[seed] Gagal:', err instanceof Error ? err.message : err);
-  await disconnectDatabase().catch(() => undefined);
-  process.exit(1);
-});
+  try {
+    console.error('[seed] Gagal:', err instanceof Error ? err.message : err);
+    await disconnectDatabase().catch(() => undefined);
+    process.exit(1);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});

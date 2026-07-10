@@ -127,7 +127,6 @@ export async function importFullMemoryFromProduction(): Promise<FullMemoryImport
   }
 
   const totalDocuments = Object.values(collections).reduce((n, c) => n + c, 0);
-  console.log(`[Alamtologi:LabImport] Full memory sync — ${totalDocuments} document(s) across ${FULL_MEMORY_COLLECTIONS.length} collections.`);
 
   return { collections, totalDocuments };
 }
@@ -213,10 +212,6 @@ export async function importStudentDataFromProduction(userId: string): Promise<L
       await ADAMMessageModel.replaceOne(filter, payload, { upsert: true });
       messageCount += 1;
     }
-
-    console.log(
-      `[Alamtologi:LabImport] ${userId}: ${workspaceCount} workspace(s), ${sessionCount} session(s), ${messageCount} message(s)`,
-    );
 
     return {
       userId,

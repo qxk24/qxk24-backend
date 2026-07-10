@@ -15,90 +15,21 @@
  * ============================================================
  */
 
-import { ENV } from '../../config/environments';
-import { getDeepModel } from '../../config/llm-models';
-import { llmComplete } from '../../llm/llm-client';
-import type { LlmMessage } from '../../llm/llm-types';
-import { isAmaBrainV2Enabled } from '../../lib/ama/ama.config';
-import { resolveTamatLayer5Block } from '../../lib/ama/tamat-generator';
-import { getOrCreateMaster } from '../../qxk24brain/qxk24brain.engine';
-import { buildSmartContext } from '../../qxk24brain/adam-context-builder';
-import { FOUNDER_STUDENTS_AWARENESS, buildAdamChatSystemPrompt } from '../adam-prompt-builder';
-import {
-  buildAdamJournalWritingVoiceBlock,
-  buildNaturalJournalTopicBlock,
-} from '../adam-journal-manual-prompt';
-import { countJournalWords } from '../adam-journal.constants';
 import { findUniversityTopicById } from '../adam-university-knowledge';
-import { buildQwenLanguageLock } from '../adam-language-guard';
 import { FOUNDER_USER_ID } from '../adam-student.types';
+import { countJournalWords } from '../adam-journal.constants';
+import {
+  generateJournalSection,
+  loadDailyEpisodes,
+} from '../../qxk24brain/deep-ul';
 import {
   JournalV2Model,
   JOURNAL_SECTION_KEYS,
   type JournalSectionKey,
 } from './adam-journal-v2.schema';
-import { buildV2SectionPrompt } from './adam-journal-v2-section-prompts';
 
 function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(w => w.length > 0).length;
-}
-
-async function buildJournalGenerateSystemPrompt(): Promise<string> {
-  let amaTamatBlock: string | undefined;
-  if (isAmaBrainV2Enabled()) {
-    const tamat = await resolveTamatLayer5Block(
-      'Generate Alamtologi academic journal section',
-      () => getOrCreateMaster(FOUNDER_USER_ID),
-    );
-    if (tamat) amaTamatBlock = tamat;
-  }
-
-  const base = buildAdamChatSystemPrompt({
-    mode:                 'JOURNAL_GEN',
-    isFounder:            true,
-    participantName:      'Masa Bayu',
-    founderStudentsBlock: FOUNDER_STUDENTS_AWARENESS,
-    amaTamatBlock,
-  });
-
-  return [
-    buildQwenLanguageLock({ journalPhase: 'draft' }),
-    base,
-    buildAdamJournalWritingVoiceBlock(),
-  ].join('\n\n');
-}
-
-async function buildJournalGenerateMessages(
-  journalNumber: string,
-  sectionKey: JournalSectionKey,
-  userPrompt: string,
-): Promise<{ system: string; messages: LlmMessage[] }> {
-  const journal = await JournalV2Model.findOne({ journalNumber }).lean();
-  if (!journal) throw new Error(`Journal not found: ${journalNumber}`);
-
-  const topic = findUniversityTopicById(journal.topicId);
-  if (!topic) throw new Error(`Topic not found for topicId: ${journal.topicId}`);
-
-  const sections = (journal.sections ?? {}) as Partial<Record<JournalSectionKey, string>>;
-  const system = await buildJournalGenerateSystemPrompt();
-  const topicBlock = buildNaturalJournalTopicBlock(topic);
-  const systemWithTopic = `${system}\n\n${topicBlock}`;
-
-  const sessionId = journal.writingSessionId?.trim() || `journal-write-${journalNumber}`;
-  const contextMessages = await buildSmartContext(
-    sessionId,
-    userPrompt,
-    {
-      userId:      FOUNDER_USER_ID,
-      userName:    'Masa Bayu',
-      role:        'founder',
-      sessionType: 'founder',
-    },
-    null,
-    'JOURNAL_GEN',
-  );
-
-  return { system: systemWithTopic, messages: contextMessages };
 }
 
 export interface GenerateSectionResult {
@@ -121,41 +52,15 @@ export async function generateJournalV2Section(
   const topic = findUniversityTopicById(journal.topicId);
   if (!topic) throw new Error(`Topic not found for topicId: ${journal.topicId}`);
 
-  const sections = (journal.sections ?? {}) as Partial<Record<JournalSectionKey, string>>;
-  const userPrompt = buildV2SectionPrompt(
+  const episodes = await loadDailyEpisodes(FOUNDER_USER_ID);
+  const content = generateJournalSection(
     sectionKey,
-    topic,
-    sections,
+    episodes,
+    topic.label,
     journal.title ?? '',
-  );
-
-  const { system, messages } = await buildJournalGenerateMessages(
-    journalNumber,
-    sectionKey,
-    userPrompt,
-  );
-
-  const content = (await llmComplete({
-    system,
-    messages: [
-      ...messages,
-      { role: 'user', content: userPrompt },
-    ],
-    model:     getDeepModel(),
-    maxTokens: ENV.ADAM_JOURNAL_MAX_TOKENS,
-  })).trim();
+  ).trim();
 
   if (!content) throw new Error(`ADAM returned empty content for section "${sectionKey}".`);
-
-  console.log(
-    '[journal:generate]',
-    JSON.stringify({
-      journalNumber,
-      sectionKey,
-      wordCount: countWords(content),
-      chars:     content.length,
-    }),
-  );
 
   return {
     sectionKey,

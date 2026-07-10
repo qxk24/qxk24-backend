@@ -48,6 +48,7 @@ export function studentAnsweringMicroTeachingBlank(
   if (/jawapan\s+akhir|maka\s+jawapan|hasil(?:nya)?\s+(?:ialah|adalah)/i.test(t)) return false;
   const digitsOnly = t.replace(/[^\d]/g, '');
   if (digitsOnly.length >= 4) return false;
+  if (studentStatesFinalArithmeticAnswer(t) && digitsOnly.length >= 3) return false;
   return /^[\d,]+(?:\.\d+)?$/.test(t.replace(/\s/g, ''));
 }
 

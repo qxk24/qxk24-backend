@@ -83,39 +83,44 @@ function guestCookie(guestId: string): string {
 
 // GET /api/adam/public/freemium-status
 router.get('/freemium-status', async (c) => {
-  let guestId = readGuestId(c);
-  const issued = !guestId;
-  if (!guestId) guestId = newGuestId();
+  try {
+    let guestId = readGuestId(c);
+    const issued = !guestId;
+    if (!guestId) guestId = newGuestId();
 
-  const snap = await getGuestQuotaSnapshot(guestId);
+    const snap = await getGuestQuotaSnapshot(guestId);
 
-  if (issued) {
-    c.header('Set-Cookie', guestCookie(guestId));
-  }
+    if (issued) {
+      c.header('Set-Cookie', guestCookie(guestId));
+    }
 
-  return c.json({
-    success: true,
-    guestId,
-    registerEnabled: isStudentSelfRegisterEnabled(),
-    guest: {
-      questionsUsed:      snap.questionsUsed,
-      questionsRemaining: snap.questionsRemaining,
-      lifetimeLimit:      snap.lifetimeLimit,
-      limitReached:       snap.limitReached,
-      registerGate:       snap.registerGate,
-    },
-    registeredFree: {
-      rollingLimit:       freeRollingLimit(),
-      rollingWindowHours: rollingWindowHours(),
-      note:               'Register free — deep questions in a rolling window.',
-    },
-    paid: {
-      comingSoon: false,
-      note:       'Premium, Profesional & Enterprise — see /pricing/packages.',
-    },
-    kernel: 'Alamtologi',
-  });
-});
+    return c.json({
+      success: true,
+      guestId,
+      registerEnabled: isStudentSelfRegisterEnabled(),
+      guest: {
+        questionsUsed:      snap.questionsUsed,
+        questionsRemaining: snap.questionsRemaining,
+        lifetimeLimit:      snap.lifetimeLimit,
+        limitReached:       snap.limitReached,
+        registerGate:       snap.registerGate,
+      },
+      registeredFree: {
+        rollingLimit:       freeRollingLimit(),
+        rollingWindowHours: rollingWindowHours(),
+        note:               'Register free — deep questions in a rolling window.',
+      },
+      paid: {
+        comingSoon: false,
+        note:       'Premium, Profesional & Enterprise — see /pricing/packages.',
+      },
+      kernel: 'Alamtologi',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/public/chat — guest try (no auth)
 router.post('/chat', zValidator('json', PublicChatSchema), async (c) => {
@@ -189,7 +194,12 @@ router.post('/chat', zValidator('json', PublicChatSchema), async (c) => {
           sessionId!,
           message,
           'QUESTIONING',
-          async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
+          async (event, data) => {
+ try {   await s.write(`event: ${event}\ndata: ${data}\n\n`); 
+ } catch (err) {
+   console.error(err);
+   throw err;
+ }},
           [],
           {
             userId:      sessionUserId,

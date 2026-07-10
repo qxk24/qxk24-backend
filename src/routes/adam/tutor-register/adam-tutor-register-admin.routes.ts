@@ -54,38 +54,48 @@ import {
 const router = new Hono();
 // GET /api/adam/tutor/admin/overview — founder dashboard stats + pricing
 router.get('/admin/overview', requireFounderOrPlatformAdmin, async (c) => {
-  const data = await buildTutorAdminDashboardOverview();
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    {
-      ...data,
-      agentsActive: data.agents.active,
-    },
-    timestamp: data.generatedAt,
-  });
-});
+  try {
+    const data = await buildTutorAdminDashboardOverview();
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    {
+        ...data,
+        agentsActive: data.agents.active,
+      },
+      timestamp: data.generatedAt,
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/admin/codes — founder
 router.get('/admin/codes', requireFounderOrPlatformAdmin, async (c) => {
-  const query = c.req.query();
-  const parsed = AdminListSchema.safeParse(query);
-  const filters = parsed.success
-    ? {
-        band:   parsed.data.band,
-        status: parsed.data.status as TutorRegisterCodeStatus | undefined,
-        limit:  parsed.data.limit,
-      }
-    : {};
-  const codes = await listTutorRegisterCodes(filters);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { codes },
-    count:   codes.length,
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const query = c.req.query();
+    const parsed = AdminListSchema.safeParse(query);
+    const filters = parsed.success
+      ? {
+          band:   parsed.data.band,
+          status: parsed.data.status as TutorRegisterCodeStatus | undefined,
+          limit:  parsed.data.limit,
+        }
+      : {};
+    const codes = await listTutorRegisterCodes(filters);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { codes },
+      count:   codes.length,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/tutor/admin/codes/generate — founder
 router.post('/admin/codes/generate', requireFounderOrPlatformAdmin, zValidator('json', AdminGenerateSchema), async (c) => {
@@ -129,15 +139,20 @@ router.post('/admin/codes/generate', requireFounderOrPlatformAdmin, zValidator('
 
 // POST /api/adam/tutor/admin/codes/revoke — founder
 router.post('/admin/codes/revoke', requireFounderOrPlatformAdmin, zValidator('json', CodeValidateSchema), async (c) => {
-  const { registerCode } = c.req.valid('json');
-  const ok = await revokeTutorRegisterCode(registerCode);
-  return c.json({
-    success: ok,
-    kernel:  'ALAMTOLOGI',
-    message: ok ? 'Kod dibatalkan.' : 'Kod tidak dijumpai atau sudah digunakan.',
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const { registerCode } = c.req.valid('json');
+    const ok = await revokeTutorRegisterCode(registerCode);
+    return c.json({
+      success: ok,
+      kernel:  'ALAMTOLOGI',
+      message: ok ? 'Kod dibatalkan.' : 'Kod tidak dijumpai atau sudah digunakan.',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/tutor/admin/codes/send-student-email — founder emails student PIN
 router.post(
@@ -164,14 +179,19 @@ router.post(
 
 // GET /api/adam/tutor/admin/agents — founder
 router.get('/admin/agents', requireFounderOrPlatformAdmin, async (c) => {
-  const agents = await listTutorAgentsForAdmin();
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { agents },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const agents = await listTutorAgentsForAdmin();
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { agents },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/tutor/admin/agents — disabled; agen self-register at /adam/tutor/agen/daftar
 router.post('/admin/agents', requireFounderOrPlatformAdmin, async (c) => {
@@ -282,40 +302,50 @@ router.post(
 
 // GET /api/adam/tutor/admin/agents/:agentId/students — founder
 router.get('/admin/agents/:agentId/students', requireFounderOrPlatformAdmin, async (c) => {
-  const agentId = c.req.param('agentId');
-  if (!agentId) {
-    return c.json({ success: false, error: 'Agent ID diperlukan.', kernel: 'ALAMTOLOGI' }, 400);
-  }
-  const agent = await getTutorAgentById(agentId);
-  if (!agent) {
-    return c.json({ success: false, error: 'Agen not found.', kernel: 'ALAMTOLOGI' }, 404);
-  }
-  const students = await listTutorAgentStudents(agentId);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { students, total: students.length },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const agentId = c.req.param('agentId');
+    if (!agentId) {
+      return c.json({ success: false, error: 'Agent ID diperlukan.', kernel: 'ALAMTOLOGI' }, 400);
+    }
+    const agent = await getTutorAgentById(agentId);
+    if (!agent) {
+      return c.json({ success: false, error: 'Agen not found.', kernel: 'ALAMTOLOGI' }, 404);
+    }
+    const students = await listTutorAgentStudents(agentId);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { students, total: students.length },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/admin/agents/:agentId/wallet — founder
 router.get('/admin/agents/:agentId/wallet', requireFounderOrPlatformAdmin, async (c) => {
-  const agentId = c.req.param('agentId');
-  if (!agentId) {
-    return c.json({ success: false, error: 'Agent ID diperlukan.', kernel: 'ALAMTOLOGI' }, 400);
-  }
-  const wallet = await getTutorAgentWallet(agentId);
-  if (!wallet) {
-    return c.json({ success: false, error: 'Agen not found.', kernel: 'ALAMTOLOGI' }, 404);
-  }
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { wallet },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const agentId = c.req.param('agentId');
+    if (!agentId) {
+      return c.json({ success: false, error: 'Agent ID diperlukan.', kernel: 'ALAMTOLOGI' }, 400);
+    }
+    const wallet = await getTutorAgentWallet(agentId);
+    if (!wallet) {
+      return c.json({ success: false, error: 'Agen not found.', kernel: 'ALAMTOLOGI' }, 404);
+    }
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { wallet },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // DELETE /api/adam/tutor/admin/agents/:agentId — founder removes agen (no students / redeemed PINs)
 router.delete('/admin/agents/:agentId', requireFounderOrPlatformAdmin, async (c) => {

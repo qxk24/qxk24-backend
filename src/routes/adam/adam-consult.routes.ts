@@ -27,38 +27,53 @@ const router = new Hono();
 
 // GET /api/adam/consults — all consult flags
 router.get('/', requireFounder, async (c) => {
-  await syncUndeliveredConsultsToFounder();
-  const pending = c.req.query('pending') === 'true';
-  const consults = pending ? await listPendingConsults(50) : await listAllConsults(50);
-  return c.json({
-    success: true,
-    consults,
-    total:   consults.length,
-    kernel:  'ALAMTOLOGI',
-  });
-});
+  try {
+    await syncUndeliveredConsultsToFounder();
+    const pending = c.req.query('pending') === 'true';
+    const consults = pending ? await listPendingConsults(50) : await listAllConsults(50);
+    return c.json({
+      success: true,
+      consults,
+      total:   consults.length,
+      kernel:  'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/consults/:id/resolve
 router.post('/:id/resolve', requireFounder, async (c) => {
-  const consultId = c.req.param('id') ?? '';
-  const ok = await resolveConsult(consultId);
-  if (!ok) {
-    return c.json({ success: false, error: 'Consult not found.', kernel: 'ALAMTOLOGI' }, 404);
-  }
-  return c.json({ success: true, consultId, kernel: 'ALAMTOLOGI' });
-});
+  try {
+    const consultId = c.req.param('id') ?? '';
+    const ok = await resolveConsult(consultId);
+    if (!ok) {
+      return c.json({ success: false, error: 'Consult not found.', kernel: 'ALAMTOLOGI' }, 404);
+    }
+    return c.json({ success: true, consultId, kernel: 'ALAMTOLOGI' });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/consults/group/history — Founder read-only group chat
 router.get('/group/history', requireFounder, async (c) => {
-  const sessionId = await getOrCreateGroupSession();
-  const messages = await loadMessageHistory(sessionId, 100);
-  return c.json({
-    success: true,
-    messages,
-    sessionId,
-    readOnly: true,
-    kernel:   'Alamtologi',
-  });
-});
+  try {
+    const sessionId = await getOrCreateGroupSession();
+    const messages = await loadMessageHistory(sessionId, 100);
+    return c.json({
+      success: true,
+      messages,
+      sessionId,
+      readOnly: true,
+      kernel:   'Alamtologi',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

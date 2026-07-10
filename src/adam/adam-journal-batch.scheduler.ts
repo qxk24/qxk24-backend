@@ -42,20 +42,13 @@ async function tick(): Promise<void> {
 export function startAdamJournalBatchScheduler(): void {
   const cfg = journalBatchConfig();
   if (!cfg.enabled) {
-    console.log('[ADAM Journal Batch] Scheduler disabled (set ADAM_JOURNAL_BATCH_ENABLED=true).');
+
     return;
   }
 
   if (schedulerTimer) return;
 
   const mode = cfg.dedicated ? 'dedicated hardware 24/7' : 'cloud';
-  console.log(
-    `[ADAM Journal Batch] Scheduler active (${mode}) — every ${cfg.intervalMs / 1000}s, ` +
-    `${cfg.batchSize} journal(s)/tick, pause ${cfg.pauseMs}ms` +
-    (cfg.journalsPerDayCapacityHint
-      ? `, capacity hint ~${cfg.journalsPerDayCapacityHint}/day`
-      : ''),
-  );
 
   schedulerTimer = setInterval(() => {
     tick().catch((err) => {

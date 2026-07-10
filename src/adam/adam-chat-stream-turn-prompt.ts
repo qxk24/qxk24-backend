@@ -133,6 +133,8 @@ export async function buildTurnPromptAndSearchGate(input: {
         isFounder,
         technicalFollowUp: precisionTurn.isFollowUp && !isVerifiedDataStatAsk(messageForAdam),
         userUmumChannelGate: !isFounder && !isTutorLane && !isCoachingLane && !isNiagaLane && !isResearchLane,
+        gateGroundingFacet: turnContext.river.gate.iq.groundingFacet,
+        domainTeachingPack: turnContext.river.gate.flags.domainTeachingPack,
         brainRecallLoaded: turnContext.brainRecallLoaded,
         recentUserMessages: recentUserTurns,
         recentAssistantMessages: recentAssistantTurns,

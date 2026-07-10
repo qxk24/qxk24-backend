@@ -15,10 +15,8 @@
  * ============================================================
  */
 
-import { resolveBrainDeepModel } from '../config/llm-models';
-import { llmCompleteUserPrompt } from '../llm/llm-client';
-import { prependCoreToSystem } from './adam-core';
 import { computeEntityChecksum } from './adam-checksum';
+import { rebuildEntityContentDeterministic } from './deep-ul/integrity-rebuild-engine';
 import { ADAMIntegrityScanModel } from './adam-integrity.schema';
 import {
   AlamtologiBrainEntityModel,
@@ -34,15 +32,20 @@ export interface TransformationResult {
   checksum:    string;
 }
 
-function parseSynthesisContent(raw: string): string {
-  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-  try {
-    const parsed = JSON.parse(cleaned) as { content?: string };
-    if (parsed.content?.trim()) return parsed.content.trim();
-  } catch {
-    // fall through
-  }
-  return cleaned;
+async function rerunTransformation(
+  entityA: string,
+  entityB: string,
+  family: string,
+  principle: string,
+  stage: number,
+): Promise<string> {
+  return rebuildEntityContentDeterministic({
+    entityA,
+    entityB,
+    family,
+    principle,
+    stage,
+  });
 }
 
 export async function verifyEntity(uid: string): Promise<boolean> {
@@ -107,38 +110,6 @@ export async function sealEntityIntegrity(uid: string): Promise<TransformationRe
     integrity:   valid ? 'VERIFIED' : 'CORRUPTED',
     checksum,
   };
-}
-
-async function rerunTransformation(
-  entityA: string,
-  entityB: string,
-  family: string,
-  principle: string,
-  stage: number,
-): Promise<string> {
-  const raw = await llmCompleteUserPrompt(
-    prependCoreToSystem(
-      'You are ADAM Alamtologi Brain — integrity rebuild. A + B = C. Respond JSON only.',
-    ),
-    `INTEGRITY REBUILD — Re-synthesize Entity C from lineage.
-
-Entity A (prior unified understanding):
-${entityA.slice(0, 6000)}
-
-Entity B (Founder teaching):
-${entityB.slice(0, 8000)}
-
-FAMILY: ${family}
-PRINCIPLE: ${principle}
-STAGE: ${stage}
-
-Produce Entity C — ONE flowing narrative. JSON:
-{ "content": "..." }`,
-    resolveBrainDeepModel(),
-    2000,
-  );
-
-  return parseSynthesisContent(raw);
 }
 
 async function rebuildEntity(entity: {
@@ -253,10 +224,6 @@ export async function runIntegrityScan(
     masa_scan: new Date(),
     kernel:    'ALAMTOLOGI',
   });
-
-  console.log(
-    `[ADAM Integrity] Scan ${scanId}: ${verified} verified, ${corrupted} corrupted, ${rebuilt} rebuilt`,
-  );
 
   return {
     scanId,

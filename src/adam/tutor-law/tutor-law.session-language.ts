@@ -21,6 +21,8 @@ import {
   type SupportedLocale,
 } from '../adam-language-mirror.service';
 import { usersDisplayFirstName } from '../adam-users-constitution';
+import { threadHasMicroTeachingBlank } from './tutor-law.math-intent-detectors';
+import { tutorReplyHasCompleteWorkingSummary } from './tutor-law.percentage-routing';
 import type { AdamTutorProfile } from './tutor-law.types';
 import {
   normalizeTutorLanguage,
@@ -452,12 +454,66 @@ export async function repairTutorMalaySessionLanguage(
 export function enforceTutorSessionLanguage(
   text: string,
   profile?: AdamTutorProfile,
-  _userMessage?: string,
+  userMessage?: string,
   participantName?: string,
-  _recentAssistantMessages: string[] = [],
-  _recentUserMessages: string[] = [],
+  recentAssistantMessages: string[] = [],
+  recentUserMessages: string[] = [],
 ): string {
-  return fixTutorPelajarOpener(text, participantName, profile);
+  let out = fixTutorPelajarOpener(text, participantName, profile);
+  const trimmedUser = (userMessage ?? '').trim();
+
+  if (normalizeTutorLanguage(profile?.language) !== 'malay') {
+    return out;
+  }
+
+  if (tutorReplyHasCompleteWorkingSummary(out)) {
+    return out;
+  }
+
+  if (
+    isTutorMessageAmbiguousLanguage(trimmedUser)
+    && tutorReplyViolatesSessionLanguage(
+      out,
+      profile,
+      recentAssistantMessages,
+      recentUserMessages,
+      userMessage,
+    )
+  ) {
+    return buildTutorAmbiguousInputReply(trimmedUser, profile, participantName);
+  }
+
+  if (
+    tutorReplyViolatesSessionLanguage(
+      out,
+      profile,
+      recentAssistantMessages,
+      recentUserMessages,
+      userMessage,
+    )
+  ) {
+    if (tutorReplyHasEnglishPlaceValueTeaching(text)) {
+      return buildTutorMalayPlaceValueFromEnglish(text, trimmedUser, profile, participantName);
+    }
+    if (/^\d+$/.test(trimmedUser)) {
+      if (threadHasMicroTeachingBlank(recentAssistantMessages)) {
+        return buildTutorMalayFollowUpRecovery(trimmedUser, profile, participantName);
+      }
+      if (tutorReplyHasEnglishMenuBleed(text)) {
+        return buildTutorAmbiguousInputReply(trimmedUser, profile, participantName);
+      }
+      return buildTutorMalayFollowUpRecovery(trimmedUser, profile, participantName);
+    }
+    if (tutorReplyHasEnglishMenuBleed(text)) {
+      return buildTutorAmbiguousInputReply(trimmedUser, profile, participantName);
+    }
+    if (trimmedUser) {
+      return buildTutorMalayFollowUpRecovery(trimmedUser, profile, participantName);
+    }
+    out = rewriteTutorEnglishDriftToMalay(out, profile, participantName);
+  }
+
+  return out;
 }
 
 /** Tutor lane — universal scholar mirrors the student's language each turn. */

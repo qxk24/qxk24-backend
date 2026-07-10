@@ -52,102 +52,117 @@ router.get('/login-hint', async (c) => {
 
 // POST /api/adam/auth/login — same unified sign-in as /api/adam/student/login
 router.post('/login', zValidator('json', LoginSchema), async (c) => {
-  const { username, password } = c.req.valid('json');
-  const result = await attemptUnifiedAdamLogin(username, password);
+  try {
+    const { username, password } = c.req.valid('json');
+    const result = await attemptUnifiedAdamLogin(username, password);
 
-  if (result.kind === 'failure') {
-    return c.json(
-      {
-        success: false,
-        error:   result.error,
-        hint:    result.hint,
-        kernel:  'ALAMTOLOGI',
-      },
-      result.status,
-    );
-  }
+    if (result.kind === 'failure') {
+      return c.json(
+        {
+          success: false,
+          error:   result.error,
+          hint:    result.hint,
+          kernel:  'ALAMTOLOGI',
+        },
+        result.status,
+      );
+    }
 
-  if (result.kind === 'founder') {
+    if (result.kind === 'founder') {
+      return c.json({
+        success:   true,
+        kernel:    'ALAMTOLOGI',
+        version:   ENV.QXK24_KERNEL_VERSION,
+        era:       ENV.QXK24_ERA,
+        data: {
+          token:       result.token,
+          role:        'founder',
+          userId:      result.userId,
+          name:        result.name,
+          founderName: result.name,
+          expiresIn:   '30d',
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     return c.json({
-      success:   true,
-      kernel:    'ALAMTOLOGI',
-      version:   ENV.QXK24_KERNEL_VERSION,
-      era:       ENV.QXK24_ERA,
+      success: true,
+      kernel:  'ALAMTOLOGI',
       data: {
         token:       result.token,
-        role:        'founder',
+        role:        result.role,
         userId:      result.userId,
         name:        result.name,
-        founderName: result.name,
+        accountLane: result.accountLane,
         expiresIn:   '30d',
       },
       timestamp: new Date().toISOString(),
     });
-  }
 
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data: {
-      token:       result.token,
-      role:        result.role,
-      userId:      result.userId,
-      name:        result.name,
-      accountLane: result.accountLane,
-      expiresIn:   '30d',
-    },
-    timestamp: new Date().toISOString(),
-  });
-});
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/auth/session — persistent founder session
 router.get('/session', requireFounder, async (c) => {
-  // Do not block session load on consult backfill (mobile networks timeout otherwise)
-  void syncUndeliveredConsultsToFounder().catch((err: unknown) => {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error('[ADAM] background consult sync:', msg);
-  });
+  try {
+    // Do not block session load on consult backfill (mobile networks timeout otherwise)
+    void syncUndeliveredConsultsToFounder().catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[ADAM] background consult sync:', msg);
+    });
 
-  const preferred = c.req.query('sessionId')?.trim();
-  const sessionId = await resolveFounderTeachingSession(
-    'masa-bayu',
-    preferred || undefined,
-  );
-  return c.json({
-    success:   true,
-    sessionId,
-    syncedConsults: 0,
-    kernel:    'ALAMTOLOGI',
-    version:   ENV.QXK24_KERNEL_VERSION,
-    era:       ENV.QXK24_ERA,
-    timestamp: new Date().toISOString(),
-  });
-});
+    const preferred = c.req.query('sessionId')?.trim();
+    const sessionId = await resolveFounderTeachingSession(
+      'masa-bayu',
+      preferred || undefined,
+    );
+    return c.json({
+      success:   true,
+      sessionId,
+      syncedConsults: 0,
+      kernel:    'ALAMTOLOGI',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/auth/session/sleep — ADAM sleep protocol (P.alt leaves / inactive)
 router.post('/session/sleep', requireFounder, async (c) => {
-  const body = await c.req.json().catch(() => ({})) as { sessionId?: string };
-  let sessionId = body.sessionId;
-  if (!sessionId) {
-    const active = await ADAMFounderSessionModel.findOne({
-      founderId:   'masa-bayu',
-      sessionType: 'founder',
-      active:      true,
-    }).lean();
-    sessionId = active?.sessionId;
-  }
-  if (!sessionId) {
-    return c.json({ success: false, error: 'No active session to close.' }, 400);
-  }
-  const closed = await adamSleepProtocol(sessionId, 'masa-bayu');
-  return c.json({
-    success:   true,
-    closed,
-    sessionId,
-    kernel:    'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const body = await c.req.json().catch(() => ({})) as { sessionId?: string };
+    let sessionId = body.sessionId;
+    if (!sessionId) {
+      const active = await ADAMFounderSessionModel.findOne({
+        founderId:   'masa-bayu',
+        sessionType: 'founder',
+        active:      true,
+      }).lean();
+      sessionId = active?.sessionId;
+    }
+    if (!sessionId) {
+      return c.json({ success: false, error: 'No active session to close.' }, 400);
+    }
+    const closed = await adamSleepProtocol(sessionId, 'masa-bayu');
+    return c.json({
+      success:   true,
+      closed,
+      sessionId,
+      kernel:    'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/auth/verify
 router.post('/verify', async (c) => {

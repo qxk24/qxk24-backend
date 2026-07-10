@@ -19,6 +19,7 @@
 
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { ENV } from '../config/environments';
+import { planBuilderStep } from '../qxk24brain/deep-ul/builder-agent-ul';
 import {
   deleteBuilderSession,
   getBuilderSession,
@@ -478,7 +479,7 @@ export class AdamBuilderAgentService {
       if (!this.mcpTools.length) {
         throw new Error('Mac bridge connected but no tools registered — restart mac-bridge on Mac.');
       }
-      console.log(`[ADAM Builder] Mac bridge — ${this.mcpTools.length} tools`);
+
       return;
     }
 
@@ -503,7 +504,6 @@ export class AdamBuilderAgentService {
       inputSchema:  tool.inputSchema as Record<string, unknown> | undefined,
     }));
 
-    console.log(`[ADAM Builder] MCP connected — ${this.mcpTools.length} tools`);
   }
 
   async callTool(
@@ -580,34 +580,21 @@ export class AdamBuilderAgentService {
     }));
   }
 
-  private async callQwen(messages: BuildMessage[]): Promise<QwenResponse> {
-    const apiKey = ENV.DASHSCOPE_API_KEY;
-    if (!apiKey) throw new Error('DASHSCOPE_API_KEY is not configured.');
+  private async callUlPlanner(messages: BuildMessage[]): Promise<QwenResponse> {
+    const toolNames = this.mcpTools.map((t) => t.name);
+    const planned = planBuilderStep(messages, toolNames);
 
-    const res = await fetch(`${ENV.QWEN_API_BASE}/chat/completions`, {
-      method:  'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        Authorization:   `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model:       ENV.QWEN_MODEL_DEEP,
-        messages,
-        tools:       this.buildQwenTools(),
-        tool_choice: 'auto',
-        temperature: 0.2,
-        max_tokens:  8192,
-        enable_thinking: false,
-      }),
-      signal: AbortSignal.timeout(120_000),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Builder model error ${res.status}: ${err}`);
-    }
-
-    return res.json() as Promise<QwenResponse>;
+    return {
+      choices: [{
+        finish_reason: planned.finish_reason,
+        message: {
+          role:        'assistant',
+          content:     planned.content,
+          tool_calls:  planned.tool_calls,
+        },
+      }],
+      usage: { prompt_tokens: 0, completion_tokens: 0 },
+    };
   }
 
   private async executeTool(
@@ -739,7 +726,7 @@ export class AdamBuilderAgentService {
 
       let qwenResponse: QwenResponse;
       try {
-        qwenResponse = await this.callQwen(record.messages);
+        qwenResponse = await this.callUlPlanner(record.messages);
       } catch (err) {
         yield {
           type: 'error',

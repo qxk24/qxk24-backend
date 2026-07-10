@@ -48,6 +48,5 @@ export async function generateJournalNumber(): Promise<string> {
   const seq = String(result.lastSequence).padStart(3, '0');
   const journalNumber = `ALM-J${year}-${seq}`;
 
-  console.log(`[journal:number] Generated: ${journalNumber}`);
   return journalNumber;
 }

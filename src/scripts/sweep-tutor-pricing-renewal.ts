@@ -16,7 +16,7 @@ async function main(): Promise<void> {
 
   await mongoose.connect(uri);
   const result = await sweepExpiredTutorAgentPricing(500);
-  console.log('[sweep-tutor-pricing-renewal]', JSON.stringify(result, null, 2));
+
   await mongoose.disconnect();
 }
 

@@ -46,16 +46,21 @@ function mapRole(role: string): 'founder' | 'student' | 'member' {
 
 // GET /api/workspaces
 router.get('/', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const workspaces = await getUserWorkspaces(user.userId);
-  return c.json({
-    success:    true,
-    workspaces,
-    total:      workspaces.length,
-    kernel:     'Alamtologi',
-    timestamp:  new Date().toISOString(),
-  });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const workspaces = await getUserWorkspaces(user.userId);
+    return c.json({
+      success:    true,
+      workspaces,
+      total:      workspaces.length,
+      kernel:     'Alamtologi',
+      timestamp:  new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/workspaces
 router.post(
@@ -111,38 +116,48 @@ router.post(
 
 // GET /api/workspaces/:workspaceId
 router.get('/:workspaceId', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const workspaceId = c.req.param('workspaceId') ?? '';
-  const workspace = await getWorkspace(workspaceId, user.userId);
+  try {
+    const user = getTokenUser(c)!;
+    const workspaceId = c.req.param('workspaceId') ?? '';
+    const workspace = await getWorkspace(workspaceId, user.userId);
 
-  if (!workspace) {
-    return c.json({ success: false, error: 'Workspace not found.', kernel: 'ALAMTOLOGI' }, 404);
-  }
+    if (!workspace) {
+      return c.json({ success: false, error: 'Workspace not found.', kernel: 'ALAMTOLOGI' }, 404);
+    }
 
-  return c.json({
-    success: true,
-    workspace,
-    kernel:  'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+    return c.json({
+      success: true,
+      workspace,
+      kernel:  'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // DELETE /api/workspaces/:workspaceId — archive
 router.delete('/:workspaceId', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const workspaceId = c.req.param('workspaceId') ?? '';
-  const ok = await archiveWorkspace(workspaceId, user.userId);
+  try {
+    const user = getTokenUser(c)!;
+    const workspaceId = c.req.param('workspaceId') ?? '';
+    const ok = await archiveWorkspace(workspaceId, user.userId);
 
-  if (!ok) {
-    return c.json({ success: false, error: 'Workspace not found.', kernel: 'ALAMTOLOGI' }, 404);
-  }
+    if (!ok) {
+      return c.json({ success: false, error: 'Workspace not found.', kernel: 'ALAMTOLOGI' }, 404);
+    }
 
-  return c.json({
-    success: true,
-    message: 'Workspace archived.',
-    kernel:  'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+    return c.json({
+      success: true,
+      message: 'Workspace archived.',
+      kernel:  'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

@@ -266,7 +266,7 @@ export function normalizeJournalTextForStorage(content: string): string {
 /** Display pipeline: demote prose-as-math, escape, restore for KaTeX. */
 export function prepareJournalProseForDisplay(content: string): string {
   const demoted = demoteProseLatexFormulas(content);
-  console.log('[FORMULA-DEMOTION]', demoted.substring(0, 200));
+
   const stored = prepareContentForStorage(demoted);
   return renderFormulas(stored);
 }

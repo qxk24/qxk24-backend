@@ -76,6 +76,8 @@ export function isAdamSimpleDefinitionalAsk(message: string): boolean {
   const t = stripLeadingAdamSalutation(message).trim();
   if (!t || isAdamLightChatTurn(t)) return false;
   if (t.length > 160) return false;
+  if (isAdamScienceNatureSynthesisTurn(t)) return false;
+  if (KONVENSIONAL_CONCEPT_DEPTH_SUBJECT.test(t)) return false;
   if (/\b(?:terangkan|jelaskan|huraikan|penjelasan|explain|describe|bagaimana|kenapa|mengapa|why|how\s+does|bezakan|banding|compare|ceritakan)\b/i.test(t)) {
     return false;
   }
@@ -501,7 +503,12 @@ export function isAdamTeachingDepthTurn(message: string): boolean {
   if (/\bapakah\s+kesan\b/i.test(t)) return true;
   if (/\bcampur\s+tangan\s+kerajaan\b/i.test(t)) return true;
   if (TEACHING_DEPTH_ASK.test(t)) {
-    if (isAdamSimpleDefinitionalAsk(t)) return false;
+    if (isAdamSimpleDefinitionalAsk(t)) {
+      if (isAdamScienceNatureSynthesisTurn(t) || KONVENSIONAL_CONCEPT_DEPTH_SUBJECT.test(t)) {
+        return true;
+      }
+      return false;
+    }
     return true;
   }
   if (KONVENSIONAL_CONCEPT_DEPTH_SUBJECT.test(t) && isAdamSubstantiveTurn(t)) return true;
@@ -538,6 +545,7 @@ export function isAdamScienceNatureSynthesisTurn(message: string): boolean {
   const t = message.trim();
   if (!t || isAdamLightChatTurn(t)) return false;
   if (isAdamPracticalAdvisoryTurn(t)) return false;
+  if (isAdamBookWritingDiscussionTurn(t)) return false;
   return SCIENCE_NATURE_SYNTHESIS_ASK.test(t);
 }
 

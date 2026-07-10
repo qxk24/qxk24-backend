@@ -32,10 +32,11 @@ import {
   isAdamSimpleFactualTurn,
   isAdamSimpleArithmeticTurn,
 } from './adam-response-generation';
-import { isAdamGeneralKonvensionalTurn, shouldStripKonvensionalFrameworkLeaks } from './adam-knowledge-mode';
+import { shouldStripKonvensionalFrameworkLeaks } from './adam-knowledge-mode';
 import {
   userAskedForConstitutionalStructure,
   userAskedForStructuredSpecification,
+  userPermitsAlamtologiSurfaceLabels,
 } from './adam-universal-voice';
 
 /** Strip billboard framework labels on tier 1 — drop leaky paragraphs on α simple factual. */
@@ -60,12 +61,20 @@ export function stripFrameworkBillboards(
   const dropLeakyParagraphs = isAdamSimpleFactualTurn(userMessage)
     || isAdamSimpleArithmeticTurn(userMessage)
     || shouldStripKonvensionalFrameworkLeaks(userMessage, recentUserMessages);
+  const stripAlamtologiLabels = !userPermitsAlamtologiSurfaceLabels(userMessage, recentUserMessages);
   return text
     .split(/\n{2,}/)
     .map((para) => {
       const trimmed = para.trim();
       if (!trimmed) return para;
-      if (isAdamGeneralKonvensionalTurn(userMessage) && paragraphIsAlamtologiPromotionLeak(trimmed)) {
+      if (stripAlamtologiLabels && paragraphIsAlamtologiPromotionLeak(trimmed)) {
+        return '';
+      }
+      if (stripAlamtologiLabels && paragraphIsConstitutionalFrameworkLeak(trimmed)) {
+        const partial = stripFrameworkWeaveSentences(trimmed);
+        if (partial.length >= 40 && !paragraphIsConstitutionalFrameworkLeak(partial)) {
+          return partial;
+        }
         return '';
       }
       if (paragraphIsUniversalScholarDoorOffer(trimmed)) return para;

@@ -65,15 +65,20 @@ router.get('/tools/docs/tasks', requireStudent, async (c) => {
 });
 
 router.get('/tools/docs/subscription', requireStudent, async (c) => {
-  const user = getTokenUser(c)!;
-  const access = await resolveCoachingSubscriptionAccess(user.userId);
-  return c.json({
-    success:         true,
-    billingEnforced: false,
-    ...access,
-    kernel:          'ALAMTOLOGI',
-  });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const access = await resolveCoachingSubscriptionAccess(user.userId);
+    return c.json({
+      success:         true,
+      billingEnforced: false,
+      ...access,
+      kernel:          'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post(
   '/tools/docs/generate',
@@ -159,7 +164,12 @@ router.post(
             sessionId!,
             message,
             'TOOLS',
-            async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
+            async (event, data) => {
+ try {   await s.write(`event: ${event}\ndata: ${data}\n\n`); 
+ } catch (err) {
+   console.error(err);
+   throw err;
+ }},
             [],
             {
               userId:      user.userId,

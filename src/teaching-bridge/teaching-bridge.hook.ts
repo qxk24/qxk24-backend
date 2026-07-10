@@ -60,9 +60,7 @@ export function hookTeachingBridgeAfterRecord(
       const result = await bridge.onTeachingRecordCreated(record);
 
       if (result.success) {
-        console.log(
-          `[TeachingBridge] Crystallised ${result.crystallisedUnitId} — pending confirmation`,
-        );
+
       } else {
         console.warn(`[TeachingBridge] Suspended: ${result.reason ?? result.status}`);
       }

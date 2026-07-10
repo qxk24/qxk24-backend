@@ -129,11 +129,6 @@ export async function probeConstitutionalEmpiricalEvidence(
     return { hits: [], articleFound: false };
   }
 
-  console.log('[adam:search-first] constitutional empirical probe', JSON.stringify({
-    candidates: candidates.slice(0, 4),
-    question:   userMessage.slice(0, 80),
-  }));
-
   const seedHits: LlmSearchResult[] = candidates.map((url) => ({
     url,
     title: 'Constitutional empirical probe',

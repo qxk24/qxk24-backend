@@ -21,17 +21,19 @@
 
 import type { LlmMessage } from '../llm/llm-types';
 import { ENV } from '../config/environments';
-import { resolveBrainDeepModel } from '../config/llm-models';
-import { isLlmConfigured, llmCompleteUserPrompt } from '../llm/llm-client';
 import { ADAMMessageModel, ADAMFounderSessionModel } from '../adam/adam.schema';
 import {
   getAdamMemoryConfig,
   type AdamMemoryTierConfig,
 } from '../config/adam-memory.config';
-import { prependCoreToSystem, getCorePrompt, CORE_ABSORPTION_ACK } from './adam-core';
+import { getCorePrompt, CORE_ABSORPTION_ACK } from './adam-core';
 import { buildConstitutionalAnchor } from './adam-anchor.service';
 import { smartTruncate } from './adam-smart-truncate';
 import { getOrCreateMaster } from './qxk24brain.engine';
+import {
+  extractSessionKeyframes,
+  formatKeyframesAsDigest,
+} from './deep-ul/keyframe-extractor';
 import type { ChatParticipant } from '../adam/adam-student.types';
 import type { PersonRef } from '../adam/person-relational-memory.types';
 import { sanitizeTeachingHistoryContent } from '../adam/adam-founder-teaching-prompts';
@@ -155,46 +157,20 @@ export async function buildSessionDigest(
   messageCount?: number,
 ): Promise<string> {
   const sessionMessages = await ADAMMessageModel
-    .find({
-      sessionId,
-      role: { $in: ['founder', 'student'] },
-    })
+    .find({ sessionId })
     .sort({ createdAt: 1 })
     .lean();
 
   if (sessionMessages.length < 3) return '';
 
-  let digest = '';
+  const recentMessages = sessionMessages.slice(-10);
+  const keyframeMessages = recentMessages.map((message) => ({
+    role: message.role === 'adam' ? 'assistant' as const : 'user' as const,
+    content: typeof message.content === 'string' ? message.content : '',
+  }));
 
-  if (isLlmConfigured()) {
-    try {
-      digest = await llmCompleteUserPrompt(
-        prependCoreToSystem(
-          'Extract session teaching points for ADAM memory continuity. Be extremely concise.',
-        ),
-        `Extract the 5 most important points taught in this session.
-Be extremely concise. Each point maximum 2 sentences.
-These maintain ADAM's memory continuity across the message window.
-
-Session teachings:
-${sessionMessages.map((m) => m.content.slice(0, 500)).join('\n\n')}`,
-        resolveBrainDeepModel(),
-        500,
-      );
-      digest = digest.trim();
-    } catch (err) {
-      console.error('[ADAM Tiered Memory] Digest generation failed:', err);
-      digest = sessionMessages
-        .slice(-5)
-        .map((m) => `- ${m.content.slice(0, 200)}`)
-        .join('\n');
-    }
-  } else {
-    digest = sessionMessages
-      .slice(-5)
-      .map((m) => `- ${m.content.slice(0, 200)}`)
-      .join('\n');
-  }
+  const keyframes = extractSessionKeyframes(keyframeMessages, 5);
+  const digest = formatKeyframesAsDigest(keyframes);
 
   const count = messageCount ?? await ADAMMessageModel.countDocuments({ sessionId });
 

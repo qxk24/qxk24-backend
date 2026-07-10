@@ -74,15 +74,20 @@ export async function handleAdamTurnRelays(input: {
     const relayNote = consult.reason || undefined;
 
     const deliverToFounder = async (text: string) => {
-      await relayStudentMessageToFounder({
-        studentId:   shell.participant.userId,
-        studentName: shell.participant.userName,
-        message:     text,
-        adamNote:    relayNote,
-        mode:        shell.mode,
-      });
-      relayedToFounder = true;
-    };
+      try {
+        await relayStudentMessageToFounder({
+          studentId:   shell.participant.userId,
+          studentName: shell.participant.userName,
+          message:     text,
+          adamNote:    relayNote,
+          mode:        shell.mode,
+        });
+        relayedToFounder = true;
+    
+      } catch (err) {
+        console.error(err);
+        throw err;
+      }};
 
     for (const r of toFounder.relays) {
       await deliverToFounder(r.message);

@@ -22,24 +22,29 @@ const router = new Hono();
 
 // GET /api/adam/media/generated?key=adam/generated/...
 router.get('/generated', async (c) => {
-  const raw = c.req.query('key') ?? '';
-  const key = decodeURIComponent(raw);
-  if (!key.startsWith('adam/generated/') || key.includes('..')) {
-    return c.json({ success: false, error: 'Invalid media key.' }, 400);
-  }
+  try {
+    const raw = c.req.query('key') ?? '';
+    const key = decodeURIComponent(raw);
+    if (!key.startsWith('adam/generated/') || key.includes('..')) {
+      return c.json({ success: false, error: 'Invalid media key.' }, 400);
+    }
 
-  const asset = await readAdamGeneratedMedia(key);
-  if (!asset) {
-    return c.notFound();
-  }
+    const asset = await readAdamGeneratedMedia(key);
+    if (!asset) {
+      return c.notFound();
+    }
 
-  return new Response(asset.buffer, {
-    headers: {
-      'Content-Type':                asset.contentType,
-      'Cache-Control':               'public, max-age=31536000, immutable',
-      'Access-Control-Allow-Origin': '*',
-    },
-  });
-});
+    return new Response(asset.buffer, {
+      headers: {
+        'Content-Type':                asset.contentType,
+        'Cache-Control':               'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

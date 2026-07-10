@@ -224,32 +224,37 @@ export async function listCharityAgentApplications(
   status?: TutorCharityApplicationStatus,
   limit = 100,
 ) {
-  const query: Record<string, unknown> = {};
-  if (status) query.status = status;
+  try {
+    const query: Record<string, unknown> = {};
+    if (status) query.status = status;
 
-  const rows = await TutorCharityAgentApplicationModel.find(query)
-    .sort({ createdAt: -1 })
-    .limit(Math.min(Math.max(limit, 1), 200))
-    .lean();
+    const rows = await TutorCharityAgentApplicationModel.find(query)
+      .sort({ createdAt: -1 })
+      .limit(Math.min(Math.max(limit, 1), 200))
+      .lean();
 
-  return rows.map((row) => ({
-    applicationId:  row.applicationId,
-    status:         row.status,
-    contactName:    row.contactName,
-    email:          row.email,
-    phone:          row.phone ?? null,
-    universityName: row.universityName,
-    matricNumber:   row.matricNumber,
-    bankName:       row.bankName,
-    bankAccountNumber: row.bankAccountNumber,
-    bankAccountHolder: row.bankAccountHolder,
-    agentId:        row.agentId ?? null,
-    reviewedBy:     row.reviewedBy ?? null,
-    reviewedAt:     row.reviewedAt ? new Date(row.reviewedAt).toISOString() : null,
-    rejectReason:   row.rejectReason ?? null,
-    createdAt:      new Date(row.createdAt).toISOString(),
-  }));
-}
+    return rows.map((row) => ({
+      applicationId:  row.applicationId,
+      status:         row.status,
+      contactName:    row.contactName,
+      email:          row.email,
+      phone:          row.phone ?? null,
+      universityName: row.universityName,
+      matricNumber:   row.matricNumber,
+      bankName:       row.bankName,
+      bankAccountNumber: row.bankAccountNumber,
+      bankAccountHolder: row.bankAccountHolder,
+      agentId:        row.agentId ?? null,
+      reviewedBy:     row.reviewedBy ?? null,
+      reviewedAt:     row.reviewedAt ? new Date(row.reviewedAt).toISOString() : null,
+      rejectReason:   row.rejectReason ?? null,
+      createdAt:      new Date(row.createdAt).toISOString(),
+    }));
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }}
 
 function serializeCharityApplicationDoc(row: ITutorCharityAgentApplication) {
   return {

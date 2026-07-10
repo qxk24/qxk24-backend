@@ -46,18 +46,7 @@ function parseArgs(argv: string[]): { dryRun: boolean; execute: boolean; help: b
 }
 
 function printHelp(): void {
-  console.log(`
-Journal section migration — 8-section → 9-section (Quran split)
 
-Options:
-  --dry-run     Preview changes (default)
-  --execute     Apply writes to MongoDB
-  --help        This message
-
-Skips PUBLISHED / ARCHIVED V2 journals. Chat DRAFT drafts only.
-
-After migration, regenerate Movement 4 (Quran) via ADAM for each journal.
-`);
 }
 
 async function main(): Promise<void> {
@@ -67,19 +56,17 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  console.log('[journal:migrate] Connecting…', ENV.MONGODB_URI.replace(/:([^:@/]+)@/, ':***@'));
   await connectDatabase();
 
   try {
     const result = await migrateJournalSectionsToQuranSplit({ dryRun });
-    console.log('\n[journal:migrate] Summary', JSON.stringify(result, null, 2));
 
     if (dryRun) {
-      console.log('\nDry run only — re-run with --execute to apply.');
+
     } else if (result.v2Updated + result.chatUpdated > 0) {
-      console.log('\n✅ Migration applied. Regenerate movement_4_quran per journal in the write workspace or chat.');
+
     } else {
-      console.log('\nNothing to migrate.');
+
     }
   } finally {
     await disconnectDatabase();

@@ -62,62 +62,77 @@ router.post('/heartbeat', (c) => {
 });
 
 router.post('/register', async (c) => {
-  const user = getTokenUser(c)!;
-  const body = await c.req.json<{
-    machineName?: string;
-    macRoot?:     string;
-    qxk24Root?:   string;
-    tools?:       Array<{
-      name:         string;
-      description?: string;
-      inputSchema?: Record<string, unknown>;
-    }>;
-  }>();
+  try {
+    const user = getTokenUser(c)!;
+    const body = await c.req.json<{
+      machineName?: string;
+      macRoot?:     string;
+      qxk24Root?:   string;
+      tools?:       Array<{
+        name:         string;
+        description?: string;
+        inputSchema?: Record<string, unknown>;
+      }>;
+    }>();
 
-  const reg = registerMacBridge(user.userId, {
-    machineName: body.machineName?.trim() || 'local-computer',
-    macRoot:     body.macRoot?.trim() || '',
-    qxk24Root:   body.qxk24Root?.trim() || '',
-    tools:       Array.isArray(body.tools) ? body.tools : [],
-  });
+    const reg = registerMacBridge(user.userId, {
+      machineName: body.machineName?.trim() || 'local-computer',
+      macRoot:     body.macRoot?.trim() || '',
+      qxk24Root:   body.qxk24Root?.trim() || '',
+      tools:       Array.isArray(body.tools) ? body.tools : [],
+    });
 
-  return c.json({ ok: true, registration: reg });
-});
+    return c.json({ ok: true, registration: reg });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/poll', async (c) => {
-  const user = getTokenUser(c)!;
-  const job = await waitForMacBridgeJob(user.userId);
-  if (!job) {
-    return c.json({ job: null });
-  }
-  return c.json({ job });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const job = await waitForMacBridgeJob(user.userId);
+    if (!job) {
+      return c.json({ job: null });
+    }
+    return c.json({ job });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/result', async (c) => {
-  const user = getTokenUser(c)!;
-  const body = await c.req.json<{
-    callId?:     string;
-    resultText?: string;
-    isError?:    boolean;
-  }>();
+  try {
+    const user = getTokenUser(c)!;
+    const body = await c.req.json<{
+      callId?:     string;
+      resultText?: string;
+      isError?:    boolean;
+    }>();
 
-  const callId = body.callId?.trim();
-  if (!callId) {
-    return c.json({ error: 'callId is required.' }, 400);
-  }
+    const callId = body.callId?.trim();
+    if (!callId) {
+      return c.json({ error: 'callId is required.' }, 400);
+    }
 
-  const ok = completeMacBridgeJob(
-    user.userId,
-    callId,
-    body.resultText ?? '',
-    body.isError === true,
-  );
+    const ok = completeMacBridgeJob(
+      user.userId,
+      callId,
+      body.resultText ?? '',
+      body.isError === true,
+    );
 
-  if (!ok) {
-    return c.json({ error: 'Unknown or expired callId.' }, 404);
-  }
+    if (!ok) {
+      return c.json({ error: 'Unknown or expired callId.' }, 404);
+    }
 
-  return c.json({ ok: true });
-});
+    return c.json({ ok: true });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

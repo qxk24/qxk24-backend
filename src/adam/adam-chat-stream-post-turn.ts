@@ -135,15 +135,7 @@ export async function finishAdamChatTurn(input: {
         sectionManuscriptForSeal = assembleManuscriptFromSections(draft.sections);
         sectionCompleteForSeal = allJournalSectionsComplete(draft.sections);
         sectionDraftForSeal = draft.sections;
-        console.log(
-          '[journal:seal] loaded draft for seal turn',
-          JSON.stringify({
-            sessionId: shell.resolvedSessionId,
-            topicId:   lockedTopic.topicId,
-            draftId:   draft.journalId,
-            words:     sectionManuscriptForSeal.split(/\s+/).filter(Boolean).length,
-          }),
-        );
+
       }
     }
 
@@ -263,7 +255,7 @@ export async function finishAdamChatTurn(input: {
   }));
 
   if (river) {
-    console.log(formatBrainRiverLog(river, riverStageForPostTurn()));
+
   }
 
   if (isFounderOceanSink(oceanSink ?? 'guest-ephemeral')) {

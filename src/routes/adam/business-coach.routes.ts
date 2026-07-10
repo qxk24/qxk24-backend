@@ -131,38 +131,53 @@ router.get('/pricing', async (c) => {
 
 // POST /api/adam/business-coach/register/code/validate — public
 router.post('/register/code/validate', zValidator('json', PinValidateSchema), async (c) => {
-  const { registerCode } = c.req.valid('json');
-  const result = await validateBusinessCoachPin(registerCode);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    result,
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const { registerCode } = c.req.valid('json');
+    const result = await validateBusinessCoachPin(registerCode);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    result,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/business-coach/access — auth
 router.get('/access', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const access = await resolveBusinessCoachSubscriptionAccess(user);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    access,
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const access = await resolveBusinessCoachSubscriptionAccess(user);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    access,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/business-coach/register/me — auth
 router.get('/register/me', requireAdamUser, async (c) => {
-  const enrollment = await getBusinessCoachEnrollmentForUser(userId(c));
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { enrollment },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const enrollment = await getBusinessCoachEnrollmentForUser(userId(c));
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { enrollment },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/business-coach/register/public/start — auth (USD35 public checkout)
 router.post('/register/public/start', requireAdamUser, async (c) => {
@@ -291,19 +306,24 @@ router.post('/register/checkout', requireAdamUser, async (c) => {
 
 // POST /api/adam/business-coach/register/sync-payment — auth
 router.post('/register/sync-payment', requireAdamUser, async (c) => {
-  const body = await c.req.json() as { sessionId?: string };
-  const sessionId = body.sessionId?.trim();
-  if (!sessionId) {
-    return c.json({ success: false, error: 'sessionId required.', kernel: 'ALAMTOLOGI' }, 400);
-  }
-  const result = await syncBusinessCoachPaymentFromSession(userId(c), sessionId);
-  return c.json({
-    success: result.activated,
-    kernel:  'ALAMTOLOGI',
-    data:    result,
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const body = await c.req.json() as { sessionId?: string };
+    const sessionId = body.sessionId?.trim();
+    if (!sessionId) {
+      return c.json({ success: false, error: 'sessionId required.', kernel: 'ALAMTOLOGI' }, 400);
+    }
+    const result = await syncBusinessCoachPaymentFromSession(userId(c), sessionId);
+    return c.json({
+      success: result.activated,
+      kernel:  'ALAMTOLOGI',
+      data:    result,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/business-coach/chat — SSE (NIAGA coaching mode)
 router.post('/chat', requireBusinessCoachSubscription, zValidator('json', ChatSchema), async (c) => {
@@ -328,7 +348,12 @@ router.post('/chat', requireBusinessCoachSubscription, zValidator('json', ChatSc
           sessionId!,
           message,
           'NIAGA',
-          async (event: string, data: string) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
+          async (event: string, data: string) => {
+ try {   await s.write(`event: ${event}\ndata: ${data}\n\n`); 
+ } catch (err) {
+   console.error(err);
+   throw err;
+ }},
           body.uploadIds ?? [],
           {
             userId:      user.userId,
@@ -350,53 +375,68 @@ router.post('/chat', requireBusinessCoachSubscription, zValidator('json', ChatSc
 
 // GET /api/adam/business-coach/admin/pins — founder
 router.get('/admin/pins', requireFounder, async (c) => {
-  const statusRaw = c.req.query('status')?.trim();
-  const status = statusRaw && Object.values(BusinessCoachPinStatus).includes(statusRaw as BusinessCoachPinStatus)
-    ? statusRaw as BusinessCoachPinStatus
-    : undefined;
-  const pins = await listBusinessCoachPins({ status, limit: 300 });
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { pins },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const statusRaw = c.req.query('status')?.trim();
+    const status = statusRaw && Object.values(BusinessCoachPinStatus).includes(statusRaw as BusinessCoachPinStatus)
+      ? statusRaw as BusinessCoachPinStatus
+      : undefined;
+    const pins = await listBusinessCoachPins({ status, limit: 300 });
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { pins },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/business-coach/admin/pins/generate — founder
 router.post('/admin/pins/generate', requireFounder, zValidator('json', GeneratePinsSchema), async (c) => {
-  const body = c.req.valid('json');
-  const pins = await generateBusinessCoachPins({
-    count:            body.count,
-    createdBy:        userId(c),
-    preferred:        body.preferred,
-    distributorLabel: body.distributorLabel,
-    notes:            body.notes,
-  });
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    {
-      count: pins.length,
-      pins:  pins.map((p: { registerCode: string; distributorLabel: string | null; status: string }) => ({
-        registerCode:     p.registerCode,
-        distributorLabel: p.distributorLabel,
-        status:           p.status,
-      })),
-    },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const body = c.req.valid('json');
+    const pins = await generateBusinessCoachPins({
+      count:            body.count,
+      createdBy:        userId(c),
+      preferred:        body.preferred,
+      distributorLabel: body.distributorLabel,
+      notes:            body.notes,
+    });
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    {
+        count: pins.length,
+        pins:  pins.map((p: { registerCode: string; distributorLabel: string | null; status: string }) => ({
+          registerCode:     p.registerCode,
+          distributorLabel: p.distributorLabel,
+          status:           p.status,
+        })),
+      },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/business-coach/admin/pins/revoke — founder
 router.post('/admin/pins/revoke', requireFounder, zValidator('json', RevokePinSchema), async (c) => {
-  const ok = await revokeBusinessCoachPin(c.req.valid('json').registerCode);
-  return c.json({
-    success: ok,
-    kernel:  'ALAMTOLOGI',
-    data:    { revoked: ok },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const ok = await revokeBusinessCoachPin(c.req.valid('json').registerCode);
+    return c.json({
+      success: ok,
+      kernel:  'ALAMTOLOGI',
+      data:    { revoked: ok },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

@@ -25,14 +25,9 @@ describe('runSiteHelperChat', () => {
     await expect(runSiteHelperChat({ message: '   ' })).rejects.toThrow('Message is required');
   });
 
-  it('returns fallback when LLM not configured', async () => {
-    const prev = process.env.DASHSCOPE_API_KEY;
-    delete process.env.DASHSCOPE_API_KEY;
-    try {
-      const { reply } = await runSiteHelperChat({ message: 'What is ADAM?' });
-      expect(reply).toContain('temporarily unavailable');
-    } finally {
-      if (prev) process.env.DASHSCOPE_API_KEY = prev;
-    }
+  it('returns UL site helper reply', async () => {
+    const { reply } = await runSiteHelperChat({ message: 'What is ADAM?' });
+    expect(reply).toContain('ADAM');
+    expect(reply).toContain('QXK24');
   });
 });

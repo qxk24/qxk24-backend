@@ -16,8 +16,7 @@
  */
 
 import { ENV } from '../config/environments';
-import { getDeepModel } from '../config/llm-models';
-import { llmCompleteUserPrompt } from '../llm/llm-client';
+import { buildBatchJournalSeal } from '../qxk24brain/deep-ul/journal-ul-engine';
 import { buildQwenLanguageLock, repairEastAsianScriptLeak } from './adam-language-guard';
 import { JOURNAL_GEN_MODE_PROMPT } from './adam-system-prompts';
 import {
@@ -111,12 +110,7 @@ export async function generateAndSealJournalForTopic(
   ].join('\n\n');
 
   try {
-    const raw = await llmCompleteUserPrompt(
-      system,
-      buildBatchManuscriptPrompt(topic),
-      getDeepModel(),
-      ENV.ADAM_JOURNAL_MAX_TOKENS,
-    );
+    const raw = buildBatchJournalSeal(topic);
 
     const status = await getDailyJournalSegmentStatus(date);
     const cleaned = await repairEastAsianScriptLeak(
@@ -230,15 +224,6 @@ export async function runJournalBatch(
   };
 
   lastRun = result;
-  console.log(
-    '[adam:journal-batch]',
-    JSON.stringify({
-      requested: result.requested,
-      succeeded: result.succeeded,
-      failed:    result.failed,
-      quota:     `${result.quotaAfter.sealedCountToday}/${result.quotaAfter.journalsRequiredToday}`,
-    }),
-  );
 
   return result;
 }

@@ -702,15 +702,11 @@ export async function repairFounderTeachingOutputLeak(
   }
 
   if (!forceRepair && !needsLlmTeachingRepair(postTrimLeak.reasons)) {
-    console.log('[adam:founder-teaching-guard] sync-only fix', {
-      reasons: postTrimLeak.reasons,
-    });
+
     return trimmed;
   }
 
   // Live stream already visible to P.alt — sync strip only; never LLM-rewrite mid-turn.
-  console.log('[adam:founder-teaching-guard] skip LLM rewrite (stream visible)', {
-    reasons: postTrimLeak.reasons,
-  });
+
   return trimmed;
 }

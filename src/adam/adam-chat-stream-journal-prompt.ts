@@ -109,10 +109,7 @@ export async function enrichSystemPromptForJournalGen(input: {
         input.userMessage,
       );
       journalTopicId = journalTopic.topicId;
-      console.log(
-        '[adam:journal-topic] ADAM selected',
-        JSON.stringify({ topicId: journalTopicId, label: journalTopic.label }),
-      );
+
     } catch (err) {
       console.warn('[adam:journal-topic] selection failed', err);
       journalTopic = await getSyncJournalTopicFallback(new Date());

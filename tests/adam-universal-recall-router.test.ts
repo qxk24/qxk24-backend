@@ -58,13 +58,13 @@ describe('universal recall router gate', () => {
     })).toBe(false);
   });
 
-  it('skips guest trial', () => {
+  it('runs universal recall for guest trial (read-only founder teaching)', () => {
     expect(shouldRunUniversalTeachingRecall({
       message: 'Apa bentuk bumi?',
       teachingFreshUpload: false,
       bookAwareRecallLoaded: false,
       isGuestTrial: true,
-    })).toBe(false);
+    })).toBe(true);
   });
 
   it('skips founder personal biography recall probe', () => {
@@ -78,9 +78,9 @@ describe('universal recall router gate', () => {
 
 describe('universal recall policy alignment', () => {
   it('tier-1 hold allows explain-back synthesis when recall in context', () => {
-    expect(ADAM_UNIVERSAL_SCHOLAR_TIER1_HOLD).toMatch(/UNIVERSAL TEACHING RECALL/);
+    expect(ADAM_UNIVERSAL_SCHOLAR_TIER1_HOLD).toMatch(/Teaching recall in context/i);
     expect(ADAM_UNIVERSAL_SCHOLAR_TIER1_HOLD).toMatch(/EXPLAIN-BACK LAW/);
-    expect(ADAM_UNIVERSAL_SCHOLAR_TIER1_HOLD).toMatch(/Phase 1B/);
+    expect(ADAM_UNIVERSAL_SCHOLAR_TIER1_HOLD).toMatch(/Phase 1A/i);
     expect(ADAM_UNIVERSAL_SCHOLAR_TIER1_HOLD).not.toMatch(/INTERNAL ONLY on tier 1/);
   });
 

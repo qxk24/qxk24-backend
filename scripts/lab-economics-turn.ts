@@ -24,7 +24,7 @@ const MOCK_ESSAY = [
 ].join('\n\n');
 
 function section(title: string): void {
-  console.log(`\n── ${title} ${'─'.repeat(Math.max(0, 58 - title.length))}`);
+
 }
 
 function parseArgs(): { live: boolean; base: string; token: string } {
@@ -51,11 +51,6 @@ function runDryTurn(): void {
   });
   const { gate, answerPlan } = river;
 
-  console.log(gate.logLine);
-  console.log(`channel=${river.channel.channelId}`);
-  console.log(`displayChannel=${answerPlan.displayChannel}`);
-  console.log(`topic=${gate.iq.topicTitle}`);
-
   const checks: Array<[string, boolean]> = [
     ['IQ domain=economics', gate.iq.domainFacet === 'economics'],
     ['display=economics-formal', gate.iq.displayChannel === 'economics-formal'],
@@ -66,7 +61,7 @@ function runDryTurn(): void {
     ['Hai off (no Adam address)', gate.eq.addressPolicy.allowHaiGreeting === false],
   ];
   for (const [label, ok] of checks) {
-    console.log(`${ok ? '✓' : '✗'} ${label}`);
+
   }
 
   section('2. Prompt blocks (gate-driven)');
@@ -80,9 +75,8 @@ function runDryTurn(): void {
     ['BNM/RM in economics pack', /BNM/i.test(domainBlock) && /RM/i.test(domainBlock)],
   ];
   for (const [label, ok] of promptChecks) {
-    console.log(`${ok ? '✓' : '✗'} ${label}`);
+
   }
-  console.log(`domainBlock chars=${domainBlock.length} formalBlock chars=${formalBlock.length}`);
 
   section('3. Repair on mock essay drift');
   const repaired = repairTechnicalKonvensionalDisplayStructure(MOCK_ESSAY, POLICY_ASK, {
@@ -97,11 +91,9 @@ function runDryTurn(): void {
   for (const [label, re] of repairChecks) {
     const hit = re.test(repaired);
     const want = label.includes('stripped') ? !hit : hit;
-    console.log(`${want ? '✓' : '✗'} ${label}`);
+
   }
-  console.log('\n--- repaired preview (first 1200 chars) ---\n');
-  console.log(repaired.slice(0, 1200));
-  if (repaired.length > 1200) console.log('\n… [truncated]');
+
 }
 
 async function runLiveTurn(base: string, token: string): Promise<void> {
@@ -155,30 +147,22 @@ async function runLiveTurn(base: string, token: string): Promise<void> {
       }
     }
   }
-  console.log(`tokens received ≈ ${full.length} chars`);
-  console.log('\n--- live reply preview ---\n');
-  console.log(full.slice(0, 2000));
-  if (full.length > 2000) console.log('\n… [truncated]');
 
   const hasHeader = /^### /m.test(full);
   const hasTable = /\|.+\|/.test(full);
   const hasBullets = /\n\d+\.\s/.test(full);
-  console.log(`\n✓ ### header: ${hasHeader}`);
-  console.log(`✓ jadual: ${hasTable}`);
-  console.log(`✓ bullet bernombor: ${hasBullets}`);
+
 }
 
 async function main(): Promise<void> {
   const stack = process.env.QXK24_STACK ?? 'production';
-  console.log(`[lab-economics-turn] QXK24_STACK=${stack}`);
-  console.log(`question: ${POLICY_ASK}`);
 
   const { live, base, token } = parseArgs();
   if (live) {
     await runLiveTurn(base, token);
   } else {
     runDryTurn();
-    console.log('\nTip: deploy backend then run with --live --token <JWT> for full LLM turn.');
+
   }
 }
 

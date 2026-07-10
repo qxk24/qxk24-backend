@@ -127,10 +127,6 @@ export async function importFullMemoryFromLab(): Promise<FullMemoryImportResult>
   }
 
   const totalDocuments = Object.values(collections).reduce((n, c) => n + c, 0);
-  console.log(
-    `[Alamtologi:Consolidation] Lab → production — ${totalDocuments} document(s) ` +
-    `across ${FULL_MEMORY_COLLECTIONS.length} collections.`,
-  );
 
   return { collections, totalDocuments };
 }
@@ -147,7 +143,7 @@ export async function importStudentAccountsFromLab(): Promise<number> {
     const count = await replaceCollectionFromLab(labDb, productionDb(), 'adamstudentaccounts');
     const { refreshStudentCache } = await import('./adam-student-registry.service');
     await refreshStudentCache();
-    console.log(`[Alamtologi:Consolidation] Student accounts lab → production — ${count} account(s).`);
+
     return count;
   } finally {
     await labConn.close();

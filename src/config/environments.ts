@@ -193,15 +193,13 @@ export const ENV = {
   /** Lab DB URI — production stack only; for POST /api/adam/students/import-lab-memory */
   LAB_MONGODB_URI: optional('LAB_MONGODB_URI'),
 
-  // Qwen / DashScope — ADAM engine (production + lab)
-  DASHSCOPE_API_KEY: optional('DASHSCOPE_API_KEY'),
-  QWEN_API_BASE:     optional(
-    'QWEN_API_BASE',
-    'https://dashscope.aliyuncs.com/compatible-mode/v1',
-  ),
-  QWEN_MODEL_DEEP: optional('QWEN_MODEL_DEEP', 'qwen-plus'),
-  QWEN_MODEL_FAST: optional('QWEN_MODEL_FAST', 'qwen-turbo'),
-  QWEN_MODEL_VISION: optional('QWEN_MODEL_VISION', 'qwen-vl-max'),
+  // ─── ADAM UL engine — 100% local deterministic (Phase 14+) ───
+  /** Enable live web prefetch (deterministic probe URLs — no external LLM search API). */
+  ADAM_WEB_SEARCH_ENABLED: optional('ADAM_WEB_SEARCH_ENABLED', 'true') === 'true',
+  /** Local Stable Diffusion model id (@xenova/transformers cache). */
+  ADAM_LOCAL_SD_MODEL: optional('ADAM_LOCAL_SD_MODEL', 'Xenova/stable-diffusion-v1-5'),
+  /** Lazy-load @xenova/transformers ONNX models (off in CI by default). */
+  ADAM_LOCAL_ML_ENABLED: optional('ADAM_LOCAL_ML_ENABLED', 'false') === 'true',
 
   /** Student messages at or above this length use deep model (default 400) */
   ADAM_DEEP_MESSAGE_MIN_CHARS: optionalInt('ADAM_DEEP_MESSAGE_MIN_CHARS', 400),
@@ -231,28 +229,6 @@ export const ENV = {
   /** P4 — gated audit merge of inquiry C into master.unifiedUnderstanding (default off) */
   ADAM_INQUIRY_MASTER_MERGE: optional('ADAM_INQUIRY_MASTER_MERGE', 'false') === 'true',
 
-  /** DashScope web search (agent = model decides when to search) */
-  QWEN_ENABLE_SEARCH: optional('QWEN_ENABLE_SEARCH', 'true') === 'true',
-  QWEN_SEARCH_STRATEGY: optional('QWEN_SEARCH_STRATEGY', 'agent'),
-  QWEN_SEARCH_ENABLE_CITATION: optional('QWEN_SEARCH_ENABLE_CITATION', 'true') === 'true',
-  /**
-   * Optional native DashScope host for prefetch search only (not chat completions).
-   * Example: https://dashscope.aliyuncs.com or https://dashscope-intl.aliyuncs.com
-   */
-  QWEN_SEARCH_NATIVE_HOST: optional('QWEN_SEARCH_NATIVE_HOST', ''),
-  /** Second native host to try when primary returns 0 search hits (region-scoped API keys). */
-  QWEN_SEARCH_FALLBACK_NATIVE_HOST: optional('QWEN_SEARCH_FALLBACK_NATIVE_HOST', ''),
-  /** Native SSE prefetch — prepend_search_result surfaces hits in first SSE chunk. */
-  QWEN_SEARCH_PREPEND_RESULTS: optional('QWEN_SEARCH_PREPEND_RESULTS', 'true') === 'true',
-  /** Hybrid Qwen models — false skips reasoning phase for much faster replies */
-  QWEN_ENABLE_THINKING: optional('QWEN_ENABLE_THINKING', 'false') === 'true',
-
-  /**
-   * Optional DashScope content-inspection override (requires Alibaba account whitelist).
-   * Example: {"input":"disable","output":"disable"} or {"input":"cip","output":"cip"}
-   */
-  QWEN_DATA_INSPECTION: optional('QWEN_DATA_INSPECTION', ''),
-
   /** Verified Quran ayat corpus (Rasm Uthmani + Pickthall EN, no tafsir) */
   QURAN_CORPUS_ENABLED: optional('QURAN_CORPUS_ENABLED', 'true') === 'true',
   QURAN_CORPUS_PATH:      optional('QURAN_CORPUS_PATH', ''),
@@ -276,6 +252,9 @@ export const ENV = {
   /** 1. ADAM Pro */
   STRIPE_PRICE_ID_PRO_MONTHLY:     optional('STRIPE_PRICE_ID_PRO_MONTHLY', ''),
   STRIPE_PRICE_ID_PRO_ANNUAL:      optional('STRIPE_PRICE_ID_PRO_ANNUAL', ''),
+  /** ADAM General · Premium — falls back to Pro price IDs when unset */
+  STRIPE_PRICE_ID_GENERAL_PREMIUM_MONTHLY: optional('STRIPE_PRICE_ID_GENERAL_PREMIUM_MONTHLY', ''),
+  STRIPE_PRICE_ID_GENERAL_PREMIUM_ANNUAL:  optional('STRIPE_PRICE_ID_GENERAL_PREMIUM_ANNUAL', ''),
   /** 2. ADAM Premium (checkout tier PROFESIONAL on consumer plan) */
   STRIPE_PRICE_ID_PREMIUM_MONTHLY: optional('STRIPE_PRICE_ID_PREMIUM_MONTHLY', ''),
   STRIPE_PRICE_ID_PREMIUM_ANNUAL:  optional('STRIPE_PRICE_ID_PREMIUM_ANNUAL', ''),
@@ -355,6 +334,9 @@ export const ENV = {
   ADAM_EXTRA_MESSAGE_COST_CENTS: optionalInt('ADAM_EXTRA_MESSAGE_COST_CENTS', 12),
   ADAM_PRO_MONTHLY_USD:         optionalInt('ADAM_PRO_MONTHLY_USD', 19),
   ADAM_PRO_ANNUAL_USD:          optionalInt('ADAM_PRO_ANNUAL_USD', 200),
+  /** ADAM General · Premium — umum lane (/chat/general) */
+  ADAM_GENERAL_PREMIUM_MONTHLY_USD: optionalInt('ADAM_GENERAL_PREMIUM_MONTHLY_USD', 19),
+  ADAM_GENERAL_PREMIUM_ANNUAL_USD:  optionalInt('ADAM_GENERAL_PREMIUM_ANNUAL_USD', 200),
   ADAM_PREMIUM_MONTHLY_USD:     optionalInt('ADAM_PREMIUM_MONTHLY_USD', 75),
   ADAM_PREMIUM_ANNUAL_USD:      optionalInt('ADAM_PREMIUM_ANNUAL_USD', 800),
   /** ADAM Tutor — public monthly USD by school band (pricing page / self-serve). */
@@ -435,10 +417,8 @@ export const ENV = {
   ADAM_PIXABAY_API_KEY:     optional('ADAM_PIXABAY_API_KEY', ''),
   ADAM_UNSPLASH_ACCESS_KEY: optional('ADAM_UNSPLASH_ACCESS_KEY', ''),
 
-  /** AI image/video generation (Wanx / DashScope) — off until ADAM_MEDIA_GENERATION_ENABLED=true on VPS */
+  /** AI image/video generation — local diffusion via ONNX (no external API). */
   ADAM_MEDIA_GENERATION_ENABLED: optional('ADAM_MEDIA_GENERATION_ENABLED', 'false') === 'true',
-  ADAM_WANX_IMAGE_MODEL:          optional('ADAM_WANX_IMAGE_MODEL', 'wanx2.1-t2i-turbo'),
-  ADAM_WANX_VIDEO_MODEL:          optional('ADAM_WANX_VIDEO_MODEL', 'wan2.6-t2v'),
   ADAM_MEDIA_IMAGE_COST_CENTS:    optionalInt('ADAM_MEDIA_IMAGE_COST_CENTS', 25),
   ADAM_MEDIA_VIDEO_SECOND_COST_CENTS: optionalInt('ADAM_MEDIA_VIDEO_SECOND_COST_CENTS', 15),
   ADAM_MEDIA_MAX_VIDEO_SECONDS:   optionalInt('ADAM_MEDIA_MAX_VIDEO_SECONDS', 10),

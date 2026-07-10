@@ -211,31 +211,36 @@ export async function getTutorEnrollmentCheckoutQuote(
       ? TUTOR_REGISTER_BAND_LABELS_BM[enrollment.band]
       : TUTOR_REGISTER_BAND_LABELS_BM[TUTOR_REGISTER_BAND_FALLBACK],
     ...(await (async () => {
-      const band = enrollment.band ?? TUTOR_REGISTER_BAND_FALLBACK;
-      const channel = enrollment.pricingChannel ?? 'agent';
-      const p = await getTutorBandPricing(
-        band,
-        channel === 'public' ? 'public' : 'agent',
-      );
-      const publicP = await getTutorBandPricing(band, 'public');
-      const endsAt = enrollment.agentPriceEndsAt;
-      const monthsLeft = endsAt
-        ? Math.max(0, Math.ceil((endsAt.getTime() - Date.now()) / (30 * 24 * 60 * 60 * 1000)))
-        : TUTOR_AGENT_LICENSE_MONTHS;
-      return {
-        monthlyUsd:    p.monthlyUsd,
-        publicMonthlyUsd: publicP.monthlyUsd,
-        monthlyAmount: p.monthlyAmount,
-        currency:      p.currency,
-        monthlyMyr:    p.monthlyMyr,
-        usdMyrRate:    p.usdMyrRate,
-        rateSource:    p.rateSource,
-        rateFetchedAt: p.rateFetchedAt,
-        pricingChannel: channel,
-        agentPriceEndsAt: endsAt?.toISOString() ?? null,
-        monthlyPaymentsRemaining: channel === 'agent' ? monthsLeft : undefined,
-      };
-    })()),
+      try {
+        const band = enrollment.band ?? TUTOR_REGISTER_BAND_FALLBACK;
+        const channel = enrollment.pricingChannel ?? 'agent';
+        const p = await getTutorBandPricing(
+          band,
+          channel === 'public' ? 'public' : 'agent',
+        );
+        const publicP = await getTutorBandPricing(band, 'public');
+        const endsAt = enrollment.agentPriceEndsAt;
+        const monthsLeft = endsAt
+          ? Math.max(0, Math.ceil((endsAt.getTime() - Date.now()) / (30 * 24 * 60 * 60 * 1000)))
+          : TUTOR_AGENT_LICENSE_MONTHS;
+        return {
+          monthlyUsd:    p.monthlyUsd,
+          publicMonthlyUsd: publicP.monthlyUsd,
+          monthlyAmount: p.monthlyAmount,
+          currency:      p.currency,
+          monthlyMyr:    p.monthlyMyr,
+          usdMyrRate:    p.usdMyrRate,
+          rateSource:    p.rateSource,
+          rateFetchedAt: p.rateFetchedAt,
+          pricingChannel: channel,
+          agentPriceEndsAt: endsAt?.toISOString() ?? null,
+          monthlyPaymentsRemaining: channel === 'agent' ? monthsLeft : undefined,
+        };
+    
+      } catch (err) {
+        console.error(err);
+        throw err;
+      }})()),
     agentLabel:   enrollment.agentLabel,
     registerCode: enrollment.registerCode,
   };

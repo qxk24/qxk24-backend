@@ -30,27 +30,32 @@ const ExportSchema = z.object({
 });
 
 router.post('/document', requireAuth, zValidator('json', ExportSchema), async (c) => {
-  const user = getTokenUser(c);
-  if (!user) {
-    return c.json({ success: false, error: 'Unauthorized.' }, 401);
-  }
+  try {
+    const user = getTokenUser(c);
+    if (!user) {
+      return c.json({ success: false, error: 'Unauthorized.' }, 401);
+    }
 
-  const body = c.req.valid('json');
-  const compiled = await compileAdamDocument({
-    content: body.content,
-    format:  body.format,
-    title:   body.title,
-    author:  user.name ?? user.userId,
-  });
+    const body = c.req.valid('json');
+    const compiled = await compileAdamDocument({
+      content: body.content,
+      format:  body.format,
+      title:   body.title,
+      author:  user.name ?? user.userId,
+    });
 
-  return new Response(compiled.buffer, {
-    status: 200,
-    headers: {
-      'Content-Type':        compiled.mimeType,
-      'Content-Disposition': `attachment; filename="${compiled.filename}"`,
-      'Cache-Control':       'no-store',
-    },
-  });
-});
+    return new Response(compiled.buffer, {
+      status: 200,
+      headers: {
+        'Content-Type':        compiled.mimeType,
+        'Content-Disposition': `attachment; filename="${compiled.filename}"`,
+        'Cache-Control':       'no-store',
+      },
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

@@ -42,9 +42,6 @@ async function main(): Promise<void> {
     createdBy: 'cli:founder',
   });
 
-  console.log('Platform admin invited (all commercial modules):');
-  console.log(JSON.stringify(admin, null, 2));
-
   await mongoose.disconnect();
 }
 

@@ -48,7 +48,6 @@ async function stripePost<T>(path: string, params: Record<string, string>): Prom
 }
 
 async function main(): Promise<void> {
-  console.log('Provisioning ADAM Stream Stripe products + prices...\n');
 
   const productCache = new Map<string, string>();
 
@@ -69,7 +68,7 @@ async function main(): Promise<void> {
       const product = await stripePost<{ id: string }>('/products', productParams);
       productId = product.id;
       productCache.set(productKey, productId);
-      console.log(`Product ${def.planId}: ${productId}`);
+
     }
 
     const unitAmount = Math.round(def.amountUsd * 100);
@@ -86,10 +85,8 @@ async function main(): Promise<void> {
       [`metadata[${'alamtologi_checkout_type'}`]: 'adam_stream_host',
     });
 
-    console.log(`${def.envKey}=${price.id}  ($${def.amountUsd}/${def.interval})`);
   }
 
-  console.log('\nDone. Paste the env lines above into alm-backend/.env');
 }
 
 void main().catch((err) => {

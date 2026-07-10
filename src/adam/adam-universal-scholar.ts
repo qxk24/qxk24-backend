@@ -36,6 +36,7 @@ import {
   isAdamUserGuidanceCoachingTurn,
 } from './adam-response-generation';
 import { isAdamCurrentAffairsTurn } from './adam-web-search';
+import { isAdamRecordSuperlativeTurn } from './adam-domain-detectors';
 import {
   resolveAdamUsersDomainFacet,
   usersDomainUsesUniversalScholarProse,
@@ -178,6 +179,7 @@ export function resolveUserUmumCadanganTurn(
   if (isAdamTeachingDepthTurn(t)) return false;
   if (isAdamCompareTurn(t)) return false;
   if (isAdamScienceNatureSynthesisTurn(t)) return false;
+  if (isAdamRecordSuperlativeTurn(t)) return false;
   if (isAdamPracticalAdvisoryTurn(t)) return false;
   if (threadRootIsPracticalAdvisory(recentUserMessages)) return false;
   const facet = resolveAdamUsersDomainFacet(t, { recentUserMessages });
@@ -436,7 +438,10 @@ export function paragraphIsAlamtologiPromotionLeak(paragraph: string): boolean {
 
 /** Strip Alamtologi promotion doors and labels from general konvensional output. */
 export function stripAlamtologiPromotionInline(text: string): string {
-  return text
+  // Paragraph-level only — never use [\s\S]*$ here; it would swallow Gold Standard closes.
+  const withoutTrailingSection = text.trim();
+
+  return withoutTrailingSection
     .split(/\n{2,}/)
     .filter((para) => !paragraphIsAlamtologiPromotionLeak(para.trim()))
     .join('\n\n')

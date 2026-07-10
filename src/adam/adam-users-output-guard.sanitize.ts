@@ -52,6 +52,7 @@ import {
   userAskedForConstitutionalStructure,
   userAskedForStructuredSpecification,
   userAskedForAlamtologi,
+  userPermitsAlamtologiSurfaceLabels,
 } from './adam-universal-voice';
 import {
   countRecentUniversalScholarDoors,
@@ -107,10 +108,10 @@ import {
 import { isAdamMediaSearchTurn } from './adam-media-search';
 import { stripUnsolicitedAdamChatMedia } from './adam-media-guard';
 import { repairAlgorithmTeachingOutput } from './adam-algorithm-teaching-repair';
-import { applyUsersHaiGreetingPolicy } from './adam-users-constitution';
+import { applyUsersFinalizeHaiGreeting } from './adam-users-constitution';
 import { detectLanguage } from './adam-language-mirror.service';
 import { sanitizeMalaysiaBmDrift } from './adam-malaysia-bm-guard';
-import { isAdamGeneralKonvensionalTurn, shouldStripKonvensionalFrameworkLeaks } from './adam-knowledge-mode';
+import { shouldStripKonvensionalFrameworkLeaks } from './adam-knowledge-mode';
 import { repairDomainTeachingGuttedOutput,
   shouldApplyDomainTeachingVoiceRepair,
 } from './adam-domain-voice-repair';
@@ -126,6 +127,7 @@ import {
 } from './adam-users-output-guard.framework';
 import { filterUsersSanitizeParagraphs } from './adam-users-output-guard.sanitize-paragraphs';
 import { collapseReflectiveOptionMenuClose } from './adam-reflective-close-guard';
+import { repairOrderedListNumbering } from './adam-ordered-list-repair';
 
 /** Sync hygiene only — ADAM voice must not be gutted post-stream. */
 export function sanitizeUsersOutputSync(
@@ -312,14 +314,14 @@ export function sanitizeUsersOutputSync(
   out = stripCurrentAffairsCoachingTail(out, userMessage);
   out = sanitizeUsersForbiddenPronouns(out);
   if (!lightChat) {
-    if (isAdamGeneralKonvensionalTurn(userMessage)) {
+    if (!userPermitsAlamtologiSurfaceLabels(userMessage, recentUserMessages)) {
       out = stripAlamtologiPromotionInline(out);
     }
     out = stripFrameworkBillboards(out, userMessage, recentUserMessages);
     if (shouldStripKonvensionalFrameworkLeaks(userMessage, recentUserMessages)) {
       out = stripKonvensionalAlamtologiTailInline(out);
     }
-    if (isAdamGeneralKonvensionalTurn(userMessage)) {
+    if (!userPermitsAlamtologiSurfaceLabels(userMessage, recentUserMessages)) {
       out = stripAlamtologiPromotionInline(out);
     }
   }
@@ -500,7 +502,7 @@ export function sanitizeUsersOutputSync(
     && !isAdamVisualDrawTurn(userMessage)
     && !isAdamProseCraftTurn(userMessage)
   ) {
-    polished = applyUsersHaiGreetingPolicy(polished, participantName, userMessage);
+    polished = applyUsersFinalizeHaiGreeting(polished, participantName);
   }
   polished = stripUsersBismillahOpener(polished);
   if (options?.usersTechnicalDirect) {
@@ -511,6 +513,7 @@ export function sanitizeUsersOutputSync(
       .trim();
   }
   const speakerLocale = detectLanguage(userMessage).detectedLocale;
+  polished = repairOrderedListNumbering(polished);
   polished = sanitizeMalaysiaBmDrift(polished, speakerLocale);
   polished = repairKbatAcronymExpansion(polished, userMessage);
   polished = stripSimpleFactualEchoOpener(polished, userMessage);

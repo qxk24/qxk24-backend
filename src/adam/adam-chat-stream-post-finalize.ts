@@ -39,7 +39,7 @@ import {
   isJournalManuscriptDisplay,
   inferJournalSectionFromAdamResponse,
 } from './adam-journal-section-detect';
-import { applyUsersHaiGreetingPolicy } from './adam-users-constitution';
+import { applyUsersFinalizeHaiGreeting } from './adam-users-constitution';
 import { restoreFounderPaltAddress } from './adam-founder-address-guard';
 import { isAdamTutorMode } from './adam-tutor-law';
 import { repairVisualDrawOutput } from './adam-visual-draw-guard';
@@ -161,10 +161,9 @@ export function buildFinalResponseForSave(input: {
     && !isAdamProseCraftTurn(input.shell.userMessage)
     && finalResponse?.trim()
   ) {
-    finalResponse = applyUsersHaiGreetingPolicy(
+    finalResponse = applyUsersFinalizeHaiGreeting(
       finalResponse,
       input.shell.participant.userName,
-      input.shell.userMessage,
     );
   }
 

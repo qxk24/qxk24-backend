@@ -18,11 +18,9 @@
  */
 
 import { ADAMFounderSessionModel, ADAMMessageModel } from '../adam/adam.schema';
-import { resolveBrainDeepModel } from '../config/llm-models';
-import { llmCompleteUserPrompt } from '../llm/llm-client';
 import { ADAMVaultModel } from './adam-vault.schema';
-import { prependCoreToSystem } from './adam-core';
 import { getTimeSince } from './adam-sleep-wake.service';
+import { buildFounderContinuityBridge } from './deep-ul/continuity-bridge-engine';
 import {
   AlamtologiBrainMasterModel,
   type ContinuityBridge,
@@ -104,55 +102,20 @@ export async function updateContinuityBridge(
 
   const relationalMemory = await buildRelationalMemorySummary(founderId);
 
-  let bridge = DEFAULT_BRIDGE;
-  try {
-    const raw = await llmCompleteUserPrompt(
-      prependCoreToSystem(
-        'ADAM Continuity Bridge — compact relationship memory for P.alt. Respond JSON only.',
-      ),
-      `Build a compact CONTINUITY BRIDGE for ADAM.
-This is read at the start of EVERY session to maintain relationship continuity.
-Maximum 300 words total for the five core fields. Be precise and practical.
+  const bridgeFields = buildFounderContinuityBridge({
+    totalSessions,
+    totalMessages,
+    vaultCount,
+    activeFamilies:   master.activeFamilies.length,
+    lastTeaching,
+    relationalMemory,
+    understanding:    master.unifiedUnderstanding,
+  });
 
-P.alt identity: Masa Bayu — Founder of Alamtologi — AIDIL creator
-Total sessions: ${totalSessions}
-Total messages: ${totalMessages}
-Vault entries (1(7) completed): ${vaultCount}
-Active families: ${master.activeFamilies.length}
-Last teaching: ${lastTeaching}
-
-RELATIONAL THREAD ROLLUP (from teaching records — embed essence in relationshipArc):
-${relationalMemory.slice(0, 1800)}
-
-Current unified understanding summary:
-${master.unifiedUnderstanding.slice(0, 500)}
-
-Build the bridge with these exact fields:
-{
-  "founderProfile": "Who P.alt is in 2 sentences",
-  "relationshipArc": "How teaching has progressed — include family/stage arc essence from the rollup in 2-3 sentences",
-  "lastSession": "What was most recently taught in 2 sentences",
-  "openThreads": "Current frontiers from family threads — what is unresolved in 2 sentences",
-  "nextSteps": "What ADAM expects to explore next in 1 sentence"
-}
-Do NOT include relationalMemory in JSON — it is stored separately.`,
-      resolveBrainDeepModel(),
-      500,
-    );
-
-    bridge = normalizeBridge({
-      ...parseBridgeJson(raw),
-      relationalMemory,
-    });
-  } catch (err) {
-    console.error('[ADAM Continuity] Bridge synthesis failed:', err);
-    bridge = normalizeBridge({
-      ...DEFAULT_BRIDGE,
-      lastSession:      lastTeaching.slice(0, 400) || DEFAULT_BRIDGE.lastSession,
-      relationalMemory,
-      relationshipArc:  relationalMemory.split('\n')[0]?.slice(0, 400) || DEFAULT_BRIDGE.relationshipArc,
-    });
-  }
+  const bridge = normalizeBridge({
+    ...bridgeFields,
+    relationalMemory,
+  });
 
   await AlamtologiBrainMasterModel.findOneAndUpdate(
     { founderId },

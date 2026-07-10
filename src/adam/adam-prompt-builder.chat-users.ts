@@ -115,7 +115,8 @@ export function appendAdamUsersConsumerTurnParts(
       ? params.turnGate.flags.domainTeachingPack
       : usersDomainUsesTeachingPack(domainFacet);
     const bookWritingTurn = isAdamLayer1BookWritingTurn(recentUser, params.userMessage);
-    const scienceNatureTurn = isAdamScienceNatureSynthesisTurn(params.userMessage ?? '');
+    const scienceNatureTurn = !bookWritingTurn
+      && isAdamScienceNatureSynthesisTurn(params.userMessage ?? '');
     const bookPhilosophyOptIn = bookWritingTurn
       && !scienceNatureTurn
       && userRequestedPhilosophicalBookVoice(params.userMessage, recentUser);

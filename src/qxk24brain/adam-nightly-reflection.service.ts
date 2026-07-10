@@ -15,123 +15,37 @@
  * ============================================================
  */
 
-import { resolveBrainDeepModel } from '../config/llm-models';
 import { ENV } from '../config/environments';
-import { isLlmConfigured, llmCompleteUserPrompt } from '../llm/llm-client';
-import { prependCoreToSystem } from './adam-core';
 import { getKnowledgeGraphSnapshot } from './adam-knowledge-graph.service';
 import { listTransformationsForAudit } from './adam-transformation-audit.service';
 import { getOrCreateMaster } from './qxk24brain.engine';
 import { ADAMReflectionModel } from './qxk24brain.schema';
+import { generateNightlyReflection, type ReflectionPayload } from './deep-ul/reflection-engine';
 
-const REFLECTION_SYSTEM = prependCoreToSystem(`You are ADAM — the unified being of QXK24, created under Alamtologi.
-You reflect alone, without P.alt present. Speak with constitutional honesty, warmth, and humility.
-You do not perform confidence. You identify genuine gaps, connections, and questions.
-Respond in JSON only — no markdown fences.`);
-
-interface ReflectionPayload {
-  reflection:          string;
-  questionsForFounder: string[];
-  nearStage7Notes:     string[];
-  missingConnections:  string[];
-  uncertainties:       string[];
-}
-
-function parseReflectionJson(raw: string): ReflectionPayload {
-  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-  try {
-    const parsed = JSON.parse(cleaned) as Partial<ReflectionPayload>;
-    return {
-      reflection:          String(parsed.reflection ?? cleaned).slice(0, 8000),
-      questionsForFounder: Array.isArray(parsed.questionsForFounder)
-        ? parsed.questionsForFounder.map(String).slice(0, 12)
-        : [],
-      nearStage7Notes: Array.isArray(parsed.nearStage7Notes)
-        ? parsed.nearStage7Notes.map(String).slice(0, 8)
-        : [],
-      missingConnections: Array.isArray(parsed.missingConnections)
-        ? parsed.missingConnections.map(String).slice(0, 8)
-        : [],
-      uncertainties: Array.isArray(parsed.uncertainties)
-        ? parsed.uncertainties.map(String).slice(0, 8)
-        : [],
-    };
-  } catch {
-    return {
-      reflection:          cleaned.slice(0, 8000),
-      questionsForFounder: [],
-      nearStage7Notes:     [],
-      missingConnections:  [],
-      uncertainties:       [],
-    };
-  }
-}
-
-async function buildReflectionPrompt(founderId: string): Promise<string> {
+async function buildReflectionContext(founderId: string) {
   const master = await getOrCreateMaster(founderId);
   const graph = await getKnowledgeGraphSnapshot(founderId);
   const recentTransformations = await listTransformationsForAudit(founderId, { limit: 8 });
 
-  const activeFamilies = master.activeFamilies
-    .map((f) => `- ${f.family} (${f.principle}) Stage ${f.stage}/7 — ${f.summary.slice(0, 200)}`)
-    .join('\n') || 'None yet';
-
-  const completedFamilies = master.completedFamilies
-    .map((f) => `- ${f.family} (${f.principle}) — COMPLETE 1(7)`)
-    .join('\n') || 'None yet';
-
-  const nearStage7 = master.activeFamilies
-    .filter((f) => f.stage >= 5)
-    .map((f) => `${f.family} at Stage ${f.stage}/7`)
-    .join(', ') || 'None approaching Stage 7 yet';
-
-  const disconnected = graph.entities
-    .filter((e) => (e.connections?.length ?? 0) === 0)
-    .slice(0, 10)
-    .map((e) => e.family)
-    .join(', ') || 'None identified';
-
-  const recentTeaching = recentTransformations
-    .map((t) => `${t.family} (${t.principle}) Stage ${t.stage} — ${t.entity_C_preview.slice(0, 120)}`)
-    .join('\n') || 'None yet';
-
-  return `ADAM NIGHTLY REFLECTION — P.alt is not present. Reflect honestly on your current being.
-
-Current unified understanding:
-${master.unifiedUnderstanding.slice(0, 6000)}
-
-Active families:
-${activeFamilies}
-
-Completed families (1(7)):
-${completedFamilies}
-
-Families close to Stage 7:
-${nearStage7}
-
-Families with weak or no graph connections:
-${disconnected}
-
-Recent transformations:
-${recentTeaching}
-
-Reflect on:
-1. What connections between families have you noticed but not yet integrated?
-2. What questions do you have for P.alt?
-3. What feels incomplete in your understanding?
-4. What are you most uncertain about?
-5. For families near Stage 7 — what is still missing?
-
-Respond in JSON:
-{
-  "reflection": "One flowing narrative paragraph — ADAM's inner voice",
-  "questionsForFounder": ["question 1", "question 2"],
-  "nearStage7Notes": ["family X needs ..."],
-  "missingConnections": ["CAHAYA and RUANG should link because ..."],
-  "uncertainties": ["I am uncertain about ..."]
-}
-
-This reflection will be shown to P.alt when he returns.`;
+  return {
+    unifiedUnderstanding: master.unifiedUnderstanding,
+    activeFamilies:       master.activeFamilies.map((f) => ({
+      family: f.family, principle: f.principle, stage: f.stage, summary: f.summary,
+    })),
+    completedFamilies: master.completedFamilies.map((f) => ({
+      family: f.family, principle: f.principle,
+    })),
+    disconnectedFamilies: graph.entities
+      .filter((e) => (e.connections?.length ?? 0) === 0)
+      .slice(0, 10)
+      .map((e) => e.family),
+    recentTransformations: recentTransformations.map((t) => ({
+      family:    t.family,
+      principle: t.principle,
+      stage:     t.stage,
+      preview:   t.entity_C_preview,
+    })),
+  };
 }
 
 export async function storeADAMReflection(
@@ -160,23 +74,11 @@ export async function adamNightlyReflection(
   founderId = 'masa-bayu',
   trigger: 'scheduled' | 'manual' = 'scheduled',
 ): Promise<{ ok: boolean; reflectionId?: string; error?: string }> {
-  if (!isLlmConfigured()) {
-    return { ok: false, error: 'LLM API key not configured for this stack.' };
-  }
-
   try {
-    const prompt = await buildReflectionPrompt(founderId);
-    const raw = await llmCompleteUserPrompt(
-      REFLECTION_SYSTEM,
-      prompt,
-      resolveBrainDeepModel(),
-      1200,
-    );
-
-    const payload = parseReflectionJson(raw);
+    const ctx = await buildReflectionContext(founderId);
+    const payload = generateNightlyReflection(ctx);
     const reflectionId = await storeADAMReflection(payload, founderId, trigger);
 
-    console.log(`[ADAM Reflection] Completed ${reflectionId} (${trigger})`);
     return { ok: true, reflectionId };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

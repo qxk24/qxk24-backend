@@ -58,30 +58,35 @@ router.get('/pricing', (c) => {
 });
 
 router.get('/me', requireAdamUser, async (c) => {
-  const userId = getTokenUser(c)!.userId;
-  const subs = await RdSubscriptionModel.find({
-    userId,
-    status: { $in: [RdSubscriptionStatus.ACTIVE, RdSubscriptionStatus.PENDING] },
-  })
-    .sort({ createdAt: -1 })
-    .limit(10)
-    .lean<IRdSubscription[]>();
+  try {
+    const userId = getTokenUser(c)!.userId;
+    const subs = await RdSubscriptionModel.find({
+      userId,
+      status: { $in: [RdSubscriptionStatus.ACTIVE, RdSubscriptionStatus.PENDING] },
+    })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean<IRdSubscription[]>();
 
-  return c.json({
-    success: true,
-    subscriptions: subs.map((s) => ({
-      id:               s._id,
-      sku:              s.sku,
-      status:           s.status,
-      rdCategory:       s.rdCategory,
-      projectFocus:     s.projectFocus,
-      packId:           s.packId,
-      graduatePhase:    s.graduatePhase,
-      currentPeriodEnd: s.currentPeriodEnd,
-      amountUsd:        s.amountUsd,
-    })),
-  });
-});
+    return c.json({
+      success: true,
+      subscriptions: subs.map((s) => ({
+        id:               s._id,
+        sku:              s.sku,
+        status:           s.status,
+        rdCategory:       s.rdCategory,
+        projectFocus:     s.projectFocus,
+        packId:           s.packId,
+        graduatePhase:    s.graduatePhase,
+        currentPeriodEnd: s.currentPeriodEnd,
+        amountUsd:        s.amountUsd,
+      })),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/checkout', requireAdamUser, async (c) => {
   const stripe = getStripeGatewayStatus();

@@ -27,21 +27,26 @@ function redactMongoUri(uri: string): string {
 }
 
 async function main() {
-  console.log(`[seed] MongoDB: ${redactMongoUri(ENV.MONGODB_URI)}`);
-  await connectDatabase();
+  try {
 
-  const result = await backfillAllAgentMarketingStudents();
-  console.log('\n=== ADAM Tutor — Marketing student backfill ===\n');
-  console.log(`Agents processed : ${result.processed}`);
-  console.log(`Accounts created : ${result.created}`);
-  console.log(`Accounts updated : ${result.updated}`);
-  console.log('\nDemo login per agent: Kod Ejen + Token Portal → tab Demo ADAM\n');
+    await connectDatabase();
 
-  await disconnectDatabase();
-}
+    const result = await backfillAllAgentMarketingStudents();
+
+    await disconnectDatabase();
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }}
 
 main().catch(async (err) => {
-  console.error('[seed] Gagal:', err instanceof Error ? err.message : err);
-  await disconnectDatabase().catch(() => undefined);
-  process.exit(1);
-});
+  try {
+    console.error('[seed] Gagal:', err instanceof Error ? err.message : err);
+    await disconnectDatabase().catch(() => undefined);
+    process.exit(1);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});

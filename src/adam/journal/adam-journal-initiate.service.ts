@@ -54,6 +54,6 @@ export async function initiateJournal(
   });
 
   const journalId = String(doc._id);
-  console.log(`[journal:initiate] Created ${journalNumber} — id: ${journalId}`);
+
   return { journalId, journalNumber };
 }

@@ -53,16 +53,10 @@ async function main(): Promise<void> {
   }
 
   await mongoose.connect(ENV.MONGODB_URI);
-  console.log('[qa-unlimited] connected:', ENV.MONGODB_URI.replace(/\/\/[^@]+@/, '//***@'));
 
   if (upgradeTarget) {
     const result = await upgradeStudentToFounderUnlimited(upgradeTarget);
-    console.log(JSON.stringify({
-      mode:  'upgrade',
-      ...result,
-      tier:  'ENTERPRISE',
-      quota: 'unlimited',
-    }, null, 2));
+
     await mongoose.disconnect();
     process.exit(result.ok ? 0 : 1);
   }
@@ -73,21 +67,6 @@ async function main(): Promise<void> {
     userId,
     email,
   });
-
-  console.log(JSON.stringify({
-    mode:         'create',
-    userId:       result.userId,
-    name:         result.name,
-    action:       result.action,
-    tutorGranted: result.tutorGranted,
-    tier:         'ENTERPRISE',
-    quota:        'unlimited',
-    loginUrl:     `${ENV.ADAM_WEB_BASE_URL.replace(/\/$/, '')}/login?next=/adam/learn`,
-    credentials: {
-      loginId:  result.userId,
-      password: '(as supplied on CLI — not stored in logs)',
-    },
-  }, null, 2));
 
   await mongoose.disconnect();
 }

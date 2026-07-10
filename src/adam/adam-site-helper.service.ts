@@ -18,8 +18,7 @@
  * Not constitutional teaching chat; no brain transform or web search.
  */
 
-import { getFastModel } from '../config/llm-models';
-import { friendlyLlmError, isLlmConfigured, llmCompleteUserPrompt } from '../llm/llm-client';
+import { runSiteHelperDeterministic } from '../qxk24brain/deep-ul/site-helper-ul';
 
 export interface SiteHelperTurn {
   role:    'user' | 'assistant';
@@ -100,28 +99,7 @@ export async function runSiteHelperChat(
     throw new Error('Message is required.');
   }
 
-  if (!isLlmConfigured()) {
-    return {
-      reply:
-        'ADAM site guide is temporarily unavailable. Browse qxk24.com/pricing/packages or email support@alamtologi.com.',
-    };
-  }
-
-  const history = trimHistory(input.history);
-  const userPrompt = buildUserPrompt(message, history);
-
-  try {
-    const reply = await llmCompleteUserPrompt(
-      SITE_HELPER_SYSTEM,
-      userPrompt,
-      getFastModel(),
-      SITE_HELPER_MAX_TOKENS,
-    );
-    return { reply: reply.trim() || 'I could not form a reply — please try again or visit qxk24.com/faq.' };
-  } catch (err) {
-    console.error('[SiteHelper]', err);
-    return { reply: friendlyLlmError(err) };
-  }
+  return { reply: runSiteHelperDeterministic(message) };
 }
 
 export const SITE_HELPER_GREETING =

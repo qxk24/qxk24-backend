@@ -65,7 +65,7 @@ export async function consumePendingZpdSignalsForBridge(
     );
 
     if (lines.length) {
-      console.log(`[Plas-B] Consumed ZPD growth signal(s) for student ${studentId}`);
+
     }
 
     return lines;

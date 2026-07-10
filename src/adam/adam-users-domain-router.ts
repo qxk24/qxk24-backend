@@ -29,6 +29,7 @@ import {
   isAdamGlobalCivicsTurn,
   isAdamHealthEducationTurn,
   isAdamHomeVocationalTurn,
+  isAdamIslamicStudiesSubjectTurn,
   isAdamIslamicStudiesTurn,
   isAdamLanguagesTurn,
   isAdamMathematicsTurn,
@@ -44,8 +45,10 @@ import {
   isAdamLightChatTurn,
   isAdamPracticalAdvisoryTurn,
   isAdamScienceNatureSynthesisTurn,
+  isAdamSimpleFactualTurn,
   stripLeadingAdamSalutation,
 } from './adam-response-generation';
+import { isClassroomEnumerationAsk } from './adam-student-factual-correction';
 import { isAdamProseCraftTurn } from './adam-prose-craft';
 import { userOpenedFaithDoor } from './adam-universal-voice';
 
@@ -117,6 +120,12 @@ const TEACHING_PACK_FACETS: ReadonlySet<AdamUsersDomainFacet> = new Set([
   'geography',
   'entrepreneurship',
   'home-vocational',
+  'islamic-studies',
+]);
+
+/** Domain facets that require authoritative prefetch before naming facts. */
+const GROUNDING_SEARCH_FACETS: ReadonlySet<AdamUsersDomainFacet> = new Set([
+  ...TEACHING_PACK_FACETS,
 ]);
 
 /** Domain facets that require jadual + bullet/nombor — not esei panjang sahaja. */
@@ -129,16 +138,84 @@ export function usersDomainUsesTeachingPack(facet: AdamUsersDomainFacet): boolea
   return TEACHING_PACK_FACETS.has(facet);
 }
 
+/** Turn Gate / web gate — domain needs search-first or Brain C before factual names. */
+export function usersDomainRequiresGroundingSearch(facet: AdamUsersDomainFacet): boolean {
+  return GROUNDING_SEARCH_FACETS.has(facet);
+}
+
+export interface AdamUsersDomainRoute {
+  /** Voice / adab / display — may stay faith when pintu iman terbuka. */
+  voiceFacet: AdamUsersDomainFacet;
+  /** Search + recall grounding — sirah faktual ke islamic-studies/history, bukan faith. */
+  groundingFacet: AdamUsersDomainFacet;
+}
+
+/** Faith door open — wahyu/doctrine tier; grounding stays on faith (no sirah web-first). */
+export function isAdamFaithDoctrineTurn(message: string): boolean {
+  const t = stripLeadingAdamSalutation(message).trim();
+  if (!t || !userOpenedFaithDoor(t)) return false;
+  if (/\b(?:tafsir|wahi|wahyu|rukun\s+iman|akidah|aqidah|tauhid|konsep\s+iman|hikmah\s+ayat)\b/i.test(t)) {
+    return true;
+  }
+  if (/\b(?:ayat|surah)\s+\d/i.test(t)) return true;
+  return /\bayat\s+(?:\d|quran|al-?quran)\b/i.test(t);
+}
+
+/**
+ * Faith door open but verifiable sirah/sejarah/syllabus facts — dual facet candidate.
+ * Surface-kind driven — no per-event topic hardcode.
+ */
+export function isAdamFaithVerifiableFactualTurn(message: string): boolean {
+  const t = stripLeadingAdamSalutation(message).trim();
+  if (!t || !userOpenedFaithDoor(t)) return false;
+  if (isAdamFaithDoctrineTurn(t)) return false;
+  if (isAdamLightChatTurn(t)) return false;
+  return isAdamSimpleFactualTurn(t)
+    || isAdamHistoricalBiographyTurn(t)
+    || isAdamHistorySynthesisTurn(t)
+    || isClassroomEnumerationAsk(t)
+    || isAdamIslamicStudiesSubjectTurn(t);
+}
+
 /** Universal Scholar prose — full soul, konvensional; no teaching-pack depth. */
 export function usersDomainUsesUniversalScholarProse(facet: AdamUsersDomainFacet): boolean {
   return facet === 'arts-music'
     || facet === 'moral-ethics'
-    || facet === 'islamic-studies'
     || facet === 'general';
 }
 
 export function formatAdamUsersDomainLog(facet: AdamUsersDomainFacet): string {
   return `[adam:users-domain] facet=${facet}`;
+}
+
+/** Konvensional domain without faith preempt — for grounding facet when pintu iman terbuka. */
+function resolveGroundingDomainFromBody(body: string): AdamUsersDomainFacet {
+  const t = body.trim();
+  if (!t || isAdamLightChatTurn(t)) return 'general';
+  if (isAdamProseCraftTurn(t)) return 'prose-craft';
+  if (isAdamPracticalAdvisoryTurn(t)) return 'practical-career';
+  if (isAdamIslamicStudiesSubjectTurn(t)) return 'islamic-studies';
+  if (isAdamCivicsGovernmentTurn(t) || isAdamCivicsLawTurn(t) || isAdamGlobalCivicsTurn(t)) {
+    return 'civics';
+  }
+  if (isAdamHistorySynthesisTurn(t) || isAdamHistoricalBiographyTurn(t)) return 'history';
+  if (ECONOMICS_DOMAIN.test(t) || ECONOMICS_POLICY_DOMAIN.test(t)) return 'economics';
+  if (isAdamAccountingTurn(t)) return 'accounting';
+  if (isAdamBusinessStudiesTurn(t)) return 'business-studies';
+  if (isAdamEntrepreneurshipEducationTurn(t)) return 'entrepreneurship';
+  if (isAdamHomeVocationalTurn(t)) return 'home-vocational';
+  if (BIOETHICS_DOMAIN.test(t)) return 'science';
+  if (isAdamScienceNatureSynthesisTurn(t)) return 'science';
+  if (isAdamEnvironmentTurn(t)) return 'environment';
+  if (isAdamGeographyTurn(t)) return 'geography';
+  if (isAdamHealthEducationTurn(t)) return 'health';
+  if (isAdamMathematicsTurn(t)) return 'mathematics';
+  if (isAdamLanguagesTurn(t)) return 'languages';
+  if (TECHNOLOGY_DOMAIN.test(t)) return 'technology';
+  if (ACADEMIC_DOMAIN.test(t) || isAdamPedagogyKonvensionalTurn(t)) return 'academic';
+  if (isAdamArtsMusicTurn(t)) return 'arts-music';
+  if (isAdamMoralEthicsTurn(t)) return 'moral-ethics';
+  return 'general';
 }
 
 function resolveDomainFromBody(body: string): AdamUsersDomainFacet {
@@ -192,6 +269,27 @@ export function resolveAdamUsersDomainFacet(
   return resolveDomainFromBody(t);
 }
 
+/** Voice + grounding facets — dual facet when faith door meets verifiable sirah/sejarah. */
+export function resolveAdamUsersDomainRoute(
+  message: string,
+  options?: { recentUserMessages?: string[] },
+): AdamUsersDomainRoute {
+  const voiceFacet = resolveAdamUsersDomainFacet(message, options);
+  let groundingFacet = voiceFacet;
+
+  if (voiceFacet === 'faith') {
+    const body = stripLeadingAdamSalutation(message).trim();
+    if (isAdamFaithVerifiableFactualTurn(body)) {
+      const sansFaith = resolveGroundingDomainFromBody(body);
+      groundingFacet = sansFaith !== 'general' && sansFaith !== 'prose-craft'
+        ? sansFaith
+        : 'islamic-studies';
+    }
+  }
+
+  return { voiceFacet, groundingFacet };
+}
+
 /** Search UI / prefetch hint — domain-aware institutions and figures (global). */
 export function buildUsersDomainSearchHint(
   facet: AdamUsersDomainFacet,
@@ -239,7 +337,12 @@ export function buildUsersDomainSearchHint(
     case 'home-vocational':
       return 'DOMAIN SEARCH — VOCATIONAL: standard procedures, safety codes, nutrition tables when relevant.';
     case 'islamic-studies':
-      return 'DOMAIN SEARCH — ISLAMIC STUDIES: syllabus references, classical texts named in question — konvensional surface.';
+      return [
+        'DOMAIN SEARCH — ISLAMIC STUDIES:',
+        'Prioritise sirah/seerah references: Ibn Ishaq, Ibn Hisham, authenticated hadith collections,',
+        'university Islamic studies pages, and national syllabus PI — konvensional surface.',
+        'Named companions, dates, and events must match retrieved sources — never invent from model memory.',
+      ].join(' ');
     case 'moral-ethics':
       return 'DOMAIN SEARCH — ETHICS: named philosophers, case studies, professional codes — plural framing.';
     case 'arts-music':

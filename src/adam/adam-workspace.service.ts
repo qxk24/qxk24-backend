@@ -135,7 +135,7 @@ export async function getUserWorkspaces(userId: string): Promise<WorkspaceRecord
     .sort({ masa_last_active: -1 })
     .lean();
 
-  return docs.map(mapWorkspace);
+  return docs.map((doc) => mapWorkspace(doc));
 }
 
 export async function getWorkspace(

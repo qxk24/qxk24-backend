@@ -150,7 +150,7 @@ Write the complete journal following the QXK24 Master Format (E = A + B + Q + C 
 - Abstract — 250–300 words, four movements, no padding
 - Introduction — open with the human experience of the problem, not a definition. Make the reader feel recognised before educated.
 - Convention Knowledge — honest, respectful, thorough. Let the unsolved issue feel like a real loss for humanity.
-- Quran — dedicated section: select ayat from [QURAN CORPUS] for this topic; Uthmani rasm + translation; thematic link. No Alamtologi syllabus here.
+Quran — dedicated section: select ayat from [QURAN CORPUS] for this topic; Uthmani rasm + translation; thematic link. No Alamtologi syllabus here.
 - Alamtologi Framework — full discipline and syllabus for this topic. MUST include at least one scientific formula in [FORMULA] tags with symbols explained. No Quran ayat in this section.
 - Application — reader standing at a threshold; technology is real; the door is now open.
 - Conclusion — honour the journey. End with something that stays after the reader closes the page.

@@ -350,6 +350,25 @@ export function getConsumerProPricing(
   };
 }
 
+export function getConsumerGeneralPremiumPricing(
+  region: SupportedRegion,
+  myrRate?: number | null,
+): IConsumerTierPricing {
+  const monthlyUsd = ENV.ADAM_GENERAL_PREMIUM_MONTHLY_USD;
+  const annualUsd  = ENV.ADAM_GENERAL_PREMIUM_ANNUAL_USD;
+  const monthly    = convertTutorUsdToRegionalFee(monthlyUsd, region, myrRate);
+  const annual     = convertTutorUsdToRegionalFee(annualUsd, region, myrRate);
+
+  return {
+    region,
+    currency:   monthly.currency,
+    monthly:    monthly.monthlyLocal,
+    annual:     annual.monthlyLocal,
+    monthlyUsd,
+    annualUsd,
+  };
+}
+
 export function getConsumerPremiumPricing(
   region: SupportedRegion,
   myrRate?: number | null,

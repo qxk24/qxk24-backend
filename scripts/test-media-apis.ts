@@ -23,7 +23,6 @@ async function main(): Promise<void> {
     pexels:   Boolean(keys.pexels),
     pixabay:  Boolean(keys.pixabay),
   };
-  console.log('API keys configured:', configured);
 
   const hits = await fetchLicensedMediaFromApis({
     query:     QUERY,
@@ -34,17 +33,12 @@ async function main(): Promise<void> {
   const images = hits.filter((h) => h.kind === 'image');
   const videos = hits.filter((h) => h.kind === 'video');
 
-  console.log(`\nQuery: "${QUERY}"`);
-  console.log(`Images found: ${images.length}`);
   for (const img of images) {
-    console.log(`  [${img.source}] ${img.title.slice(0, 60)}`);
-    console.log(`    ${img.url.slice(0, 80)}…`);
+
   }
 
-  console.log(`Videos found: ${videos.length}`);
   for (const vid of videos) {
-    console.log(`  [${vid.source}] ${vid.title.slice(0, 60)}`);
-    console.log(`    ${vid.url.slice(0, 80)}…`);
+
   }
 
   if (images.length === 0 && videos.length === 0) {
@@ -52,7 +46,6 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  console.log('\nOK: licensed media APIs responding.');
 }
 
 main().catch((err) => {

@@ -462,21 +462,6 @@ export async function generateFounderJournalBySections(
       chars: sectionContent.length,
     });
 
-    console.log(
-      '[adam:journal-section]',
-      JSON.stringify({
-        sessionId:        params.sessionId,
-        section:            sectionId,
-        sectionWords,
-        chars:              sectionContent.length,
-        accumulatedWords,
-        totalChars:         assembleManuscriptFromSections(sections).length,
-        draftId:            draft?.journalId,
-        sectionsWrittenThisTurn,
-        maxPerTurn,
-      }),
-    );
-
     if (sectionsWrittenThisTurn >= maxPerTurn) break;
   }
 

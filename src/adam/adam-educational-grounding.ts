@@ -71,3 +71,20 @@ export function buildEducationalZeroHitSearchContextBlock(): string {
     'FORBIDDEN: MASA/TENAGA/Alamtologi framework labels on konvensional surface.',
   ].join('\n');
 }
+
+/** Zero-hit when domain requires verifiable names — sirah/sejarah; no model-memory companions. */
+export function buildDomainGroundingZeroHitSearchContextBlock(
+  facet: import('./adam-users-domain-router').AdamUsersDomainFacet,
+): string | null {
+  if (facet === 'islamic-studies' || facet === 'history') {
+    return [
+      '[WEB SEARCH — NO TEXT HITS; VERIFIABLE FACTS ONLY]',
+      'Prefetch search returned zero snippet hits for this historical/Islamic studies question.',
+      'Do NOT name companions, dates, or events from model memory.',
+      'State honestly that named figures cannot be verified this turn without a source.',
+      'You may give broad context only — no invented sahabah lists or undated folklore.',
+      'FORBIDDEN: MASA/TENAGA/Alamtologi framework labels on konvensional surface.',
+    ].join('\n');
+  }
+  return null;
+}

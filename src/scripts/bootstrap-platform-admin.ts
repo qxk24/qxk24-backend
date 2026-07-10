@@ -65,7 +65,7 @@ async function main(): Promise<void> {
       active: true,
       ...(email ? { email } : {}),
     });
-    console.log(`Updated existing ADAM account: ${userId}`);
+
   } else {
     await createStudentAccount({
       userId,
@@ -76,7 +76,7 @@ async function main(): Promise<void> {
       accountRole: 'student',
       accountLane: 'umum',
     });
-    console.log(`Created ADAM account: ${userId}`);
+
   }
 
   const admin = await invitePlatformAdmin({
@@ -85,18 +85,6 @@ async function main(): Promise<void> {
     modules:    ['all'],
     createdBy:  'cli:founder',
   });
-
-  console.log('Platform admin roster:');
-  console.log(JSON.stringify({
-    userId:  admin.userId,
-    name:    admin.name,
-    role:    admin.role,
-    modules: admin.modules,
-    login:   'https://qxk24.com/admin/login',
-    hub:     'https://qxk24.com/admin',
-  }, null, 2));
-  console.log('');
-  console.log('Next: pm2 restart alm-backend --update-env  (reloads student login cache on VPS)');
 
   await mongoose.disconnect();
 }

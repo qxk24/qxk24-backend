@@ -46,6 +46,6 @@ export async function publishJournalV2(
   );
 
   const publicUrl = `https://qxk24.com/journals/${journalNumber}`;
-  console.log(`[journal:publish] ${journalNumber} published — ${publicUrl}`);
+
   return { publishedAt, publicUrl };
 }

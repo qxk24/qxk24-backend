@@ -32,55 +32,29 @@ const DEFAULT_COPYRIGHT =
   'Malaysian Copyright Act 1987.';
 
 async function main() {
-  const topicArg = process.argv.find((a) => a.startsWith('--topic='))?.split('=')[1]
-    ?? (process.argv.includes('--topic') ? process.argv[process.argv.indexOf('--topic') + 1] : undefined);
+  try {
+    const topicArg = process.argv.find((a) => a.startsWith('--topic='))?.split('=')[1]
+      ?? (process.argv.includes('--topic') ? process.argv[process.argv.indexOf('--topic') + 1] : undefined);
 
-  const topicId = topicArg?.trim() || '3.1-thermodynamics';
-  const journalNumber = 'ALM-J2026-001';
+    const topicId = topicArg?.trim() || '3.1-thermodynamics';
+    const journalNumber = 'ALM-J2026-001';
 
-  await connectDatabase();
+    await connectDatabase();
 
-  console.log(`\n[finalise:journal] Sealing ${journalNumber} for topic ${topicId}…\n`);
+    const result = await finaliseJournal({
+      journalNumber,
+      topicId,
+      source:    'founder_teaching',
+      status:    'PENDING_REVIEW',
+      copyright: DEFAULT_COPYRIGHT,
+    });
 
-  const result = await finaliseJournal({
-    journalNumber,
-    topicId,
-    source:    'founder_teaching',
-    status:    'PENDING_REVIEW',
-    copyright: DEFAULT_COPYRIGHT,
-  });
+    await disconnectDatabase();
 
-  console.log(JSON.stringify({
-    idempotent:  result.idempotent,
-    id:          result.journal.id,
-    journalNumber: result.journal.journalNumber,
-    topicId:     result.journal.topicId ?? result.journal.knowledgeTopicId,
-    sessionId:   result.journal.sessionId ?? result.journal.sourceSessionId,
-    source:      result.journal.source,
-    status:      result.journal.status,
-    totalWords:  result.totalWords,
-    copyright:   result.journal.copyright?.slice(0, 80) + '…',
-    title:       result.journal.title,
-  }, null, 2));
-
-  console.log('\nMongoDB verify:\n');
-  console.log(`db.adam_journals.findOne(
-  { journalNumber: "${journalNumber}" },
-  {
-    journalNumber: 1,
-    topicId: 1,
-    source: 1,
-    sessionId: 1,
-    status: 1,
-    totalWords: 1,
-    createdAt: 1,
-    copyright: 1,
-    _id: 0
-  }
-)`);
-
-  await disconnectDatabase();
-}
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }}
 
 main().catch((err: unknown) => {
   console.error('[finalise:journal] FAILED:', err instanceof Error ? err.message : err);

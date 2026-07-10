@@ -86,12 +86,17 @@ async function checkMongoDB(): Promise<HealthCheck> {
   const start = Date.now();
   try {
     await withMongoRetry(async () => {
-      const state = mongoose.connection.readyState;
-      if (state !== 1) {
-        throw new Error(`MongoDB readyState: ${state}`);
-      }
-      await mongoose.connection.db?.admin().ping();
-    });
+      try {
+        const state = mongoose.connection.readyState;
+        if (state !== 1) {
+          throw new Error(`MongoDB readyState: ${state}`);
+        }
+        await mongoose.connection.db?.admin().ping();
+    
+      } catch (err) {
+        console.error(err);
+        throw err;
+      }});
     return { status: 'ok', latencyMs: Date.now() - start, detail: 'MongoDB connected and responsive' };
   } catch (err) {
     return { status: 'fail', latencyMs: Date.now() - start, detail: `MongoDB error: ${(err as Error).message}` };
@@ -234,10 +239,15 @@ export async function runOperationalMemoryHealth(): Promise<MemoryHealthReport> 
         .lean(),
       ADAMFounderSessionModel.countDocuments({ updatedAt: { $gte: sinceHour } }),
       (async () => {
-        const sessionId = await resolvePrimaryFounderSessionId(FOUNDER_USER_ID);
-        if (!sessionId) return null;
-        return checkMemoryHealthCached(FOUNDER_USER_ID, sessionId);
-      })(),
+        try {
+          const sessionId = await resolvePrimaryFounderSessionId(FOUNDER_USER_ID);
+          if (!sessionId) return null;
+          return checkMemoryHealthCached(FOUNDER_USER_ID, sessionId);
+      
+        } catch (err) {
+          console.error(err);
+          throw err;
+        }})(),
     ]);
 
   return {

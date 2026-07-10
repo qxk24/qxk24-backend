@@ -151,6 +151,20 @@ async function resumeOpenCheckout(
   return null;
 }
 
+/**
+ * Best-effort expiry of a stale open checkout session. Used when the user
+ * switches to a different tier so an old Starter session cannot later be paid.
+ */
+async function expireOpenCheckout(stripeSessionId: string | null | undefined): Promise<void> {
+  const sessionId = stripeSessionId?.trim();
+  if (!sessionId || !ENV.STRIPE_SECRET_KEY) return;
+  try {
+    await stripePost(`/checkout/sessions/${sessionId}/expire`, {});
+  } catch {
+    // Session may already be completed/expired — safe to ignore.
+  }
+}
+
 export async function createAdamStreamHostCheckoutSession(input: {
   userId:         string;
   customerEmail?: string;
@@ -170,8 +184,21 @@ export async function createAdamStreamHostCheckoutSession(input: {
 
   const subscriptionId = existing?.subscriptionId ?? newStreamSubscriptionId();
 
-  const resumed = await resumeOpenCheckout(existing?.stripeSessionId, subscriptionId);
-  if (resumed) return resumed;
+  // Only resume an open Stripe session when the pending plan matches the plan
+  // (and billing cycle) the user just clicked. Otherwise the shared per-user
+  // session would send Business Standard / Plus clicks to the old Business
+  // Starter checkout. When the tier differs, abandon the stale open session.
+  const pendingMatchesRequest =
+    existing?.status === AdamStreamSubscriptionStatus.PENDING &&
+    existing.planId === input.planId &&
+    existing.billingCycle === billingCycle;
+
+  if (pendingMatchesRequest) {
+    const resumed = await resumeOpenCheckout(existing?.stripeSessionId, subscriptionId);
+    if (resumed) return resumed;
+  } else if (existing?.stripeSessionId) {
+    await expireOpenCheckout(existing.stripeSessionId);
+  }
 
   const lineItem = buildStreamLineItem(input.planId, billingCycle);
 

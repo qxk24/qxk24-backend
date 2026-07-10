@@ -84,11 +84,7 @@ export async function resolveGoldStandardSearchFirstReply(input: {
         facts,
         extractRichPageStatFactsFromHits(evidence, input.userMessage),
       );
-      console.log('[adam:search-first] gold standard authoritative probe', JSON.stringify({
-        articleFound: probed.articleFound,
-        hits: evidence.length,
-        topUrls: evidence.slice(0, 3).map((h) => h.url?.slice(0, 80)),
-      }));
+
     }
   }
 
@@ -108,12 +104,7 @@ export async function resolveGoldStandardSearchFirstReply(input: {
       extractRichPageStatFactsFromHits(enriched, input.userMessage),
     );
     figure = extractVerifiedStatFigureFromEvidence(evidence, facts, input.userMessage);
-    console.log('[adam:search-first] gold standard page enrich', JSON.stringify({
-      figureFound,
-      articleFound,
-      hits: evidence.length,
-      hasFigure: Boolean(figure),
-    }));
+
   }
 
   if (isStat && !figure) {
@@ -126,11 +117,7 @@ export async function resolveGoldStandardSearchFirstReply(input: {
     facts = probed.extractedFacts;
     figure = extractVerifiedStatFigureFromEvidence(evidence, facts, input.userMessage);
     if (probed.figureFound || figure) {
-      console.log('[adam:search-first] acronym institution probe success', JSON.stringify({
-        hits: evidence.length,
-        hasFigure: Boolean(figure),
-        topUrls: evidence.slice(0, 3).map((h) => h.url?.slice(0, 80)),
-      }));
+
     }
   }
 
@@ -141,12 +128,7 @@ export async function resolveGoldStandardSearchFirstReply(input: {
       extractRoleSkillFactsFromSearchHits(evidence, input.userMessage),
       extractRichPageStatFactsFromHits(evidence, input.userMessage),
     );
-    console.log('[adam:search-first] gold standard full article ready', JSON.stringify({
-      figure: figure ?? null,
-      hits: evidence.length,
-      factLines: facts.split('\n').filter(Boolean).length,
-      topUrls: evidence.slice(0, 3).map((h) => h.url?.slice(0, 80)),
-    }));
+
     return {
       reply:          null,
       evidence,

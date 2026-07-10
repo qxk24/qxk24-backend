@@ -294,8 +294,11 @@ export function buildAdamNiagaSystemPrompt(params: {
     buildAdamNiagaProfileBlock(params.niagaProfile),
     ADAM_NIAGA_MEMORY_LAW,
     fileFormats ? buildNiagaCashflowFilesContextBlock(fileFormats) : '',
-    preferMalay ? MALAYSIA_BM_LANGUAGE_DIRECTIVE : '',
-    preferMalay ? ADAM_BAHASA_MELAYU_LAW : '',
+    MALAYSIA_BM_LANGUAGE_DIRECTIVE,
+    ADAM_BAHASA_MELAYU_LAW,
+    preferMalay
+      ? 'Reply in Bahasa Melayu Malaysia for this turn — mirror the entrepreneur\'s Malay.'
+      : 'When replying in Malay, use Bahasa Melayu Malaysia only — never Indonesian drift (siap saji, kemitraan, karena, teknis, etc.).',
     name
       ? `Address the entrepreneur professionally by name (${name}) when natural — not as a school student.`
       : 'Address the entrepreneur professionally — not as a school student.',

@@ -56,9 +56,7 @@ export async function emitZpdGrowthSignal(
     if (!res.ok) {
       console.warn(`[ZPD] Growth signal non-200: ${res.status} for student ${studentId}`);
     } else {
-      console.log(
-        `[ZPD] Growth signal emitted for student ${studentId} (level ${currentLevel}, topic: ${topicKey})`,
-      );
+
     }
   } catch (err) {
     console.error(`[ZPD] Growth signal emit failed (non-fatal) for ${studentId}:`, err);

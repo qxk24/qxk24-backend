@@ -143,9 +143,6 @@ function pct(n: number, total: number): string {
 }
 
 async function main(): Promise<void> {
-  console.log(`\nYouTube discovery benchmark — ${QUERIES.length} queries\n`);
-  console.log('Query'.padEnd(42), 'DDG', '  ms', 'Invidious', ' ms');
-  console.log('-'.repeat(72));
 
   let ddgOk = 0;
   let invOk = 0;
@@ -164,29 +161,17 @@ async function main(): Promise<void> {
 
     const ddgMark = ddg.ok ? '✓' : '✗';
     const invMark = inv.ok ? '✓' : '✗';
-    console.log(
-      query.slice(0, 40).padEnd(42),
-      `${ddgMark}`.padEnd(4),
-      String(ddg.ms).padStart(4),
-      `${invMark}`.padEnd(10),
-      String(inv.ms).padStart(4),
-    );
-    if (!ddg.ok && ddg.error) console.log(`  DDG: ${ddg.error}`);
-    if (!inv.ok && inv.error) console.log(`  Invidious: ${inv.error}`);
+
   }
 
   const n = QUERIES.length;
-  console.log('\n' + '='.repeat(72));
-  console.log(`DuckDuckGo success: ${ddgOk}/${n} (${pct(ddgOk, n)}) — avg ${Math.round(ddgMs / n)}ms`);
-  console.log(`Invidious success:  ${invOk}/${n} (${pct(invOk, n)}) — avg ${Math.round(invMs / n)}ms`);
-  console.log('='.repeat(72));
 
   if (ddgOk > invOk) {
-    console.log('\nRecommendation: prioritize DuckDuckGo (higher success rate).');
+
   } else if (invOk > ddgOk) {
-    console.log('\nRecommendation: keep Invidious first (higher success rate).');
+
   } else {
-    console.log('\nRecommendation: tie — prefer faster/more stable provider first.');
+
   }
 }
 

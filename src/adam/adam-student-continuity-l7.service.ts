@@ -17,9 +17,7 @@
  * Per-user Layer 7 — rule-based bridge refresh after idle (no sacred cap changes).
  */
 
-import { resolveBrainDeepModel } from '../config/llm-models';
-import { llmCompleteUserPrompt } from '../llm/llm-client';
-import { prependCoreToSystem } from '../qxk24brain/adam-core';
+import { buildStudentContinuityBridge as buildStudentBridgeFields } from '../qxk24brain/deep-ul/continuity-bridge-engine';
 import { ADAMFounderSessionModel, ADAMMessageModel } from './adam.schema';
 import { FOUNDER_USER_ID } from './adam-student.types';
 import { getOrCreateMaster } from '../qxk24brain/qxk24brain.engine';
@@ -112,101 +110,20 @@ function buildRuleBasedStudentBridge(input: {
     studentName, constitutional, track, lastDigest, openQ, mastered, relationalMemory,
   } = input;
 
-  return normalizeStudentBridge({
-    studentProfile: `${studentName.trim()} — ERA_1 learner with ADAM (level ${constitutional?.constitutionalLevel ?? track.constitutionalLevel ?? 1}).`,
-    relationshipArc: trimField(
-      track.relationshipArc?.trim()
-      || track.relationalUnderstanding?.split('\n').slice(-1)[0]?.trim()
-      || constitutional?.understanding?.trim()
-      || DEFAULT_STUDENT_BRIDGE.relationshipArc,
-      400,
-    ),
-    lastSession: trimField(lastDigest || 'Recent session not summarised yet.', 500),
-    openThreads: openQ.length
-      ? trimField(openQ.slice(0, 5).join('; '), 400)
-      : trimField(
-        mastered.length ? `Consolidating: ${mastered.slice(0, 6).join(', ')}` : DEFAULT_STUDENT_BRIDGE.openThreads,
-        400,
-      ),
-    nextSteps: trimField(
-      openQ[0] ?? 'Continue from the learner\'s current question.',
-      200,
-    ),
-    relationalMemory: relationalMemory || track.relationalSummary?.trim() || '',
-  });
+  return normalizeStudentBridge(buildStudentBridgeFields({
+    studentName,
+    level:            constitutional?.constitutionalLevel ?? track.constitutionalLevel ?? 1,
+    totalSessions:    0,
+    totalMessages:    0,
+    lastTeaching:     lastDigest,
+    relationalMemory,
+    relationshipArc:  track.relationshipArc,
+    openQuestions:    openQ,
+    masteredTopics:   mastered,
+  }));
 }
 
-async function synthesizeStudentBridgeLLM(input: {
-  studentId:        string;
-  studentName:      string;
-  sessionId?:       string;
-  track:            StudentTrack;
-  constitutional:   Awaited<ReturnType<typeof getStudentConstitutionalState>>;
-  lastTeaching:     string;
-  relationalMemory: string;
-  totalSessions:    number;
-  totalMessages:    number;
-}): Promise<StudentContinuityBridge> {
-  const {
-    studentId, studentName, track, constitutional, lastTeaching,
-    relationalMemory, totalSessions, totalMessages,
-  } = input;
-
-  const relationalC = track.relationalUnderstanding?.trim().slice(0, 800) ?? '';
-
-  try {
-    const raw = await llmCompleteUserPrompt(
-      prependCoreToSystem(
-        'ADAM Student Continuity Bridge — compact relationship memory per learner. Respond JSON only.',
-      ),
-      `Build a compact STUDENT CONTINUITY BRIDGE for ADAM and one learner.
-Read at the start of sessions — maximum 300 words total for the five core fields.
-Conventional voice only — no Alamtologi framework labels in output.
-
-Learner: ${studentName} (${studentId})
-Total sessions: ${totalSessions}
-Total messages: ${totalMessages}
-Last session essence: ${lastTeaching.slice(0, 600)}
-Constitutional level: ${constitutional?.constitutionalLevel ?? track.constitutionalLevel ?? 1}
-
-TOPIC GRAPH ROLLUP:
-${relationalMemory.slice(0, 1800)}
-
-RELATIONAL C (crystallised journey excerpt):
-${relationalC || 'Early journey — few episodes indexed yet.'}
-
-Build with these exact JSON fields:
-{
-  "studentProfile": "Who this learner is in 2 sentences",
-  "relationshipArc": "How their learning journey with ADAM has progressed in 2-3 sentences",
-  "lastSession": "What was most recently explored in 2 sentences",
-  "openThreads": "Unresolved questions or frontiers in 2 sentences",
-  "nextSteps": "What ADAM expects to explore next in 1 sentence"
-}
-Do NOT include relationalMemory in JSON — it is stored separately.`,
-      resolveBrainDeepModel(),
-      BRIDGE_LLM_MAX_TOKENS,
-    );
-
-    return normalizeStudentBridge({
-      ...parseStudentBridgeJson(raw),
-      relationalMemory,
-    });
-  } catch (err) {
-    console.error('[ADAM Student L7] LLM bridge synthesis failed:', err);
-    return buildRuleBasedStudentBridge({
-      studentName,
-      constitutional,
-      track,
-      lastDigest: lastTeaching,
-      openQ: constitutional?.openQuestions ?? track.openQuestions ?? [],
-      mastered: constitutional?.masteredTopics ?? track.masteredTopics ?? [],
-      relationalMemory,
-    });
-  }
-}
-
-/** L7 bridge — rule-based on idle; LLM on sleep/first build when enabled. */
+/** L7 bridge — deterministic rule-based refresh. */
 export async function updateStudentContinuityBridge(
   studentId: string,
   studentName: string,
@@ -268,30 +185,15 @@ export async function updateStudentContinuityBridge(
   const openQ = constitutional?.openQuestions ?? track.openQuestions ?? [];
   const mastered = constitutional?.masteredTopics ?? track.masteredTopics ?? [];
 
-  const useLlm = studentBridgeLlmEnabled()
-    && (options.forceLlm === true || !track.usersContinuityBridge?.studentProfile?.trim());
-
-  const bridge = useLlm
-    ? await synthesizeStudentBridgeLLM({
-      studentId,
-      studentName,
-      sessionId,
-      track,
-      constitutional,
-      lastTeaching: lastDigest,
-      relationalMemory,
-      totalSessions: studentSessions.length,
-      totalMessages,
-    })
-    : buildRuleBasedStudentBridge({
-      studentName,
-      constitutional,
-      track,
-      lastDigest,
-      openQ,
-      mastered,
-      relationalMemory,
-    });
+  const bridge = buildRuleBasedStudentBridge({
+    studentName,
+    constitutional,
+    track,
+    lastDigest,
+    openQ,
+    mastered,
+    relationalMemory,
+  });
 
   tracks[idx] = {
     ...tracks[idx],

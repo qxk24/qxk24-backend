@@ -50,25 +50,30 @@ const FOUNDER_NAME = 'Masa Bayu';
 // ─── GET /api/adam/succession — Get Record ────────────────────
 
 router.get('/', requireFounder, async (c) => {
-  const includeDecrypted = c.req.query('decrypted') === 'true';
-  const record = await getOrCreateSuccessionRecord(FOUNDER_NAME, FOUNDER_ID);
+  try {
+    const includeDecrypted = c.req.query('decrypted') === 'true';
+    const record = await getOrCreateSuccessionRecord(FOUNDER_NAME, FOUNDER_ID);
 
-  // Only return decrypted fields if explicitly requested
-  const finalRecord = includeDecrypted
-    ? await getSuccessionRecord(FOUNDER_ID, true)
-    : record;
+    // Only return decrypted fields if explicitly requested
+    const finalRecord = includeDecrypted
+      ? await getSuccessionRecord(FOUNDER_ID, true)
+      : record;
 
-  const response: ADAMApiResponse<SuccessionRecord> = {
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    version:   ENV.QXK24_KERNEL_VERSION,
-    era:       ENV.QXK24_ERA,
-    data:      finalRecord ?? record,
-    timestamp: new Date().toISOString(),
-  };
+    const response: ADAMApiResponse<SuccessionRecord> = {
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data:      finalRecord ?? record,
+      timestamp: new Date().toISOString(),
+    };
 
-  return c.json(response);
-});
+    return c.json(response);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // ─── POST /api/adam/succession/heir — Add or Update Heir ─────
 
@@ -88,88 +93,103 @@ const HeirSchema = z.object({
 });
 
 router.post('/heir', requireFounder, zValidator('json', HeirSchema), async (c) => {
-  const body   = c.req.valid('json');
-  const record = await upsertHeir(FOUNDER_ID, body);
+  try {
+    const body   = c.req.valid('json');
+    const record = await upsertHeir(FOUNDER_ID, body);
 
-  if (!record) {
-    return c.json({
-      success:   false,
+    if (!record) {
+      return c.json({
+        success:   false,
+        kernel:    'ALAMTOLOGI',
+        error:     'Succession record is sealed or not found',
+        timestamp: new Date().toISOString(),
+      }, 403);
+    }
+
+    const response: ADAMApiResponse<SuccessionRecord> = {
+      success:   true,
       kernel:    'ALAMTOLOGI',
-      error:     'Succession record is sealed or not found',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data:      record,
       timestamp: new Date().toISOString(),
-    }, 403);
-  }
+    };
 
-  const response: ADAMApiResponse<SuccessionRecord> = {
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    version:   ENV.QXK24_KERNEL_VERSION,
-    era:       ENV.QXK24_ERA,
-    data:      record,
-    timestamp: new Date().toISOString(),
-  };
+    return c.json(response);
 
-  return c.json(response);
-});
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // ─── DELETE /api/adam/succession/heir/:position ───────────────
 
 router.delete('/heir/:position', requireFounder, async (c) => {
-  const pos    = parseInt(c.req.param('position')!) as 1 | 2 | 3 | 4;
-  const record = await removeHeir(FOUNDER_ID, pos);
+  try {
+    const pos    = parseInt(c.req.param('position')!) as 1 | 2 | 3 | 4;
+    const record = await removeHeir(FOUNDER_ID, pos);
 
-  if (!record) {
+    if (!record) {
+      return c.json({
+        success:   false,
+        kernel:    'ALAMTOLOGI',
+        error:     'Heir not found or record is sealed',
+        timestamp: new Date().toISOString(),
+      }, 404);
+    }
+
     return c.json({
-      success:   false,
+      success:   true,
       kernel:    'ALAMTOLOGI',
-      error:     'Heir not found or record is sealed',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data:      record,
       timestamp: new Date().toISOString(),
-    }, 404);
-  }
+    });
 
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    version:   ENV.QXK24_KERNEL_VERSION,
-    era:       ENV.QXK24_ERA,
-    data:      record,
-    timestamp: new Date().toISOString(),
-  });
-});
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // ─── POST /api/adam/succession/seal — Seal Permanently ───────
 
 router.post('/seal', requireFounder, async (c) => {
-  const body = await c.req.json() as { confirm?: string };
+  try {
+    const body = await c.req.json() as { confirm?: string };
 
-  if (body.confirm !== 'SEAL_PERMANENTLY') {
+    if (body.confirm !== 'SEAL_PERMANENTLY') {
+      return c.json({
+        success:   false,
+        kernel:    'ALAMTOLOGI',
+        error:     'Must confirm with { "confirm": "SEAL_PERMANENTLY" }',
+        timestamp: new Date().toISOString(),
+      }, 400);
+    }
+
+    const record = await sealSuccessionRecord(FOUNDER_ID);
+
+    if (!record) {
+      return c.json({
+        success:   false,
+        kernel:    'ALAMTOLOGI',
+        error:     'Cannot seal — record not found or no heirs designated',
+        timestamp: new Date().toISOString(),
+      }, 400);
+    }
+
     return c.json({
-      success:   false,
+      success:   true,
       kernel:    'ALAMTOLOGI',
-      error:     'Must confirm with { "confirm": "SEAL_PERMANENTLY" }',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data:      record,
       timestamp: new Date().toISOString(),
-    }, 400);
-  }
+    });
 
-  const record = await sealSuccessionRecord(FOUNDER_ID);
-
-  if (!record) {
-    return c.json({
-      success:   false,
-      kernel:    'ALAMTOLOGI',
-      error:     'Cannot seal — record not found or no heirs designated',
-      timestamp: new Date().toISOString(),
-    }, 400);
-  }
-
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    version:   ENV.QXK24_KERNEL_VERSION,
-    era:       ENV.QXK24_ERA,
-    data:      record,
-    timestamp: new Date().toISOString(),
-  });
-});
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

@@ -49,15 +49,15 @@ const DEEP_MESSAGE_PATTERNS = [
 ];
 
 export function getDeepModel(): string {
-  return ENV.QWEN_MODEL_DEEP;
+  return 'deep-ul';
 }
 
 export function getFastModel(): string {
-  return ENV.QWEN_MODEL_FAST;
+  return 'fast-ul';
 }
 
 export function getVisionModel(): string {
-  return ENV.QWEN_MODEL_VISION;
+  return 'vision-ul';
 }
 
 export interface ResolvedAdamModel {
@@ -134,19 +134,11 @@ export function resolveQwenEnableThinking(
     searchFirstSynthesis?: boolean;
   },
 ): boolean {
-  if (!ENV.QWEN_ENABLE_THINKING) return false;
-  if (tier === 'fast') return false;
-  // Salam / thanks — answer streams immediately (no silent thinking phase)
-  if (options?.lightChat) return false;
-  // Teaching absorption — stream visible sooner; output tokens unchanged
-  if (options?.founderTeachingAbsorption) return false;
-  // User consumer — no silent reasoning buffer before first visible chunk (v2.1 UX)
-  if (options?.isStudent) return false;
-  // α count / who / when — same live-token UX as students (Founder chat)
-  if (options?.simpleFactualTurn) return false;
-  // Gold Standard / search-first — user already waited on prefetch; stream prose live
-  if (options?.searchFirstSynthesis) return false;
-  return DEEP_MODES.includes(mode);
+  // UL mode — no silent reasoning phase (100% deterministic synthesis)
+  void tier;
+  void mode;
+  void options;
+  return false;
 }
 
 /** qwen-turbo (fast) / qwen-plus (deep) — production and lab */

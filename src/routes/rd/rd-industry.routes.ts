@@ -103,38 +103,48 @@ router.post('/project/initiate', requireAdamUser, async (c) => {
 });
 
 router.get('/project/:projectId', requireAdamUser, async (c) => {
-  const userId = getTokenUser(c)!.userId;
-  const projectId = c.req.param('projectId') ?? '';
-  const project = await getIndustryProjectForUser(userId, projectId);
-  if (!project) {
-    return c.json({ success: false, error: 'Project not found.' }, 404);
-  }
-  return c.json({ success: true, project: serializeProject(project) });
-});
+  try {
+    const userId = getTokenUser(c)!.userId;
+    const projectId = c.req.param('projectId') ?? '';
+    const project = await getIndustryProjectForUser(userId, projectId);
+    if (!project) {
+      return c.json({ success: false, error: 'Project not found.' }, 404);
+    }
+    return c.json({ success: true, project: serializeProject(project) });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/project/:projectId/section/:type/:sectionKey', requireAdamUser, async (c) => {
-  const userId = getTokenUser(c)!.userId;
-  const projectId = c.req.param('projectId') ?? '';
-  const type = c.req.param('type') as RdIndustryDeliverableType;
-  const sectionKey = c.req.param('sectionKey') ?? '';
-  const project = await getIndustryProjectForUser(userId, projectId);
-  if (!project) {
-    return c.json({ success: false, error: 'Project not found.' }, 404);
-  }
+  try {
+    const userId = getTokenUser(c)!.userId;
+    const projectId = c.req.param('projectId') ?? '';
+    const type = c.req.param('type') as RdIndustryDeliverableType;
+    const sectionKey = c.req.param('sectionKey') ?? '';
+    const project = await getIndustryProjectForUser(userId, projectId);
+    if (!project) {
+      return c.json({ success: false, error: 'Project not found.' }, 404);
+    }
 
-  const field = type === 'TECHNICAL_WHITEPAPER' ? 'technical' : 'implementation';
-  const draft = project[field].sections?.[sectionKey];
-  const content = typeof draft === 'object' && draft && 'content' in draft
-    ? String((draft as { content: string }).content)
-    : '';
+    const field = type === 'TECHNICAL_WHITEPAPER' ? 'technical' : 'implementation';
+    const draft = project[field].sections?.[sectionKey];
+    const content = typeof draft === 'object' && draft && 'content' in draft
+      ? String((draft as { content: string }).content)
+      : '';
 
-  return c.json({
-    success: true,
-    sectionKey,
-    content,
-    status: project[field].status,
-  });
-});
+    return c.json({
+      success: true,
+      sectionKey,
+      content,
+      status: project[field].status,
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post(
   '/project/:projectId/section/:type',
@@ -247,7 +257,12 @@ router.post(
             sessionId,
             message,
             'RESEARCH',
-            async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
+            async (event, data) => {
+ try {   await s.write(`event: ${event}\ndata: ${data}\n\n`); 
+ } catch (err) {
+   console.error(err);
+   throw err;
+ }},
             body.uploadIds ?? [],
             {
               userId:      user.userId,

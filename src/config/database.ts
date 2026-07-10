@@ -42,7 +42,7 @@ function registerConnectionListeners(): void {
 
   mongoose.connection.on('reconnected', () => {
     isConnected = true;
-    console.log('[Alamtologi:DB] Reconnected.');
+
   });
 
   mongoose.connection.on('error', (err) => {
@@ -61,9 +61,7 @@ async function openMongoConnection(): Promise<void> {
   mongoose.set('strictQuery', true);
   await mongoose.connect(ENV.MONGODB_URI, MONGO_OPTIONS);
   isConnected = true;
-  console.log(
-    `[Alamtologi:DB] Connected — ${ENV.QXK24_KERNEL_VERSION} | ${ENV.QXK24_ERA}`,
-  );
+
 }
 
 /** Drop pool and reconnect — used after Atlas migration / election mismatch. */
@@ -71,12 +69,17 @@ export async function reconnectDatabase(): Promise<void> {
   if (reconnectPromise) return reconnectPromise;
 
   reconnectPromise = (async () => {
-    console.warn('[Alamtologi:DB] Stale topology detected — disconnecting and reconnecting...');
-    await mongoose.disconnect().catch(() => undefined);
-    isConnected = false;
-    await openMongoConnection();
-    console.log('[Alamtologi:DB] Reconnected after stale topology := 1');
-  })().finally(() => {
+    try {
+      console.warn('[Alamtologi:DB] Stale topology detected — disconnecting and reconnecting...');
+      await mongoose.disconnect().catch(() => undefined);
+      isConnected = false;
+      await openMongoConnection();
+
+  
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }})().finally(() => {
     reconnectPromise = null;
   });
 
@@ -146,7 +149,7 @@ export async function disconnectDatabase(): Promise<void> {
   }
   await mongoose.disconnect();
   isConnected = false;
-  console.log('[Alamtologi:DB] Disconnected cleanly.');
+
 }
 
 export { isStaleTopologyError } from './mongo-topology';

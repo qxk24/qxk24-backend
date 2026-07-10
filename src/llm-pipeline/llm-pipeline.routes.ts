@@ -27,27 +27,42 @@ import {
 const router = new Hono();
 
 router.get('/stats', requireFounder, async (c) => {
-  const stats = await getDatasetStats();
-  return c.json({ success: true, stats, kernel: 'ALAMTOLOGI' });
-});
+  try {
+    const stats = await getDatasetStats();
+    return c.json({ success: true, stats, kernel: 'ALAMTOLOGI' });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/reconcile-syllabus', requireFounder, async (c) => {
-  await syncSyllabusProgressFromExamples();
-  const backfill = await backfillSyllabusFromTeachingRecords();
-  const stats = await getDatasetStats();
-  return c.json({
-    success: true,
-    backfill,
-    stats: stats.syllabus,
-    kernel: 'ALAMTOLOGI',
-  });
-});
+  try {
+    await syncSyllabusProgressFromExamples();
+    const backfill = await backfillSyllabusFromTeachingRecords();
+    const stats = await getDatasetStats();
+    return c.json({
+      success: true,
+      backfill,
+      stats: stats.syllabus,
+      kernel: 'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/export', requireFounder, async (c) => {
-  const jsonl = await exportDatasetAsJsonl();
-  c.header('Content-Type', 'application/x-ndjson; charset=utf-8');
-  c.header('Content-Disposition', 'attachment; filename="alamtologi-training.jsonl"');
-  return c.body(jsonl);
-});
+  try {
+    const jsonl = await exportDatasetAsJsonl();
+    c.header('Content-Type', 'application/x-ndjson; charset=utf-8');
+    c.header('Content-Disposition', 'attachment; filename="alamtologi-training.jsonl"');
+    return c.body(jsonl);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

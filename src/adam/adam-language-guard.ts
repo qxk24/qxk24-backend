@@ -16,8 +16,7 @@
  */
 
 import { ENV } from '../config/environments';
-import { getFastModel } from '../config/llm-models';
-import { isQwenProvider, llmCompleteUserPrompt } from '../llm/llm-client';
+import { isQwenProvider } from '../llm/ul-compat';
 import {
   detectLanguage,
   localeToLabel,
@@ -93,7 +92,7 @@ export function buildQwenLanguageLock(options?: QwenLanguageLockOptions): string
     return buildJournalPublishLanguageLock();
   }
 
-  const lang = ENV.ADAM_DEFAULT_LANGUAGE.trim().toLowerCase();
+  const lang = (ENV.ADAM_DEFAULT_LANGUAGE ?? 'english').trim().toLowerCase();
   const defaultLine =
     'Constitutional default: When the user\'s language is unclear, reply in English. '
     + 'When the user\'s language is clear, mirror it exactly — never switch away from English if they wrote in English.';
@@ -119,7 +118,7 @@ Violation of this rule is a constitutional breach.
 export const QWEN_LANGUAGE_LOCK = buildQwenLanguageLock();
 
 function envFallbackLabel(): string {
-  const lang = ENV.ADAM_DEFAULT_LANGUAGE.trim().toLowerCase();
+  const lang = (ENV.ADAM_DEFAULT_LANGUAGE ?? 'english').trim().toLowerCase();
   if (lang === 'malay' || lang === 'ms' || lang === 'bm') return 'Bahasa Malaysia';
   if (lang === 'english' || lang === 'en') return 'English';
   return lang;
@@ -262,20 +261,14 @@ export function sanitizeEastAsianScriptLeaks(
   if (isMalayReplyLocale(expectedLocale)) {
     const bmCleaned = sanitizeMalaysiaBmDrift(out, expectedLocale);
     if (bmCleaned !== out && containsIndonesianDrift(out)) {
-      console.log('[adam:language-guard] sanitized Indonesian drift in Malay reply');
+
     }
     out = bmCleaned;
   }
   return out;
 }
 
-const REPAIR_SYSTEM = `You are ADAM's language purity corrector.
-Remove script characters that do NOT belong in the speaker's language.
-Rewrite in the speaker's language naturally.
-Preserve: Bismillahirahmanirrahim, all XML tags and JSON inside them, Quranic Arabic, constitutional terms, and proper names.
-Output ONLY the corrected full text — no commentary.`;
-
-/** Repair Qwen replies that leaked CJK into a non-CJK turn. */
+/** Repair Qwen replies that leaked CJK into a non-CJK turn — deterministic strip only. */
 export async function repairEastAsianScriptLeak(
   text: string,
   userMessage: string,
@@ -285,58 +278,20 @@ export async function repairEastAsianScriptLeak(
 
   const synced = sanitizeEastAsianScriptLeaks(text, expectedLocale);
   if (!containsEastAsianScript(synced)) {
-    if (synced !== text) {
-      console.log('[adam:language-guard] stripped script leak (sync)', {
-        locale: expectedLocale,
-        charsBefore: text.length,
-        charsAfter:  synced.length,
-      });
-    }
     return synced;
   }
 
   const leak = detectScriptLeak(synced, expectedLocale);
   if (!leak.hasLeak && !containsEastAsianScript(synced)) return synced;
 
-  /** Fast path — strip without a second LLM round-trip. */
   if (leak.hasLeak && leak.cleanedResponse.length > 0) {
     const retained = leak.cleanedResponse.length / Math.max(synced.length, 1);
     if (retained >= 0.85 && !containsEastAsianScript(leak.cleanedResponse)) {
-      console.log('[adam:language-guard] stripped script leak (fast path)', {
-        leakType: leak.leakType,
-        leakPct:  leak.leakPercentage,
-      });
       return leak.cleanedResponse;
     }
   }
 
-  const textForRepair = synced;
-
-  const targetLabel = localeToLabel(expectedLocale);
-
-  try {
-    const fixed = await llmCompleteUserPrompt(
-      REPAIR_SYSTEM,
-      `Speaker language: ${targetLabel}. Remove stray Chinese/Japanese/Korean characters. Rewrite in ${targetLabel}.\n\n${textForRepair}`,
-      getFastModel(),
-      Math.min(8192, Math.max(1500, Math.ceil(textForRepair.length * 1.15))),
-    );
-    const trimmed = sanitizeEastAsianScriptLeaks(fixed.trim(), expectedLocale);
-    if (trimmed.length > 0 && !containsEastAsianScript(trimmed)) {
-      console.log('[adam:language-guard] repaired script leak', {
-        target:      targetLabel,
-        leakType:    leak.leakType,
-        leakPct:     leak.leakPercentage,
-        charsBefore: text.length,
-        charsAfter:  trimmed.length,
-      });
-      return trimmed;
-    }
-  } catch (err) {
-    console.warn('[adam:language-guard] repair failed — stripping leaked script', err);
-  }
-
-  const stripped = sanitizeEastAsianScriptLeaks(textForRepair, expectedLocale);
+  const stripped = sanitizeEastAsianScriptLeaks(synced, expectedLocale);
   if (stripped.length > 0) return stripped;
   return leak.cleanedResponse || stripped;
 }

@@ -77,20 +77,12 @@ router.post('/', requireAdamUser, uploadRateLimit, async (c) => {
       ? resolveFounderUploaderId(user.userId)
       : user.userId;
 
-    console.log(
-      `[adam:upload] start name=${rawFile.name} bytes=${rawFile.size} role=${uploaderRole}`,
-    );
-
     const upload = await saveTeachingUpload(rawFile, {
       sessionId,
       uploadedBy,
       uploaderRole,
       uploaderName: user.name ?? user.userId,
     });
-
-    console.log(
-      `[adam:upload] ok id=${upload.id} name=${upload.fileName} bytes=${upload.sizeBytes}`,
-    );
 
     const response: ADAMApiResponse<{
       upload: Pick<
@@ -134,48 +126,53 @@ router.post('/', requireAdamUser, uploadRateLimit, async (c) => {
 
 // GET /api/adam/upload/:id
 router.get('/:id', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const id = c.req.param('id')!;
-  const upload = await getTeachingUpload(id);
+  try {
+    const user = getTokenUser(c)!;
+    const id = c.req.param('id')!;
+    const upload = await getTeachingUpload(id);
 
-  if (!upload) {
+    if (!upload) {
+      return c.json({
+        success: false,
+        error:   'Upload not found.',
+        kernel:  'ALAMTOLOGI',
+      }, 404);
+    }
+
+    const requesterRole: 'founder' | 'student' =
+      user.role === 'founder' || user.isFounder ? 'founder' : 'student';
+
+    if (!canAccessTeachingUpload(upload, { userId: user.userId, role: requesterRole })) {
+      return c.json({
+        success: false,
+        error:   'Access denied.',
+        kernel:  'ALAMTOLOGI',
+      }, 403);
+    }
+
     return c.json({
-      success: false,
-      error:   'Upload not found.',
-      kernel:  'ALAMTOLOGI',
-    }, 404);
-  }
-
-  const requesterRole: 'founder' | 'student' =
-    user.role === 'founder' || user.isFounder ? 'founder' : 'student';
-
-  if (!canAccessTeachingUpload(upload, { userId: user.userId, role: requesterRole })) {
-    return c.json({
-      success: false,
-      error:   'Access denied.',
-      kernel:  'ALAMTOLOGI',
-    }, 403);
-  }
-
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    version:   ENV.QXK24_KERNEL_VERSION,
-    era:       ENV.QXK24_ERA,
-    data: {
-      upload: {
-        id:            upload.id,
-        sessionId:     upload.sessionId,
-        fileName:      upload.fileName,
-        mimeType:      upload.mimeType,
-        sizeBytes:     upload.sizeBytes,
-        textTruncated: upload.textTruncated,
-        uploadedAt:    upload.uploadedAt,
-        preview:       upload.extractedText.slice(0, 280),
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data: {
+        upload: {
+          id:            upload.id,
+          sessionId:     upload.sessionId,
+          fileName:      upload.fileName,
+          mimeType:      upload.mimeType,
+          sizeBytes:     upload.sizeBytes,
+          textTruncated: upload.textTruncated,
+          uploadedAt:    upload.uploadedAt,
+          preview:       upload.extractedText.slice(0, 280),
+        },
       },
-    },
-    timestamp: new Date().toISOString(),
-  });
-});
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

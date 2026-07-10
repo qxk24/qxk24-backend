@@ -76,10 +76,6 @@ export async function saveJournalSection(
     },
   );
 
-  console.log(
-    `[journal:section] Saved "${sectionKey}" on ${journalNumber} — ` +
-    `sectionWords: ${words}, totalWords: ${totalWords}`,
-  );
   return { totalWords };
 }
 
@@ -112,9 +108,5 @@ export async function approveJournalSection(
 
   if (!updated) throw new Error(`Journal not found: ${journalNumber}`);
 
-  console.log(
-    `[journal:section] Approved "${sectionKey}" on ${journalNumber} — ` +
-    `${updated.approvedSections.length}/${JOURNAL_V2_SECTION_COUNT} sections approved`,
-  );
   return { approvedSections: updated.approvedSections };
 }

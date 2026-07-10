@@ -28,10 +28,12 @@ import type { AdamSensingBundle, AdamSensingInput } from './adam-sensing.types';
 /** Entry Article 8 — satu bacaan sebelum IQ/EQ/fuse. */
 export function runAdamSensingEngine(input: AdamSensingInput): AdamSensingBundle {
   const message = stripLeadingAdamSalutation(input.userMessage).trim();
+  const domainRoute = classifyAdamDomain(message, input);
   return {
     message,
     surfaceKind:       readQuestionSignal(message),
-    domainFacet:         classifyAdamDomain(message, input),
+    domainFacet:         domainRoute.voiceFacet,
+    groundingFacet:      domainRoute.groundingFacet,
     faithDoorOpen:       userOpenedFaithDoor(input.userMessage),
     affectiveTone:       readEmotionalSignal(message),
     situationPosture:    readSituationSignal({

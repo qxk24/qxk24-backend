@@ -143,14 +143,6 @@ export async function governAction(
     request.context
   );
 
-  console.log(
-    `[Alamtologi:GOVERN] ${auditId} | ` +
-    `action=${request.action} | ` +
-    `decision=${decision} | ` +
-    `principles=[${principlesEvaluated.join(',')}] | ` +
-    `src=${request.appSource ?? 'unknown'}`
-  );
-
   return {
     decision,
     auditId,

@@ -62,58 +62,73 @@ import { ChatSchema, SessionTitleSchema } from './adam-student.schemas';
 const router = new Hono();
 
 router.get('/session', requireStudent, async (c) => {
-  const laneBlock = await guardUmumLane(c);
-  if (laneBlock) return laneBlock;
-  const user = getTokenUser(c)!;
-  const preferred = c.req.query('sessionId')?.trim();
-  let sessionId: string;
-  if (preferred) {
-    const allowed = await assertStudentOwnsSession(user.userId, preferred);
-    if (!allowed) {
-      return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+  try {
+    const laneBlock = await guardUmumLane(c);
+    if (laneBlock) return laneBlock;
+    const user = getTokenUser(c)!;
+    const preferred = c.req.query('sessionId')?.trim();
+    let sessionId: string;
+    if (preferred) {
+      const allowed = await assertStudentOwnsSession(user.userId, preferred);
+      if (!allowed) {
+        return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+      }
+      sessionId = preferred;
+    } else {
+      sessionId = await resolveStudentChatSession(user.userId);
     }
-    sessionId = preferred;
-  } else {
-    sessionId = await resolveStudentChatSession(user.userId);
-  }
-  return c.json({
-    success: true,
-    sessionId,
-    userId:    user.userId,
-    name:      user.name,
-    kernel:    'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+    return c.json({
+      success: true,
+      sessionId,
+      userId:    user.userId,
+      name:      user.name,
+      kernel:    'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/chat/sessions', requireStudent, async (c) => {
-  const laneBlock = await guardUmumLane(c);
-  if (laneBlock) return laneBlock;
-  const user = getTokenUser(c)!;
-  const rawLimit = parseInt(c.req.query('limit') ?? '30', 10);
-  const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 30;
-  const sessions = await listUserChatSessions(user.userId, 'student', limit);
-  return c.json({
-    success: true,
-    sessions,
-    count:     sessions.length,
-    kernel:    'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const laneBlock = await guardUmumLane(c);
+    if (laneBlock) return laneBlock;
+    const user = getTokenUser(c)!;
+    const rawLimit = parseInt(c.req.query('limit') ?? '30', 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 30;
+    const sessions = await listUserChatSessions(user.userId, 'student', limit);
+    return c.json({
+      success: true,
+      sessions,
+      count:     sessions.length,
+      kernel:    'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/chat/sessions', requireStudent, async (c) => {
-  const laneBlock = await guardUmumLane(c);
-  if (laneBlock) return laneBlock;
-  const user = getTokenUser(c)!;
-  const sessionId = await createNewChatSession(user.userId, 'student');
-  return c.json({
-    success: true,
-    sessionId,
-    kernel:    'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const laneBlock = await guardUmumLane(c);
+    if (laneBlock) return laneBlock;
+    const user = getTokenUser(c)!;
+    const sessionId = await createNewChatSession(user.userId, 'student');
+    return c.json({
+      success: true,
+      sessionId,
+      kernel:    'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.patch('/chat/sessions/:sessionId', requireStudent, zValidator('json', SessionTitleSchema), async (c) => {
   const laneBlock = await guardUmumLane(c);
@@ -145,11 +160,16 @@ router.delete('/chat/sessions/:sessionId', requireStudent, async (c) => {
 });
 
 router.get('/group/session', requireStudent, async (c) => {
-  const laneBlock = await guardUmumLane(c);
-  if (laneBlock) return laneBlock;
-  const sessionId = await getOrCreateGroupSession();
-  return c.json({ success: true, sessionId, kernel: 'ALAMTOLOGI' });
-});
+  try {
+    const laneBlock = await guardUmumLane(c);
+    if (laneBlock) return laneBlock;
+    const sessionId = await getOrCreateGroupSession();
+    return c.json({ success: true, sessionId, kernel: 'ALAMTOLOGI' });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json', ChatSchema), async (c) => {
   const laneBlock = await guardUmumLane(c);
@@ -255,7 +275,12 @@ router.post('/chat', requireStudent, requireActiveSubscription, zValidator('json
           sessionId!,
           message,
           body.mode === 'JOURNAL_GEN' || body.mode === 'AUDIT' ? 'QUESTIONING' : body.mode,
-          async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
+          async (event, data) => {
+ try {   await s.write(`event: ${event}\ndata: ${data}\n\n`); 
+ } catch (err) {
+   console.error(err);
+   throw err;
+ }},
           body.uploadIds ?? [],
           {
             userId:      user.userId,
@@ -307,7 +332,12 @@ router.post('/group/chat', requireStudent, requireActiveSubscription, zValidator
           sessionId,
           groupMessage,
           body.mode === 'JOURNAL_GEN' || body.mode === 'AUDIT' ? 'QUESTIONING' : body.mode,
-          async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
+          async (event, data) => {
+ try {   await s.write(`event: ${event}\ndata: ${data}\n\n`); 
+ } catch (err) {
+   console.error(err);
+   throw err;
+ }},
           body.uploadIds ?? [],
           {
             userId:      user.userId,
@@ -327,19 +357,24 @@ router.post('/group/chat', requireStudent, requireActiveSubscription, zValidator
 });
 
 router.get('/chat/history/:sessionId', requireStudent, async (c) => {
-  const laneBlock = await guardUmumLane(c);
-  if (laneBlock) return laneBlock;
-  const user = getTokenUser(c)!;
-  const sessionId = c.req.param('sessionId') ?? '';
-  const allowed = await assertStudentOwnsSession(user.userId, sessionId);
-  if (!allowed) {
-    return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
-  }
-  const rawLimit = parseInt(c.req.query('limit') ?? '100', 10);
-  const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, rawLimit)) : 100;
-  const messages = await loadMessageHistory(sessionId, limit);
-  return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
-});
+  try {
+    const laneBlock = await guardUmumLane(c);
+    if (laneBlock) return laneBlock;
+    const user = getTokenUser(c)!;
+    const sessionId = c.req.param('sessionId') ?? '';
+    const allowed = await assertStudentOwnsSession(user.userId, sessionId);
+    if (!allowed) {
+      return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+    }
+    const rawLimit = parseInt(c.req.query('limit') ?? '100', 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, rawLimit)) : 100;
+    const messages = await loadMessageHistory(sessionId, limit);
+    return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.delete('/chat/history/:sessionId', requireStudent, async (c) => {
   const laneBlock = await guardUmumLane(c);
@@ -368,19 +403,29 @@ router.delete('/chat/history/:sessionId', requireStudent, async (c) => {
 });
 
 router.get('/group/history', requireStudent, async (c) => {
-  const sessionId = await getOrCreateGroupSession();
-  const messages = await loadMessageHistory(sessionId, 100);
-  return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
-});
+  try {
+    const sessionId = await getOrCreateGroupSession();
+    const messages = await loadMessageHistory(sessionId, 100);
+    return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.delete('/chat/messages/:messageId', requireStudent, async (c) => {
-  const user = getTokenUser(c)!;
-  const messageId = c.req.param('messageId') ?? '';
-  const deleted = await deleteFounderMessage(messageId, user.userId);
-  if (!deleted) {
-    return c.json({ success: false, error: 'Message not found.', kernel: 'ALAMTOLOGI' }, 404);
-  }
-  return c.json({ success: true, messageId, kernel: 'ALAMTOLOGI' });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const messageId = c.req.param('messageId') ?? '';
+    const deleted = await deleteFounderMessage(messageId, user.userId);
+    if (!deleted) {
+      return c.json({ success: false, error: 'Message not found.', kernel: 'ALAMTOLOGI' }, 404);
+    }
+    return c.json({ success: true, messageId, kernel: 'ALAMTOLOGI' });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

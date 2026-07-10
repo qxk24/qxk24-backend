@@ -112,15 +112,6 @@ export async function streamJournalBySections(input: {
       });
   }
 
-  console.log(
-    '[adam:journal-section] complete',
-    JSON.stringify({
-      sessionId:           input.resolvedSessionId,
-      totalWords:          sectionResult.totalWords,
-      allSectionsComplete: sectionResult.allSectionsComplete,
-    }),
-  );
-
   return {
     fullResponse,
     sectionJournalComplete: sectionResult.allSectionsComplete,
@@ -136,10 +127,7 @@ export async function rerouteManifestoToSectionWriter(input: {
   streamOnce: AdamStreamOnceFn;
   onEvent: AdamOnEventFn;
 }): Promise<SectionJournalStreamResult> {
-  console.log(
-    '[adam:journal-section] manifesto drift — rerouting to V2 section writer',
-    JSON.stringify({ sessionId: input.resolvedSessionId, topicId: input.lockedTopic.topicId }),
-  );
+
   input.onEvent(
     'adam_chunk',
     JSON.stringify({ text: '\n\n— V2 journal (Title & Abstract) —\n\n' }),

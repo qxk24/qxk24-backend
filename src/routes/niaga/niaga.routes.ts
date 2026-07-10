@@ -184,15 +184,20 @@ router.post('/partner/apply', zValidator('json', ApplySchema), async (c) => {
 
 // POST /api/niaga/channel/validate — public channel code lookup
 router.post('/channel/validate', zValidator('json', ChannelValidateSchema), async (c) => {
-  const { channelCode } = c.req.valid('json');
-  const result = await validateNiagaChannelCode(channelCode);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    result,
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const { channelCode } = c.req.valid('json');
+    const result = await validateNiagaChannelCode(channelCode);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    result,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/niaga/trader/register — authenticated trader registration
 router.post('/trader/register', requireAdamUser, zValidator('json', TraderRegisterSchema), async (c) => {
@@ -218,14 +223,19 @@ router.post('/trader/register', requireAdamUser, zValidator('json', TraderRegist
 
 // GET /api/niaga/trader/me — current user's trader registration
 router.get('/trader/me', requireAdamUser, async (c) => {
-  const reg = await getNiagaTraderByUser(userId(c));
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    data:      { registration: reg },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const reg = await getNiagaTraderByUser(userId(c));
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      data:      { registration: reg },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/niaga/trader/checkout — Stripe checkout for approved trader
 router.post('/trader/checkout', requireAdamUser, zValidator('json', CheckoutSchema), async (c) => {
@@ -253,55 +263,75 @@ router.post('/trader/checkout', requireAdamUser, zValidator('json', CheckoutSche
 
 // POST /api/niaga/partner/portal/login — validate partner credentials
 router.post('/partner/portal/login', zValidator('json', PartnerLoginSchema), async (c) => {
-  const { channelCode, portalToken } = c.req.valid('json');
-  const license = await resolveNiagaPartnerLicense(channelCode, portalToken);
-  if (!license || license.status !== 'active') {
-    return c.json({ success: false, error: 'Invalid credentials.', kernel: 'ALAMTOLOGI' }, 403);
-  }
-  const overview = await getNiagaPartnerPortalOverview(license);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { overview, orgName: license.orgName },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const { channelCode, portalToken } = c.req.valid('json');
+    const license = await resolveNiagaPartnerLicense(channelCode, portalToken);
+    if (!license || license.status !== 'active') {
+      return c.json({ success: false, error: 'Invalid credentials.', kernel: 'ALAMTOLOGI' }, 403);
+    }
+    const overview = await getNiagaPartnerPortalOverview(license);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { overview, orgName: license.orgName },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/niaga/partner/portal/overview
 router.get('/partner/portal/overview', requireNiagaPartner, async (c) => {
-  const license = getNiagaPartnerLicense(c)!;
-  const overview = await getNiagaPartnerPortalOverview(license);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    overview,
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const license = getNiagaPartnerLicense(c)!;
+    const overview = await getNiagaPartnerPortalOverview(license);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    overview,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/niaga/partner/portal/traders/pending
 router.get('/partner/portal/traders/pending', requireNiagaPartner, async (c) => {
-  const license = getNiagaPartnerLicense(c)!;
-  const traders = await listNiagaPartnerPendingTraders(license.channelCode);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { traders, total: traders.length },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const license = getNiagaPartnerLicense(c)!;
+    const traders = await listNiagaPartnerPendingTraders(license.channelCode);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { traders, total: traders.length },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/niaga/partner/portal/traders
 router.get('/partner/portal/traders', requireNiagaPartner, async (c) => {
-  const license = getNiagaPartnerLicense(c)!;
-  const traders = await listNiagaPartnerTraders(license.channelCode);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { traders, total: traders.length },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const license = getNiagaPartnerLicense(c)!;
+    const traders = await listNiagaPartnerTraders(license.channelCode);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { traders, total: traders.length },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/niaga/partner/portal/traders/:registrationId/approve
 router.post('/partner/portal/traders/:registrationId/approve', requireNiagaPartner, async (c) => {
@@ -347,71 +377,96 @@ router.post(
 
 // GET /api/niaga/admin/overview — QIUBBX Niaga module console
 router.get('/admin/overview', requireNiagaAdmin, async (c) => {
-  const overview = await getNiagaAdminOverview();
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    operator:  'QIUBBX Technologies (M) Sdn Bhd',
-    data:      overview,
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const overview = await getNiagaAdminOverview();
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      operator:  'QIUBBX Technologies (M) Sdn Bhd',
+      data:      overview,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/niaga/admin/applications
 router.get('/admin/applications', requireNiagaAdmin, async (c) => {
-  const statusParam = c.req.query('status');
-  const status = statusParam && Object.values(NiagaApplicationStatus).includes(statusParam as NiagaApplicationStatus)
-    ? (statusParam as NiagaApplicationStatus)
-    : undefined;
+  try {
+    const statusParam = c.req.query('status');
+    const status = statusParam && Object.values(NiagaApplicationStatus).includes(statusParam as NiagaApplicationStatus)
+      ? (statusParam as NiagaApplicationStatus)
+      : undefined;
 
-  const [applications, overview] = await Promise.all([
-    listNiagaPartnerApplications(status),
-    getNiagaAdminOverview(),
-  ]);
+    const [applications, overview] = await Promise.all([
+      listNiagaPartnerApplications(status),
+      getNiagaAdminOverview(),
+    ]);
 
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    data:      { applications, overview },
-    timestamp: new Date().toISOString(),
-  });
-});
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      data:      { applications, overview },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/niaga/admin/licenses
 router.get('/admin/licenses', requireNiagaAdmin, async (c) => {
-  const licenses = await listNiagaPartnerLicenses();
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    data:      { licenses, total: licenses.length },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const licenses = await listNiagaPartnerLicenses();
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      data:      { licenses, total: licenses.length },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/niaga/admin/traders
 router.get('/admin/traders', requireNiagaAdmin, async (c) => {
-  const statusParam = c.req.query('status');
-  const traders = await listNiagaTraders(
-    statusParam ? { status: statusParam as import('../../niaga/niaga-trader-registration.schema').NiagaTraderStatus } : undefined,
-  );
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { traders, total: traders.length },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const statusParam = c.req.query('status');
+    const traders = await listNiagaTraders(
+      statusParam ? { status: statusParam as import('../../niaga/niaga-trader-registration.schema').NiagaTraderStatus } : undefined,
+    );
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { traders, total: traders.length },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/niaga/admin/payments/ledger
 router.get('/admin/payments/ledger', requireNiagaAdmin, async (c) => {
-  const ledger = await listNiagaPaymentLedger();
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { ledger, total: ledger.length },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const ledger = await listNiagaPaymentLedger();
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { ledger, total: ledger.length },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/niaga/admin/applications/:applicationId/approve
 router.post(
@@ -517,53 +572,68 @@ router.get('/templates/cashflow', requireAdamUser, rejectToolsLaneOnly, async (c
 
 // GET /api/niaga/chat/subscription — trader access + usage
 router.get('/chat/subscription', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const access = await resolveNiagaSubscriptionAccess(user);
-  return c.json({
-    success:         true,
-    billingEnforced: (await import('../../niaga/niaga-subscription-access.service')).isNiagaBillingEnforced(),
-    ...access,
-    kernel:          'ALAMTOLOGI',
-  });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const access = await resolveNiagaSubscriptionAccess(user);
+    return c.json({
+      success:         true,
+      billingEnforced: (await import('../../niaga/niaga-subscription-access.service')).isNiagaBillingEnforced(),
+      ...access,
+      kernel:          'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/niaga/chat/session
 router.get('/chat/session', requireNiagaSubscription, async (c) => {
-  const user = getTokenUser(c)!;
-  const preferred = c.req.query('sessionId')?.trim();
-  let sessionId: string;
-  if (preferred) {
-    const allowed = await assertStudentOwnsSession(user.userId, preferred);
-    if (!allowed) {
-      return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+  try {
+    const user = getTokenUser(c)!;
+    const preferred = c.req.query('sessionId')?.trim();
+    let sessionId: string;
+    if (preferred) {
+      const allowed = await assertStudentOwnsSession(user.userId, preferred);
+      if (!allowed) {
+        return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+      }
+      sessionId = preferred;
+    } else {
+      sessionId = await resolveNiagaChatSession(user.userId);
     }
-    sessionId = preferred;
-  } else {
-    sessionId = await resolveNiagaChatSession(user.userId);
-  }
-  return c.json({
-    success:   true,
-    sessionId,
-    userId:    user.userId,
-    name:      user.name,
-    kernel:    'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+    return c.json({
+      success:   true,
+      sessionId,
+      userId:    user.userId,
+      name:      user.name,
+      kernel:    'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/niaga/chat/sessions — recents sidebar
 router.get('/chat/sessions', requireNiagaSubscription, async (c) => {
-  const user = getTokenUser(c)!;
-  const rawLimit = parseInt(c.req.query('limit') ?? '30', 10);
-  const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 30;
-  const sessions = await listUserChatSessions(user.userId, 'niaga', limit);
-  return c.json({
-    success: true,
-    sessions,
-    count:   sessions.length,
-    kernel:  'ALAMTOLOGI',
-  });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const rawLimit = parseInt(c.req.query('limit') ?? '30', 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 30;
+    const sessions = await listUserChatSessions(user.userId, 'niaga', limit);
+    return c.json({
+      success: true,
+      sessions,
+      count:   sessions.length,
+      kernel:  'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.patch(
   '/chat/sessions/:sessionId',
@@ -596,29 +666,39 @@ router.delete('/chat/sessions/:sessionId', requireNiagaSubscription, async (c) =
 });
 
 router.post('/chat/sessions', requireNiagaSubscription, async (c) => {
-  const user = getTokenUser(c)!;
-  const sessionId = await createNewChatSession(user.userId, 'niaga');
-  return c.json({
-    success: true,
-    sessionId,
-    kernel:  'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const sessionId = await createNewChatSession(user.userId, 'niaga');
+    return c.json({
+      success: true,
+      sessionId,
+      kernel:  'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/niaga/chat/history/:sessionId
 router.get('/chat/history/:sessionId', requireNiagaSubscription, async (c) => {
-  const user = getTokenUser(c)!;
-  const sessionId = c.req.param('sessionId') ?? '';
-  const allowed = await assertStudentOwnsSession(user.userId, sessionId);
-  if (!allowed) {
-    return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
-  }
-  const rawLimit = parseInt(c.req.query('limit') ?? '100', 10);
-  const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, rawLimit)) : 100;
-  const messages = await loadMessageHistory(sessionId, limit);
-  return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const sessionId = c.req.param('sessionId') ?? '';
+    const allowed = await assertStudentOwnsSession(user.userId, sessionId);
+    if (!allowed) {
+      return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+    }
+    const rawLimit = parseInt(c.req.query('limit') ?? '100', 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, rawLimit)) : 100;
+    const messages = await loadMessageHistory(sessionId, limit);
+    return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // DELETE /api/niaga/chat/history/:sessionId
 router.delete('/chat/history/:sessionId', requireNiagaSubscription, async (c) => {
@@ -665,7 +745,12 @@ router.post('/chat', requireNiagaSubscription, zValidator('json', NiagaChatSchem
           sessionId!,
           message,
           'NIAGA',
-          async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
+          async (event, data) => {
+ try {   await s.write(`event: ${event}\ndata: ${data}\n\n`); 
+ } catch (err) {
+   console.error(err);
+   throw err;
+ }},
           body.uploadIds ?? [],
           {
             userId:      user.userId,
@@ -691,23 +776,33 @@ router.post('/chat', requireNiagaSubscription, zValidator('json', NiagaChatSchem
 
 // GET /api/niaga/admin/payments/export
 router.get('/admin/payments/export', requireNiagaAdmin, async (c) => {
-  const csv = await exportNiagaAdminLedgerCsv();
-  c.header('Content-Type', 'text/csv; charset=utf-8');
-  c.header('Content-Disposition', 'attachment; filename="niaga-ledger.csv"');
-  return c.body(csv);
-});
+  try {
+    const csv = await exportNiagaAdminLedgerCsv();
+    c.header('Content-Type', 'text/csv; charset=utf-8');
+    c.header('Content-Disposition', 'attachment; filename="niaga-ledger.csv"');
+    return c.body(csv);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/niaga/partner/portal/reports/commission.csv
 router.get('/partner/portal/reports/commission.csv', requireNiagaPartner, async (c) => {
-  const license = getNiagaPartnerLicense(c)!;
-  const monthKey = c.req.query('month')?.trim();
-  const csv = await exportNiagaCommissionCsv({
-    channelCode: license.channelCode,
-    monthKey,
-  });
-  c.header('Content-Type', 'text/csv; charset=utf-8');
-  c.header('Content-Disposition', `attachment; filename="niaga-commission-${license.channelCode}.csv"`);
-  return c.body(csv);
-});
+  try {
+    const license = getNiagaPartnerLicense(c)!;
+    const monthKey = c.req.query('month')?.trim();
+    const csv = await exportNiagaCommissionCsv({
+      channelCode: license.channelCode,
+      monthKey,
+    });
+    c.header('Content-Type', 'text/csv; charset=utf-8');
+    c.header('Content-Disposition', `attachment; filename="niaga-commission-${license.channelCode}.csv"`);
+    return c.body(csv);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

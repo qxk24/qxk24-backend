@@ -50,6 +50,19 @@ export function userAskedForAlamtologi(message: string): boolean {
   );
 }
 
+/** Surface may name Alamtologi / MASA-TENAGA billboards — only when user opened that door. */
+export function userPermitsAlamtologiSurfaceLabels(
+  message: string,
+  recentUserMessages: string[] = [],
+): boolean {
+  const turns = [...recentUserMessages, message].map((m) => m.trim()).filter(Boolean);
+  return turns.some(
+    (m) => userAskedForAlamtologi(m)
+      || userAskedForConstitutionalStructure(m)
+      || /\b(?:peringkat\s+[23]|sudut\s+alamtologi|perspektif\s+alamtologi)\b/i.test(m),
+  );
+}
+
 /** Hukum Z/X, seven principles, or other constitutional structure the user wants listed clearly. */
 export function userAskedForConstitutionalStructure(message: string): boolean {
   const t = message.trim();

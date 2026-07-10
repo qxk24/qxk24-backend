@@ -59,33 +59,43 @@ function parseModuleQuery(raw: string | undefined): PlatformAdminModule | undefi
 
 // GET /api/admin/access?module=niaga
 router.get('/access', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const module = parseModuleQuery(c.req.query('module'));
-  const access = await resolvePlatformAdminAccess({
-    userId:    user.userId,
-    isFounder: isFounderPayload(user),
-    module,
-  });
+  try {
+    const user = getTokenUser(c)!;
+    const module = parseModuleQuery(c.req.query('module'));
+    const access = await resolvePlatformAdminAccess({
+      userId:    user.userId,
+      isFounder: isFounderPayload(user),
+      module,
+    });
 
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    operator:  'QIUBBX Technologies (M) Sdn Bhd',
-    data:      access,
-    timestamp: new Date().toISOString(),
-  });
-});
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      operator:  'QIUBBX Technologies (M) Sdn Bhd',
+      data:      access,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/admin/platform-admins — Founder only
 router.get('/platform-admins', requireFounder, async (c) => {
-  const admins = await listPlatformAdmins();
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    data:      { admins, total: admins.length },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const admins = await listPlatformAdmins();
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      data:      { admins, total: admins.length },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/admin/platform-admins — Founder invite QIUBBX staff
 router.post(

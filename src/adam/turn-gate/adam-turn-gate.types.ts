@@ -86,6 +86,8 @@ export interface AdamAddressPolicy {
 
 export interface AdamTurnIQ {
   domainFacet: AdamUsersDomainFacet;
+  /** Search/recall grounding — dual facet when faith voice + sirah facts. */
+  groundingFacet: AdamUsersDomainFacet;
   /** S1 — question surface kind (Article 8). */
   surfaceKind: AdamSurfaceKind;
   /** Analytic delivery — technical vs general prose. IQ only. */

@@ -44,6 +44,7 @@ export function fitraRecompose(
     iq = {
       ...iq,
       domainFacet: 'general',
+      groundingFacet: 'general',
       displayChannel: 'none',
       searchProfile: null,
     };
@@ -54,6 +55,7 @@ export function fitraRecompose(
     iq = {
       ...iq,
       domainFacet: 'general',
+      groundingFacet: 'general',
       displayChannel: 'none',
       searchProfile: null,
     };

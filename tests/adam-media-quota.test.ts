@@ -25,7 +25,7 @@ import {
   resolveMediaQuotaTier,
   mediaMaxVideoSeconds,
 } from '../src/adam/adam-media-quota-tier';
-import { snapWanxVideoDuration } from '../src/adam/adam-wanx-video.client';
+import { snapVideoDuration } from '../src/qxk24brain/deep-ul/local-vision-engine';
 import { SubscriptionTier } from '../src/subscriptions/subscription.schema';
 
 describe('adam-media-generation intent', () => {
@@ -75,10 +75,10 @@ describe('adam-media-generation video duration', () => {
     expect(parseRequestedVideoSeconds('Buat video animasi sel')).toBe(5);
   });
 
-  it('snaps Wanx duration to 5 or 10 within cap', () => {
-    expect(snapWanxVideoDuration(3)).toBe(5);
-    expect(snapWanxVideoDuration(8)).toBe(10);
-    expect(snapWanxVideoDuration(10)).toBe(10);
-    expect(snapWanxVideoDuration(99)).toBe(mediaMaxVideoSeconds() <= 5 ? 5 : 10);
+  it('snaps video duration to 5 or 10 within cap', () => {
+    expect(snapVideoDuration(3)).toBe(5);
+    expect(snapVideoDuration(8)).toBe(10);
+    expect(snapVideoDuration(10)).toBe(10);
+    expect(snapVideoDuration(99)).toBe(mediaMaxVideoSeconds() <= 5 ? 5 : 10);
   });
 });

@@ -132,11 +132,6 @@ export async function processLongTeaching(
 
   const chunks = semanticChunk(trimmed, MAX_CHUNK_CHARS);
 
-  console.log(
-    `[ADAM TCP] Long teaching detected: ${trimmed.length} chars → ${chunks.length} chunks` +
-    (sessionId ? ` (session ${sessionId.slice(-8)})` : ''),
-  );
-
   let lastResult: TransformResult | null = null;
 
   for (let i = 0; i < chunks.length; i++) {

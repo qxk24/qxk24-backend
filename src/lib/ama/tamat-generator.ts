@@ -192,11 +192,7 @@ export async function resolveTamatLayer5Block(
   });
 
   if (oass.active && process.env.NODE_ENV !== 'production') {
-    console.log('[AMA Tamat] OASS', {
-      coherence:  tamat.coherence,
-      integrated: tamat.integrated,
-      reasons:    oass.reasons,
-    });
+
   }
 
   return buildTamatLayer5PromptBlock(routeForPrompt, tamat, oass);

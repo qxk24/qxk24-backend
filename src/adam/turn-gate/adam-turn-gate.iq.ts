@@ -35,6 +35,9 @@ export function resolveAdamTurnIQ(
   const domainFacet = input.isFounder || eq.lane !== 'users'
     ? 'general' as const
     : sensing.domainFacet;
+  const groundingFacet = input.isFounder || eq.lane !== 'users'
+    ? 'general' as const
+    : sensing.groundingFacet;
 
   const usersMode = resolveIqUsersMode(
     eq.lane,
@@ -68,6 +71,7 @@ export function resolveAdamTurnIQ(
 
   return {
     domainFacet,
+    groundingFacet,
     surfaceKind: sensing.surfaceKind,
     usersMode,
     contentIntent,
@@ -76,7 +80,7 @@ export function resolveAdamTurnIQ(
     secondaryTitle: composer.secondaryHeader ?? null,
     displayChannel,
     searchProfile: eq.lane === 'users'
-      ? buildUsersDomainSearchHint(domainFacet, message)
+      ? buildUsersDomainSearchHint(groundingFacet, message)
       : null,
     composer,
     answerShape,

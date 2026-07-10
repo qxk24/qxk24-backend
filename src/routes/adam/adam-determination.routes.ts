@@ -51,22 +51,27 @@ router.post(
   requireFounder,
   zValidator('json', DeterminationSchema),
   async (c) => {
-    const body   = c.req.valid('json');
-    const result = await runADAMDetermination(body);
+    try {
+      const body   = c.req.valid('json');
+      const result = await runADAMDetermination(body);
 
-    const response: ADAMApiResponse<ADAMDeterminationResult> = {
-      success:   result.judgment !== 'WAQF',
-      kernel:    'ALAMTOLOGI',
-      version:   ENV.QXK24_KERNEL_VERSION,
-      era:       ENV.QXK24_ERA,
-      data:      result,
-      auditId:   result.auditId,
-      timestamp: new Date().toISOString(),
-    };
+      const response: ADAMApiResponse<ADAMDeterminationResult> = {
+        success:   result.judgment !== 'WAQF',
+        kernel:    'ALAMTOLOGI',
+        version:   ENV.QXK24_KERNEL_VERSION,
+        era:       ENV.QXK24_ERA,
+        data:      result,
+        auditId:   result.auditId,
+        timestamp: new Date().toISOString(),
+      };
 
-    const statusCode = result.judgment === 'WAQF' ? 422 : 200;
-    return c.json(response, statusCode);
-  },
+      const statusCode = result.judgment === 'WAQF' ? 422 : 200;
+      return c.json(response, statusCode);
+  
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }},
 );
 
 // ─── POST /api/adam/determination/service — Service Token ────
@@ -76,36 +81,46 @@ router.post(
   requireServiceToken,
   zValidator('json', DeterminationSchema),
   async (c) => {
-    const body   = c.req.valid('json');
-    const result = await runADAMDetermination(body);
+    try {
+      const body   = c.req.valid('json');
+      const result = await runADAMDetermination(body);
 
-    return c.json({
-      success:   result.canProceed,
-      kernel:    'ALAMTOLOGI',
-      version:   ENV.QXK24_KERNEL_VERSION,
-      era:       ENV.QXK24_ERA,
-      data:      result,
-      auditId:   result.auditId,
-      timestamp: new Date().toISOString(),
-    });
-  },
+      return c.json({
+        success:   result.canProceed,
+        kernel:    'ALAMTOLOGI',
+        version:   ENV.QXK24_KERNEL_VERSION,
+        era:       ENV.QXK24_ERA,
+        data:      result,
+        auditId:   result.auditId,
+        timestamp: new Date().toISOString(),
+      });
+  
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }},
 );
 
 // ─── GET /api/adam/determination/audit/:targetId ─────────────
 
 router.get('/audit/:targetId', requireFounder, async (c) => {
-  const targetId   = c.req.param('targetId')!;
-  const targetType = c.req.query('type') ?? 'SESSION';
-  const history    = await getAuditHistory(targetId, targetType);
+  try {
+    const targetId   = c.req.param('targetId')!;
+    const targetType = c.req.query('type') ?? 'SESSION';
+    const history    = await getAuditHistory(targetId, targetType);
 
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    version:   ENV.QXK24_KERNEL_VERSION,
-    era:       ENV.QXK24_ERA,
-    data:      { history, count: history.length },
-    timestamp: new Date().toISOString(),
-  });
-});
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data:      { history, count: history.length },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

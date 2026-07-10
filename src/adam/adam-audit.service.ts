@@ -24,8 +24,7 @@
 // ============================================================
 
 import { v4 as uuidv4 } from 'uuid';
-import { getDeepModel } from '../config/llm-models';
-import { llmCompleteUserPrompt } from '../llm/llm-client';
+import { runConstitutionalJudgment } from '../qxk24brain/deep-ul/constitutional-judgment-engine';
 import { ADAMAuditModel, ADAMJournalModel, ADAMTeachingModel } from './adam.schema';
 import type {
   ADAMAuditReport,
@@ -112,43 +111,28 @@ async function fetchTargetData(
 export async function runADAMAudit(req: ADAMAuditRequest): Promise<ADAMAuditReport> {
   const auditId    = uuidv4();
   const targetData = await fetchTargetData(req.targetId, req.targetType);
+  const judgmentResult = runConstitutionalJudgment({
+    question:    `${req.targetType} audit at ${req.stage}`,
+    context:     req.context,
+    targetData,
+  });
 
-  let hukumZ:      HukumZResult;
-  let hukumX:      HukumXProcess;
-  let adab:        AdabScore;
-  let healthScore: number;
-  let judgment:    ConstitutionalJudgment;
-  let findings:    string[];
-  let recommendations: string[];
-  let canAdvance:  boolean;
-
-  try {
-    const raw = await llmCompleteUserPrompt(
-      'ADAM constitutional audit engine.',
-      buildAuditPrompt(req.targetType, req.stage, targetData, req.context),
-      getDeepModel(),
-      2048,
-    );
-    const parsed = JSON.parse(raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
-
-    hukumZ          = parsed.hukumZ;
-    hukumX          = parsed.hukumX;
-    adab            = parsed.adab;
-    healthScore     = parsed.healthScore;
-    judgment        = parsed.judgment;
-    findings        = parsed.findings        ?? [];
-    recommendations = parsed.recommendations ?? [];
-    canAdvance      = parsed.canAdvance      ?? false;
-  } catch {
-    hukumZ          = { pola: 'BELUM', kadar: 'BELUM', pasangan: 'BELUM', keseimbangan: 'BELUM' };
-    hukumX          = { fikir: 'Audit engine unavailable', ikhtiar: 'N/A', usaha: 'N/A', natijah: 'WAQF' };
-    adab            = { benar: 0, amanah: 0, menyampaikan: 0, bijaksana: 0, total: 0 };
-    healthScore     = 0;
-    judgment        = 'WAQF';
-    findings        = ['Audit engine connection failed'];
-    recommendations = ['Restore constitutional engine and resubmit'];
-    canAdvance      = false;
-  }
+  const hukumZ          = judgmentResult.hukumZ;
+  const hukumX          = {
+    fikir:   judgmentResult.response,
+    ikhtiar: 'Deterministic UL audit',
+    usaha:   req.stage,
+    natijah: judgmentResult.judgment,
+  };
+  const adab            = {
+    benar: 0.7, amanah: 0.7, menyampaikan: 0.7, bijaksana: 0.7,
+    total: judgmentResult.healthScore,
+  };
+  const healthScore     = judgmentResult.healthScore;
+  const judgment        = judgmentResult.judgment as ConstitutionalJudgment;
+  const findings        = judgmentResult.findings;
+  const recommendations = judgmentResult.recommendations;
+  const canAdvance      = judgmentResult.canAdvance;
 
   const report: ADAMAuditReport = {
     auditId,

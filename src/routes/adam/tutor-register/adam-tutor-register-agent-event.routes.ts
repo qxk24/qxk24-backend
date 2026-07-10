@@ -138,38 +138,53 @@ router.post(
 
 // GET /api/adam/tutor/admin/prospects
 router.get('/admin/prospects', requireFounderOrPlatformAdmin, async (c) => {
-  const leads = await listAdminTutorAgentProspectLeads();
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { leads },
-    count:   leads.length,
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const leads = await listAdminTutorAgentProspectLeads();
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { leads },
+      count:   leads.length,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/agent/events — public upcoming published briefings
 router.get('/agent/events', async (c) => {
-  const events = await listPublishedTutorAgentEvents();
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { events },
-    count:   events.length,
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const events = await listPublishedTutorAgentEvents();
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { events },
+      count:   events.length,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/agent/events/featured — primary RSVP landing event
 router.get('/agent/events/featured', async (c) => {
-  const event = await getFeaturedTutorAgentEvent();
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { event },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const event = await getFeaturedTutorAgentEvent();
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { event },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/agent/events/:eventId — public event detail
 router.get('/agent/events/:eventId', async (c) => {
@@ -244,16 +259,21 @@ router.post(
 
 // GET /api/adam/tutor/agent/portal/events/:eventId/rsvp — logged-in agent RSVP
 router.get('/agent/portal/events/:eventId/rsvp', requireTutorAgent, async (c) => {
-  const eventId = eventIdParam(c);
-  const agent = getTutorAgent(c)!;
-  const rsvp = await getAgentRsvpForEvent(eventId, agent);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { rsvp },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const eventId = eventIdParam(c);
+    const agent = getTutorAgent(c)!;
+    const rsvp = await getAgentRsvpForEvent(eventId, agent);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { rsvp },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/tutor/agent/portal/events/:eventId/rsvp — logged-in agent RSVP
 router.post(
@@ -291,15 +311,20 @@ router.post(
 
 // GET /api/adam/tutor/admin/events
 router.get('/admin/events', requireFounderOrPlatformAdmin, async (c) => {
-  const events = await listAdminTutorAgentEvents();
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { events },
-    count:   events.length,
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const events = await listAdminTutorAgentEvents();
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { events },
+      count:   events.length,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/tutor/admin/events
 router.post(

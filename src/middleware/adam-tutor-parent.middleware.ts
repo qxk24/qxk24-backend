@@ -26,18 +26,23 @@ export function parentAccessTokenFromRequest(c: Context): string | null {
 }
 
 export async function requireParentGuardian(c: Context, next: Next) {
-  const token = parentAccessTokenFromRequest(c);
-  const guardian = await resolveParentGuardianByToken(token);
-  if (!guardian) {
-    return c.json({
-      success: false,
-      error:   'Akses penjaga tidak sah. Gunakan pautan atau token dari pendaftaran.',
-      kernel:  'ALAMTOLOGI',
-    }, 401);
-  }
-  c.set('parentGuardian', guardian);
-  await next();
-}
+  try {
+    const token = parentAccessTokenFromRequest(c);
+    const guardian = await resolveParentGuardianByToken(token);
+    if (!guardian) {
+      return c.json({
+        success: false,
+        error:   'Akses penjaga tidak sah. Gunakan pautan atau token dari pendaftaran.',
+        kernel:  'ALAMTOLOGI',
+      }, 401);
+    }
+    c.set('parentGuardian', guardian);
+    await next();
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }}
 
 export function getParentGuardian(c: Context): ITutorParentGuardian {
   return c.get('parentGuardian') as ITutorParentGuardian;

@@ -61,7 +61,7 @@ export async function resolveStudentForGrant(raw: string): Promise<{ userId: str
   if (byExactId) return { userId: byExactId.userId, name: byExactId.name };
 
   for (const [userId, aliases] of Object.entries(LOGIN_ALIASES)) {
-    if (aliases.some((a) => a === lower) || userId === lower) {
+    if (aliases.some((alias) => lower === alias.toLowerCase())) {
       const doc = await ADAMStudentAccountModel.findOne({ userId, active: true }).lean();
       if (doc) return { userId: doc.userId, name: doc.name };
     }

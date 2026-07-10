@@ -81,8 +81,12 @@ export async function markChaptersTaughtThrough(
   const ids = chapterIdsThrough(highestChapterId);
   let updated = 0;
 
+  // Batch query to avoid N+1 issue
+  const rows = await SyllabusProgressModel.find({ chapterId: { $in: ids } }).lean();
+  const rowMap = new Map<string, any>(rows.map(row => [row.chapterId, row]));
+
   for (const chapterId of ids) {
-    const row = await SyllabusProgressModel.findOne({ chapterId }).lean();
+    const row = rowMap.get(chapterId);
     if (!row) continue;
     if (row.status === 'training_ready') continue;
 
@@ -97,9 +101,7 @@ export async function markChaptersTaughtThrough(
   }
 
   if (updated > 0) {
-    console.log(
-      `[LLM Pipeline] Syllabus taught through ${highestChapterId} (+${updated} chapter rows)`,
-    );
+
   }
 
   return updated;

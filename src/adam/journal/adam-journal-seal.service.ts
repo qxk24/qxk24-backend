@@ -60,9 +60,5 @@ export async function sealJournal(
     { $set: { status: 'PENDING_REVIEW', sealedAt, updatedAt: sealedAt } },
   );
 
-  console.log(
-    `[journal:seal] ${journalNumber} sealed — ` +
-    `totalWords: ${totalWords}, sealedAt: ${sealedAt.toISOString()}`,
-  );
   return { sealedAt };
 }

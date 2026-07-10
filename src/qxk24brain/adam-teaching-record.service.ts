@@ -64,9 +64,9 @@ export interface TeachingRecordRow {
   principle:          string;
   isNewFamily:        boolean;
   isNucleus?:         boolean;
-  teacherRole:        'founder' | 'inquiry';
+  teacherRole:        'founder' | 'inquiry' | 'tutor';
   teacherName:        string;
-  aSource?:           'founder' | 'inquiry' | 'conventional' | 'quran';
+  aSource?:           'founder' | 'inquiry' | 'conventional' | 'quran' | 'tutor';
   episodeSummary:     string;
   teachingIntent:     string;
   outcomeSummary:     string;
@@ -258,9 +258,7 @@ export async function recordTeachingTransformation(
   }
 
   if (skipBridge) {
-    console.log(
-      `[TeachingBridge] Mode filter — skip meta-operational / non-law record ${doc.recordId}`,
-    );
+
   } else {
     void import('../teaching-bridge/teaching-bridge.hook')
       .then(({ hookTeachingBridgeAfterRecord }) => hookTeachingBridgeAfterRecord(doc))
@@ -272,7 +270,7 @@ export async function recordTeachingTransformation(
 
 export interface RecordTransformEpisodeInput {
   founderId:        string;
-  aSource:          'founder' | 'inquiry' | 'conventional' | 'quran';
+  aSource:          'founder' | 'inquiry' | 'conventional' | 'quran' | 'tutor';
   sessionId:        string;
   userMessageId?:   string;
   studentId?:       string;
@@ -395,6 +393,8 @@ export interface TeachingRecordSearchOptions {
   studentId?:          string;
   /** Filter teacherRole — e.g. inquiry-only for student relational recall. */
   teacherRoles?:       string[];
+  /** Filter tutor-lane episodes (transformMeta.channelLane). */
+  channelLane?:        string;
 }
 
 export async function searchTeachingRecords(
@@ -405,7 +405,7 @@ export async function searchTeachingRecords(
 ): Promise<TeachingRecordRow[]> {
   const cap = Math.min(Math.max(limit, 1), 20);
   const q = query.trim();
-  const { skipRecentFallback = false, studentId, teacherRoles } = options;
+  const { skipRecentFallback = false, studentId, teacherRoles, channelLane } = options;
 
   const scopeFilter: Record<string, unknown> = {
     founderId,
@@ -413,6 +413,9 @@ export async function searchTeachingRecords(
   };
   if (studentId?.trim()) {
     scopeFilter['transformMeta.studentId'] = studentId.trim();
+  }
+  if (channelLane?.trim()) {
+    scopeFilter['transformMeta.channelLane'] = channelLane.trim();
   }
   if (teacherRoles?.length) {
     scopeFilter.teacherRole = { $in: teacherRoles };

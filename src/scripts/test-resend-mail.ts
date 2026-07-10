@@ -41,18 +41,13 @@ async function main(): Promise<void> {
     || process.env.MAIL_TEST_TO?.trim()
     || 'info@alamtologi.com';
 
-  console.log('[resend:test] mail configured:', isMailConfigured());
-  console.log('[resend:test] from:', ENV.MAIL_FROM.trim() || '(missing)');
-  console.log('[resend:test] reply-to:', ENV.MAIL_REPLY_TO.trim() || '(default)');
-
   if (!isMailConfigured()) {
     console.error('[resend:test] FAIL — set RESEND_API_KEY and MAIL_FROM in .env');
     process.exit(1);
   }
 
   if (dryRun) {
-    console.log('[resend:test] OK — config only (--dry-run)');
-    console.log('[resend:test] would send to:', to);
+
     return;
   }
 
@@ -74,7 +69,6 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  console.log(`[resend:test] OK — test email sent to ${to} (id=${result.id ?? 'unknown'})`);
 }
 
 main().catch((err) => {

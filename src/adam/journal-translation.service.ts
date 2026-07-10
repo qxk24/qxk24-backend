@@ -15,10 +15,8 @@
  * ============================================================
  */
 
-import { getDeepModel } from '../config/llm-models';
-import { llmCompleteUserPrompt } from '../llm/llm-client';
+import { translateDeterministically, translateJournalField } from '../qxk24brain/deep-ul/translation-engine';
 import { ADAMJournalModel } from './adam.schema';
-import { parseLooseAdamJson } from './adam-chat-response-parser';
 import type { AlamtologiAcademicJournal, JournalContent } from './adam.types';
 import {
   DEFAULT_JOURNAL_LOCALE,
@@ -130,33 +128,40 @@ SOURCE CONTENT JSON:
 ${JSON.stringify(journal.content)}`;
 }
 
-async function translateJournalWithLlm(
+async function translateJournalWithUl(
   journal: AlamtologiAcademicJournal,
   target: JournalLocale,
   source: JournalLocale,
 ): Promise<JournalTranslationBundle> {
-  const raw = await llmCompleteUserPrompt(
-    'Alamtologi constitutional journal translation.',
-    buildTranslationPrompt(journal, target, source),
-    getDeepModel(),
-    8192,
-  );
+  const sourceIsEnglish = source === 'en';
+  const translate = (text: string) => {
+    if (target === source || !text.trim()) return text;
+    if (sourceIsEnglish && (target === 'ms' || target === 'ar')) {
+      return translateDeterministically(text, target);
+    }
+    return translateJournalField(text, target === 'ar' ? 'ar' : 'ms');
+  };
 
-  const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  const parsed = parseLooseAdamJson(cleaned) as {
-    title?: string;
-    abstract?: string;
-    content?: Partial<JournalContent>;
-  } | null;
-
-  if (!parsed?.title?.trim() || !parsed.abstract?.trim() || !parsed.content) {
-    throw new Error('Journal translation JSON parse failed');
-  }
+  const content = normalizeTranslationContent({
+    introduction: journal.content.introduction,
+    background: journal.content.background,
+    methodology: journal.content.methodology,
+    alamtologiAnalysis: journal.content.alamtologiAnalysis?.map((a) => ({
+      ...a,
+      analysis: translate(a.analysis),
+      evidence: a.evidence?.map((e) => translate(e)) ?? [],
+    })),
+    findings: translate(journal.content.findings),
+    discussion: translate(journal.content.discussion),
+    conclusion: translate(journal.content.conclusion),
+    references: journal.content.references?.map((r) => translate(r)) ?? [],
+    appendices: journal.content.appendices?.map((a) => translate(a)),
+  });
 
   return {
-    title:        parsed.title.trim(),
-    abstract:     parsed.abstract.trim(),
-    content:      normalizeTranslationContent(parsed.content),
+    title:        translate(journal.title),
+    abstract:     translate(journal.abstract),
+    content,
     translatedAt: new Date().toISOString(),
     locale:       target,
   };
@@ -202,7 +207,7 @@ export async function getJournalTranslation(
 
   if (opts?.allowGenerate === false) return null;
 
-  const bundle = await translateJournalWithLlm(journal, locale, sourceLanguage);
+  const bundle = await translateJournalWithUl(journal, locale, sourceLanguage);
 
   await ADAMJournalModel.findByIdAndUpdate(journalId, {
     $set: {
@@ -256,7 +261,7 @@ export async function ensureEnglishPublicationManuscript(journalId: string): Pro
     locale:       sourceLanguage,
   };
 
-  const english = await translateJournalWithLlm(
+  const english = await translateJournalWithUl(
     journal,
     JOURNAL_PUBLISH_LOCALE,
     sourceLanguage,
@@ -272,15 +277,6 @@ export async function ensureEnglishPublicationManuscript(journalId: string): Pro
     },
   });
 
-  console.log(
-    '[journal:publish-en]',
-    JSON.stringify({
-      journalId,
-      from: sourceLanguage,
-      to:   JOURNAL_PUBLISH_LOCALE,
-      titleChars: english.title.length,
-    }),
-  );
 }
 
 export async function ensureSourceLanguage(journalId: string): Promise<JournalLocale> {

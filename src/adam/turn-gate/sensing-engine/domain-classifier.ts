@@ -13,20 +13,20 @@
 import { isAdamNiagaMode } from '../../adam-niaga-law';
 import { isAdamTutorMode } from '../../adam-tutor-law';
 import {
-  resolveAdamUsersDomainFacet,
+  resolveAdamUsersDomainRoute,
   type AdamUsersDomainFacet,
 } from '../../adam-users-domain-router';
 import type { AdamSensingInput } from './adam-sensing.types';
 
-/** DomainClassifier — mirrors users domain router (Article 8 S4). */
+/** DomainClassifier — voice + grounding facets (Article 8 S4). */
 export function classifyAdamDomain(
   message: string,
   input: AdamSensingInput,
-): AdamUsersDomainFacet {
+): { voiceFacet: AdamUsersDomainFacet; groundingFacet: AdamUsersDomainFacet } {
   if (input.isFounder || isAdamTutorMode(input.mode) || isAdamNiagaMode(input.mode)) {
-    return 'general';
+    return { voiceFacet: 'general', groundingFacet: 'general' };
   }
-  return resolveAdamUsersDomainFacet(message, {
+  return resolveAdamUsersDomainRoute(message, {
     recentUserMessages: input.recentUserMessages,
   });
 }

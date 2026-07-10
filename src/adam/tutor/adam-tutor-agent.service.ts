@@ -162,30 +162,35 @@ export async function listTutorAgentsForAdmin(limit = 100): Promise<TutorAgentAd
 
   return Promise.all(
     agents.map(async (agent) => {
-      const overview = await getTutorAgentPortalOverview(agent);
-      return {
-        ...overview,
-        email:                  agent.email,
-        phone:                  agent.phone,
-        icNumber:               agent.icNumber,
-        taxId:                  agent.taxId,
-        bankName:               agent.bankName,
-        bankAccountNumber:      agent.bankAccountNumber,
-        bankAccountHolder:      agent.bankAccountHolder,
-        addressLine1:           agent.addressLine1,
-        addressLine2:           agent.addressLine2,
-        postcode:               agent.postcode,
-        city:                   agent.city,
-        status:                 agent.status,
-        bandLabel:              agent.band
-          ? TUTOR_REGISTER_BAND_LABELS_BM[agent.band]
-          : null,
-        notes:                  agent.notes,
-        createdBy:              agent.createdBy,
-        createdAt:              agent.createdAt.toISOString(),
-        packageStripeSessionId: agent.packageStripeSessionId,
-      };
-    }),
+      try {
+        const overview = await getTutorAgentPortalOverview(agent);
+        return {
+          ...overview,
+          email:                  agent.email,
+          phone:                  agent.phone,
+          icNumber:               agent.icNumber,
+          taxId:                  agent.taxId,
+          bankName:               agent.bankName,
+          bankAccountNumber:      agent.bankAccountNumber,
+          bankAccountHolder:      agent.bankAccountHolder,
+          addressLine1:           agent.addressLine1,
+          addressLine2:           agent.addressLine2,
+          postcode:               agent.postcode,
+          city:                   agent.city,
+          status:                 agent.status,
+          bandLabel:              agent.band
+            ? TUTOR_REGISTER_BAND_LABELS_BM[agent.band]
+            : null,
+          notes:                  agent.notes,
+          createdBy:              agent.createdBy,
+          createdAt:              agent.createdAt.toISOString(),
+          packageStripeSessionId: agent.packageStripeSessionId,
+        };
+    
+      } catch (err) {
+        console.error(err);
+        throw err;
+      }}),
   );
 }
 
@@ -364,25 +369,30 @@ export async function listTutorAgentStudents(
 }
 
 export async function getTutorAgentWallet(agentId: string) {
-  const agent = await TutorAgentModel.findOne({ agentId }).lean();
-  if (!agent) return null;
+  try {
+    const agent = await TutorAgentModel.findOne({ agentId }).lean();
+    if (!agent) return null;
 
-  const ledger = await listAgentWalletLedger(agentId, 80);
-  return {
-    walletBalanceMyr:   agent.walletBalanceMyr,
-    totalCommissionMyr: await sumAgentCommission(agentId),
-    ledger: ledger.map((row) => ({
-      ledgerId:     row.ledgerId,
-      type:         row.type,
-      amountMyr:    row.amountMyr,
-      balanceAfter: row.balanceAfter,
-      enrollmentId: row.enrollmentId,
-      registerCode: row.registerCode,
-      note:         row.note,
-      recordedAt:   row.recordedAt.toISOString(),
-    })),
-  };
-}
+    const ledger = await listAgentWalletLedger(agentId, 80);
+    return {
+      walletBalanceMyr:   agent.walletBalanceMyr,
+      totalCommissionMyr: await sumAgentCommission(agentId),
+      ledger: ledger.map((row) => ({
+        ledgerId:     row.ledgerId,
+        type:         row.type,
+        amountMyr:    row.amountMyr,
+        balanceAfter: row.balanceAfter,
+        enrollmentId: row.enrollmentId,
+        registerCode: row.registerCode,
+        note:         row.note,
+        recordedAt:   row.recordedAt.toISOString(),
+      })),
+    };
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }}
 
 /** Founder-only — remove agen with no redeemed PINs or linked students. */
 export async function deleteTutorAgentByAdmin(agentId: string): Promise<{

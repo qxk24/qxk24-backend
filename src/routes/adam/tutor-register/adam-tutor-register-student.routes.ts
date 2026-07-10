@@ -58,54 +58,74 @@ import {
 const router = new Hono();
 // POST /api/adam/tutor/register/code/validate — public; no fee disclosed
 router.post('/register/code/validate', zValidator('json', CodeValidateSchema), async (c) => {
-  const { registerCode } = c.req.valid('json');
-  const result = await validateTutorRegisterCode(registerCode);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    result,
-    phase:   'MY',
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const { registerCode } = c.req.valid('json');
+    const result = await validateTutorRegisterCode(registerCode);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    result,
+      phase:   'MY',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/register/access — auth; enrollment gate for /adam/tutor
 router.get('/register/access', requireStudent, async (c) => {
-  const uid = userId(c);
-  const access = await resolveTutorEnrollmentAccess(uid);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    access,
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const uid = userId(c);
+    const access = await resolveTutorEnrollmentAccess(uid);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    access,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/register/me — auth
 router.get('/register/me', requireStudent, async (c) => {
-  const uid = userId(c);
-  const [enrollment, learningProfile] = await Promise.all([
-    getTutorEnrollmentForUser(uid),
-    getTutorLearningProfile(uid),
-  ]);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { enrollment, learningProfile },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const uid = userId(c);
+    const [enrollment, learningProfile] = await Promise.all([
+      getTutorEnrollmentForUser(uid),
+      getTutorLearningProfile(uid),
+    ]);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { enrollment, learningProfile },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/learning-profile — auth; ERA_2 adaptive state
 router.get('/learning-profile', requireStudent, async (c) => {
-  const learningProfile = await getTutorLearningProfile(userId(c));
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { learningProfile },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const learningProfile = await getTutorLearningProfile(userId(c));
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { learningProfile },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/curriculum/subjects — public; subjects by school band
 router.get('/curriculum/subjects', async (c) => {
@@ -124,55 +144,75 @@ router.get('/curriculum/subjects', async (c) => {
 
 // POST /api/adam/tutor/parent/session — validate parent access token
 router.post('/parent/session', zValidator('json', ParentSessionSchema), async (c) => {
-  const { accessToken } = c.req.valid('json');
-  const guardian = await resolveParentGuardianByToken(accessToken);
-  if (!guardian) {
-    return c.json({ success: false, error: 'Token tidak sah.', kernel: 'ALAMTOLOGI' }, 401);
-  }
-  const dashboard = await buildParentDashboard(guardian, '/adam/tutor/parent');
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { dashboard, accessTokenHint: guardian.accessTokenHint },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const { accessToken } = c.req.valid('json');
+    const guardian = await resolveParentGuardianByToken(accessToken);
+    if (!guardian) {
+      return c.json({ success: false, error: 'Token tidak sah.', kernel: 'ALAMTOLOGI' }, 401);
+    }
+    const dashboard = await buildParentDashboard(guardian, '/adam/tutor/parent');
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { dashboard, accessTokenHint: guardian.accessTokenHint },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/parent/dashboard — parent portal (X-Parent-Access-Token)
 router.get('/parent/dashboard', requireParentGuardian, async (c) => {
-  const guardian = getParentGuardian(c);
-  const dashboard = await buildParentDashboard(guardian, '/adam/tutor/parent');
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { dashboard },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const guardian = getParentGuardian(c);
+    const dashboard = await buildParentDashboard(guardian, '/adam/tutor/parent');
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { dashboard },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/parent/report — weekly | monthly
 router.get('/parent/report', requireParentGuardian, async (c) => {
-  const guardian = getParentGuardian(c);
-  const kind = c.req.query('kind') === 'monthly' ? 'monthly' : 'weekly';
-  const report = await buildParentReportForStudent(guardian.studentUserId, kind);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { report },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const guardian = getParentGuardian(c);
+    const kind = c.req.query('kind') === 'monthly' ? 'monthly' : 'weekly';
+    const report = await buildParentReportForStudent(guardian.studentUserId, kind);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { report },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/learning-progress — auth; ERA_2h metrics from event log
 router.get('/learning-progress', requireStudent, async (c) => {
-  const progress = await getTutorLearningProgress(userId(c));
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { progress },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const progress = await getTutorLearningProgress(userId(c));
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { progress },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/tutor/register/code/lock — auth; lock kod to student
 router.post('/register/code/lock', requireStudent, zValidator('json', CodeLockSchema), async (c) => {
@@ -246,22 +286,27 @@ router.post('/register/checkout', requireStudent, async (c) => {
 
 // POST /api/adam/tutor/register/sync-payment — auth; after Stripe return
 router.post('/register/sync-payment', requireStudent, async (c) => {
-  const body = await c.req.json().catch(() => ({})) as { sessionId?: string };
-  const sessionId = body.sessionId?.trim();
-  if (!sessionId) {
-    return c.json({ success: false, error: 'sessionId required.', kernel: 'ALAMTOLOGI' }, 400);
-  }
+  try {
+    const body = await c.req.json().catch(() => ({})) as { sessionId?: string };
+    const sessionId = body.sessionId?.trim();
+    if (!sessionId) {
+      return c.json({ success: false, error: 'sessionId required.', kernel: 'ALAMTOLOGI' }, 400);
+    }
 
-  const ok = await syncTutorPaymentFromSession(userId(c), sessionId);
-  const enrollment = await getTutorEnrollmentForUser(userId(c));
+    const ok = await syncTutorPaymentFromSession(userId(c), sessionId);
+    const enrollment = await getTutorEnrollmentForUser(userId(c));
 
-  return c.json({
-    success: ok,
-    kernel:  'ALAMTOLOGI',
-    data:    { paid: ok, enrollment },
-    timestamp: new Date().toISOString(),
-  });
-});
+    return c.json({
+      success: ok,
+      kernel:  'ALAMTOLOGI',
+      data:    { paid: ok, enrollment },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/tutor/register/complete — auth; profile form after PIN (before pay)
 router.post('/register/complete', requireStudent, zValidator('json', ProfileCompleteSchema), async (c) => {

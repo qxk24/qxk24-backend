@@ -22,3 +22,8 @@ export function shouldSkipUserRelationalCBlock(studentId: string): boolean {
 export function shouldSkipStudentInquiryRecall(studentId: string, userMessage: string): boolean {
   return shouldSkipUserRelationalCBlock(studentId) || userMessage.trim().length < 2;
 }
+
+/** Skip tutor UID recall when student id or message is empty. */
+export function shouldSkipTutorUidRecall(studentId: string, userMessage: string): boolean {
+  return shouldSkipUserRelationalCBlock(studentId) || userMessage.trim().length < 2;
+}

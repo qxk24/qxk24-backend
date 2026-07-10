@@ -22,7 +22,9 @@ import {
 } from './adam-response-generation';
 import {
   buildEducationalZeroHitSearchContextBlock,
+  buildDomainGroundingZeroHitSearchContextBlock,
 } from './adam-educational-grounding';
+import type { AdamUsersDomainFacet } from './adam-users-domain-router';
 import {
   buildMarketPricingSearchWeaveRules,
   isAdamMarketPricingTurn,
@@ -38,6 +40,7 @@ export function buildPrefetchedSearchContextBlock(
     extractedFacts?: string;
     userMessage?: string;
     isFounder?: boolean;
+    gateGroundingFacet?: AdamUsersDomainFacet;
   },
 ): string {
   if (options?.searchDropped) {
@@ -53,6 +56,10 @@ export function buildPrefetchedSearchContextBlock(
     if (options?.isFounder) {
       return buildFounderZeroHitSearchContextBlock();
     }
+    const domainZeroHit = options?.gateGroundingFacet
+      ? buildDomainGroundingZeroHitSearchContextBlock(options.gateGroundingFacet)
+      : null;
+    if (domainZeroHit) return domainZeroHit;
     if (options?.userMessage && isAdamEducationalWebSearchTurn(options.userMessage)) {
       return buildEducationalZeroHitSearchContextBlock();
     }

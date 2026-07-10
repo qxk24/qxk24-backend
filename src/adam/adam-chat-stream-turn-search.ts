@@ -104,7 +104,7 @@ export async function injectTurnSearchPrefetch(input: {
   const recentUserTurns = extractRecentUserTurns(llmMessages);
   const recentAssistantTurns = extractRecentAssistantTurns(llmMessages);
   const gateDomain = turnContext.river.gate.eq.lane === 'users'
-    ? turnContext.river.gate.iq.domainFacet
+    ? turnContext.river.gate.iq.groundingFacet
     : undefined;
   const searchDisplayQuery = buildAdamSearchDisplayQuery(
     userMessage,
@@ -163,6 +163,7 @@ export async function injectTurnSearchPrefetch(input: {
       extractedFacts: prefetch.extractedFacts,
       userMessage,
       isFounder,
+      gateGroundingFacet: turnContext.river.gate.iq.groundingFacet,
     },
   )}`;
 
@@ -224,19 +225,6 @@ export async function injectTurnSearchPrefetch(input: {
     }
   }
 
-  console.log('[adam:search-first] prefetch complete', JSON.stringify({
-    sessionId: resolvedSessionId,
-    hits:      prefetchedSearchResults.length,
-    mediaHits: mediaHits.length,
-    extractedFactsLines: prefetch.extractedFacts
-      ? prefetch.extractedFacts.split('\n').filter(Boolean).length
-      : 0,
-    dropped:   prefetchedSearchDropped,
-    ms:        searchPrefetchMs,
-    parallel:  turnContext.searchPrefetchParallel && Boolean(searchPrefetchPromise),
-    waitedMs:  searchPrefetchPromise ? Date.now() - prefetchStarted : prefetch.prefetchMs,
-  }));
-
   return {
     systemPrompt,
     searchPrefetchMs,
@@ -265,20 +253,4 @@ export function logSearchGateEnabled(input: {
     isGuestTrial,
   } = input;
 
-  console.log(
-    '[adam:search-gate] search ENABLED',
-    JSON.stringify({
-      sessionId:       resolvedSessionId,
-      messageLength:   userMessage.length,
-      preview:         userMessage.slice(0, 80),
-      reason:          webSearchGateReason,
-      forced:          shouldForceWebSearchForGateReason(webSearchGateReason),
-      searchFirst:     usersSearchFirst,
-      technicalFollowUp: precisionFollowUp,
-      guestTrial:      isGuestTrial,
-      stack:           ENV.QXK24_STACK,
-      llmProvider:     ENV.LLM_PROVIDER,
-      ts:              new Date().toISOString(),
-    }),
-  );
 }

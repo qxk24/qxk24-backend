@@ -233,9 +233,15 @@ export async function listGuruKelasForUser(userId: string): Promise<GuruKelasVie
   const countMap = new Map(counts.map((c) => [c._id, c.count]));
 
   const views: GuruKelasView[] = [];
+  const docs = await AdamGuruKelasModel.find({ kelasId: { $in: kelasRows.map(k => k.kelasId) } }).lean();
+  const docMap = new Map(docs.map(doc => [doc.kelasId, doc]));
   for (const k of kelasRows) {
-    const doc = await AdamGuruKelasModel.findOne({ kelasId: k.kelasId });
-    const joinCode = doc ? await ensureKelasJoinCode(doc) : (k.joinCode ?? '');
+    const doc = docMap.get(k.kelasId);
+    let joinCode = k.joinCode?.trim() || doc?.joinCode?.trim() || '';
+    if (!joinCode) {
+      const full = await AdamGuruKelasModel.findOne({ kelasId: k.kelasId });
+      if (full) joinCode = await ensureKelasJoinCode(full);
+    }
     views.push(kelasToView(k, countMap.get(k.kelasId) ?? 1, joinCode));
   }
   return views;
@@ -547,30 +553,35 @@ export async function rejectJoinRequest(input: {
 }
 
 export async function listPendingInvitations(userId: string) {
-  const rows = await AdamGuruInvitationModel.find({
-    inviteeUserId: userId,
-    status:        'pending',
-  }).lean();
+  try {
+    const rows = await AdamGuruInvitationModel.find({
+      inviteeUserId: userId,
+      status:        'pending',
+    }).lean();
 
-  const kelasIds = rows.map((r) => r.kelasId);
-  const kelasMap = new Map(
-    (await AdamGuruKelasModel.find({ kelasId: { $in: kelasIds } }).lean())
-      .map((k) => [k.kelasId, k]),
-  );
+    const kelasIds = rows.map((r) => r.kelasId);
+    const kelasMap = new Map(
+      (await AdamGuruKelasModel.find({ kelasId: { $in: kelasIds } }).lean())
+        .map((k) => [k.kelasId, k]),
+    );
 
-  return rows
-    .filter((r) => kelasMap.has(r.kelasId))
-    .map((r) => {
-      const k = kelasMap.get(r.kelasId)!;
-      return {
-        inviteId:      r.inviteId,
-        token:         r.token,
-        kelasId:       r.kelasId,
-        guruId:        k.guruId,
-        title:         k.title,
-        subject:       k.subject,
-        guruName:      k.guruName,
-        createdAt:     r.createdAt,
-      };
-    });
-}
+    return rows
+      .filter((r) => kelasMap.has(r.kelasId))
+      .map((r) => {
+        const k = kelasMap.get(r.kelasId)!;
+        return {
+          inviteId:      r.inviteId,
+          token:         r.token,
+          kelasId:       r.kelasId,
+          guruId:        k.guruId,
+          title:         k.title,
+          subject:       k.subject,
+          guruName:      k.guruName,
+          createdAt:     r.createdAt,
+        };
+      });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }}

@@ -102,32 +102,42 @@ function assertBlogFile(
 // ─── Public (register before /:id) ───────────────────────
 
 router.get('/public/list', async (c) => {
-  const posts = await listPublishedBlogPosts();
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    data:      { posts: posts.map(toListItem) },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const posts = await listPublishedBlogPosts();
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      data:      { posts: posts.map(toListItem) },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/public/:slug', async (c) => {
-  const slug = c.req.param('slug');
-  const post = await getPublishedBlogPostBySlug(slug);
-  if (!post) {
+  try {
+    const slug = c.req.param('slug');
+    const post = await getPublishedBlogPostBySlug(slug);
+    if (!post) {
+      return c.json({
+        success: false,
+        error:   'Post not found.',
+        kernel:  'ALAMTOLOGI',
+      }, 404);
+    }
     return c.json({
-      success: false,
-      error:   'Post not found.',
-      kernel:  'ALAMTOLOGI',
-    }, 404);
-  }
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    data:      { post },
-    timestamp: new Date().toISOString(),
-  });
-});
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      data:      { post },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // ─── Founder uploads ─────────────────────────────────────
 
@@ -216,25 +226,35 @@ router.post('/upload/video', requireFounder, async (c) => {
 // ─── Founder CRUD ────────────────────────────────────────
 
 router.post('/create', requireFounder, zValidator('json', CreateSchema), async (c) => {
-  const body = c.req.valid('json');
-  const post = await createBlogDraft(body);
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    data:      { post },
-    timestamp: new Date().toISOString(),
-  }, 201);
-});
+  try {
+    const body = c.req.valid('json');
+    const post = await createBlogDraft(body);
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      data:      { post },
+      timestamp: new Date().toISOString(),
+    }, 201);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/list', requireFounder, async (c) => {
-  const posts = await listAllBlogPosts();
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    data:      { posts },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const posts = await listAllBlogPosts();
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      data:      { posts },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 function requirePostId(c: { req: { param: (k: string) => string | undefined } }): string | null {
   const id = c.req.param('id')?.trim();
@@ -242,89 +262,114 @@ function requirePostId(c: { req: { param: (k: string) => string | undefined } })
 }
 
 router.patch('/:id', requireFounder, zValidator('json', UpdateSchema), async (c) => {
-  const id = requirePostId(c);
-  if (!id) {
-    return c.json({ success: false, error: 'Post id required.', kernel: 'ALAMTOLOGI' }, 400);
-  }
-  const body = c.req.valid('json');
-  const post = await updateBlogPost(id, body);
-  if (!post) {
-    return c.json({ success: false, error: 'Post not found.', kernel: 'ALAMTOLOGI' }, 404);
-  }
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    data:      { post },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const id = requirePostId(c);
+    if (!id) {
+      return c.json({ success: false, error: 'Post id required.', kernel: 'ALAMTOLOGI' }, 400);
+    }
+    const body = c.req.valid('json');
+    const post = await updateBlogPost(id, body);
+    if (!post) {
+      return c.json({ success: false, error: 'Post not found.', kernel: 'ALAMTOLOGI' }, 404);
+    }
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      data:      { post },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/:id/publish', requireFounder, async (c) => {
-  const id = requirePostId(c);
-  if (!id) {
-    return c.json({ success: false, error: 'Post id required.', kernel: 'ALAMTOLOGI' }, 400);
-  }
-  const post = await publishBlogPost(id);
-  if (!post) {
-    return c.json({ success: false, error: 'Post not found.', kernel: 'ALAMTOLOGI' }, 404);
-  }
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    data:      { post },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const id = requirePostId(c);
+    if (!id) {
+      return c.json({ success: false, error: 'Post id required.', kernel: 'ALAMTOLOGI' }, 400);
+    }
+    const post = await publishBlogPost(id);
+    if (!post) {
+      return c.json({ success: false, error: 'Post not found.', kernel: 'ALAMTOLOGI' }, 404);
+    }
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      data:      { post },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/:id/unpublish', requireFounder, async (c) => {
-  const id = requirePostId(c);
-  if (!id) {
-    return c.json({ success: false, error: 'Post id required.', kernel: 'ALAMTOLOGI' }, 400);
-  }
-  const post = await unpublishBlogPost(id);
-  if (!post) {
-    return c.json({ success: false, error: 'Post not found.', kernel: 'ALAMTOLOGI' }, 404);
-  }
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    data:      { post },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const id = requirePostId(c);
+    if (!id) {
+      return c.json({ success: false, error: 'Post id required.', kernel: 'ALAMTOLOGI' }, 400);
+    }
+    const post = await unpublishBlogPost(id);
+    if (!post) {
+      return c.json({ success: false, error: 'Post not found.', kernel: 'ALAMTOLOGI' }, 404);
+    }
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      data:      { post },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.delete('/:id', requireFounder, async (c) => {
-  const id = requirePostId(c);
-  if (!id) {
-    return c.json({ success: false, error: 'Post id required.', kernel: 'ALAMTOLOGI' }, 400);
-  }
-  const ok = await deleteBlogPost(id);
-  if (!ok) {
-    return c.json({ success: false, error: 'Post not found.', kernel: 'ALAMTOLOGI' }, 404);
-  }
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const id = requirePostId(c);
+    if (!id) {
+      return c.json({ success: false, error: 'Post id required.', kernel: 'ALAMTOLOGI' }, 400);
+    }
+    const ok = await deleteBlogPost(id);
+    if (!ok) {
+      return c.json({ success: false, error: 'Post not found.', kernel: 'ALAMTOLOGI' }, 404);
+    }
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 /** Founder fetch single post (draft or published) */
 router.get('/:id', requireFounder, async (c) => {
-  const id = requirePostId(c);
-  if (!id) {
-    return c.json({ success: false, error: 'Post id required.', kernel: 'ALAMTOLOGI' }, 400);
-  }
-  const post = await getBlogPostById(id);
-  if (!post) {
-    return c.json({ success: false, error: 'Post not found.', kernel: 'ALAMTOLOGI' }, 404);
-  }
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    data:      { post },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const id = requirePostId(c);
+    if (!id) {
+      return c.json({ success: false, error: 'Post id required.', kernel: 'ALAMTOLOGI' }, 400);
+    }
+    const post = await getBlogPostById(id);
+    if (!post) {
+      return c.json({ success: false, error: 'Post not found.', kernel: 'ALAMTOLOGI' }, 404);
+    }
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      data:      { post },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

@@ -43,14 +43,13 @@ async function tick(): Promise<void> {
 
 export function startAdamAtomicRecoveryScheduler(): void {
   if (process.env.ADAM_ATOMIC_RECOVERY_ENABLED === 'false') {
-    console.log('[ADAM Atomic] Recovery scheduler disabled.');
+
     return;
   }
 
   if (recoveryTimer) return;
 
   const intervalMs = recoveryIntervalMs();
-  console.log(`[ADAM Atomic] Recovery scheduler active — every ${intervalMs / 1000}s`);
 
   recoveryTimer = setInterval(() => {
     tick().catch((err) => {

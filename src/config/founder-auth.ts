@@ -61,7 +61,8 @@ function readFounderPasswordFromEnvFile(): string | undefined {
     return undefined;
   }
 
-  const prefix = 'FOUNDER_PASSWORD=';
+  const prefix = process.env.FOUNDER_AUTH_SECRET || 'FOUNDER_AUTH_SECRET=';
+
   for (const line of raw.split(/\r?\n/u)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;

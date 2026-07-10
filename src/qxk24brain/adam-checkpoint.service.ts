@@ -108,12 +108,14 @@ export async function backfillMissingCheckpoints(founderId: string): Promise<num
   const master = await getOrCreateMaster(founderId);
   let created = 0;
 
+  const existingCheckpoints = await ConstitutionalCheckpointModel.find({
+    founderId,
+    entityUid: { $in: master.completedFamilies.map(c => c.completedUid) }
+  }).lean();
+
+  const existingUids = new Set(existingCheckpoints.map(cp => cp.entityUid));
   for (const completed of master.completedFamilies) {
-    const exists = await ConstitutionalCheckpointModel.findOne({
-      founderId,
-      entityUid: completed.completedUid,
-    }).lean();
-    if (exists) continue;
+    if (existingUids.has(completed.completedUid)) continue;
 
     const id = await sealFromCompletedFamily(founderId, completed);
     if (id) created += 1;
@@ -125,12 +127,17 @@ export async function listConstitutionalCheckpoints(
   founderId = 'masa-bayu',
   limit = 40,
 ) {
-  await backfillMissingCheckpoints(founderId);
-  return ConstitutionalCheckpointModel.find({ founderId })
-    .sort({ masa_sealed: -1 })
-    .limit(limit)
-    .lean();
-}
+  try {
+    await backfillMissingCheckpoints(founderId);
+    return ConstitutionalCheckpointModel.find({ founderId })
+      .sort({ masa_sealed: -1 })
+      .limit(limit)
+      .lean();
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }}
 
 export async function buildCheckpointsContextBlock(
   founderId = 'masa-bayu',

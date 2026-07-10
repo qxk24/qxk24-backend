@@ -206,9 +206,7 @@ export async function generateTrainingExamplesFromUnit(
   await bumpSyllabusChapter(syllabusChapterId, inserted);
 
   if (inserted > 0) {
-    console.log(
-      `[LLM Pipeline] +${inserted} examples from ${unit.crystallisedUnitId} → ${syllabusChapterId}`,
-    );
+
   }
 
   return inserted;

@@ -21,7 +21,7 @@ import {
   resolveAdamMaxTokens,
   resolveQwenEnableThinking,
 } from '../config/llm-models';
-import { toLlmMessages } from '../llm/llm-client';
+import { toLlmMessages } from '../llm/llm-types';
 import { sanitizeAdamProseDashBridges } from './adam-prose-sanitize';
 import { isAdamProseCraftTurn } from './adam-prose-craft';
 import { streamAdamJournalResponse } from './adam-chat-stream-journal-turn';
@@ -42,7 +42,10 @@ import {
   appendGoldStandardSynthesisContextToPrompt,
 } from './adam-search-first';
 import {
-  createAdamLlmStreamOnce,
+  createAdamUlStreamOnce,
+} from './adam-chat-stream-ul-dialogue';
+import { aggregateSearchFacts } from '../qxk24brain/deep-ul/fact-aggregator';
+import {
   repairAdamStreamOutput,
 } from './adam-chat-stream-llm';
 import { resolveAdamTurnDisplayForSave } from './adam-stream-display-merge';
@@ -92,8 +95,6 @@ export async function executeAdamSynthesisTurn(input: {
   const { founderTeachingLearnerTurn } = teachingFlags;
   const { contextMessages, contextMs, needContinuityBridge, knowledgeMode, river, branchPolicy } = turnContext;
   const channel = river.channel;
-
-  console.log(formatBrainRiverLog(river, riverStageForSynthesis()));
 
   const promptBundle = await buildTurnPromptAndSearchGate({
     shell,
@@ -149,6 +150,17 @@ export async function executeAdamSynthesisTurn(input: {
     onEvent,
   });
 
+  if (
+    searchBundle.prefetchedSearchResults.length > 0
+    && searchBundle.prefetchedSearchUsed
+    && !searchBundle.prefetchedSearchDropped
+  ) {
+    searchBundle.extractedFacts = aggregateSearchFacts(
+      userMessage,
+      searchBundle.prefetchedSearchResults,
+    );
+  }
+
   const goldStandardSearchFirst = usersSearchFirst
     && isFactualAdamWebSearchGateReason(webSearchGateReason)
     && searchBundle.prefetchedSearchUsed
@@ -188,16 +200,11 @@ export async function executeAdamSynthesisTurn(input: {
 
   const bufferUntilRepair = branchPolicy.bufferStreamUntilRepair;
 
-  const streamOnce = createAdamLlmStreamOnce({
-    modelChoice,
-    maxTokens,
-    systemPrompt: searchBundle.systemPrompt,
-    enableThinking,
-    resolvedSessionId,
-    userMessage,
-    precisionActive: precisionTurn.isActive,
-    webSearchGateReason,
-    bufferChunksUntilRepair: bufferUntilRepair,
+  const streamOnce = createAdamUlStreamOnce({
+    shell,
+    mode,
+    contextMessages: llmMessages,
+    extractedFacts: searchBundle.extractedFacts,
     onEvent,
   });
 
@@ -228,9 +235,14 @@ export async function executeAdamSynthesisTurn(input: {
       llmMessages,
       enableWebSearch,
       streamOnce: async (messages, withSearch) => {
-        const result = await streamOnce(messages, withSearch);
-        return result.text;
-      },
+        try {
+          const result = await streamOnce(messages, withSearch);
+          return result.text;
+      
+        } catch (err) {
+          console.error(err);
+          throw err;
+        }},
       onEvent,
     });
     fullResponse = journalResult.fullResponse;
@@ -241,22 +253,11 @@ export async function executeAdamSynthesisTurn(input: {
     onEvent('adam_stream_idle', JSON.stringify({ sessionId: resolvedSessionId }));
   } else {
     if (goldStandardSearchFirst && goldStandardArticleReady) {
-      console.log('[adam:search-first] gold standard — ADAM full-voice synthesis', JSON.stringify({
-        sessionId: resolvedSessionId,
-        hits:      searchBundle.prefetchedSearchResults.length,
-        hasFigure: goldStandardVerifiedFigure !== null,
-      }));
+
     } else if (goldStandardSearchFirst && goldStandardVerifiedFigure) {
-      console.log('[adam:search-first] gold standard — synthesis with verified opener', JSON.stringify({
-        sessionId: resolvedSessionId,
-        figure:    goldStandardVerifiedFigure,
-        hits:      searchBundle.prefetchedSearchResults.length,
-      }));
+
     } else if (goldStandardSearchFirst) {
-      console.log('[adam:search-first] gold standard — guarded synthesis fallback', JSON.stringify({
-        sessionId: resolvedSessionId,
-        hits:      searchBundle.prefetchedSearchResults.length,
-      }));
+
     }
 
     if (!fullResponse) {
@@ -404,31 +405,6 @@ export async function executeAdamSynthesisTurn(input: {
       }
     }
   }
-
-  console.log(
-    '[adam:timing]',
-    JSON.stringify({
-      sessionId: resolvedSessionId,
-      role:      shell.participant.role,
-      stack:     ENV.QXK24_STACK,
-      mode,
-      model:     modelChoice.model,
-      tier:      modelChoice.tier,
-      reason:    modelChoice.reason,
-      contextMs,
-      searchPrefetchMs: searchBundle.searchPrefetchMs,
-      searchPrefetchParallel:
-        turnContext.searchPrefetchParallel && Boolean(turnContext.searchPrefetchPromise),
-      usersInlineSearch:
-        turnContext.usersInlineSearchOnly || ENV.ADAM_STUDENT_INLINE_SEARCH,
-      studentFounderStyleStream: turnContext.usersInlineSearchOnly,
-      continuityBridge: needContinuityBridge,
-      streamMs,
-      repairMs,
-      syncRepairMs: !isFounder ? syncRepairMs : undefined,
-      inputTurns: llmMessages.length,
-    }),
-  );
 
   if (fullResponse?.trim()) {
     const currentAffairsSafe = repairUnsupportedCurrentAffairsDenial({

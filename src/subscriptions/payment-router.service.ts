@@ -24,6 +24,7 @@ import {
   SupportedRegion,
   ISubscription,
   FOUNDER_SUBSCRIPTION_ID,
+  type ConsumerProductSku,
 } from './subscription.schema';
 import {
   TIER_ACCESS,
@@ -31,6 +32,7 @@ import {
   getProfesionalPricing,
   getTutorPricing,
   getConsumerProPricing,
+  getConsumerGeneralPremiumPricing,
   getConsumerPremiumPricing,
   getBusinessCoachPricing,
   normalizeTutorSubscriptionLevel,
@@ -50,6 +52,8 @@ export interface CreateSubscriptionInput {
   headers:      Headers;
   /** Required for TUTOR — primary / secondary / university pricing band */
   tutorLevel?:  TutorSubscriptionLevel | string | null;
+  /** PRO checkout — General Premium vs Tutor Pro product line */
+  consumerProductSku?: ConsumerProductSku | null;
 }
 
 export interface SubscriptionCreationResult {
@@ -91,6 +95,9 @@ export async function routeSubscriptionCreation(
         'Pro is not open for new subscriptions on this deployment.',
       );
     }
+    if (input.consumerProductSku === 'general_premium') {
+      return createConsumerGeneralPremiumSubscription(input, region, provider, myrRate);
+    }
     return createConsumerProSubscription(input, region, provider, myrRate);
   }
 
@@ -131,6 +138,44 @@ async function createConsumerProSubscription(
     provider,
     access:          TIER_ACCESS[SubscriptionTier.PRO],
     isFounderFunded: false,
+    consumerProductSku: 'pro',
+  });
+
+  const checkoutUrl = await createProviderCheckout(sub, amount, pricing.currency, provider);
+
+  return {
+    subscriptionId: sub._id.toString(),
+    checkoutUrl,
+    provider,
+    currency: pricing.currency,
+    amount,
+  };
+}
+
+async function createConsumerGeneralPremiumSubscription(
+  input:    CreateSubscriptionInput,
+  region:   SupportedRegion,
+  provider: PaymentProvider,
+  myrRate?: number | null,
+): Promise<SubscriptionCreationResult> {
+  const pricing = getConsumerGeneralPremiumPricing(region, myrRate);
+  const amount  = input.billingCycle === BillingCycle.ANNUAL
+    ? pricing.annual
+    : pricing.monthly;
+
+  const sub = await saveSubscription({
+    userId:          input.userId,
+    founderId:       FOUNDER_SUBSCRIPTION_ID,
+    tier:            SubscriptionTier.PRO,
+    status:          SubscriptionStatus.PENDING,
+    billingCycle:    input.billingCycle,
+    region,
+    currency:        pricing.currency,
+    amountPerCycle:  amount,
+    provider,
+    access:          TIER_ACCESS[SubscriptionTier.PRO],
+    isFounderFunded: false,
+    consumerProductSku: 'general_premium',
   });
 
   const checkoutUrl = await createProviderCheckout(sub, amount, pricing.currency, provider);

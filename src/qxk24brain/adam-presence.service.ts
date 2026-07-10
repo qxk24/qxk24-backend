@@ -119,7 +119,8 @@ const THEME_SIGNALS: Record<string, string[]> = {
 };
 
 function scoreDirectionSignals(text: string, signals: string[]): number {
-  return signals.filter((s) => text.includes(s)).length;
+  const filteredSignals = signals.filter((s) => text.includes(s));
+return filteredSignals.length;
 }
 
 export async function loadSessionMessagesForPresence(

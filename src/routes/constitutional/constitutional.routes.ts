@@ -139,11 +139,6 @@ constitutionalRoutes.post('/audit/sync', requireServiceToken, async (c) => {
       return c.json({ success: false, error: 'events array required.' }, 400);
     }
 
-    console.log(
-      `[Alamtologi:SYNC] ${events.length} events | ` +
-      `src=${sourceApp ?? 'unknown'} | batch=${batchId ?? 'none'}`
-    );
-
     return c.json({
       success: true,
       data: {

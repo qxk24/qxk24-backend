@@ -186,6 +186,8 @@ function applyDomainTeachingStructure(
 
   if (facet === 'science') {
     if (!trimmed) return trimmed;
+    if (/^#{1,6}\s/m.test(trimmed)) return trimmed;
+    if (trimmed.length >= 120 && !domainTeachingHasVoiceLeaks(trimmed)) return trimmed;
     return [
       '### Prinsip dan definisi',
       trimmed,
@@ -246,6 +248,8 @@ export function repairDomainTeachingGuttedOutput(
   }
 
   if (t && domainTeachingHasSubstance(t, userMessage) && !domainTeachingHasVoiceLeaks(t)) {
+    if (domainTeachingOutputIsClean(t, userMessage, facet)) return polished;
+    if (t.length >= 180 && !/^#{1,6}\s/m.test(t)) return polished;
     return applyDomainTeachingStructure(t, userMessage, facet);
   }
 

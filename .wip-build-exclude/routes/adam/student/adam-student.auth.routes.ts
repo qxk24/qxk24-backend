@@ -58,19 +58,29 @@ import {
 const router = new Hono();
 
 router.get('/pulse', requireStudentOrGuru, async (c) => {
-  const user = getTokenUser(c)!;
-  const pulse = await buildStudentPulse(user.userId, user.name ?? user.userId);
-  return c.json({ success: true, pulse, kernel: 'ALAMTOLOGI' });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const pulse = await buildStudentPulse(user.userId, user.name ?? user.userId);
+    return c.json({ success: true, pulse, kernel: 'ALAMTOLOGI' });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/mac-bridge', requireStudentOrGuru, async (c) => {
-  const user = getTokenUser(c)!;
-  return c.json({
-    success: true,
-    ...await getMacBridgeDashboardSettings(user.userId, false),
-    kernel: 'ALAMTOLOGI',
-  });
-});
+  try {
+    const user = getTokenUser(c)!;
+    return c.json({
+      success: true,
+      ...await getMacBridgeDashboardSettings(user.userId, false),
+      kernel: 'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.patch('/mac-bridge', requireStudentOrGuru, zValidator('json', MacBridgeToggleSchema), async (c) => {
   const user = getTokenUser(c)!;
@@ -187,16 +197,21 @@ router.post('/google', zValidator('json', GoogleSchema), async (c) => {
 });
 
 router.post('/forgot-password', zValidator('json', ForgotPasswordSchema), async (c) => {
-  const body = c.req.valid('json');
-  const stack = body.stack ?? (ENV.QXK24_STACK === 'lab' ? 'lab' : 'production');
-  const result = await requestStudentPasswordReset(body.email, stack);
-  return c.json({
-    success: true,
-    sent:    result.sent,
-    message: result.message,
-    kernel:  'ALAMTOLOGI',
-  });
-});
+  try {
+    const body = c.req.valid('json');
+    const stack = body.stack ?? (ENV.QXK24_STACK === 'lab' ? 'lab' : 'production');
+    const result = await requestStudentPasswordReset(body.email, stack);
+    return c.json({
+      success: true,
+      sent:    result.sent,
+      message: result.message,
+      kernel:  'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/reset-password', zValidator('json', ResetPasswordSchema), async (c) => {
   const body = c.req.valid('json');
@@ -222,53 +237,58 @@ router.post('/change-password', requireStudent, zValidator('json', ChangePasswor
 });
 
 router.post('/login', zValidator('json', LoginSchema), async (c) => {
-  const { username, password } = c.req.valid('json');
-  const result = await attemptUnifiedAdamLogin(username, password);
+  try {
+    const { username, password } = c.req.valid('json');
+    const result = await attemptUnifiedAdamLogin(username, password);
 
-  if (result.kind === 'failure') {
-    return c.json(
-      {
-        success: false,
-        error:   result.error,
-        hint:    result.hint,
-        kernel:  'ALAMTOLOGI',
-      },
-      result.status,
-    );
-  }
+    if (result.kind === 'failure') {
+      return c.json(
+        {
+          success: false,
+          error:   result.error,
+          hint:    result.hint,
+          kernel:  'ALAMTOLOGI',
+        },
+        result.status,
+      );
+    }
 
-  if (result.kind === 'founder') {
+    if (result.kind === 'founder') {
+      return c.json({
+        success:   true,
+        kernel:    'ALAMTOLOGI',
+        version:   ENV.QXK24_KERNEL_VERSION,
+        era:       ENV.QXK24_ERA,
+        data: {
+          token:       result.token,
+          role:        'founder',
+          userId:      result.userId,
+          name:        result.name,
+          founderName: result.name,
+          expiresIn:   '30d',
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     return c.json({
-      success:   true,
-      kernel:    'ALAMTOLOGI',
-      version:   ENV.QXK24_KERNEL_VERSION,
-      era:       ENV.QXK24_ERA,
+      success: true,
+      kernel:  'ALAMTOLOGI',
       data: {
         token:       result.token,
-        role:        'founder',
+        role:        result.role,
         userId:      result.userId,
         name:        result.name,
-        founderName: result.name,
+        accountLane: result.accountLane,
         expiresIn:   '30d',
       },
       timestamp: new Date().toISOString(),
     });
-  }
 
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data: {
-      token:       result.token,
-      role:        result.role,
-      userId:      result.userId,
-      name:        result.name,
-      accountLane: result.accountLane,
-      expiresIn:   '30d',
-    },
-    timestamp: new Date().toISOString(),
-  });
-});
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/accounts', (c) => {
   return c.json({

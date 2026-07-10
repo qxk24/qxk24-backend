@@ -80,8 +80,4 @@ async function bootstrapLlmPipeline(): Promise<void> {
     );
   }
 
-  console.log(
-    `[LLM Pipeline] Syllabus ${FORMULA_XYZ_SYLLABUS.length} chapters · ` +
-    `${CONSTITUTIONAL_SEED_EXAMPLES.length} constitutional seeds`,
-  );
 }

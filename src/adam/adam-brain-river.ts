@@ -91,8 +91,7 @@ export function beginAdamBrainRiver(input: {
   };
 }): AdamBrainRiverTurn {
   const gate = resolveAdamTurnGate(input);
-  console.log(gate.logLine);
-  console.log(formatAdamAnswerPlanLog(gate.answerPlan));
+
   return {
     channel:    resolveAdamChannel(input),
     gate,

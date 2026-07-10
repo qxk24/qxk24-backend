@@ -186,8 +186,6 @@ export async function backupBrainToR2(
       era:         ENV.QXK24_ERA,
     });
 
-    console.log(`[ADAM Redundancy] Brain backup: ${backupKey} (${encryptedEnvelope.length} bytes encrypted)`);
-
     return {
       layer:       'LAYER_10_REDUNDANCY',
       backupId,

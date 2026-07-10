@@ -82,7 +82,7 @@ export async function connectConcurrencyRedis(): Promise<void> {
     });
     await redisClient.connect();
     redisReady = true;
-    console.log('[ADAM Concurrency] Redis lock client connected');
+
   } catch (err) {
     console.error('[ADAM Concurrency] Redis connect failed — falling back to in-process lock:', err);
     redisClient = null;

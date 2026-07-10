@@ -93,7 +93,7 @@ export async function runTutorTransformTurn(input: TutorTransformTurnInput): Pro
     INQUIRY_TRANSFORM_COOLDOWN_MS,
   );
   if (shouldSkipTransformDedupe(Boolean(duplicate), input.webSearchUsed === true, input.recallLoaded === true)) {
-    console.log('[ADAM Tutor Transform] Skip dedupe — recent UID episode', duplicate?.recordId);
+
     return;
   }
 
@@ -107,7 +107,7 @@ export async function runTutorTransformTurn(input: TutorTransformTurnInput): Pro
   });
 
   if (episode.shouldConsult || !episode.aligned) {
-    console.log('[ADAM Tutor Transform] Skip persist — alignment', episode.reason ?? 'not aligned');
+
     return;
   }
 
@@ -132,8 +132,6 @@ export async function runTutorTransformTurn(input: TutorTransformTurnInput): Pro
     webSearchUsed:    input.webSearchUsed === true,
     recallHit:        input.recallLoaded === true,
   });
-
-  console.log('[ADAM Tutor Transform] UID C indexed', doc.recordId, studentId, aSource);
 
   void mergeRelationalCToUserBrain(
     studentId,

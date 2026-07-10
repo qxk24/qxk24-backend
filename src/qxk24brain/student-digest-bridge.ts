@@ -55,7 +55,7 @@ export async function syncSessionDigestToStudentTrack(
     let digest = session.sessionDigest?.trim() ?? '';
 
     if (digest.length < DIGEST_MIN_CHARS) {
-      console.log(`[StudentDigestBridge] No digest for ${sessionId} — generating now`);
+
       const built = await buildSessionDigest(sessionId, studentId);
       digest = cleanDigestForStudentTrack(built);
     }
@@ -79,9 +79,6 @@ export async function syncSessionDigestToStudentTrack(
       lastSessionSummary: cleanDigest,
     });
 
-    console.log(
-      `[StudentDigestBridge] Synced digest for student ${studentId} (${cleanDigest.length} chars)`,
-    );
     return { synced: true };
   } catch (err) {
     console.error(`[StudentDigestBridge] Error for student ${studentId}:`, err);
@@ -112,9 +109,6 @@ export async function syncAllIdleStudentDigests(
     if (result.synced) synced++;
   }
 
-  console.log(
-    `[StudentDigestBridge] Batch sync: ${synced}/${idleSessions.length} synced`,
-  );
   return { processed: idleSessions.length, synced };
 }
 

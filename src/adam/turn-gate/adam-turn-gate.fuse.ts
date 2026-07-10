@@ -13,7 +13,7 @@
 import {
   type AdamAnswerPlan,
 } from '../adam-answer-plan';
-import { usersDomainUsesTeachingPack } from '../adam-users-domain-router';
+import { usersDomainRequiresGroundingSearch } from '../adam-users-domain-router';
 import type {
   AdamTurnEQ,
   AdamTurnGateDecision,
@@ -39,9 +39,11 @@ function buildGateFlags(
   const konvensionalSurface = usersLane && !faithPermitted;
   const relationalVoice = eq.affectiveTone === 'relational' || eq.affectiveTone === 'stressed';
   const knowledgeMode = resolveGateKnowledgeMode(input, iq, eq, sensing, faithPermitted);
+  const groundingSearch = usersDomainRequiresGroundingSearch(iq.groundingFacet);
 
   return {
-    domainTeachingPack: usersLane && usersDomainUsesTeachingPack(iq.domainFacet)
+    domainTeachingPack: usersLane && iq.usersMode === 'technical'
+      && groundingSearch
       && eq.affectiveTone !== 'prose-craft'
       && eq.affectiveTone !== 'light',
     formalDisplayLaw,

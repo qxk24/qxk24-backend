@@ -400,6 +400,7 @@ export function paragraphIsExplainBackPhase1ALeak(paragraph: string): boolean {
   if (/^Secara ilmu konvensional/i.test(t)) return false;
   if (/^From a conventional/i.test(t)) return false;
   if (/^Conventionally,/i.test(t)) return false;
+  if (/^Pernahkah anda/i.test(t)) return true;
   if (/^(?:Pagi tadi|This morning|Earlier today|Tadi pagi),/i.test(t)) return true;
   if (/\b(?:di halaman anda|meja sarapan anda|rumah seterusnya|in your (?:garden|kitchen|home|yard))\b/i.test(t)) {
     return true;

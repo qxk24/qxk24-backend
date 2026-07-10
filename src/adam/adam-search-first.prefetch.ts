@@ -15,7 +15,7 @@
  * ============================================================
  */
 import type { LlmMessage, LlmSearchResult } from '../llm/llm-types';
-import { isQwenDataInspectionError, llmPrefetchWebSearch } from '../llm/llm-client';
+import { deterministicSearchPrefetch } from '../qxk24brain/deep-ul/web-search-engine';
 import {
   buildCurrentAffairsPrefetchPrompt,
   isAdamCurrentAffairsTurn,
@@ -150,24 +150,18 @@ export async function runUsersSearchPrefetch(input: {
     searchStrategy?:       string;
     userPrompt?:           string;
     searchDisplayQuery?:   string;
-  }) => llmPrefetchWebSearch({
-    system:   buildSearchPrefetchSystem(input.userMessage, input.webSearchGateReason),
-    messages: [{ role: 'user', content: options?.userPrompt ?? prefetchUserPrompt }],
-    model:              input.model ?? getStudentSearchPrefetchModel(),
-    maxTokens:          useFactExtraction ? 128 : 32,
-    searchAssignedSites: options?.assignedSites,
-    searchStrategy:      options?.searchStrategy,
-    searchDisplayQuery:  options?.searchDisplayQuery ?? searchDisplayQuery,
-  });
+  }) => {
+    const result = await deterministicSearchPrefetch({
+      userMessage:        input.userMessage,
+      searchDisplayQuery: options?.searchDisplayQuery ?? searchDisplayQuery,
+    });
+    return {
+      text:          result.extractedFacts,
+      searchResults: result.searchResults,
+    };
+  };
 
   input.onSearching?.();
-
-  console.log('[adam:search-first] prefetch start', JSON.stringify({
-    statAsk,
-    displayQuery: searchDisplayQuery,
-    factExtraction: useFactExtraction,
-    model: input.model ?? getStudentSearchPrefetchModel(),
-  }));
 
   try {
     const primarySites = statAsk
@@ -202,12 +196,7 @@ export async function runUsersSearchPrefetch(input: {
 
     if (statAsk && (searchResults.length === 0 || needsSubjectFocusedRetry)
       && !hasVerifiableStatSignal(extractedFacts, searchResults, input.userMessage)) {
-      console.log('[adam:search-first] prefetch subject-focused retry', JSON.stringify({
-        reason: searchResults.length === 0 ? '0_hits' : 'off_subject_hits',
-        firstPassHits: searchResults.length,
-        topUrls: searchResults.slice(0, 3).map((h) => h.url?.slice(0, 80)),
-        aliases: extractInstitutionAliasesFromMessage(input.userMessage).slice(0, 4),
-      }));
+
       const retry = await runPrefetch({
         assignedSites:      undefined,
         searchStrategy:     'agent',
@@ -236,9 +225,7 @@ export async function runUsersSearchPrefetch(input: {
       && searchResults.length === 0
       && isAdamEducationalWebSearchTurn(input.userMessage)) {
       const eduDisplay = buildEducationalSearchDisplayQuery(input.userMessage);
-      console.log('[adam:search-first] prefetch educational zero-hit retry', JSON.stringify({
-        displayQuery: eduDisplay,
-      }));
+
       const retry = await runPrefetch({
         searchStrategy:     'agent',
         userPrompt:         buildEducationalPrefetchPrompt(input.userMessage),
@@ -263,10 +250,7 @@ export async function runUsersSearchPrefetch(input: {
       && isFactualAdamWebSearchGateReason(input.webSearchGateReason ?? null)
       && !isAdamContinuationDepthTurn(input.userMessage)) {
       const retryDisplay = buildFactualZeroHitSearchDisplayQuery(input.userMessage);
-      console.log('[adam:search-first] prefetch factual zero-hit retry', JSON.stringify({
-        displayQuery: retryDisplay,
-        gate: input.webSearchGateReason ?? null,
-      }));
+
       const retry = await runPrefetch({
         searchStrategy:     'agent',
         userPrompt:         buildFactualZeroHitRetryPrompt(input.userMessage),
@@ -291,10 +275,7 @@ export async function runUsersSearchPrefetch(input: {
       && isAdamContinuationDepthTurn(input.userMessage)
       && (recentUsers.length > 0 || recentAssistants.length > 0)) {
       const continuationDisplay = resolveAdamThreadSearchTopic(input.userMessage, threadContext);
-      console.log('[adam:search-first] prefetch continuation thread-topic retry', JSON.stringify({
-        displayQuery: continuationDisplay,
-        gate: input.webSearchGateReason ?? null,
-      }));
+
       const retry = await runPrefetch({
         searchStrategy:     'agent',
         userPrompt:         buildContinuationSearchPrefetchPrompt(input.userMessage, threadContext),
@@ -319,9 +300,7 @@ export async function runUsersSearchPrefetch(input: {
       && isConstitutionalEmpiricalThread(input.userMessage, threadContext)) {
       const probeUrls = buildConstitutionalEmpiricalProbeUrls(input.userMessage, threadContext);
       if (probeUrls.length > 0) {
-        console.log('[adam:search-first] prefetch constitutional empirical probe', JSON.stringify({
-          urls: probeUrls.slice(0, 4),
-        }));
+
         const probed = await probeConstitutionalEmpiricalEvidence(
           input.userMessage,
           threadContext,
@@ -342,7 +321,7 @@ export async function runUsersSearchPrefetch(input: {
     if (!statAsk
       && searchResults.length === 0
       && buildFactualAuthoritativeProbeUrls(input.userMessage).length > 0) {
-      console.log('[adam:search-first] prefetch authoritative probe — DashScope 0 hits');
+
       const probed = await probeFactualAuthoritativeEvidence(input.userMessage, {
         maxUrls: 4,
         timeoutMs: 8_000,
@@ -386,23 +365,14 @@ export async function runUsersSearchPrefetch(input: {
         input.userMessage,
         { maxUrls: 8, timeoutMs: 6_000 },
       );
-      console.log('[adam:search-first] prefetch page enrich done', JSON.stringify({
-        ms: Date.now() - enrichStarted,
-        figureFound,
-        articleFound,
-        hits: enrichedHits.length,
-      }));
+
       searchResults = dedupeSearchHits(enrichedHits);
       extractedFacts = mergeExtractedFactLines(
         extractedFacts,
         extractFactsFromSearchHits(enrichedHits, input.userMessage),
       );
       if (figureFound) {
-        console.log('[adam:search-first] search-hit page enrich', JSON.stringify({
-          figureFound,
-          hits: searchResults.length,
-          userSuppliedDomains: extractDomainsFromMessageUrls(input.userMessage).slice(0, 5),
-        }));
+
       }
     }
 
@@ -423,18 +393,6 @@ export async function runUsersSearchPrefetch(input: {
       input.userMessage,
     );
 
-    console.log('[adam:search-audit]', JSON.stringify({
-      prefetchMs: Date.now() - started,
-      hits: searchResults.length,
-      subjectInHits: searchHitsIncludeSubjectToken(searchResults, input.userMessage),
-      subjectHitCount: filterSearchHitsToSubjectRelevant(searchResults, input.userMessage).length,
-      hasVerifiableStatSignal: hasVerifiableStatSignal(extractedFacts, searchResults, input.userMessage),
-      factLines: extractedFacts.split('\n').filter(Boolean).length,
-      aliases: extractInstitutionAliasesFromMessage(input.userMessage).slice(0, 4),
-      topUrls: searchResults.slice(0, 5).map((h) => h.url?.slice(0, 100)),
-      snippetLengths: searchResults.slice(0, 5).map((h) => h.snippet?.length ?? 0),
-    }));
-
     if (searchResults.length === 0) {
       console.warn('[adam:search-first] native prefetch returned 0 hits', JSON.stringify({
         statAsk,
@@ -453,16 +411,6 @@ export async function runUsersSearchPrefetch(input: {
       extractedFacts,
     };
   } catch (err: unknown) {
-    if (isQwenDataInspectionError(err)) {
-      input.onSearchDone?.();
-      return {
-        searchResults:         [],
-        searchUsed:            false,
-        searchDroppedByFilter: true,
-        prefetchMs:            Date.now() - started,
-        extractedFacts:        '',
-      };
-    }
     throw err;
   }
 }

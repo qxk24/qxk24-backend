@@ -37,10 +37,9 @@ import {
 } from './adam-media-quota-tier';
 import { storeAdamGeneratedImage } from './adam-generated-media-storage';
 import {
-  downloadImageBuffer,
-  generateWanxImageUrl,
-  isWanxImageConfigured,
-} from './adam-wanx-image.client';
+  isLocalVisionConfigured,
+  localVisionEngine,
+} from '../qxk24brain/deep-ul/local-vision-engine';
 
 export interface AdamMediaGenerationResult {
   hits:           AdamMediaSearchHit[];
@@ -134,23 +133,17 @@ export async function runAdamMediaGeneration(input: {
   );
 
   try {
-    if (!isWanxImageConfigured()) {
+    if (!isLocalVisionConfigured()) {
       await refundMediaReservation(reservationId);
-      console.warn('[adam:media-gen] DASHSCOPE_API_KEY not set — generation skipped');
+      console.warn('[adam:media-gen] ADAM_MEDIA_GENERATION_ENABLED=false — generation skipped');
       return {
         hits:         [],
         quotaBlocked: false,
-        blockMessage: 'AI image generation is not configured on this server yet.',
+        blockMessage: 'AI image generation is not enabled on this server yet.',
       };
     }
 
-    const remoteUrl = await generateWanxImageUrl(prompt);
-    if (!remoteUrl) {
-      await refundMediaReservation(reservationId);
-      return { hits: [], quotaBlocked: false };
-    }
-
-    const buffer = await downloadImageBuffer(remoteUrl);
+    const buffer = await localVisionEngine.generateImageBuffer(prompt);
     if (!buffer) {
       await refundMediaReservation(reservationId);
       return { hits: [], quotaBlocked: false };

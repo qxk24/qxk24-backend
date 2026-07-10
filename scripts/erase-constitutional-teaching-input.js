@@ -23,32 +23,53 @@ function eraseFounderContent(content) {
 }
 
 async function main() {
-  await mongoose.connect(process.env.MONGODB_URI);
-  const col = mongoose.connection.collection('adam_messages');
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
+    const col = mongoose.connection.collection('adam_messages');
 
-  const founder = await col
-    .find({ role: 'founder', content: /constitutional absorption|Teaching absorbed:/i })
-    .toArray();
+    const founder = await col
+      .find({ role: 'founder', content: /constitutional absorption|Teaching absorbed:/i })
+      .toArray();
 
-  let founderUpdated = 0;
-  for (const doc of founder) {
-    const next = eraseFounderContent(doc.content);
-    if (next !== doc.content) {
-      await col.updateOne({ _id: doc._id }, { $set: { content: next } });
-      founderUpdated += 1;
+    let founderUpdated = 0;
+    const founderIds = founder.map(doc => doc.id);
+const foundersMap = new Map(founder.map(doc => [doc.id, doc]));
+const foundersMap = new Map(founder.map(doc => [doc.id, doc]));
+const foundersMap = new Map(founder.map(doc => [doc.id, doc]));
+const founderMap = await prisma.constitutionalTeachingInput.findMany({
+  where: { id: { in: founderIds } },
+  select: { id: true, ... }
+});
+
+const founderIds = Array.from(founderMap.keys());
+const founders = await prisma.founder.findMany({
+  where: { id: { in: founderIds } }
+});
+
+const founderMapWithDetails = new Map(founders.map(f => [f.id, f]));
+
+for (const doc of founderMapWithDetails.values()) {
+
+      const next = eraseFounderContent(doc.content);
+      if (next !== doc.content) {
+        await col.updateOne({ _id: doc._id }, { $set: { content: next } });
+        founderUpdated += 1;
+      }
     }
-  }
 
-  const adam = await col.find({ role: 'adam', content: LEAKED_ADAM }).toArray();
-  let adamUpdated = 0;
-  for (const doc of adam) {
-    await col.updateOne({ _id: doc._id }, { $set: { content: ADAM_OMIT } });
-    adamUpdated += 1;
-  }
+    const adam = await col.find({ role: 'adam', content: LEAKED_ADAM }).toArray();
+    let adamUpdated = 0;
+    for (const doc of adam) {
+      await col.updateOne({ _id: doc._id }, { $set: { content: ADAM_OMIT } });
+      adamUpdated += 1;
+    }
 
-  console.log(JSON.stringify({ founderScanned: founder.length, founderUpdated, adamUpdated }));
-  await mongoose.disconnect();
-}
+    await mongoose.disconnect();
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }}
 
 main().catch((err) => {
   console.error(err);

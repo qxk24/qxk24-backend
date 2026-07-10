@@ -30,13 +30,20 @@ function body(message: string): string {
 
 /** School / syllabus Islamic studies — konvensional classroom layer; faith door wins for wahyu. */
 const ISLAMIC_STUDIES_SUBJECT =
-  /\b(?:fiqh|fiqh|usul\s+al[-\s]?fiqh|usuluddin|iman|rukun\s+iman|sirah|seerah|sejarah\s+islam|islamic\s+studies|pendidikan\s+islam|IGCSE\s+islamic|SPM\s+PI\b|hadith\s+studies|uloom|syariah\s+subject|bab\s+\d+\s+(?:pendidikan\s+)?islam)\b/i;
+  /\b(?:fiqh|fiqh|usul\s+al[-\s]?fiqh|usuluddin|iman|rukun\s+iman|sirah|seerah|sejarah\s+islam|hijrah|hegira|sahabat|companions?|islamic\s+studies|pendidikan\s+islam|IGCSE\s+islamic|SPM\s+PI\b|hadith\s+studies|uloom|syariah\s+subject|bab\s+\d+\s+(?:pendidikan\s+)?islam)\b/i;
+
+/** Syllabus PI/fiqh/sirah subject tokens — ignores faith-door routing block. */
+export function isAdamIslamicStudiesSubjectTurn(message: string): boolean {
+  const t = body(message);
+  if (!t || isAdamLightChatTurn(t)) return false;
+  return ISLAMIC_STUDIES_SUBJECT.test(t);
+}
 
 export function isAdamIslamicStudiesTurn(message: string): boolean {
   const t = body(message);
   if (!t || isAdamLightChatTurn(t)) return false;
   if (userOpenedFaithDoor(t)) return false;
-  return ISLAMIC_STUDIES_SUBJECT.test(t);
+  return isAdamIslamicStudiesSubjectTurn(message);
 }
 
 /** Human / physical geography — all regions; Universal Scholar prose channel. */

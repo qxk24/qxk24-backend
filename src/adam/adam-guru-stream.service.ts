@@ -20,13 +20,11 @@ import {
   resolveAdamMaxTokens,
   resolveQwenEnableThinking,
 } from '../config/llm-models';
-import { toLlmMessages } from '../llm/llm-client';
+import { toLlmMessages } from '../llm/llm-types';
 import { sanitizeAdamProseDashBridges } from './adam-prose-sanitize';
 import { buildAdamChatSystemPrompt } from './adam-prompt-builder';
-import {
-  createAdamLlmStreamOnce,
-  repairAdamStreamOutput,
-} from './adam-chat-stream-llm';
+import { createAdamUlStreamOnce } from './adam-chat-stream-ul-dialogue';
+import { repairAdamStreamOutput } from './adam-chat-stream-llm';
 import { NO_FOUNDER_TEACHING_FLAGS } from './adam-teaching-state-machine';
 import {
   generateK24Address,
@@ -157,14 +155,24 @@ export async function streamADAMGuruKelasChat(input: {
     isStudent: true,
   });
 
-  const streamOnce = createAdamLlmStreamOnce({
-    modelChoice,
-    maxTokens,
-    systemPrompt,
-    enableThinking,
-    resolvedSessionId: sessionId,
-    userMessage:       normalized,
-    precisionActive:   false,
+  const streamOnce = createAdamUlStreamOnce({
+    shell: {
+      resolvedSessionId: sessionId,
+      userMessage:       normalized,
+      normalizedMessage: normalized,
+      messageForAdam:    normalized,
+      mode,
+      isFounder:         false,
+      isGroup:           true,
+      participant,
+      options:           {},
+      onEvent,
+      uploadIds:         [],
+      teaching:          { context: '', fileNames: [], uploadIds: [] },
+      userMessageId:     '',
+    },
+    mode,
+    contextMessages: llmMessages,
     onEvent,
   });
 
@@ -236,12 +244,4 @@ export async function streamADAMGuruKelasChat(input: {
     streamMs,
   }));
 
-  console.log('[adamguru:timing]', JSON.stringify({
-    kelasId:   kelas.kelasId,
-    sessionId,
-    memberRole,
-    isTeachTurn: isGuruTeaching,
-    streamMs,
-    model:       modelChoice.model,
-  }));
 }

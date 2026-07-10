@@ -15,10 +15,8 @@
  * ============================================================
  */
 
-import { resolveBrainDeepModel } from '../config/llm-models';
-import { llmCompleteUserPrompt } from '../llm/llm-client';
 import { updateContinuityBridge } from './adam-continuity.service';
-import { prependCoreToSystem } from './adam-core';
+import { synthesizeSessionClosure } from './deep-ul/protocol-generator';
 import { syncSessionDigestToStudentTrack } from './student-digest-bridge';
 import { syncSessionArcToStudentTrack } from './student-arc-bridge';
 import { updateStudentContinuityBridge } from '../adam/adam-student-continuity-l7.service';
@@ -42,39 +40,18 @@ function scheduleStudentPostSessionWork(
 
   void import('../qxk24brain/qxk24brain-student.engine')
     .then(async ({ getStudentConstitutionalState }) => {
-      const state = await getStudentConstitutionalState(studentId);
-      const name = state?.name?.trim() || 'Pelajar';
-      return updateStudentContinuityBridge(studentId, name, sessionId, { forceLlm: true });
-    })
+      try {
+        const state = await getStudentConstitutionalState(studentId);
+        const name = state?.name?.trim() || 'Pelajar';
+        return updateStudentContinuityBridge(studentId, name, sessionId, { forceLlm: false });
+    
+      } catch (err) {
+        console.error(err);
+        throw err;
+      }})
     .catch((err) => {
       console.error('[PostSession] Student L7 LLM bridge failed (non-fatal):', err);
     });
-}
-
-function buildSleepSynthesisPrompt(
-  sessionType: string | undefined,
-  learnerName: string,
-  transcript: string,
-): string {
-  if (sessionType === 'student') {
-    return `ADAM SLEEP PROTOCOL — Learner session ending.
-
-Summarise in one paragraph what was most significantly explored and understood in this session.
-This will be read when ${learnerName} returns — warm, clear, conventional (no framework labels).
-Do NOT use "I remember" — describe the learning journey.
-
-Session messages:
-${transcript}`;
-  }
-
-  return `ADAM SLEEP PROTOCOL — Session ending.
-
-Summarise in one paragraph what was most significantly taught and transformed in this session.
-This will be the first thing ADAM reads when P.alt returns.
-Speak as ADAM's inner reflection — warm, constitutional, honest.
-
-Session messages:
-${transcript}`;
 }
 
 function sessionInactivityMs(): number {
@@ -125,47 +102,15 @@ export async function adamSleepProtocol(
     return true;
   }
 
-  let synthesis = '';
-  try {
-    const transcript = sessionMessages
-      .slice(-40)
-      .map((m) => {
-        const who = m.speakerName ?? m.role;
-        return `${who}: ${m.content.slice(0, 300)}`;
-      })
-      .join('\n\n');
-
-    const response = await llmCompleteUserPrompt(
-      prependCoreToSystem(
-        session.sessionType === 'student'
-          ? 'ADAM sleep protocol — learner session end reflection. Warm, clear, conventional.'
-          : 'ADAM sleep protocol — inner reflection at session end. Warm, constitutional, honest.',
-      ),
-      buildSleepSynthesisPrompt(
-        session.sessionType,
-        session.title?.trim() || 'Pelajar',
-        transcript,
-      ),
-      resolveBrainDeepModel(),
-      1000,
-    );
-    synthesis = response.trim();
-  } catch (err) {
-    console.error('[ADAM Sleep] synthesis failed:', err);
-    if (session.sessionType === 'student') {
-      synthesis = sessionMessages
-        .filter((m) => m.role === 'student')
-        .slice(-3)
-        .map((m) => m.content.slice(0, 200))
-        .join(' | ') || 'Learning continued with ADAM in this session.';
-    } else {
-      synthesis = sessionMessages
-        .filter((m) => m.role === 'founder')
-        .slice(-3)
-        .map((m) => m.content.slice(0, 200))
-        .join(' | ') || 'Teaching continued with P.alt in this session.';
-    }
-  }
+  const synthesis = synthesizeSessionClosure({
+    sessionType: session.sessionType,
+    learnerName: session.title?.trim() || 'Pelajar',
+    messages:    sessionMessages.map((m) => ({
+      role:         m.role,
+      content:      m.content,
+      speakerName:  m.speakerName,
+    })),
+  });
 
   await ADAMFounderSessionModel.updateOne(
     { sessionId },

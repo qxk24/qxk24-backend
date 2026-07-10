@@ -58,6 +58,8 @@ export interface AdamSensingBundle {
   message: string;
   surfaceKind: AdamSurfaceKind;
   domainFacet: AdamUsersDomainFacet;
+  /** Search/recall facet — may differ from voice when faith door + verifiable sirah facts. */
+  groundingFacet: AdamUsersDomainFacet;
   faithDoorOpen: boolean;
   affectiveTone: AdamAffectiveTone;
   situationPosture: AdamSituationPosture;

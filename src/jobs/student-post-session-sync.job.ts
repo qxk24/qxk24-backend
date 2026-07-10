@@ -27,17 +27,10 @@ async function run(): Promise<void> {
   await connectDatabase();
   await initStudentRegistry();
 
-  console.log('[PostSessionSyncJob] Connected — syncing idle student post-session work');
-
   const [digestResult, arcResult] = await Promise.all([
     syncAllIdleStudentDigests(30),
     syncAllIdleStudentArcs(30),
   ]);
-
-  console.log(
-    `[PostSessionSyncJob] Digest: ${digestResult.synced}/${digestResult.processed} | ` +
-      `Arc: ${arcResult.synced}/${arcResult.processed}`,
-  );
 
   await disconnectDatabase();
 }

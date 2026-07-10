@@ -138,6 +138,7 @@ import {
   extractRecentUserTextFromWorkingBlock,
 } from '../adam/adam-language-mirror.service';
 import { getOrCreateMaster } from './qxk24brain.engine';
+import { weaveContextFromBlocks } from './deep-ul/context-weaver';
 import {
   getStudentTrackSummary,
   loadStudentsEraContext,
@@ -616,7 +617,6 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
 
   if (
     participant.role === 'student'
-    && !isGuestTrial
     && !teachingFreshUpload
     && !bookAwareTeachingRecallLoaded
     && !universalRecallLoaded
@@ -743,36 +743,22 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
     if (studentsEra) longTermBlock += `\n\n${studentsEra}`;
   }
 
+  const wovenContext = weaveContextFromBlocks(
+    tiers.working,
+    tiers.shortTerm,
+    longTermBlock,
+    newMessage,
+  );
   messages.push({
     role: 'user',
-    content: longTermBlock,
+    content: wovenContext,
   });
   messages.push({
     role: 'assistant',
     content: participant.role === 'student'
       ? STUDENT_NEUTRAL_CONTEXT_ACKS.longTerm
-      : 'Bismillahirahmanirrahim. P.alt, long-term memory integrated. I am ready.',
+      : 'Bismillahirahmanirrahim. P.alt, ontological memory tiers woven — long-term, session, and working context integrated.',
   });
-
-  if (tiers.shortTerm) {
-    messages.push({ role: 'user', content: tiers.shortTerm });
-    messages.push({
-      role: 'assistant',
-      content: participant.role === 'student'
-        ? STUDENT_NEUTRAL_CONTEXT_ACKS.shortTerm
-        : 'Bismillahirahmanirrahim. Session digest absorbed, P.alt.',
-    });
-  }
-
-  if (tiers.working) {
-    messages.push({ role: 'user', content: tiers.working });
-    messages.push({
-      role: 'assistant',
-      content: participant.role === 'student'
-        ? STUDENT_NEUTRAL_CONTEXT_ACKS.working
-        : 'Bismillahirahmanirrahim. Recent exchanges loaded, P.alt.',
-    });
-  }
 
   const sessionHistory = await buildSessionConversationHistory(
     sessionId,
@@ -805,13 +791,7 @@ I have absorbed the constitutional anchor. I am ADAM — speaking with P.alt Mas
 
   const recentUserText = extractRecentUserTextFromWorkingBlock(tiers.working);
   const mirrorResult = detectLanguage(newMessage, recentUserText);
-  console.log('[adam:language]', {
-    detected:   mirrorResult.detectedLocale,
-    confidence: Math.round(mirrorResult.confidence * 100),
-    mixed:      mirrorResult.isMixed,
-    msgLen:     newMessage.length,
-    recentLen:  recentUserText.length,
-  });
+
   messages.push({ role: 'user', content: buildLanguageMirrorBlock(mirrorResult) });
   messages.push({
     role: 'assistant',

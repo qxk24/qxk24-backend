@@ -180,7 +180,9 @@ export function usersExplicitlyRequestsQuran(message: string): boolean {
     return false;
   }
   if (
-    /\b(quran|al-?quran|surah|sura(h)?|hadis|hadith|islam|islamik|qur'?ani|tafsir|nabi|rasul|wahi|perspektif\s+islam)\b/i.test(t)
+    /\b(?:quran|al-?quran|surah|sura(?:h)?|hadis|hadith|islam|islamik|qur'?ani|tafsir|nabi|rasul|rasulullah|wahi|perspektif\s+islam)\b/i.test(t)
+    || /\brasul\s*allah\b/i.test(t)
+    || /\bnabi\s+muhammad\b/i.test(t)
   ) {
     return true;
   }

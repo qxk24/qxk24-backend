@@ -29,11 +29,6 @@ async function run(): Promise<void> {
     syncAllIdleStudentArcs(30),
   ]);
 
-  console.log(
-    `[DigestSyncJob] Digest: ${digestResult.synced}/${digestResult.processed} | ` +
-      `Arc: ${arcResult.synced}/${arcResult.processed}`,
-  );
-
   await disconnectDatabase();
 }
 

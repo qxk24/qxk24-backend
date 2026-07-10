@@ -121,7 +121,21 @@ export function getStripePriceId(
   tier: SubscriptionTier,
   cycle: BillingCycle,
   _tutorLevel?: TutorSubscriptionLevel | string | null,
+  consumerProductSku?: string | null,
 ): string {
+  if (
+    tier === SubscriptionTier.PRO
+    && consumerProductSku === 'general_premium'
+  ) {
+    const generalMap: Partial<Record<string, string>> = {
+      [`${SubscriptionTier.PRO}_${BillingCycle.MONTHLY}`]:
+        ENV.STRIPE_PRICE_ID_GENERAL_PREMIUM_MONTHLY || ENV.STRIPE_PRICE_ID_PRO_MONTHLY,
+      [`${SubscriptionTier.PRO}_${BillingCycle.ANNUAL}`]:
+        ENV.STRIPE_PRICE_ID_GENERAL_PREMIUM_ANNUAL || ENV.STRIPE_PRICE_ID_PRO_ANNUAL,
+    };
+    return generalMap[`${tier}_${cycle}`] ?? '';
+  }
+
   const map: Partial<Record<string, string>> = {
     [`${SubscriptionTier.PRO}_${BillingCycle.MONTHLY}`]:         ENV.STRIPE_PRICE_ID_PRO_MONTHLY,
     [`${SubscriptionTier.PRO}_${BillingCycle.ANNUAL}`]:          ENV.STRIPE_PRICE_ID_PRO_ANNUAL,
@@ -140,11 +154,14 @@ function resolveStripePriceId(sub: ISubscription): string {
       channel,
     );
   }
-  return getStripePriceId(sub.tier, sub.billingCycle, sub.tutorLevel);
+  return getStripePriceId(sub.tier, sub.billingCycle, sub.tutorLevel, sub.consumerProductSku);
 }
 
-function tierCheckoutLabel(tier: SubscriptionTier): string {
-  switch (tier) {
+function tierCheckoutLabel(sub: ISubscription): string {
+  if (sub.consumerProductSku === 'general_premium') {
+    return 'ADAM General · Premium';
+  }
+  switch (sub.tier) {
     case SubscriptionTier.PRO:
       return isConsumerDailyPlan() ? 'ADAM Pro' : 'ADAM Premium';
     case SubscriptionTier.PROFESIONAL:
@@ -172,7 +189,7 @@ function buildRegionalLineItemParams(sub: ISubscription): Record<string, string>
   }
 
   const interval = recurringInterval(sub.billingCycle);
-  const label = tierCheckoutLabel(sub.tier);
+  const label = tierCheckoutLabel(sub);
   const cycleLabel = interval === 'year' ? 'Annual' : 'Monthly';
   let description = `${label} — ${cycleLabel} subscription`;
   if (sub.tier === SubscriptionTier.TUTOR) {
@@ -180,6 +197,9 @@ function buildRegionalLineItemParams(sub: ISubscription): Record<string, string>
     const bandLabel = TUTOR_LEVEL_LABELS[level];
     const monthly = sub.amountPerCycle ?? 0;
     description = `ADAM Tutor (${bandLabel}) — all subjects, RM ${monthly.toFixed(2)}/month`;
+  } else if (sub.consumerProductSku === 'general_premium') {
+    const monthly = sub.amountPerCycle ?? 0;
+    description = `ADAM General — scholarly answers, neural voice, ${monthly.toFixed(2)} ${currency.toUpperCase()}/month`;
   } else if (sub.tier === SubscriptionTier.PROFESIONAL) {
     const monthly = sub.amountPerCycle ?? 0;
     description = `ADAM Consultant (all fields) + full memory & API — RM ${monthly.toFixed(2)}/month`;

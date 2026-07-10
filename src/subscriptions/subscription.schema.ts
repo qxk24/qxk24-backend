@@ -50,11 +50,22 @@ export function normalizeSubscriptionTier(
   return tier as SubscriptionTier;
 }
 
+/** Consumer checkout SKU — Stripe product label + analytics (tier may still be PRO). */
+export type ConsumerProductSku = 'general_premium' | 'pro';
+
+export function isGeneralPremiumCheckout(raw: string | null | undefined): boolean {
+  const t = (raw ?? '').trim().toUpperCase();
+  return t === 'GENERAL_PREMIUM' || t === 'GENERAL';
+}
+
 /** Checkout/query aliases → canonical subscription tier (DB + billing). */
 export function resolveCheckoutTier(
   raw: string | null | undefined,
 ): SubscriptionTier | null {
   const t = (raw ?? '').trim().toUpperCase();
+  if (isGeneralPremiumCheckout(t)) {
+    return SubscriptionTier.PRO;
+  }
   if (t === 'PRO' || t === LEGACY_SUBSCRIPTION_TIER_PELAJAR) {
     return SubscriptionTier.PRO;
   }
@@ -227,6 +238,8 @@ export interface ISubscription extends Document {
   /** Business Coach — public vs PIN channel when tier is BUSINESS_COACH. */
   businessCoachChannel:    BusinessCoachPricingChannel | null;
   businessCoachEnrollmentId: string | null;
+  /** Consumer checkout product line when tier is PRO (General Premium vs Tutor Pro). */
+  consumerProductSku:   ConsumerProductSku | null;
   createdAt:          Date;
   updatedAt:          Date;
 }
@@ -303,6 +316,7 @@ const SubscriptionSchema = new Schema<ISubscription>(
     tutorEnrollmentId:  { type: String, default: null, index: true },
     businessCoachChannel:      { type: String, enum: ['public', 'pin'], default: null },
     businessCoachEnrollmentId: { type: String, default: null, index: true },
+    consumerProductSku:        { type: String, enum: ['general_premium', 'pro'], default: null },
   },
   { timestamps: true, collection: 'alamtologi_subscriptions' },
 );

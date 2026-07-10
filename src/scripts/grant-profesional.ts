@@ -41,15 +41,11 @@ async function main(): Promise<void> {
   }
 
   await mongoose.connect(ENV.MONGODB_URI);
-  console.log('[grant-profesional] connected:', ENV.MONGODB_URI.replace(/\/\/[^@]+@/, '//***@'));
 
   if (dryRun) {
     for (const id of args) {
       const student = await resolveStudentForGrant(id);
-      console.log(JSON.stringify({
-        identifier: id,
-        resolved:   student ?? null,
-      }));
+
     }
     await mongoose.disconnect();
     return;
@@ -59,8 +55,6 @@ async function main(): Promise<void> {
     notes: 'Founder grant — Profesional (batch upgrade from Basic)',
     periodMonths: 12,
   });
-
-  console.log(JSON.stringify({ results }, null, 2));
 
   const failed = results.filter((r) => !r.ok);
   await mongoose.disconnect();

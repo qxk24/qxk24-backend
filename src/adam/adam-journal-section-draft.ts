@@ -221,19 +221,6 @@ export async function saveJournalSectionProgress(input: {
 
   if (!doc) throw new Error('Failed to save journal section draft');
 
-  console.log(
-    '[journal:draft-save]',
-    JSON.stringify({
-      collection: 'adam_journals',
-      id:         String(doc._id),
-      sessionId:  input.sessionId,
-      topicId:    input.topic.topicId,
-      lastSection: input.lastSection,
-      totalWords: metaPayload.totalWords,
-      status:     'DRAFT',
-    }),
-  );
-
   return {
     journalId: String(doc._id),
     sections:  sectionsFromJournalMongoDoc(doc),

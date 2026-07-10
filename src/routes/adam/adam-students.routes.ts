@@ -69,39 +69,17 @@ const PatchSchema = z.object({
 
 // POST /api/adam/students/sync-seed — backfill missing seed accounts from env
 router.post('/sync-seed', requireFounder, async (c) => {
-  const added = await syncMissingSeedStudents();
-  const passwordsResynced = await syncSeedStudentPasswords(true);
-  const lanesBackfilled = await backfillAccountLanesToUmum();
-  const students = await listStudentsForFounder();
-  return c.json({
-    success: true,
-    added,
-    passwordsResynced,
-    lanesBackfilled,
-    students: students.map((s) => ({
-      userId:            s.userId,
-      name:              s.name,
-      email:             s.email,
-      active:            s.active,
-      accountRole:       s.accountRole,
-      accountLane:       s.accountLane,
-      createdAt:         s.createdAt.toISOString(),
-      passwordSource:    s.passwordSource,
-      passwordUpdatedAt: s.passwordUpdatedAt?.toISOString(),
-    })),
-    kernel: 'ALAMTOLOGI',
-  });
-});
-
-// GET /api/adam/students — founder list (includes inactive)
-router.get('/', requireFounder, async (c) => {
-  const students = await listStudentsForFounder();
-  const billing = await getFounderStudentBillingBadges(students.map((s) => s.userId));
-  return c.json({
-    success: true,
-    students: students.map((s) => {
-      const badge = billing.get(s.userId);
-      return {
+  try {
+    const added = await syncMissingSeedStudents();
+    const passwordsResynced = await syncSeedStudentPasswords(true);
+    const lanesBackfilled = await backfillAccountLanesToUmum();
+    const students = await listStudentsForFounder();
+    return c.json({
+      success: true,
+      added,
+      passwordsResynced,
+      lanesBackfilled,
+      students: students.map((s) => ({
         userId:            s.userId,
         name:              s.name,
         email:             s.email,
@@ -111,48 +89,85 @@ router.get('/', requireFounder, async (c) => {
         createdAt:         s.createdAt.toISOString(),
         passwordSource:    s.passwordSource,
         passwordUpdatedAt: s.passwordUpdatedAt?.toISOString(),
-        billing:           badge
-          ? {
-              learnTier:   badge.learnTier,
-              learnLabel:  badge.learnLabel,
-              isUnlimited: badge.isUnlimited,
-            }
-          : { learnTier: 'NONE', learnLabel: 'Pencarian (free)', isUnlimited: false },
-      };
-    }),
-    kernel: 'ALAMTOLOGI',
-  });
-});
+      })),
+      kernel: 'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
+
+// GET /api/adam/students — founder list (includes inactive)
+router.get('/', requireFounder, async (c) => {
+  try {
+    const students = await listStudentsForFounder();
+    const billing = await getFounderStudentBillingBadges(students.map((s) => s.userId));
+    return c.json({
+      success: true,
+      students: students.map((s) => {
+        const badge = billing.get(s.userId);
+        return {
+          userId:            s.userId,
+          name:              s.name,
+          email:             s.email,
+          active:            s.active,
+          accountRole:       s.accountRole,
+          accountLane:       s.accountLane,
+          createdAt:         s.createdAt.toISOString(),
+          passwordSource:    s.passwordSource,
+          passwordUpdatedAt: s.passwordUpdatedAt?.toISOString(),
+          billing:           badge
+            ? {
+                learnTier:   badge.learnTier,
+                learnLabel:  badge.learnLabel,
+                isUnlimited: badge.isUnlimited,
+              }
+            : { learnTier: 'NONE', learnLabel: 'Pencarian (free)', isUnlimited: false },
+        };
+      }),
+      kernel: 'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/students — founder creates account
 router.post('/', requireFounder, zValidator('json', CreateSchema), async (c) => {
-  const user = getTokenUser(c)!;
-  const body = c.req.valid('json');
+  try {
+    const user = getTokenUser(c)!;
+    const body = c.req.valid('json');
 
-  const created = await createStudentAccount({
-    name:        body.name,
-    userId:      body.userId ?? slugStudentUserId(body.name),
-    email:       body.email,
-    password:    body.password,
-    createdBy:   user.userId,
-    accountRole: body.accountRole,
-    accountLane: body.accountLane,
-  });
+    const created = await createStudentAccount({
+      name:        body.name,
+      userId:      body.userId ?? slugStudentUserId(body.name),
+      email:       body.email,
+      password:    body.password,
+      createdBy:   user.userId,
+      accountRole: body.accountRole,
+      accountLane: body.accountLane,
+    });
 
-  return c.json({
-    success: true,
-    student: {
-      userId:      created.userId,
-      name:        created.name,
-      email:       created.email,
-      active:      created.active,
-      accountRole: created.accountRole ?? 'student',
-      accountLane: created.accountLane,
-      createdAt:   created.createdAt.toISOString(),
-    },
-    kernel: 'ALAMTOLOGI',
-  }, 201);
-});
+    return c.json({
+      success: true,
+      student: {
+        userId:      created.userId,
+        name:        created.name,
+        email:       created.email,
+        active:      created.active,
+        accountRole: created.accountRole ?? 'student',
+        accountLane: created.accountLane,
+        createdAt:   created.createdAt.toISOString(),
+      },
+      kernel: 'ALAMTOLOGI',
+    }, 201);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/students/import-lab-accounts — production: restore student logins from lab DB only
 router.post('/import-lab-accounts', requireFounder, async (c) => {
@@ -307,30 +322,35 @@ router.post('/:userId/delete', requireFounder, async (c) => {
 
 // PATCH /api/adam/students/:userId
 router.patch('/:userId', requireFounder, zValidator('json', PatchSchema), async (c) => {
-  const userId = c.req.param('userId') ?? '';
-  const body = c.req.valid('json');
+  try {
+    const userId = c.req.param('userId') ?? '';
+    const body = c.req.valid('json');
 
-  const updated = await updateStudentAccount(userId, {
-    ...body,
-    email: body.email === '' ? '' : body.email,
-  });
-  if (!updated) {
-    return c.json({ success: false, error: 'Student not found.', kernel: 'ALAMTOLOGI' }, 404);
-  }
+    const updated = await updateStudentAccount(userId, {
+      ...body,
+      email: body.email === '' ? '' : body.email,
+    });
+    if (!updated) {
+      return c.json({ success: false, error: 'Student not found.', kernel: 'ALAMTOLOGI' }, 404);
+    }
 
-  return c.json({
-    success: true,
-    student: {
-      userId:      updated.userId,
-      name:        updated.name,
-      email:       updated.email,
-      active:      updated.active,
-      accountRole: updated.accountRole,
-      accountLane: updated.accountLane,
-      createdAt:   updated.createdAt.toISOString(),
-    },
-    kernel: 'ALAMTOLOGI',
-  });
-});
+    return c.json({
+      success: true,
+      student: {
+        userId:      updated.userId,
+        name:        updated.name,
+        email:       updated.email,
+        active:      updated.active,
+        accountRole: updated.accountRole,
+        accountLane: updated.accountLane,
+        createdAt:   updated.createdAt.toISOString(),
+      },
+      kernel: 'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

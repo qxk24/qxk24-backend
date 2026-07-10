@@ -67,7 +67,7 @@ function logJournalDraftSkip(
   reason: string,
   detail: Record<string, unknown>,
 ): void {
-  console.log('[journal:draft-save] skip', JSON.stringify({ reason, ...detail }));
+
 }
 
 /** UI movement index (1/9 … 9/9) → section id (Title & Abstract = 1). */

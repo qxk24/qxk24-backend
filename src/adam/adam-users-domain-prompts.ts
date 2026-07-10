@@ -219,6 +219,7 @@ export function buildUsersDomainPromptBlock(facet: AdamUsersDomainFacet): string
     case 'environment':      return ADAM_USERS_DOMAIN_ENVIRONMENT;
     case 'entrepreneurship': return ADAM_USERS_DOMAIN_ENTREPRENEURSHIP;
     case 'home-vocational':  return ADAM_USERS_DOMAIN_HOME_VOCATIONAL;
+    case 'islamic-studies':  return ADAM_USERS_DOMAIN_ISLAMIC_STUDIES_PROSE;
     default:                 return '';
   }
 }

@@ -24,8 +24,7 @@
 // ============================================================
 
 import { v4 as uuidv4 } from 'uuid';
-import { getDeepModel } from '../config/llm-models';
-import { llmCompleteUserPrompt } from '../llm/llm-client';
+import { runConstitutionalJudgment } from '../qxk24brain/deep-ul/constitutional-judgment-engine';
 import { ADAMAuditModel } from './adam.schema';
 import type {
   ADAMDeterminationRequest,
@@ -183,25 +182,37 @@ export async function runADAMDetermination(
   const auditId   = uuidv4();
   const principle = detectDominantPrinciple(req.question, req.context, req.principle);
 
-  let parsed: Partial<ADAMDeterminationResult>;
+  const judgmentResult = runConstitutionalJudgment({
+    question: req.question,
+    context:  req.context,
+  });
 
-  try {
-    const raw = await llmCompleteUserPrompt(
-      'Bismillahirahmanirrahim. ADAM constitutional determination engine.',
-      buildDeterminationPrompt(req),
-      getDeepModel(),
-      2048,
-    );
-    parsed = parseDeterminationResponse(raw);
-  } catch {
-    parsed = {
-      judgment:     'WAQF',
-      healthScore:  0,
-      canProceed:   false,
-      response:     'ADAM constitutional engine unavailable. WAQF issued.',
-      conditions:   ['Restore constitutional engine connectivity'],
-    };
-  }
+  const tahapFromJudgment = Math.min(7, Math.max(1, judgmentResult.tahapAkal)) as TahapAkal;
+
+  const parsed: Partial<ADAMDeterminationResult> = {
+    judgment:     judgmentResult.judgment,
+    tahapAkal:    tahapFromJudgment,
+    hukumZ:       judgmentResult.hukumZ,
+    healthScore:  judgmentResult.healthScore,
+    canProceed:   judgmentResult.canProceed,
+    response:     judgmentResult.response,
+    conditions:   judgmentResult.recommendations,
+    cV:           tahapFromJudgment,
+    adab:         {
+      benar: 0.7, amanah: 0.7, menyampaikan: 0.7, bijaksana: 0.7,
+      total: Math.min(100, judgmentResult.healthScore),
+    },
+    sifat:        judgmentResult.judgment === 'WAQF' ? 'LALAI' : 'AKUR',
+    principleApplied: detectDominantPrinciple(req.question, req.context, req.principle),
+    faktorTenaga: 0.6,
+    faktorMasa:   0.6,
+    hukumX: {
+      fikir:   judgmentResult.response,
+      ikhtiar: 'Deterministic UL assessment',
+      usaha:   'Constitutional engine local',
+      natijah: judgmentResult.judgment,
+    },
+  };
 
   const hukumZ: HukumZResult = parsed.hukumZ ?? {
     pola: 'BELUM', kadar: 'BELUM', pasangan: 'BELUM', keseimbangan: 'BELUM',

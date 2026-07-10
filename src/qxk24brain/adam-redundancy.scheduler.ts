@@ -79,15 +79,11 @@ async function tick(): Promise<void> {
 export function startAdamRedundancyScheduler(): void {
   const cfg = backupConfig();
   if (!cfg.enabled) {
-    console.log('[ADAM Redundancy] Scheduler disabled (ADAM_BACKUP_ENABLED=false).');
+
     return;
   }
 
   if (schedulerTimer) return;
-
-  console.log(
-    `[ADAM Redundancy] Scheduler active — daily backup at ${String(cfg.hour).padStart(2, '0')}:${String(cfg.minute).padStart(2, '0')} (${cfg.timezone})`,
-  );
 
   schedulerTimer = setInterval(() => {
     tick().catch((err) => {

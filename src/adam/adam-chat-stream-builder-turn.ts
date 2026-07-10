@@ -133,10 +133,6 @@ export async function handleAdamBuilderTurn(shell: AdamChatTurnShell): Promise<b
       [resolvedSessionId],
     );
 
-    console.log(
-      `[ADAM Builder] Chat activation — reason=${activation.reason} intent=${activation.intent} confidence=${activation.confidence}`,
-    );
-
     try {
       const builderMessage = isFounder
         ? composeFounderMessage(activation.message, teaching.context)
@@ -210,9 +206,7 @@ export async function handleAdamBuilderTurn(shell: AdamChatTurnShell): Promise<b
   }
 
   if (isFounder && !activation.activate) {
-    console.log(
-      `[ADAM Builder] Skipped — reason=${activation.reason} confidence=${activation.confidence} hasAccess=${access.hasAccess}`,
-    );
+
   }
 
   return false;

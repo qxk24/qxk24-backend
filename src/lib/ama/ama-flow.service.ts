@@ -155,7 +155,7 @@ export function routeAmaFlow(message: string, options?: { devLog?: boolean }): A
 
   if (options?.devLog && process.env.NODE_ENV !== 'production') {
     console.time('[AMA Flow] route');
-    console.log('[AMA Flow] classification', JSON.stringify(result));
+
     console.timeEnd('[AMA Flow] route');
   }
 

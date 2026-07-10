@@ -35,12 +35,12 @@ describe('consumer plan config', () => {
   it('exposes Claude-style credit bundles', () => {
     const packs = getPremiumCreditPacks();
     expect(packs).toHaveLength(3);
-    expect(packs[0]?.amount).toBe(45);
-    expect(packs[0]?.creditValue).toBe(50);
-    expect(packs[1]?.amount).toBe(200);
-    expect(packs[1]?.creditValue).toBe(250);
-    expect(packs[2]?.amount).toBe(700);
-    expect(packs[2]?.creditValue).toBe(1000);
+    expect(packs[0]?.amount).toBe(10);
+    expect(packs[0]?.creditValue).toBe(10);
+    expect(packs[1]?.amount).toBe(40);
+    expect(packs[1]?.creditValue).toBe(50);
+    expect(packs[2]?.amount).toBe(150);
+    expect(packs[2]?.creditValue).toBe(200);
   });
 
   it('maps legacy pack ids', () => {

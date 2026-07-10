@@ -64,76 +64,101 @@ import { SessionTitleSchema, TutorChatSchema, TutorProfileSchema } from './adam-
 const router = new Hono();
 
 router.get('/tutor/profile', requireStudent, async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
-  const user = getTokenUser(c)!;
-  const profile = await getTutorProfile(user.userId);
-  return c.json({ success: true, profile, kernel: 'ALAMTOLOGI' });
-});
+  try {
+    const laneBlock = await guardPelajarLane(c);
+    if (laneBlock) return laneBlock;
+    const user = getTokenUser(c)!;
+    const profile = await getTutorProfile(user.userId);
+    return c.json({ success: true, profile, kernel: 'ALAMTOLOGI' });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.put('/tutor/profile', requireStudent, zValidator('json', TutorProfileSchema), async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
-  const user = getTokenUser(c)!;
-  const body = c.req.valid('json');
-  const profile = await saveTutorProfile(user.userId, body);
-  return c.json({ success: true, profile, kernel: 'ALAMTOLOGI' });
-});
+  try {
+    const laneBlock = await guardPelajarLane(c);
+    if (laneBlock) return laneBlock;
+    const user = getTokenUser(c)!;
+    const body = c.req.valid('json');
+    const profile = await saveTutorProfile(user.userId, body);
+    return c.json({ success: true, profile, kernel: 'ALAMTOLOGI' });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/tutor/subscription', requireStudent, async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
-  const user = getTokenUser(c)!;
-  const tutorLevel = c.req.query('tutorLevel')?.trim() || undefined;
-  const access = await resolveTutorSubscriptionAccess(user.userId, tutorLevel);
-  return c.json({
-    success:         true,
-    billingEnforced: isTutorBillingEnforced(),
-    ...access,
-    kernel:          'ALAMTOLOGI',
-  });
-});
+  try {
+    const laneBlock = await guardPelajarLane(c);
+    if (laneBlock) return laneBlock;
+    const user = getTokenUser(c)!;
+    const tutorLevel = c.req.query('tutorLevel')?.trim() || undefined;
+    const access = await resolveTutorSubscriptionAccess(user.userId, tutorLevel);
+    return c.json({
+      success:         true,
+      billingEnforced: isTutorBillingEnforced(),
+      ...access,
+      kernel:          'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/tutor/session', requireStudent, requireActiveSubscription, async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
-  const user = getTokenUser(c)!;
-  const preferred = c.req.query('sessionId')?.trim();
-  let sessionId: string;
-  if (preferred) {
-    const allowed = await assertStudentOwnsSession(user.userId, preferred);
-    if (!allowed) {
-      return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+  try {
+    const laneBlock = await guardPelajarLane(c);
+    if (laneBlock) return laneBlock;
+    const user = getTokenUser(c)!;
+    const preferred = c.req.query('sessionId')?.trim();
+    let sessionId: string;
+    if (preferred) {
+      const allowed = await assertStudentOwnsSession(user.userId, preferred);
+      if (!allowed) {
+        return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+      }
+      sessionId = preferred;
+    } else {
+      sessionId = await resolveTutorChatSession(user.userId);
     }
-    sessionId = preferred;
-  } else {
-    sessionId = await resolveTutorChatSession(user.userId);
-  }
-  return c.json({
-    success: true,
-    sessionId,
-    userId:    user.userId,
-    name:      user.name,
-    kernel:    'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+    return c.json({
+      success: true,
+      sessionId,
+      userId:    user.userId,
+      name:      user.name,
+      kernel:    'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/tutor/chat/sessions', requireStudent, requireActiveSubscription, async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
-  const user = getTokenUser(c)!;
-  const rawLimit = parseInt(c.req.query('limit') ?? '30', 10);
-  const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 30;
-  const sessions = await listUserChatSessions(user.userId, 'tutor', limit);
-  return c.json({
-    success: true,
-    sessions,
-    count:     sessions.length,
-    kernel:    'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const laneBlock = await guardPelajarLane(c);
+    if (laneBlock) return laneBlock;
+    const user = getTokenUser(c)!;
+    const rawLimit = parseInt(c.req.query('limit') ?? '30', 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 30;
+    const sessions = await listUserChatSessions(user.userId, 'tutor', limit);
+    return c.json({
+      success: true,
+      sessions,
+      count:     sessions.length,
+      kernel:    'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.patch('/tutor/chat/sessions/:sessionId', requireStudent, requireActiveSubscription, zValidator('json', SessionTitleSchema), async (c) => {
   const user = getTokenUser(c)!;
@@ -161,32 +186,42 @@ router.delete('/tutor/chat/sessions/:sessionId', requireStudent, requireActiveSu
 });
 
 router.post('/tutor/chat/sessions', requireStudent, requireActiveSubscription, async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
-  const user = getTokenUser(c)!;
-  const sessionId = await createNewChatSession(user.userId, 'tutor');
-  return c.json({
-    success: true,
-    sessionId,
-    kernel:    'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const laneBlock = await guardPelajarLane(c);
+    if (laneBlock) return laneBlock;
+    const user = getTokenUser(c)!;
+    const sessionId = await createNewChatSession(user.userId, 'tutor');
+    return c.json({
+      success: true,
+      sessionId,
+      kernel:    'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/tutor/chat/history/:sessionId', requireStudent, requireActiveSubscription, async (c) => {
-  const laneBlock = await guardPelajarLane(c);
-  if (laneBlock) return laneBlock;
-  const user = getTokenUser(c)!;
-  const sessionId = c.req.param('sessionId') ?? '';
-  const allowed = await assertStudentOwnsSession(user.userId, sessionId);
-  if (!allowed) {
-    return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
-  }
-  const rawLimit = parseInt(c.req.query('limit') ?? '100', 10);
-  const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, rawLimit)) : 100;
-  const messages = await loadMessageHistory(sessionId, limit);
-  return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
-});
+  try {
+    const laneBlock = await guardPelajarLane(c);
+    if (laneBlock) return laneBlock;
+    const user = getTokenUser(c)!;
+    const sessionId = c.req.param('sessionId') ?? '';
+    const allowed = await assertStudentOwnsSession(user.userId, sessionId);
+    if (!allowed) {
+      return c.json({ success: false, error: 'Session access denied.', kernel: 'ALAMTOLOGI' }, 403);
+    }
+    const rawLimit = parseInt(c.req.query('limit') ?? '100', 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, rawLimit)) : 100;
+    const messages = await loadMessageHistory(sessionId, limit);
+    return c.json({ success: true, messages, sessionId, kernel: 'ALAMTOLOGI' });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.delete('/tutor/chat/history/:sessionId', requireStudent, requireActiveSubscription, async (c) => {
   const laneBlock = await guardPelajarLane(c);
@@ -302,7 +337,12 @@ router.post('/tutor/chat', requireStudent, requireActiveSubscription, zValidator
           sessionId!,
           message,
           'TUTOR',
-          async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
+          async (event, data) => {
+ try {   await s.write(`event: ${event}\ndata: ${data}\n\n`); 
+ } catch (err) {
+   console.error(err);
+   throw err;
+ }},
           body.uploadIds ?? [],
           {
             userId:      user.userId,

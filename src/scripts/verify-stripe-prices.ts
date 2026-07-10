@@ -80,8 +80,28 @@ function buildCatalog(): PriceExpectation[] {
 
   pushEnvFee(catalog, 'ADAM Pro', 'Pro monthly', 'STRIPE_PRICE_ID_PRO_MONTHLY', ENV.ADAM_PRO_MONTHLY_USD, 'usd', 'month', true);
   pushEnvFee(catalog, 'ADAM Pro', 'Pro annual', 'STRIPE_PRICE_ID_PRO_ANNUAL', ENV.ADAM_PRO_ANNUAL_USD, 'usd', 'year', true);
-  pushEnvFee(catalog, 'ADAM Premium', 'Premium monthly', 'STRIPE_PRICE_ID_PREMIUM_MONTHLY', ENV.ADAM_PREMIUM_MONTHLY_USD, 'usd', 'month', true);
-  pushEnvFee(catalog, 'ADAM Premium', 'Premium annual', 'STRIPE_PRICE_ID_PREMIUM_ANNUAL', ENV.ADAM_PREMIUM_ANNUAL_USD, 'usd', 'year', true);
+  pushEnvFee(
+    catalog,
+    'ADAM General · Premium',
+    'General Premium monthly',
+    'STRIPE_PRICE_ID_GENERAL_PREMIUM_MONTHLY',
+    ENV.ADAM_GENERAL_PREMIUM_MONTHLY_USD,
+    'usd',
+    'month',
+    true,
+  );
+  pushEnvFee(
+    catalog,
+    'ADAM General · Premium',
+    'General Premium annual',
+    'STRIPE_PRICE_ID_GENERAL_PREMIUM_ANNUAL',
+    ENV.ADAM_GENERAL_PREMIUM_ANNUAL_USD,
+    'usd',
+    'year',
+    true,
+  );
+  pushEnvFee(catalog, 'ADAM Platform Premium', 'Platform Premium monthly', 'STRIPE_PRICE_ID_PREMIUM_MONTHLY', ENV.ADAM_PREMIUM_MONTHLY_USD, 'usd', 'month', false);
+  pushEnvFee(catalog, 'ADAM Platform Premium', 'Platform Premium annual', 'STRIPE_PRICE_ID_PREMIUM_ANNUAL', ENV.ADAM_PREMIUM_ANNUAL_USD, 'usd', 'year', false);
 
   for (const band of TUTOR_AGENT_PACKAGE_BANDS) {
     const quote = quoteTutorAgentPackage(band);

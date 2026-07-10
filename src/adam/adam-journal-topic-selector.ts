@@ -15,8 +15,6 @@
  * ============================================================
  */
 
-import { getFastModel } from '../config/llm-models';
-import { llmCompleteUserPrompt } from '../llm/llm-client';
 import type { LlmMessage } from '../llm/llm-types';
 import { getDailyJournalSegmentStatus } from './adam-journal-daily-segment';
 import { extractLockedTopicIdFromMessage } from './adam-journal-manual-prompt';
@@ -192,20 +190,6 @@ export async function adamSelectsBestTopic(
     '',
     'Jawab dengan HANYA topicId yang paling tepat. Tiada penjelasan. Tiada teks lain. Hanya topicId.',
   ].join('\n');
-
-  try {
-    const raw = await llmCompleteUserPrompt(
-      TOPIC_SELECTION_SYSTEM,
-      selectionPrompt,
-      getFastModel(),
-      120,
-    );
-    const topicId = parseTopicIdFromLlm(raw);
-    const topic = topicId ? findUniversityTopicById(topicId) : null;
-    if (topic && !sealedSet.has(topic.topicId)) return topic;
-  } catch (err) {
-    console.warn('[adam:journal-topic] LLM selection failed', err);
-  }
 
   const topScored = candidates[0];
   if (topScored) return topScored;

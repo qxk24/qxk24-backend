@@ -15,7 +15,6 @@
  * ============================================================
  */
 
-
 import {
   adamWebSearchEnabled,
   getWebSearchGateReason,
@@ -140,8 +139,6 @@ export async function fetchAdamTurnContext(input: {
     answerPlan:  river.answerPlan,
   });
 
-  console.log(formatBrainRiverLog(river, 'headwaters'));
-
   const contextStarted = Date.now();
   const needContinuityBridge = branchPolicy.needContinuityBridge;
 
@@ -158,11 +155,18 @@ export async function fetchAdamTurnContext(input: {
     && participant.sessionType === 'student';
 
   const userUmumChannelGate = river.channel.family === 'users';
-  const gateDomain = userUmumChannelGate ? river.gate.iq.domainFacet : undefined;
+  const gateDomain = userUmumChannelGate ? river.gate.iq.groundingFacet : undefined;
+  const usersUmumGateOpts = userUmumChannelGate
+    ? {
+      userUmumChannelGate:  true as const,
+      gateGroundingFacet:   river.gate.iq.groundingFacet,
+      domainTeachingPack:   river.gate.flags.domainTeachingPack,
+    }
+    : {};
 
   const earlyWebSearchReason =
     userUmumChannelGate && adamWebSearchEnabled()
-      ? getWebSearchGateReason(messageForAdam, { userUmumChannelGate: true })
+      ? getWebSearchGateReason(messageForAdam, usersUmumGateOpts)
       : null;
   const usersInlineSearchOnly = river.channel.family === 'users';
 
@@ -219,6 +223,7 @@ export async function fetchAdamTurnContext(input: {
 
   const postRecallWebSearchReason = !isFounder && adamWebSearchEnabled()
     ? getWebSearchGateReason(messageForAdam, {
+      ...usersUmumGateOpts,
       userUmumChannelGate,
       brainRecallLoaded,
       recentUserMessages: extractRecentUserTurns(contextMessages),

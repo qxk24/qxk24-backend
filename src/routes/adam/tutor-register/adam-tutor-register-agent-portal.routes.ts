@@ -70,33 +70,43 @@ import {
 const router = new Hono();
 // POST /api/adam/tutor/agent/portal/login
 router.post('/agent/portal/login', zValidator('json', AgentLoginSchema), async (c) => {
-  const { agentCode, portalToken } = c.req.valid('json');
-  const agent = await resolveTutorAgent(agentCode, portalToken);
-  if (!agent || agent.status !== 'active') {
-    return c.json({ success: false, error: 'Invalid agen credentials.', kernel: 'ALAMTOLOGI' }, 403);
-  }
-  const ready = await prepareAgentPortalSession(agent);
-  const overview = await getTutorAgentPortalOverview(ready);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { overview, orgName: agent.orgName },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const { agentCode, portalToken } = c.req.valid('json');
+    const agent = await resolveTutorAgent(agentCode, portalToken);
+    if (!agent || agent.status !== 'active') {
+      return c.json({ success: false, error: 'Invalid agen credentials.', kernel: 'ALAMTOLOGI' }, 403);
+    }
+    const ready = await prepareAgentPortalSession(agent);
+    const overview = await getTutorAgentPortalOverview(ready);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { overview, orgName: agent.orgName },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/agent/portal/overview
 router.get('/agent/portal/overview', requireTutorAgent, async (c) => {
-  const agent = getTutorAgent(c)!;
-  const ready = await prepareAgentPortalSession(agent);
-  const overview = await getTutorAgentPortalOverview(ready);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { overview },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const agent = getTutorAgent(c)!;
+    const ready = await prepareAgentPortalSession(agent);
+    const overview = await getTutorAgentPortalOverview(ready);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { overview },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/agent/portal/packages — full catalog (all bands)
 router.get('/agent/portal/packages', requireTutorAgent, async (c) => {
@@ -188,61 +198,81 @@ router.post('/agent/portal/package/checkout', requireTutorAgent, async (c) => {
 
 // POST /api/adam/tutor/agent/portal/package/sync-payment — after Stripe return
 router.post('/agent/portal/package/sync-payment', requireTutorAgent, async (c) => {
-  const agent = getTutorAgent(c)!;
-  const body = await c.req.json().catch(() => ({})) as { sessionId?: string };
-  const sessionId = body.sessionId?.trim();
-  if (!sessionId) {
-    return c.json({ success: false, error: 'sessionId required.', kernel: 'ALAMTOLOGI' }, 400);
-  }
+  try {
+    const agent = getTutorAgent(c)!;
+    const body = await c.req.json().catch(() => ({})) as { sessionId?: string };
+    const sessionId = body.sessionId?.trim();
+    if (!sessionId) {
+      return c.json({ success: false, error: 'sessionId required.', kernel: 'ALAMTOLOGI' }, 400);
+    }
 
-  const ok = await syncTutorAgentPackageFromSession(agent.agentId, sessionId);
-  const refreshed = await getTutorAgentById(agent.agentId);
-  const overview = await getTutorAgentPortalOverview(refreshed ?? agent);
+    const ok = await syncTutorAgentPackageFromSession(agent.agentId, sessionId);
+    const refreshed = await getTutorAgentById(agent.agentId);
+    const overview = await getTutorAgentPortalOverview(refreshed ?? agent);
 
-  return c.json({
-    success: ok,
-    kernel:  'ALAMTOLOGI',
-    data:    { paid: ok, overview },
-    timestamp: new Date().toISOString(),
-  });
-});
+    return c.json({
+      success: ok,
+      kernel:  'ALAMTOLOGI',
+      data:    { paid: ok, overview },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/agent/portal/students
 router.get('/agent/portal/students', requireTutorAgent, async (c) => {
-  const agent = getTutorAgent(c)!;
-  const students = await listTutorAgentStudents(agent.agentId);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { students, total: students.length },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const agent = getTutorAgent(c)!;
+    const students = await listTutorAgentStudents(agent.agentId);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { students, total: students.length },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/agent/portal/wallet
 router.get('/agent/portal/wallet', requireTutorAgent, async (c) => {
-  const agent = getTutorAgent(c)!;
-  const wallet = await getTutorAgentWallet(agent.agentId);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { wallet },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const agent = getTutorAgent(c)!;
+    const wallet = await getTutorAgentWallet(agent.agentId);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { wallet },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/agent/portal/codes — available PINs for email invite
 router.get('/agent/portal/codes', requireTutorAgent, async (c) => {
-  const agent = getTutorAgent(c)!;
-  const ready = await prepareAgentPortalSession(agent);
-  const codes = await listAgentAvailableRegisterCodes(ready.agentId);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { codes, total: codes.length },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const agent = getTutorAgent(c)!;
+    const ready = await prepareAgentPortalSession(agent);
+    const codes = await listAgentAvailableRegisterCodes(ready.agentId);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { codes, total: codes.length },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/tutor/agent/portal/codes/send-email — email PIN to student
 router.post(
@@ -270,27 +300,37 @@ router.post(
 
 // POST /api/adam/tutor/agent/portal/demo/chat/sessions — new demo thread
 router.post('/agent/portal/demo/chat/sessions', requireTutorAgent, async (c) => {
-  const agent = getTutorAgent(c)!;
-  const sessionId = await createAgentDemoChatSession(agent);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { sessionId },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const agent = getTutorAgent(c)!;
+    const sessionId = await createAgentDemoChatSession(agent);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { sessionId },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/agent/portal/demo/chat/sessions
 router.get('/agent/portal/demo/chat/sessions', requireTutorAgent, async (c) => {
-  const agent = getTutorAgent(c)!;
-  const sessions = await listAgentDemoChatSessions(agent);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { sessions },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const agent = getTutorAgent(c)!;
+    const sessions = await listAgentDemoChatSessions(agent);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { sessions },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // GET /api/adam/tutor/agent/portal/demo/chat/history/:sessionId
 router.get('/agent/portal/demo/chat/history/:sessionId', requireTutorAgent, async (c) => {
@@ -341,7 +381,12 @@ router.post('/agent/portal/demo/chat', requireTutorAgent, zValidator('json', Age
           sessionId!,
           message,
           'TUTOR',
-          async (event, data) => { await s.write(`event: ${event}\ndata: ${data}\n\n`); },
+          async (event, data) => {
+ try {   await s.write(`event: ${event}\ndata: ${data}\n\n`); 
+ } catch (err) {
+   console.error(err);
+   throw err;
+ }},
           [],
           {
             userId:      agent.agentId,

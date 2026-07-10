@@ -41,23 +41,18 @@ async function main(): Promise<void> {
 
   const result = purgeEpisodicLaneEntries(before, AMA_UAT_PURGE_WINDOW);
 
-  console.log('[AMA Purge] Window:', AMA_UAT_PURGE_WINDOW);
-  console.log('[AMA Purge] Before chars:', before.length);
-  console.log('[AMA Purge] Removed entries:', result.removed.length);
   for (const r of result.removed) {
-    console.log(`  - ${r.timestamp} | ${r.id} | ${r.body.slice(0, 70).replace(/\s+/g, ' ')}…`);
+
   }
-  console.log('[AMA Purge] Kept entries:', result.kept.length);
-  console.log('[AMA Purge] After chars:', result.rebuilt.length);
 
   if (!EXECUTE) {
-    console.log('\nDry run — pass --execute to apply.');
+
     await disconnectDatabase();
     return;
   }
 
   if (result.removed.length === 0) {
-    console.log('Nothing to purge.');
+
     await disconnectDatabase();
     return;
   }
@@ -67,7 +62,6 @@ async function main(): Promise<void> {
     { $set: { episodicLane: result.rebuilt } },
   );
 
-  console.log('\n✅ episodicLane updated.');
   await disconnectDatabase();
 }
 

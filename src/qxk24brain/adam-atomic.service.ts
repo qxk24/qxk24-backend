@@ -145,7 +145,7 @@ export async function recoverFailedMessages(): Promise<number> {
   }
 
   if (recovered > 0) {
-    console.log(`[ADAM Atomic] Recovered ${recovered} message(s) from ledger.`);
+
   }
 
   return recovered;

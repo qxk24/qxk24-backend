@@ -24,8 +24,7 @@
 // ============================================================
 
 import { v4 as uuidv4 } from 'uuid';
-import { getDeepModel } from '../config/llm-models';
-import { llmCompleteUserPrompt } from '../llm/llm-client';
+import { analyzeJournalDeterministically } from '../qxk24brain/deep-ul/journal-ul-engine';
 import { ADAMJournalModel } from './adam.schema';
 import { endOfMalaysiaDay, startOfMalaysiaDay } from './adam-journal-daily-segment';
 import type {
@@ -183,59 +182,21 @@ export async function submitJournal(input: {
   knowledgeDiscipline?: string;
   knowledgeSubfield?:  string;
 }): Promise<AlamtologiAcademicJournal> {
-  let analysedContent: JournalContent;
-  let hukumZ: HukumZResult;
-  let tahapAkal: TahapAkal;
-  let cVLevel: ContributionValue;
-  let judgment: ConstitutionalJudgment;
-  let reviewNotes: string;
+  const analysis = analyzeJournalDeterministically({
+    title:           input.title,
+    abstract:        input.abstract,
+    rawContent:      input.rawContent,
+    principlesFocus: input.principlesFocus,
+  });
 
-  try {
-    const raw = await llmCompleteUserPrompt(
-      'Alamtologi academic journal constitutional analysis.',
-      buildJournalPrompt(input),
-      getDeepModel(),
-      8192,
-    );
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const parsed  = parseLooseAdamJson(cleaned) as {
-      content?: Partial<JournalContent>;
-      hukumZAnalysis?: HukumZResult;
-      tahapAkalAchieved?: TahapAkal;
-      cVLevel?: ContributionValue;
-      judgment?: ConstitutionalJudgment;
-      reviewNotes?: string;
-    } | null;
+  const analysedContent = analysis.content;
+  const hukumZ = analysis.hukumZ;
+  const tahapAkal = analysis.tahapAkal;
+  const cVLevel = analysis.cVLevel;
+  const judgment = analysis.judgment;
+  const reviewNotes = analysis.reviewNotes;
 
-    if (!parsed?.content) throw new Error('Journal analysis JSON parse failed');
-
-    analysedContent = normalizeJournalContent(parsed.content);
-    hukumZ          = parsed.hukumZAnalysis ?? {
-      pola: 'BELUM', kadar: 'BELUM', pasangan: 'BELUM', keseimbangan: 'BELUM',
-    };
-    tahapAkal       = parsed.tahapAkalAchieved ?? 1;
-    cVLevel         = parsed.cVLevel ?? 1;
-    judgment        = parsed.judgment ?? 'ISLAH';
-    reviewNotes     = parsed.reviewNotes ?? '';
-  } catch {
-    analysedContent = {
-      introduction:      input.abstract,
-      background:        '',
-      methodology:       '',
-      alamtologiAnalysis:[],
-      findings:          '',
-      discussion:        '',
-      conclusion:        '',
-      references:        [],
-    };
-    hukumZ    = { pola: 'BELUM', kadar: 'BELUM', pasangan: 'BELUM', keseimbangan: 'BELUM' };
-    tahapAkal = 1;
-    cVLevel   = 1;
-    judgment  = 'ISLAH';
-    reviewNotes = 'ADAM analysis pending — manual review required.';
-  }
-
-  const ahriScore = calculateAHRI(analysedContent.alamtologiAnalysis ?? []);
+  const ahriScore = analysis.ahriScore;
 
   const mapTopic = input.knowledgeTopicId
     ? getTopicById(input.knowledgeTopicId)
@@ -474,10 +435,7 @@ async function resolveAssembledSectionManuscript(input: {
 
   const topicId = input.topicId?.trim();
   if (!topicId) {
-    console.log(
-      '[journal:assemble]',
-      JSON.stringify({ words: 0, meetsMin: false, source: 'none', reason: 'no-topicId' }),
-    );
+
     return { manuscript: null, complete: false, source: 'none', sections: null };
   }
 
@@ -513,16 +471,7 @@ async function resolveAssembledSectionManuscript(input: {
   }
 
   if (!doc || Object.keys(sections).length === 0) {
-    console.log(
-      '[journal:assemble]',
-      JSON.stringify({
-        topicId,
-        words:    0,
-        meetsMin: false,
-        source:   'mongodb-draft',
-        reason:   'no-draft-in-adam_journals',
-      }),
-    );
+
     return { manuscript: null, complete: false, source: 'none', sections: null };
   }
 
@@ -530,19 +479,6 @@ async function resolveAssembledSectionManuscript(input: {
   const words = countJournalWords(assembled);
   const complete = allJournalSectionsComplete(sections);
   const draftJournalId = String(doc._id);
-
-  console.log(
-    '[journal:assemble]',
-    JSON.stringify({
-      topicId,
-      source:   bySession ? 'session-draft' : 'topic-draft',
-      words,
-      complete,
-      chars:      assembled.length,
-      meetsMin:   meetsJournalLengthMinimum(assembled),
-      draftId:    draftJournalId,
-    }),
-  );
 
   return {
     manuscript:     assembled,
@@ -654,18 +590,6 @@ async function sealSectionDraftToPendingReview(input: {
 
   const journal = mapToJournal(doc);
 
-  console.log(
-    '[journal:seal] saved PENDING_REVIEW',
-    JSON.stringify({
-      collection: 'adam_journals',
-      id:         journal.id,
-      topicId,
-      sessionId:  input.sessionId,
-      totalWords,
-      status:     journal.status,
-    }),
-  );
-
   try {
     await runADAMAudit({
       targetId:    journal.id,
@@ -765,16 +689,7 @@ export async function processFounderJournalSeal(input: {
     );
 
   if (attempt) {
-    console.log(
-      '[journal:seal] triggered',
-      JSON.stringify({
-        sessionId:  input.sessionId,
-        topicId:    resolvedTopicId ?? null,
-        force:      Boolean(input.forceSealAttempt),
-        sealPhrase: founderWantsJournalSeal(input.userMessage),
-        sectionComplete: Boolean(input.sectionJournalComplete),
-      }),
-    );
+
   }
 
   if (!attempt) {

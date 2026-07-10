@@ -47,7 +47,7 @@ router.get('/pricing', (c) => {
     },
     enterprise: {
       planId:  'enterprise',
-      contact: 'hello@qxk24.com',
+      contact: 'info@qiubbx.com',
       label:   'Contact ADAM sales — up to 1,000 participants',
     },
     free: {
@@ -58,39 +58,54 @@ router.get('/pricing', (c) => {
 });
 
 router.get('/subscription/me', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const me = await resolveAdamStreamSubscriptionMe(user);
-  return c.json(me);
-});
+  try {
+    const user = getTokenUser(c)!;
+    const me = await resolveAdamStreamSubscriptionMe(user);
+    return c.json(me);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/checkout', requireAdamUser, zValidator('json', CheckoutSchema), async (c) => {
-  const user = getTokenUser(c)!;
-  const body = c.req.valid('json');
+  try {
+    const user = getTokenUser(c)!;
+    const body = c.req.valid('json');
 
-  const result = await createAdamStreamHostCheckoutSession({
-    userId:        user.userId,
-    planId:        body.planId,
-    billingCycle:  body.billingCycle,
-  });
+    const result = await createAdamStreamHostCheckoutSession({
+      userId:        user.userId,
+      planId:        body.planId,
+      billingCycle:  body.billingCycle,
+    });
 
-  return c.json({
-    success:        true,
-    checkoutUrl:    result.checkoutUrl,
-    sessionId:      result.sessionId,
-    subscriptionId: result.subscriptionId,
-  });
-});
+    return c.json({
+      success:        true,
+      checkoutUrl:    result.checkoutUrl,
+      sessionId:      result.sessionId,
+      subscriptionId: result.subscriptionId,
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.post('/checkout/confirm', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const body = await c.req.json().catch(() => ({})) as { sessionId?: string };
-  const sessionId = body.sessionId?.trim();
-  if (!sessionId) {
-    return c.json({ success: false, message: 'sessionId is required.' }, 400);
-  }
+  try {
+    const user = getTokenUser(c)!;
+    const body = await c.req.json().catch(() => ({})) as { sessionId?: string };
+    const sessionId = body.sessionId?.trim();
+    if (!sessionId) {
+      return c.json({ success: false, message: 'sessionId is required.' }, 400);
+    }
 
-  const result = await syncAdamStreamPaymentFromSession(user.userId, sessionId);
-  return c.json({ success: result.activated, ...result });
-});
+    const result = await syncAdamStreamPaymentFromSession(user.userId, sessionId);
+    return c.json({ success: result.activated, ...result });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

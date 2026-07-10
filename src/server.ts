@@ -22,7 +22,6 @@ import { secureHeaders } from 'hono/secure-headers';
 import { serve } from '@hono/node-server';
 
 import { ENV } from './config/environments.js';
-import { assertLlmConfigured } from './llm/llm-client.js';
 import { connectDatabase } from './config/database.js';
 import { uploadBodyLimit } from './middleware/upload-limit.middleware.js';
 import { registerRoutes } from './server/route-registry.js';
@@ -74,12 +73,17 @@ app.use('*', uploadBodyLimit);
 
 // ── Constitutional Response Headers ───────────────────────
 app.use('*', async (c, next) => {
-  await next();
-  c.res.headers.set('X-QXK24-Kernel',  ENV.QXK24_KERNEL_VERSION);
-  c.res.headers.set('X-QXK24-Era',     ENV.QXK24_ERA);
-  c.res.headers.set('X-QXK24-Stack',   ENV.QXK24_STACK);
-  c.res.headers.set('X-LLM-Provider',  ENV.LLM_PROVIDER);
-});
+  try {
+    await next();
+    c.res.headers.set('X-QXK24-Kernel',  ENV.QXK24_KERNEL_VERSION);
+    c.res.headers.set('X-QXK24-Era',     ENV.QXK24_ERA);
+    c.res.headers.set('X-QXK24-Stack',   ENV.QXK24_STACK);
+    c.res.headers.set('X-LLM-Provider',  ENV.LLM_PROVIDER);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // ── Routes ────────────────────────────────────────────────
 registerRoutes(app);
@@ -105,7 +109,6 @@ async function bootstrap(): Promise<void> {
     await initLlmPipeline();
     await initStudentRegistry();
     await connectConcurrencyRedis();
-    assertLlmConfigured();
     startAdamReflectionScheduler();
     startAdamAtomicRecoveryScheduler();
     startAdamIntegrityScheduler();
@@ -113,18 +116,7 @@ async function bootstrap(): Promise<void> {
     startAdamJournalBatchScheduler();
 
     serve({ fetch: app.fetch, port: ENV.PORT }, () => {
-      console.log('');
-      console.log('╔══════════════════════════════════════════════╗');
-      console.log('║       Alamtologi Constitutional Backend          ║');
-      console.log(`║  Kernel  : ${ENV.QXK24_KERNEL_VERSION}                        ║`);
-      console.log(`║  Era     : ${ENV.QXK24_ERA}                          ║`);
-      console.log(`║  Stack   : ${ENV.QXK24_STACK} · ${ENV.LLM_PROVIDER}              ║`);
-      console.log(`║  Port    : ${ENV.PORT}                              ║`);
-      console.log(`║  Upload  : ${ENV.UPLOAD_MAX_FILE_MB}MB max body              ║`);
-      console.log(`║  Env     : ${ENV.NODE_ENV}                   ║`);
-      console.log('║  Domain  : api.qxk24.com                         ║');
-      console.log('╚══════════════════════════════════════════════╝');
-      console.log('');
+
     });
 
   } catch (error) {
@@ -136,16 +128,26 @@ async function bootstrap(): Promise<void> {
 
 // ── Graceful Shutdown ─────────────────────────────────────
 process.on('SIGTERM', async () => {
-  console.log('[QXK24] SIGTERM — shutting down gracefully.');
-  await disconnectConcurrencyRedis();
-  process.exit(0);
-});
+  try {
+
+    await disconnectConcurrencyRedis();
+    process.exit(0);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 process.on('SIGINT', async () => {
-  console.log('[QXK24] SIGINT — shutting down gracefully.');
-  await disconnectConcurrencyRedis();
-  process.exit(0);
-});
+  try {
+
+    await disconnectConcurrencyRedis();
+    process.exit(0);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 process.on('unhandledRejection', (reason) => {
   console.error('[ALAMTOLOGI] Unhandled rejection:', reason);

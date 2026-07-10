@@ -15,9 +15,8 @@
  * ============================================================
  */
 
-import { getVisionModel } from '../config/llm-models';
 import { getAdamLanguageDirective } from './adam-language';
-import { isLlmConfigured, llmDescribeImage } from '../llm/llm-client';
+import { describeImageDeterministically } from '../qxk24brain/deep-ul/vision-descriptor';
 import { normalizeFounderFile } from './adam-file-extract.service';
 
 type VisionMediaType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
@@ -66,17 +65,13 @@ function visionPrompt(uploaderRole: 'founder' | 'student', fileName: string): st
   ].join(' ');
 }
 
-/** Read an image with the active LLM vision model and return text for ADAM teaching context. */
+/** Register an image with deterministic UL metadata for ADAM teaching context. */
 export async function describeImageWithVision(
   buffer: Buffer,
   mimeType: string,
   fileName: string,
   uploaderRole: 'founder' | 'student' = 'founder',
 ): Promise<string> {
-  if (!isLlmConfigured()) {
-    throw new Error('Image reading requires an LLM API key on the server.');
-  }
-
   const mediaType = resolveVisionMediaType(buffer, mimeType, fileName);
   if (!mediaType) {
     throw new Error(
@@ -84,18 +79,10 @@ export async function describeImageWithVision(
     );
   }
 
-  const text = await llmDescribeImage({
+  return describeImageDeterministically({
     buffer,
-    mediaType,
+    mimeType: mediaType,
     fileName,
-    prompt:    visionPrompt(uploaderRole, fileName),
-    model:     getVisionModel(),
-    maxTokens: 4096,
+    uploaderRole,
   });
-
-  return [
-    `[Image read by ADAM — ${fileName}]`,
-    '',
-    text,
-  ].join('\n');
 }

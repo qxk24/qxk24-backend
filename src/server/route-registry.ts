@@ -94,12 +94,17 @@ export function registerRoutes(app: Hono): void {
   app.get('/health/pulse', (c) => c.json(getSystemPulse()));
 
   app.get('/health/memory', async (c) => {
-    const report = await runOperationalMemoryHealth();
-    const httpStatus = report.overall === 'critical' ? 503
-      : report.overall === 'degraded' ? 207
-      : 200;
-    return c.json(report, httpStatus);
-  });
+    try {
+      const report = await runOperationalMemoryHealth();
+      const httpStatus = report.overall === 'critical' ? 503
+        : report.overall === 'degraded' ? 207
+        : 200;
+      return c.json(report, httpStatus);
+  
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }});
 
   /** V8 process heap — for upload/OOM ops (distinct from constitutional /health/memory). */
   app.get('/health/heap', (c) => {
@@ -167,33 +172,4 @@ export function registerRoutes(app: Hono): void {
     }, 404);
   });
 
-  console.log('[ALAMTOLOGI] Routes registered:');
-  console.log('  GET  /health');
-  console.log('  GET  /health/pulse');
-  console.log('  GET  /health/memory');
-  console.log('  GET  /health/heap');
-  console.log('  *    /api/adam/ama/neuro (founder · Langkah 6)');
-  console.log('  *    /api/constitutional');
-  console.log('  *    /api/adam/auth');
-  console.log('  *    /api/adam/chat');
-  console.log('  GET  /api/adam/chat/history/:sessionId');
-  console.log('  GET  /api/adam/auth/session');
-  console.log('  POST /api/adam/upload');
-  console.log('  *    /api/adam/knowledge');
-  console.log('  *    /api/adam/brain');
-  console.log('  *    /api/adam/public');
-  console.log('  *    /api/adam/servers (Layer 2 · Jurnal/Buku/Kod)');
-  console.log('  *    /api/adam/student');
-  console.log('  *    /api/adam/students');
-  console.log('  *    /api/adam/consults');
-  console.log('  *    /api/adam/determination');
-  console.log('  *    /api/adam/journal');
-  console.log('  *    /api/adam/journal/write  (V2 dedicated writing system)');
-  console.log('  *    /api/adam/blog');
-  console.log('  *    /api/adam/succession');
-  console.log('  *    /api/workspaces');
-  console.log('  *    /api/subscriptions');
-  console.log('  *    /api/rd (R&D & Applied Science checkout)');
-  console.log('  *    /api/rd/industry (R&D Industry project + research chat)');
-  console.log('  *    /api/adam/agent (lab · founder · Qwen builder)');
 }

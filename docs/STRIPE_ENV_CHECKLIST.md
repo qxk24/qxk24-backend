@@ -28,6 +28,26 @@ STRIPE_PRICE_ID_TUTOR_UNIVERSITY_MONTHLY=price_...
 ADAM_TUTOR_BILLING_REQUIRED=true
 ```
 
+## ADAM General · Premium + Tutor Pro (USD consumer)
+
+Full table: `docs/STRIPE_ADAM_GENERAL_PREMIUM_PRICES.md`
+
+| Product | Cycle | USD | Env key |
+|---------|-------|-----|---------|
+| ADAM General · Premium | Monthly | 19 | `STRIPE_PRICE_ID_GENERAL_PREMIUM_MONTHLY` |
+| ADAM General · Premium | Annual | 200 | `STRIPE_PRICE_ID_GENERAL_PREMIUM_ANNUAL` |
+| ADAM Tutor · Pro | Monthly | 19 | `STRIPE_PRICE_ID_PRO_MONTHLY` |
+| ADAM Tutor · Pro | Annual | 200 | `STRIPE_PRICE_ID_PRO_ANNUAL` |
+
+```bash
+STRIPE_PRICE_ID_GENERAL_PREMIUM_MONTHLY=price_...
+STRIPE_PRICE_ID_GENERAL_PREMIUM_ANNUAL=price_...
+STRIPE_PRICE_ID_PRO_MONTHLY=price_...
+STRIPE_PRICE_ID_PRO_ANNUAL=price_...
+```
+
+Provision (test mode): `npm run provision:consumer-stripe-prices`
+
 ## ADAM Profesional + Consultant
 
 | Cycle | MYR | Env key |

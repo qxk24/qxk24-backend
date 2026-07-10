@@ -78,15 +78,11 @@ async function tick(): Promise<void> {
 export function startAdamReflectionScheduler(): void {
   const cfg = reflectionConfig();
   if (!cfg.enabled) {
-    console.log('[ADAM Reflection] Scheduler disabled (ADAM_REFLECTION_ENABLED=false).');
+
     return;
   }
 
   if (schedulerTimer) return;
-
-  console.log(
-    `[ADAM Reflection] Scheduler active — daily at ${String(cfg.hour).padStart(2, '0')}:${String(cfg.minute).padStart(2, '0')} (${cfg.timezone})`,
-  );
 
   schedulerTimer = setInterval(() => {
     tick().catch((err) => {

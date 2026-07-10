@@ -80,21 +80,21 @@ describe('adam-usd-myr-rate.service', () => {
 
 describe('adam-tutor-pricing.service', () => {
   it('agent channel uses band-priced USD/month', () => {
-    expect(tutorRegisterMonthlyUsd('primary')).toBe(19);
-    expect(tutorRegisterMonthlyUsd('secondary')).toBe(23);
-    expect(tutorRegisterMonthlyUsd('university')).toBe(29);
+    expect(tutorRegisterMonthlyUsd('primary')).toBe(17);
+    expect(tutorRegisterMonthlyUsd('secondary')).toBe(17);
+    expect(tutorRegisterMonthlyUsd('university')).toBe(19);
   });
 
   it('converts USD to MYR using supplied live rate', () => {
-    expect(convertUsdToMyr(23, 4.312)).toBe(99.18);
+    expect(convertUsdToMyr(17, 4.312)).toBe(73.3);
     const row = buildTutorBandPricing('secondary', 'agent', undefined, {
       rate:      4.312,
       source:    'live',
       fetchedAt: '2026-06-16T00:00:00.000Z',
       provider:  'frankfurter',
     });
-    expect(row.monthlyUsd).toBe(23);
-    expect(row.monthlyMyr).toBe(99.18);
+    expect(row.monthlyUsd).toBe(17);
+    expect(row.monthlyMyr).toBe(73.3);
     expect(row.rateSource).toBe('live');
   });
 });

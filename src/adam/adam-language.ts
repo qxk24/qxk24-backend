@@ -39,7 +39,7 @@ export function getAdamDefaultLanguageLabel(): string {
 }
 
 function normalizedLanguage(): string {
-  return ENV.ADAM_DEFAULT_LANGUAGE.trim().toLowerCase();
+  return (ENV.ADAM_DEFAULT_LANGUAGE ?? 'english').trim().toLowerCase();
 }
 
 function envFallbackLabel(): string {

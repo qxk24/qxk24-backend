@@ -32,11 +32,10 @@ import {
 import { mediaMaxVideoSeconds, type MediaQuotaTier } from './adam-media-quota-tier';
 import { storeAdamGeneratedVideo } from './adam-generated-media-storage';
 import {
-  downloadVideoBuffer,
-  generateWanxVideoUrl,
-  isWanxVideoConfigured,
-  snapWanxVideoDuration,
-} from './adam-wanx-video.client';
+  isLocalVisionConfigured,
+  localVisionEngine,
+  snapVideoDuration,
+} from '../qxk24brain/deep-ul/local-vision-engine';
 import type { AdamMediaGenerationResult } from './adam-media-generation.service';
 
 function emitVideoProgress(
@@ -71,7 +70,7 @@ export async function runAdamVideoGeneration(input: {
 }): Promise<AdamMediaGenerationResult> {
   const snap = await getMediaQuotaSnapshot({ userId: input.userId, tier: input.tier });
   const requestedSeconds = parseRequestedVideoSeconds(input.userMessage);
-  const billedSeconds = snapWanxVideoDuration(
+  const billedSeconds = snapVideoDuration(
     Math.min(requestedSeconds, mediaMaxVideoSeconds()),
   );
 
@@ -104,36 +103,18 @@ export async function runAdamVideoGeneration(input: {
   });
 
   try {
-    if (!isWanxVideoConfigured()) {
+    if (!isLocalVisionConfigured()) {
       await refundMediaReservation(reservationId);
-      console.warn('[adam:media-gen] DASHSCOPE_API_KEY not set — video skipped');
+      console.warn('[adam:media-gen] ADAM_MEDIA_GENERATION_ENABLED=false — video skipped');
       return {
         hits:         [],
         quotaBlocked: false,
-        blockMessage: 'AI video generation is not configured on this server yet.',
+        blockMessage: 'AI video generation is not enabled on this server yet.',
       };
     }
 
-    const remoteUrl = await generateWanxVideoUrl(
-      prompt,
-      billedSeconds,
-      (progress) => {
-        emitVideoProgress(input.onEvent, {
-          prompt,
-          taskId:          progress.taskId,
-          status:          progress.status,
-          poll:            progress.poll,
-          durationSeconds: billedSeconds,
-        });
-      },
-    );
-
-    if (!remoteUrl) {
-      await refundMediaReservation(reservationId);
-      return { hits: [], quotaBlocked: false };
-    }
-
-    const buffer = await downloadVideoBuffer(remoteUrl);
+    const frames = Math.max(8, Math.min(24, billedSeconds * 2));
+    const buffer = await localVisionEngine.generateVideoBuffer(prompt, frames, 8);
     if (!buffer) {
       await refundMediaReservation(reservationId);
       return { hits: [], quotaBlocked: false };

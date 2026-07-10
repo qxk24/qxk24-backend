@@ -36,34 +36,110 @@ function getBridge(): TeachingBridge {
 }
 
 router.get('/pending', requireFounder, async (c) => {
-  const bridge = getBridge();
-  const units = await bridge.getPendingUnits();
-  return c.json({ success: true, units, count: units.length });
-});
+  try {
+    const bridge = getBridge();
+    const units = await bridge.getPendingUnits();
+    return c.json({ success: true, units, count: units.length });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 const ConfirmSchema = z.object({
   crystallisedUnitId: z.string().min(1),
 });
 
 router.post('/confirm', requireFounder, zValidator('json', ConfirmSchema), async (c) => {
-  const body = c.req.valid('json');
-  const user = getTokenUser(c);
-  const confirmedBy = user?.userId ?? 'masa-bayu';
+  try {
+    const body = c.req.valid('json');
+    const user = getTokenUser(c);
+    const confirmedBy = user?.userId ?? 'masa-bayu';
 
-  const bridge = getBridge();
-  const result = await bridge.confirmUnit(body.crystallisedUnitId, confirmedBy);
+    const bridge = getBridge();
+    const result = await bridge.confirmUnit(body.crystallisedUnitId, confirmedBy);
 
-  if (!result.success) {
-    return c.json({ success: false, reason: result.reason }, 400);
-  }
+    if (!result.success) {
+      return c.json({ success: false, reason: result.reason }, 400);
+    }
 
-  const confirmed = await bridge.getConfirmedUnits();
-  const record = confirmed.find((r) => r.crystallisedUnitId === body.crystallisedUnitId);
+    const confirmed = await bridge.getConfirmedUnits();
+    const record = confirmed.find((r) => r.crystallisedUnitId === body.crystallisedUnitId);
 
-  let projectedStudents = 0;
-  if (record?.unit) {
-    projectedStudents = await applyConfirmedUnitToAllStudents({
-      id:        record.unit.id,
+    let projectedStudents = 0;
+    if (record?.unit) {
+      projectedStudents = await applyConfirmedUnitToAllStudents({
+        id:        record.unit.id,
+        level:     record.unit.level,
+        family:    record.unit.family,
+        subRegion: record.unit.subRegion,
+        nodeA:     record.unit.nodeA,
+        nodeB:     record.unit.nodeB,
+      });
+
+      const u = record.unit;
+      void generateTrainingExamplesFromUnit({
+        crystallisedUnitId: body.crystallisedUnitId,
+        nodeA:              u.nodeA,
+        nodeB:              u.nodeB,
+        relationship:       u.relationship,
+        synthesis:          u.synthesis,
+        founderTeaching:    u.founderTeaching,
+        adamReflection:     u.adamReflection,
+        family:             u.family,
+        subRegion:          u.subRegion,
+        primaryAuthority:   u.primaryAuthority,
+        quranReference:     u.quranReference,
+        level:              u.level,
+        confirmedBy,
+        maqasidDimensions:  u.maqasidDimensions,
+      }).catch((err) => {
+        console.error('[LLM Pipeline] Training example generation failed:', err);
+      });
+    }
+
+    return c.json({
+      success: true,
+      aidilUnitId: result.aidilUnitId,
+      crystallisedUnitId: body.crystallisedUnitId,
+      projectedStudents,
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
+
+router.post('/reject', requireFounder, zValidator('json', ConfirmSchema), async (c) => {
+  try {
+    const body = c.req.valid('json');
+    const bridge = getBridge();
+    await bridge.rejectUnit(body.crystallisedUnitId);
+    return c.json({ success: true, crystallisedUnitId: body.crystallisedUnitId });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
+
+router.post('/project-student', requireFounder, zValidator('json', z.object({
+  studentId: z.string().min(1),
+  crystallisedUnitId: z.string().min(1),
+})), async (c) => {
+  try {
+    const body = c.req.valid('json');
+    const bridge = getBridge();
+    const pending = await bridge.getPendingUnits();
+    const confirmed = await bridge.getConfirmedUnits();
+    const record =
+      confirmed.find((r) => r.crystallisedUnitId === body.crystallisedUnitId)
+      ?? pending.find((r) => r.crystallisedUnitId === body.crystallisedUnitId);
+
+    if (!record?.unit || record.status !== 'confirmed') {
+      return c.json({ success: false, reason: 'Unit not confirmed' }, 400);
+    }
+
+    await applyConfirmedUnitToStudent(body.studentId, {
       level:     record.unit.level,
       family:    record.unit.family,
       subRegion: record.unit.subRegion,
@@ -71,67 +147,11 @@ router.post('/confirm', requireFounder, zValidator('json', ConfirmSchema), async
       nodeB:     record.unit.nodeB,
     });
 
-    const u = record.unit;
-    void generateTrainingExamplesFromUnit({
-      crystallisedUnitId: body.crystallisedUnitId,
-      nodeA:              u.nodeA,
-      nodeB:              u.nodeB,
-      relationship:       u.relationship,
-      synthesis:          u.synthesis,
-      founderTeaching:    u.founderTeaching,
-      adamReflection:     u.adamReflection,
-      family:             u.family,
-      subRegion:          u.subRegion,
-      primaryAuthority:   u.primaryAuthority,
-      quranReference:     u.quranReference,
-      level:              u.level,
-      confirmedBy,
-      maqasidDimensions:  u.maqasidDimensions,
-    }).catch((err) => {
-      console.error('[LLM Pipeline] Training example generation failed:', err);
-    });
-  }
+    return c.json({ success: true, studentId: body.studentId });
 
-  return c.json({
-    success: true,
-    aidilUnitId: result.aidilUnitId,
-    crystallisedUnitId: body.crystallisedUnitId,
-    projectedStudents,
-  });
-});
-
-router.post('/reject', requireFounder, zValidator('json', ConfirmSchema), async (c) => {
-  const body = c.req.valid('json');
-  const bridge = getBridge();
-  await bridge.rejectUnit(body.crystallisedUnitId);
-  return c.json({ success: true, crystallisedUnitId: body.crystallisedUnitId });
-});
-
-router.post('/project-student', requireFounder, zValidator('json', z.object({
-  studentId: z.string().min(1),
-  crystallisedUnitId: z.string().min(1),
-})), async (c) => {
-  const body = c.req.valid('json');
-  const bridge = getBridge();
-  const pending = await bridge.getPendingUnits();
-  const confirmed = await bridge.getConfirmedUnits();
-  const record =
-    confirmed.find((r) => r.crystallisedUnitId === body.crystallisedUnitId)
-    ?? pending.find((r) => r.crystallisedUnitId === body.crystallisedUnitId);
-
-  if (!record?.unit || record.status !== 'confirmed') {
-    return c.json({ success: false, reason: 'Unit not confirmed' }, 400);
-  }
-
-  await applyConfirmedUnitToStudent(body.studentId, {
-    level:     record.unit.level,
-    family:    record.unit.family,
-    subRegion: record.unit.subRegion,
-    nodeA:     record.unit.nodeA,
-    nodeB:     record.unit.nodeB,
-  });
-
-  return c.json({ success: true, studentId: body.studentId });
-});
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

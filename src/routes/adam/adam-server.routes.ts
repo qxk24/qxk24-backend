@@ -83,22 +83,27 @@ router.get('/stripe-catalog', (c) => {
 
 // GET /api/adam/servers/status — authenticated user server subs
 router.get('/status', requireAdamUser, async (c) => {
-  const user = getTokenUser(c)!;
-  const servers = await getUserServerStatuses(user.userId);
+  try {
+    const user = getTokenUser(c)!;
+    const servers = await getUserServerStatuses(user.userId);
 
-  return c.json({
-    success: true,
-    layer1: {
-      open: true,
-      chatOnly: true,
-    },
-    layer2: {
-      open:    isLayer2Open(),
-      enabled: isLayer2Open(),
-      servers,
-    },
-  });
-});
+    return c.json({
+      success: true,
+      layer1: {
+        open: true,
+        chatOnly: true,
+      },
+      layer2: {
+        open:    isLayer2Open(),
+        enabled: isLayer2Open(),
+        servers,
+      },
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/servers/subscribe — Stripe Checkout (ADAMGuru wired)
 router.post('/subscribe', requireAdamUser, async (c) => {

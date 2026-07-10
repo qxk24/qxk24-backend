@@ -57,8 +57,11 @@ export function resolveIqUsersMode(
   if (domainFacet === 'prose-craft' || domainFacet === 'faith' || domainFacet === 'practical-career') {
     return 'general';
   }
-  // Teaching-pack domains stay technical even on factual/arithmetic surfaces (school maths, stats).
-  if (usersDomainUsesTeachingPack(domainFacet)) return 'technical';
+  // Teaching-pack domains stay technical — except record-superlative geography (Universal Scholar prose).
+  if (usersDomainUsesTeachingPack(domainFacet)) {
+    if (domainFacet === 'geography' && surfaceKind === 'record-superlative') return 'general';
+    return 'technical';
+  }
   if (LIGHT_EQ_TONES.has(affectiveTone)) return 'general';
   if (LIGHT_SURFACES.has(surfaceKind)) return 'general';
   return 'general';

@@ -44,6 +44,7 @@ import {
   userAskedForConstitutionalStructure,
 } from './adam-universal-voice';
 import { isVerifiedDataStatAsk } from './adam-web-search';
+import { ADAM_FOUNDER_EMPIRICAL_DEPTH_LAW } from './adam-founder-empirical-depth';
 import { userUmumPerlaksanaanTurnActive, isUserUmumCompanionTurnActive } from './adam-universal-scholar';
 
 export type AdamAnswerProfile = 'light' | 'alpha' | 'beta';
@@ -81,7 +82,7 @@ export function resolveAdamAnswerProfile(input: ResolveAdamAnswerProfileInput): 
   if (isVerifiedDataStatAsk(t)) return 'alpha';
   if (isAdamCurrentAffairsTurn(t)) return 'alpha';
   if (isTechnicalPrecisionQuestion(t)) return 'alpha';
-  if (isAdamSimpleFactualTurn(t)) return 'alpha';
+  if (!input.isFounder && isAdamSimpleFactualTurn(t)) return 'alpha';
   if (isAdamPracticalAdvisoryTurn(t)) return 'alpha';
   if (threadRootIsPracticalAdvisory(input.recentUserMessages ?? [], t)) return 'alpha';
   if (isAdamUserGuidanceCoachingTurn(t)) return 'alpha';
@@ -233,10 +234,13 @@ export function buildAdamAlphaGenerationLaw(
   options?: { isFounder?: boolean },
 ): string {
   const isFounder = options?.isFounder === true;
+  if (isFounder) {
+    return ADAM_FOUNDER_EMPIRICAL_DEPTH_LAW;
+  }
   if (isDirectTechnicalHowToQuestion(message)) {
     return `${ADAM_ALPHA_REPLY_LAW}\n\n${ADAM_DIRECT_TECHNICAL_REPLY_LAW}`;
   }
-  if (isFounder || !isAdamTechnicalKonvensionalDisplayTurn(message)) {
+  if (!isAdamTechnicalKonvensionalDisplayTurn(message)) {
     if (isAdamAlgorithmTeachingTurn(message)) {
       return `${ADAM_ALPHA_REPLY_LAW}\n\n${ADAM_ALPHA_ALGORITHM_TEACHING_LAW}`;
     }

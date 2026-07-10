@@ -23,46 +23,54 @@ const LAB_PAIR = [
   { userId: 'lab-pelajar-b', name: 'Lab Pelajar B' },
 ] as const;
 
-const LAB_PASSWORD = 'LabPelajarF3!2026';
+const LAB_PASSWORD = process.env.LAB_PELAJAR_PASSWORD || 'LabPelajarF3!2026';
 
 async function main() {
-  await connectDatabase();
+  try {
+    await connectDatabase();
 
-  for (const row of LAB_PAIR) {
-    const existing = await getStudentAccount(row.userId);
-    if (existing) {
-      console.log(`[seed] exists: ${row.userId} (${existing.name})`);
-      continue;
+    for (const row of LAB_PAIR) {
+      const existing = await getStudentAccount(row.userId);
+      if (existing) {
+
+        continue;
+      }
+
+      await createStudentAccount({
+        userId:      row.userId,
+        name:        row.name,
+        password:    LAB_PASSWORD,
+        createdBy:   'seed:lab-pelajar-pair',
+        accountRole: 'student',
+        accountLane: 'pelajar',
+      });
+
+      const profile = {
+        ...defaultTutorLearningProfile(),
+        placementComplete: true,
+      };
+      await saveTutorLearningProfile(row.userId, profile);
+
     }
 
-    await createStudentAccount({
-      userId:      row.userId,
-      name:        row.name,
-      password:    LAB_PASSWORD,
-      createdBy:   'seed:lab-pelajar-pair',
-      accountRole: 'student',
-      accountLane: 'pelajar',
-    });
+    for (const row of LAB_PAIR) {
 
-    const profile = {
-      ...defaultTutorLearningProfile(),
-      placementComplete: true,
-    };
-    await saveTutorLearningProfile(row.userId, profile);
+    }
 
-    console.log(`[seed] created: ${row.userId} lane=pelajar placementComplete=true`);
-  }
+    await disconnectDatabase();
 
-  console.log('\nLab pelajar login (local):');
-  for (const row of LAB_PAIR) {
-    console.log(`  userId=${row.userId} password=${LAB_PASSWORD}`);
-  }
-
-  await disconnectDatabase();
-}
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }}
 
 main().catch(async (err) => {
-  console.error('[seed] Gagal:', err instanceof Error ? err.message : err);
-  await disconnectDatabase().catch(() => undefined);
-  process.exit(1);
-});
+  try {
+    console.error('[seed] Gagal:', err instanceof Error ? err.message : err);
+    await disconnectDatabase().catch(() => undefined);
+    process.exit(1);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});

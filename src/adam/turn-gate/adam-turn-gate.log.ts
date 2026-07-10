@@ -27,6 +27,7 @@ export function formatAdamTurnGateLog(decision: AdamTurnGateDecision): string {
 
   const iqPart = [
     `domain=${iq.domainFacet}`,
+    iq.groundingFacet !== iq.domainFacet ? `ground=${iq.groundingFacet}` : null,
     `surface=${iq.surfaceKind}`,
     `mode=${iq.usersMode}`,
     `intent=${iq.contentIntent}`,

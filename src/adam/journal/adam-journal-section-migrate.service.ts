@@ -193,11 +193,6 @@ export async function migrateJournalSectionsToQuranSplit(options?: {
     const totalWords = recalculateV2TotalWords(sections);
     const journalNumber = doc.journalNumber;
 
-    console.log(
-      `[journal:migrate:v2] ${dryRun ? 'DRY' : 'APPLY'} ${journalNumber}`,
-      JSON.stringify({ moves, totalWords }),
-    );
-
     if (!dryRun) {
       const unset: Record<string, 1> = {};
       for (const oldKey of Object.keys(LEGACY_V2_SECTION_KEY_MAP)) {
@@ -251,15 +246,6 @@ export async function migrateJournalSectionsToQuranSplit(options?: {
     const lastCompletedSection = remapLastCompletedSection(
       doc.lastCompletedSection as string | undefined,
       LEGACY_CHAT_SECTION_KEY_MAP,
-    );
-
-    console.log(
-      `[journal:migrate:chat] ${dryRun ? 'DRY' : 'APPLY'} ${String(doc._id)}`,
-      JSON.stringify({
-        topicId: doc.knowledgeTopicId,
-        moves,
-        lastCompletedSection,
-      }),
     );
 
     if (!dryRun) {

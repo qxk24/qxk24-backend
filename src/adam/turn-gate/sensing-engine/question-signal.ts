@@ -33,6 +33,7 @@ export function readQuestionSignal(message: string): AdamSurfaceKind {
   const t = message.trim();
   if (!t || isAdamLightChatTurn(t)) return 'greeting';
   if (isAdamProseCraftTurn(t)) return 'prose-craft';
+  if (isAdamRecordSuperlativeTurn(t)) return 'record-superlative';
   if (isAdamSimpleFactualTurn(t)) return 'factual';
   if (isAdamSimpleArithmeticTurn(t)) return 'arithmetic';
   if (isAdamRelationalPersonalTurn(t)) return 'relational';
@@ -40,7 +41,6 @@ export function readQuestionSignal(message: string): AdamSurfaceKind {
   if (isAdamContinuationDepthTurn(t)) return 'continuation';
   if (/\b(?:terangkan|jelaskan|huraikan)\s+lagi\b/i.test(t)) return 'depth';
   if (isAdamCompareTurn(t)) return 'comparative';
-  if (isAdamRecordSuperlativeTurn(t)) return 'record-superlative';
   if (isAdamTranslationTurn(t)) return 'translation';
   if (isAdamProcedureHowToTurn(t)) return 'procedure-howto';
   if (isAdamOpinionEvaluativeTurn(t)) return 'opinion-evaluative';

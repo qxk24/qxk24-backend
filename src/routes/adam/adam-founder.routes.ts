@@ -36,13 +36,18 @@ const ToggleSchema = z.object({
 
 /** GET /api/adam/founder/pulse — live command board aggregate */
 router.get('/pulse', requireFounder, async (c) => {
-  const pulse = await buildFounderPulse();
-  return c.json({
-    success: true,
-    pulse,
-    kernel:  'ALAMTOLOGI',
-  });
-});
+  try {
+    const pulse = await buildFounderPulse();
+    return c.json({
+      success: true,
+      pulse,
+      kernel:  'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 /** GET /api/adam/founder/registration — public student signup gate (founder view) */
 router.get('/registration', requireFounder, (c) => {
@@ -55,25 +60,35 @@ router.get('/registration', requireFounder, (c) => {
 
 /** PATCH /api/adam/founder/registration — open/close public student signup */
 router.patch('/registration', requireFounder, zValidator('json', ToggleSchema), async (c) => {
-  const user = getTokenUser(c)!;
-  const { open } = c.req.valid('json');
-  const result = await setStudentSelfRegisterOpen(open, user.userId);
-  return c.json({
-    success: true,
-    open:    result.open,
-    kernel:  'ALAMTOLOGI',
-  });
-});
+  try {
+    const user = getTokenUser(c)!;
+    const { open } = c.req.valid('json');
+    const result = await setStudentSelfRegisterOpen(open, user.userId);
+    return c.json({
+      success: true,
+      open:    result.open,
+      kernel:  'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 /** GET /api/adam/founder/mac-bridge — bridge routing toggle + daemon status */
 router.get('/mac-bridge', requireFounder, async (c) => {
-  const user = getTokenUser(c)!;
-  return c.json({
-    success: true,
-    ...await getMacBridgeDashboardSettings(user.userId, true),
-    kernel: 'ALAMTOLOGI',
-  });
-});
+  try {
+    const user = getTokenUser(c)!;
+    return c.json({
+      success: true,
+      ...await getMacBridgeDashboardSettings(user.userId, true),
+      kernel: 'ALAMTOLOGI',
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 /** PATCH /api/adam/founder/mac-bridge — open/close Mac bridge routing */
 router.patch('/mac-bridge', requireFounder, zValidator('json', ToggleSchema), async (c) => {

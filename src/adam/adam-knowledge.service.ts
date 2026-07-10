@@ -212,7 +212,7 @@ export const adamKnowledgeService = {
     }
 
     if (erased > 0) {
-      console.log(`[QXK24] AIDIL legacy erasure: ${absorbed} absorbed, ${erased} raw records erased`);
+
     }
 
     return { absorbed, erased };

@@ -113,18 +113,6 @@ export async function runJournalAddendumPersistTurn(input: {
     topic:       (input.journal.journalTopic ?? (topicId ? getTopicById(topicId) : undefined)) ?? undefined,
   });
 
-  console.log(
-    '[adam:journal-addendum-persist]',
-    JSON.stringify({
-      sessionId:    input.resolvedSessionId,
-      save:         isSave,
-      append:       isAppend,
-      highlight,
-      sectionCount: writtenIds.length,
-      persisted:    Boolean(adamTextForPersist.trim().length >= 80),
-    }),
-  );
-
   return {
     fullResponse,
     sectionJournalComplete: allJournalSectionsComplete(sections),

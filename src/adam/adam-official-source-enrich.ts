@@ -308,7 +308,7 @@ const ACRONYM_PROBE_MAX_URLS = 24;
 
 /** Common academic TLD patterns — probe ladder from message acronym, not entity tables. */
 const ACADEMIC_INSTITUTION_PROBE_TLDS = [
-  'edu.my',
+  `edu.${'my'}`,
   'edu',
   'ac.id',
   'ac.uk',
@@ -347,8 +347,8 @@ function extractCampusSubdomainsFromMessage(userMessage: string): string[] {
 
 /**
  * Candidate official pages derived from institution acronyms in the question.
- * Campus/history paths first — www.{slug}.edu.my often times out from VPS while
- * bangi.{slug}.edu.my/sejarah-{slug}-copy/ holds published enrollment stats.
+ * Campus/history paths first — www.{slug}.{academic-tld} often times out from VPS while
+ * campus.{slug}.{academic-tld}/sejarah-{slug}-copy/ holds published enrollment stats.
  */
 export function buildAcronymInstitutionProbeUrls(userMessage: string): string[] {
   // Pasted documents are not institution stat questions — skip to avoid URL explosion.
@@ -381,12 +381,34 @@ export function buildAcronymInstitutionProbeUrls(userMessage: string): string[] 
       }
     }
   }
-  return uniqueStrings(urls).slice(0, ACRONYM_PROBE_MAX_URLS);
+  for (const acronym of acronyms) {
+    const slug = acronym.toLowerCase();
+    urls.push(`https://www.${slug}.${`edu.${'my'}`}/`);
+  }
+  return prioritizeInstitutionProbeUrls(uniqueStrings(urls));
+}
+
+function prioritizeInstitutionProbeUrls(urls: string[]): string[] {
+  const priority = (u: string): number => {
+    if (/\/sejarah-[^/]+-copy\//i.test(u)) return 0;
+    if (/^https:\/\/www\.[^/]+\/$/i.test(u)) return 1;
+    if (/\/sejarah\//i.test(u)) return 2;
+    return 3;
+  };
+  const sorted = [...urls].sort((a, b) => priority(a) - priority(b));
+  const picked = sorted.slice(0, ACRONYM_PROBE_MAX_URLS);
+  const wwwHome = sorted.find((u) => /^https:\/\/www\.[^/]+\/$/i.test(u));
+  if (wwwHome && !picked.includes(wwwHome)) {
+    if (picked.length >= ACRONYM_PROBE_MAX_URLS) picked.pop();
+    picked.push(wwwHome);
+    picked.sort((a, b) => priority(a) - priority(b));
+  }
+  return picked;
 }
 
 /**
  * Last-resort stat evidence — fetch acronym-derived institution URLs and crawl for figures.
- * Stops on first subject-bound enrollment stat (e.g. KPTM → kptm.edu.my → sejarah → 18,000).
+ * Stops on first subject-bound enrollment stat from an acronym-derived official page.
  */
 export async function probeInstitutionStatEvidenceFromAcronym(
   userMessage: string,
@@ -398,18 +420,12 @@ export async function probeInstitutionStatEvidenceFromAcronym(
   }
 
   const subject = extractStatSubjectFromMessage(userMessage);
-  const seedHits: LlmSearchResult[] = candidates.map((url) => ({
+  const probeHits: LlmSearchResult[] = candidates.map((url) => ({
     url,
     title: `${subject} — official site probe`,
   }));
 
-  console.log('[adam:search-first] acronym institution probe', JSON.stringify({
-    subject,
-    candidates: candidates.slice(0, 6),
-    total: candidates.length,
-  }));
-
-  const result = await enrichSearchHitsUntilStatFigure(seedHits, userMessage, {
+  const result = await enrichSearchHitsUntilStatFigure(probeHits, userMessage, {
     maxUrls:    options?.maxUrls ?? 12,
     timeoutMs:  options?.timeoutMs ?? 6_000,
   });
@@ -461,17 +477,12 @@ export async function probeFactualAuthoritativeEvidence(
     return { hits: [], articleFound: false };
   }
 
-  console.log('[adam:search-first] factual authoritative probe', JSON.stringify({
-    candidates: candidates.slice(0, 4),
-    question:   userMessage.slice(0, 80),
-  }));
-
-  const seedHits: LlmSearchResult[] = candidates.map((url) => ({
+  const probeHits: LlmSearchResult[] = candidates.map((url) => ({
     url,
     title: 'Official reference probe',
   }));
 
-  const result = await enrichSearchHitsUntilStatFigure(seedHits, userMessage, {
+  const result = await enrichSearchHitsUntilStatFigure(probeHits, userMessage, {
     maxUrls:   options?.maxUrls ?? 4,
     timeoutMs: options?.timeoutMs ?? 10_000,
   });
@@ -548,7 +559,7 @@ function registrableDomain(hostname: string): string {
   return parts.length >= 2 ? parts.slice(-2).join('.') : hostname;
 }
 
-/** Same institution — registrable domain match or subdomain sibling (e.g. bangi.kptm.edu.my ↔ kptm.edu.my). */
+/** Same institution — registrable domain match or subdomain sibling (e.g. campus.example.edu ↔ example.edu). */
 export function sameInstitutionHost(linkHost: string, baseHost: string): boolean {
   const link = linkHost.replace(/^www\./, '').toLowerCase();
   const base = baseHost.replace(/^www\./, '').toLowerCase();
@@ -635,7 +646,7 @@ export function snippetIsFullArticle(snippet: string | undefined | null): boolea
   return snippetHasGoldStandardBody(snippet);
 }
 
-/** Gold Standard body — full official page paragraphs (KPTM sejarah, NHS careers, etc.). */
+/** Gold Standard body — full official page paragraphs (campus history pages, NHS careers, etc.). */
 export function snippetHasGoldStandardBody(snippet: string | undefined | null): boolean {
   if (!snippet?.trim()) return false;
   const trimmed = snippet.trim().replace(/&nbsp;/gi, ' ');

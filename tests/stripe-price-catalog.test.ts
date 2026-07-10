@@ -54,3 +54,17 @@ describe('getStripePriceId — Premium (PROFESIONAL checkout tier)', () => {
       .toBe(ENV.STRIPE_PRICE_ID_PREMIUM_ANNUAL);
   });
 });
+
+describe('getStripePriceId — General Premium (PRO + consumerProductSku)', () => {
+  it('maps general_premium to GENERAL_PREMIUM env keys with PRO fallback', async () => {
+    const { getStripePriceId } = await import('../src/subscriptions/stripe-gateway.service');
+    const { SubscriptionTier, BillingCycle } = await import('../src/subscriptions/subscription.schema');
+    const { ENV } = await import('../src/config/environments');
+    expect(
+      getStripePriceId(SubscriptionTier.PRO, BillingCycle.MONTHLY, null, 'general_premium'),
+    ).toBe(ENV.STRIPE_PRICE_ID_GENERAL_PREMIUM_MONTHLY || ENV.STRIPE_PRICE_ID_PRO_MONTHLY);
+    expect(
+      getStripePriceId(SubscriptionTier.PRO, BillingCycle.ANNUAL, null, 'general_premium'),
+    ).toBe(ENV.STRIPE_PRICE_ID_GENERAL_PREMIUM_ANNUAL || ENV.STRIPE_PRICE_ID_PRO_ANNUAL);
+  });
+});

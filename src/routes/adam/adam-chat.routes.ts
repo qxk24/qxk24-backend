@@ -117,8 +117,13 @@ router.post('/', requireFounder, zValidator('json', ChatSchema), async (c) => {
     try {
       await withSseKeepalive(s, () =>
         streamADAMChat(sessionId!, message, mode, async (event, data) => {
-          await s.write(`event: ${event}\ndata: ${data}\n\n`);
-        }, uploadIds, participant, {
+          try {
+            await s.write(`event: ${event}\ndata: ${data}\n\n`);
+        
+          } catch (err) {
+            console.error(err);
+            throw err;
+          }}, uploadIds, participant, {
           founderToken,
           answerStyle:       body.answerStyle,
           journalTopicId:    body.journalTopicId,
@@ -206,68 +211,83 @@ router.post('/simple', requireFounder, zValidator('json', SimpleChatSchema), asy
 // ─── GET /api/adam/chat/history/:sessionId — Message history ──
 
 router.get('/history/:sessionId', requireFounder, async (c) => {
-  const sessionId = c.req.param('sessionId') ?? '';
-  if (!sessionId) {
+  try {
+    const sessionId = c.req.param('sessionId') ?? '';
+    if (!sessionId) {
+      return c.json({
+        success: false,
+        error:   'sessionId required.',
+        kernel:  'ALAMTOLOGI',
+      }, 400);
+    }
+
+    const rawLimit = parseInt(c.req.query('limit') ?? '100', 10);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.min(100, Math.max(1, rawLimit))
+      : 100;
+    const messages = await loadMessageHistory(sessionId, limit);
+
     return c.json({
-      success: false,
-      error:   'sessionId required.',
-      kernel:  'ALAMTOLOGI',
-    }, 400);
-  }
+      success:   true,
+      messages,
+      total:     messages.length,
+      sessionId,
+      kernel:    'ALAMTOLOGI',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      timestamp: new Date().toISOString(),
+    });
 
-  const rawLimit = parseInt(c.req.query('limit') ?? '100', 10);
-  const limit = Number.isFinite(rawLimit)
-    ? Math.min(100, Math.max(1, rawLimit))
-    : 100;
-  const messages = await loadMessageHistory(sessionId, limit);
-
-  return c.json({
-    success:   true,
-    messages,
-    total:     messages.length,
-    sessionId,
-    kernel:    'ALAMTOLOGI',
-    version:   ENV.QXK24_KERNEL_VERSION,
-    era:       ENV.QXK24_ERA,
-    timestamp: new Date().toISOString(),
-  });
-});
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // ─── GET /api/adam/chat/sessions — List Sessions ──────────────
 
 router.post('/sessions', requireFounder, async (c) => {
-  const user = getTokenUser(c);
-  const founderId = user?.userId ?? 'masa-bayu';
-  const sessionId = await createNewChatSession(founderId, 'founder');
-  return c.json({
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    version:   ENV.QXK24_KERNEL_VERSION,
-    era:       ENV.QXK24_ERA,
-    data:      { sessionId },
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const user = getTokenUser(c);
+    const founderId = user?.userId ?? 'masa-bayu';
+    const sessionId = await createNewChatSession(founderId, 'founder');
+    return c.json({
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data:      { sessionId },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 router.get('/sessions', requireFounder, async (c) => {
-  const mode  = c.req.query('mode') as any;
-  const limit = parseInt(c.req.query('limit') ?? '20', 10);
-  const user = getTokenUser(c);
-  const founderId = user?.userId ?? 'masa-bayu';
+  try {
+    const mode  = c.req.query('mode') as any;
+    const limit = parseInt(c.req.query('limit') ?? '20', 10);
+    const user = getTokenUser(c);
+    const founderId = user?.userId ?? 'masa-bayu';
 
-  const sessions = await listChatSessions(mode, limit, founderId);
+    const sessions = await listChatSessions(mode, limit, founderId);
 
-  const response: ADAMApiResponse<{ sessions: ADAMChatSession[]; count: number }> = {
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    version:   ENV.QXK24_KERNEL_VERSION,
-    era:       ENV.QXK24_ERA,
-    data:      { sessions, count: sessions.length },
-    timestamp: new Date().toISOString(),
-  };
+    const response: ADAMApiResponse<{ sessions: ADAMChatSession[]; count: number }> = {
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data:      { sessions, count: sessions.length },
+      timestamp: new Date().toISOString(),
+    };
 
-  return c.json(response);
-});
+    return c.json(response);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 const SessionTitleSchema = z.object({
   title: z.string().min(1).max(72),
@@ -324,27 +344,32 @@ router.delete('/sessions/:sessionId', requireFounder, async (c) => {
 // ─── DELETE /api/adam/chat/messages/:messageId — Remove founder message ──
 
 router.delete('/messages/:messageId', requireFounder, async (c) => {
-  const messageId = c.req.param('messageId') ?? '';
-  if (!messageId) {
-    return c.json({ success: false, error: 'messageId required.', kernel: 'ALAMTOLOGI' }, 400);
-  }
+  try {
+    const messageId = c.req.param('messageId') ?? '';
+    if (!messageId) {
+      return c.json({ success: false, error: 'messageId required.', kernel: 'ALAMTOLOGI' }, 400);
+    }
 
-  const deleted = await deleteFounderMessage(messageId, 'masa-bayu');
-  if (!deleted) {
+    const deleted = await deleteFounderMessage(messageId, 'masa-bayu');
+    if (!deleted) {
+      return c.json({
+        success: false,
+        error:   'Message not found or cannot be deleted.',
+        kernel:  'ALAMTOLOGI',
+      }, 404);
+    }
+
     return c.json({
-      success: false,
-      error:   'Message not found or cannot be deleted.',
-      kernel:  'ALAMTOLOGI',
-    }, 404);
-  }
+      success:   true,
+      messageId,
+      kernel:    'ALAMTOLOGI',
+      timestamp: new Date().toISOString(),
+    });
 
-  return c.json({
-    success:   true,
-    messageId,
-    kernel:    'ALAMTOLOGI',
-    timestamp: new Date().toISOString(),
-  });
-});
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // ─── DELETE /api/adam/chat/history/:sessionId — Clear all messages ──
 
@@ -374,43 +399,53 @@ router.delete('/history/:sessionId', requireFounder, async (c) => {
 // ─── GET /api/adam/chat/:id — Get Single Session ──────────────
 
 router.get('/:id', requireFounder, async (c) => {
-  const id      = c.req.param('id')!;
-  const session = await getChatSession(id);
+  try {
+    const id      = c.req.param('id')!;
+    const session = await getChatSession(id);
 
-  if (!session) {
-    return c.json(
-      { success: false, kernel: 'ALAMTOLOGI', error: 'Session not found', timestamp: new Date().toISOString() },
-      404,
-    );
-  }
+    if (!session) {
+      return c.json(
+        { success: false, kernel: 'ALAMTOLOGI', error: 'Session not found', timestamp: new Date().toISOString() },
+        404,
+      );
+    }
 
-  const response: ADAMApiResponse<ADAMChatSession> = {
-    success:   true,
-    kernel:    'ALAMTOLOGI',
-    version:   ENV.QXK24_KERNEL_VERSION,
-    era:       ENV.QXK24_ERA,
-    data:      session,
-    timestamp: new Date().toISOString(),
-  };
+    const response: ADAMApiResponse<ADAMChatSession> = {
+      success:   true,
+      kernel:    'ALAMTOLOGI',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data:      session,
+      timestamp: new Date().toISOString(),
+    };
 
-  return c.json(response);
-});
+    return c.json(response);
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // ─── POST /api/adam/chat/:id/verify/:msgId — Verify Message ──
 
 router.post('/:id/verify/:msgId', requireFounder, async (c) => {
-  const sessionId = c.req.param('id')!;
-  const messageId = c.req.param('msgId')!;
-  const verified  = await verifyADAMMessage(sessionId, messageId);
+  try {
+    const sessionId = c.req.param('id')!;
+    const messageId = c.req.param('msgId')!;
+    const verified  = await verifyADAMMessage(sessionId, messageId);
 
-  return c.json({
-    success:   verified,
-    kernel:    'ALAMTOLOGI',
-    version:   ENV.QXK24_KERNEL_VERSION,
-    era:       ENV.QXK24_ERA,
-    data:      { verified, sessionId, messageId },
-    timestamp: new Date().toISOString(),
-  });
-});
+    return c.json({
+      success:   verified,
+      kernel:    'ALAMTOLOGI',
+      version:   ENV.QXK24_KERNEL_VERSION,
+      era:       ENV.QXK24_ERA,
+      data:      { verified, sessionId, messageId },
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 export default router;

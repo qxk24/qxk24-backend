@@ -57,19 +57,24 @@ router.post('/agent/charity/apply', async (c) => {
 
 // GET /api/adam/tutor/admin/charity-applications — founder review queue
 router.get('/admin/charity-applications', requireFounderOrPlatformAdmin, async (c) => {
-  const statusRaw = c.req.query('status');
-  const status = statusRaw === 'pending' || statusRaw === 'approved' || statusRaw === 'rejected'
-    ? statusRaw as TutorCharityApplicationStatus
-    : undefined;
-  const applications = await listCharityAgentApplications(status);
-  return c.json({
-    success: true,
-    kernel:  'ALAMTOLOGI',
-    data:    { applications },
-    count:   applications.length,
-    timestamp: new Date().toISOString(),
-  });
-});
+  try {
+    const statusRaw = c.req.query('status');
+    const status = statusRaw === 'pending' || statusRaw === 'approved' || statusRaw === 'rejected'
+      ? statusRaw as TutorCharityApplicationStatus
+      : undefined;
+    const applications = await listCharityAgentApplications(status);
+    return c.json({
+      success: true,
+      kernel:  'ALAMTOLOGI',
+      data:    { applications },
+      count:   applications.length,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }});
 
 // POST /api/adam/tutor/admin/charity-applications/:applicationId/approve
 router.post(

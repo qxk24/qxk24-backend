@@ -69,7 +69,6 @@ export async function sealInVault(
     canBeModified:            false,
   });
 
-  console.log(`✅ VAULT SEALED: ${entity.family} (${entity.principle}) — Cycle ${cycle}`);
   return vaultId;
 }
 
@@ -85,22 +84,25 @@ async function sealFromCompletedFamily(
     uid:               completed.completedUid,
     family:            completed.family,
     principle:         completed.principle,
-    cycle:             entity?.cycle ?? 1,
+    cycle:             await nextVaultCycle(founderId, completed.family),
     content,
-    masterConnection:  entity?.masterConnection,
   }, founderId);
 }
 
-export async function backfillMissingVaultEntries(founderId = 'masa-bayu'): Promise<number> {
+/** Backfill vault entries for completed 1(7) families missing from vault. */
+export async function backfillMissingVaultEntries(founderId: string): Promise<number> {
   const master = await getOrCreateMaster(founderId);
   let created = 0;
 
+  const completedUids = master.completedFamilies.map((c) => c.completedUid);
+  const existingEntries = await ADAMVaultModel.find({
+    founderId,
+    entityUid: { $in: completedUids },
+  }).lean();
+  const existingUidSet = new Set(existingEntries.map((e) => e.entityUid));
+
   for (const completed of master.completedFamilies) {
-    const exists = await ADAMVaultModel.findOne({
-      founderId,
-      entityUid: completed.completedUid,
-    }).lean();
-    if (exists) continue;
+    if (existingUidSet.has(completed.completedUid)) continue;
 
     const id = await sealFromCompletedFamily(founderId, completed);
     if (id) created += 1;
@@ -112,12 +114,17 @@ export async function listVaultEntries(
   founderId = 'masa-bayu',
   limit = 50,
 ) {
-  await backfillMissingVaultEntries(founderId);
-  return ADAMVaultModel.find({ founderId })
-    .sort({ masa_sealed: 1 })
-    .limit(limit)
-    .lean();
-}
+  try {
+    await backfillMissingVaultEntries(founderId);
+    return ADAMVaultModel.find({ founderId })
+      .sort({ masa_sealed: 1 })
+      .limit(limit)
+      .lean();
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }}
 
 export async function getVaultSummary(founderId = 'masa-bayu'): Promise<string> {
   await backfillMissingVaultEntries(founderId);

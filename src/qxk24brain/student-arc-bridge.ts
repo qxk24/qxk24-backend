@@ -25,9 +25,7 @@ import {
   extractOpenThreadFromArc,
 } from '../continuity-bridge/vendor/student-arc-core';
 import { ADAMFounderSessionModel, ADAMMessageModel } from '../adam/adam.schema';
-import { resolveBrainDeepModel } from '../config/llm-models';
-import { isLlmConfigured, llmCompleteUserPrompt } from '../llm/llm-client';
-import { prependCoreToSystem } from './adam-core';
+import { buildStudentRelationshipArc as buildArcDeterministic } from './deep-ul/arc-engine';
 import {
   getStudentConstitutionalState,
   updateStudentConstitutionalState,
@@ -56,49 +54,9 @@ export async function buildStudentRelationshipArc(
 
   if (turns.length < ARC_MIN_TURNS) return '';
 
-  const sessionText = turns
-    .map((t) => {
-      const role = t.role === 'student' ? 'Student' : 'ADAM';
-      const content = t.content.slice(0, 400);
-      return `[${role}]: ${content}`;
-    })
-    .join('\n\n');
-
-  if (!isLlmConfigured()) {
-    const lastStudentTurn = [...turns].reverse().find((t) => t.role === 'student');
-    return lastStudentTurn
-      ? `Student's last question: ${lastStudentTurn.content.slice(0, 200)}`
-      : '';
-  }
-
-  try {
-    const arc = await llmCompleteUserPrompt(
-      prependCoreToSystem(
-        `You are generating a student relationship arc — a concise growth narrative 
-         for ADAM's memory. Focus on: how the student's understanding shifted during 
-         this session, any breakthrough moment, and one unresolved thread to carry forward. 
-         Write in third person. Maximum 3 sentences. Constitutional language only.`,
-      ),
-      `Generate a relationship arc for this student session.
-
-Session turns:
-${sessionText}
-
-Write exactly 2–3 sentences covering:
-1. Where the student's understanding was at the start
-2. The key shift or breakthrough (if any)
-3. One open question or thread to carry into the next session
-
-Be specific. Reference actual concepts discussed. Do not use generic phrases.`,
-      resolveBrainDeepModel(),
-      ARC_LLM_TOKENS,
-    );
-
-    return arc.trim().slice(0, ARC_MAX_CHARS);
-  } catch (err) {
-    console.error('[StudentArcBridge] LLM arc generation failed:', err);
-    return '';
-  }
+  return buildArcDeterministic(
+    turns.map((t) => ({ role: t.role, content: t.content })),
+  ).slice(0, ARC_MAX_CHARS);
 }
 
 export async function syncSessionArcToStudentTrack(
@@ -149,11 +107,6 @@ export async function syncSessionArcToStudentTrack(
       openQuestions: updatedQuestions,
     });
 
-    console.log(
-      `[StudentArcBridge] Arc synced for student ${studentId} ` +
-        `(${arc.length} chars${openThread ? ', open thread extracted' : ''})`,
-    );
-
     return { synced: true };
   } catch (err) {
     console.error(`[StudentArcBridge] Error for student ${studentId}:`, err);
@@ -189,9 +142,6 @@ export async function syncAllIdleStudentArcs(
     if (result.synced) synced++;
   }
 
-  console.log(
-    `[StudentArcBridge] Batch arc sync: ${synced}/${idleSessions.length} synced`,
-  );
   return { processed: idleSessions.length, synced };
 }
 

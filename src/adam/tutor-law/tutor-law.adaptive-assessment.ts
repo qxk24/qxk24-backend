@@ -266,7 +266,8 @@ export function buildKnowledgeGraphHint(conceptTags: string[]): string {
   });
 
   return (
-    'Knowledge graph update (turn ini):\n'
+    'Knowledge graph update (turn ini):'
+    + '\n'
     + lines.join('\n')
     + '\nGuna inductive probe — tanya corak, bukan hantar rule penuh.'
   );

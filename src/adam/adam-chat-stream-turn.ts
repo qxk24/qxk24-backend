@@ -15,7 +15,7 @@
  * ============================================================
  */
 
-import { friendlyLlmError } from '../llm/llm-client';
+import { friendlyLlmError } from '../llm/ul-compat';
 import { processStudentContribution } from '../qxk24brain/qxk24brain-student.engine';
 import { ADAMWorkspaceModel } from './adam-workspace.schema';
 import { fetchPlasPrescan } from './adam-gateway-client';
