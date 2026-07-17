@@ -13,7 +13,17 @@ const source = path.join(repoRoot, 'alm-adam', 'teaching-bridge', 'src');
 const target = path.join(__dirname, '..', 'src', 'teaching-bridge', 'vendor');
 
 if (!fs.existsSync(source)) {
-  console.error(`[sync-teaching-bridge] Missing source: ${source}`);
+  // On CI / standalone checkouts the sibling monorepo (alm-adam) is absent.
+  // The vendor snapshot is committed to the repo, so build can proceed as-is.
+  if (fs.existsSync(target)) {
+    console.warn(
+      `[sync-teaching-bridge] Source missing (${source}); using committed vendor snapshot at ${target}.`,
+    );
+    process.exit(0);
+  }
+  console.error(
+    `[sync-teaching-bridge] Missing source and no committed vendor snapshot: ${source}`,
+  );
   process.exit(1);
 }
 
