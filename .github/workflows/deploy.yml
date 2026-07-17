@@ -1,0 +1,65 @@
+name: Deploy alm-backend (api.qxk24.com)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-alm-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VPS_HOST: 169.58.35.251
+      VPS_PORT: "53001"
+      VPS_USER: root
+      REMOTE_PATH: /var/www/alamtologi/alm-backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify build artifacts
+        run: |
+          test -f dist/scripts/bootstrap-platform-admin.js
+          test -f dist/routes/admin/platform-admin.routes.js
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/ci_key
+          chmod 600 ~/.ssh/ci_key
+          printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Deploy (rsync dist + reload PM2)
+        run: |
+          RSH="ssh -i $HOME/.ssh/ci_key -p $VPS_PORT -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o IdentitiesOnly=yes"
+          rsync -az --delete --exclude='*.map' -e "$RSH" dist/ "$VPS_USER@$VPS_HOST:$REMOTE_PATH/dist/"
+          for f in package.json package-lock.json ecosystem.config.js start.sh .env.example; do
+            if [ -f "$f" ]; then rsync -az -e "$RSH" "$f" "$VPS_USER@$VPS_HOST:$REMOTE_PATH/"; fi
+          done
+          if [ -f data/university-knowledge-map.json ]; then rsync -az -e "$RSH" data/university-knowledge-map.json "$VPS_USER@$VPS_HOST:$REMOTE_PATH/data/"; fi
+          if [ -f data/quran/corpus.json ]; then rsync -az -e "$RSH" data/quran/corpus.json "$VPS_USER@$VPS_HOST:$REMOTE_PATH/data/quran/"; fi
+          $RSH "$VPS_USER@$VPS_HOST" "cd $REMOTE_PATH && (chmod +x start.sh 2>/dev/null || true) && (test -f package-lock.json && npm ci --omit=dev || npm install --omit=dev) && pm2 reload ecosystem.config.js --env production && pm2 save"
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 12); do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 https://api.qxk24.com/health || echo 000)
+            echo "attempt $i: HTTP $code"
+            case "$code" in 2*) echo "healthy"; exit 0;; esac
+            sleep 5
+          done
+          echo "health check failed"; exit 1
