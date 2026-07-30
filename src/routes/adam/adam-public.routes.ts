@@ -7,6 +7,10 @@
  * QXK24       : Kernel v1.7.0
  * Founder     : Masa Bayu
  * Created     : 2026-06-08
+ * ---
+ * PURPOSE:
+ * Public /api/adam/public/chat — open General chat without auth.
+ * No guest trial ceiling / freemium_register_gate on this path.
  * ============================================================
  * CONSTITUTIONAL DECLARATION:
  * This module operates under the Alamtologi Constitutional
@@ -28,7 +32,6 @@ import {
   freemiumStatusPayload,
   isPublicFreemiumEnabled,
   runGuestFreemiumPreCheck,
-  streamFreemiumBlockedTurn,
 } from '../../freemium/adam-freemium-gate.service';
 import {
   getGuestQuotaSnapshot,
@@ -160,23 +163,15 @@ router.post('/chat', zValidator('json', PublicChatSchema), async (c) => {
       ]);
       sessionId = resolvedSessionId;
 
-      if (!freemium.canContinue) {
-        await streamFreemiumBlockedTurn(s, sessionId, freemium);
-        return;
-      }
-
+      // General open desk: never block and never emit freemium_register_gate.
       await s.write(
-        `event: freemium_status\ndata: ${JSON.stringify(freemiumStatusPayload(freemium))}\n\n`,
+        `event: freemium_status\ndata: ${JSON.stringify({
+          ...freemiumStatusPayload(freemium),
+          canContinue:  true,
+          limitReached: false,
+          registerGate: false,
+        })}\n\n`,
       );
-
-      if (freemium.limitReached && freemium.registerGate) {
-        await s.write(
-          `event: freemium_register_gate\ndata: ${JSON.stringify({
-            message:     'This is your last trial question. Sign up free to continue with ADAM.',
-            registerUrl: '/register?next=/adam/chat',
-          })}\n\n`,
-        );
-      }
 
       const layerGate = await runLayerGatePreCheck({
         message,
